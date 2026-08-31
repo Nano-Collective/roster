@@ -10,8 +10,16 @@ the question or do the small thing asked, reply, stop.
 
 ## The request
 
-Read it first, in full, including the thread around it. A request that looks simple usually has the
-real ask two comments up.
+**Issue #{{event.issue_number}} on `{{event.repo}}`, comment `{{event.comment_id}}`.** Read it
+first, in full, including the thread around it - a request that looks simple usually has the real
+ask two comments up.
+
+```
+gh api repos/{{event.repo}}/issues/comments/{{event.comment_id}} --jq .body
+gh api repos/{{event.repo}}/issues/{{event.issue_number}}/comments --jq '.[] | .user.login + ": " + .body'
+```
+
+`gh issue view --comments` is broken; use `gh api` as above.
 
 ## Do the work
 
@@ -27,8 +35,13 @@ real ask two comments up.
 
 ## Reply in the thread
 
+```
+gh issue comment {{event.issue_number}} --repo {{event.repo}} --body "..."
+```
+
 Answer where the request came from, so the conversation stays readable. **Do not open a new issue
-for the answer** - they are already reading this one.
+for the answer** - they are already reading this one. **Do not @-mention them**; they are subscribed
+to a thread they are in.
 
 {{> org/guardrails.md}}
 

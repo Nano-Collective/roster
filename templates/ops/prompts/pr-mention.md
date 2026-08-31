@@ -19,9 +19,15 @@ public repo.
 
 {{> prompts/_paths.md}}
 
+## The request
+
+**PR #{{event.pr_number}}, comment `{{event.comment_id}}`.** Read it before touching anything: an
+inline review comment carries `path`, `line` and `diff_hunk`, which say exactly which code is meant.
+Do not guess from the prose.
+
 ## Do the work
 
-1. **Get onto the PR branch**, do not start a new one.
+1. **You are already on the PR branch** - the runner checked it out. Do not start a new one.
 2. **If the PR is from a fork you cannot push to**, do not try. Reply with the exact diff to apply,
    and say why you could not push it.
 3. **Make only the change asked for.** A review comment is a narrow request. Fixing something else

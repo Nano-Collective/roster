@@ -1,0 +1,246 @@
+name: roster session
+
+# One staff member's unattended working session. Called by a ~25-line workflow in their own brain
+# repo, which is the only file that has to exist over there.
+#
+# Reusable workflows in a private repo can only be called from inside the same organisation, which
+# is exactly why this lives in the tenant's ops repo rather than in the framework. Nothing here
+# depends on npm, on a network fetch, or on an org the tenant does not control.
+
+on:
+  workflow_call:
+    inputs:
+      staff:
+        description: "Staff handle, as it appears in org.yaml"
+        required: true
+        type: string
+      kind:
+        description: "daily | mention | pr-mention"
+        required: false
+        default: daily
+        type: string
+      ops_repo:
+        description: "owner/name of the ops repo holding org.yaml and the prompts"
+        required: true
+        type: string
+      model:
+        required: false
+        default: claude-opus-5
+        type: string
+      timeout_minutes:
+        required: false
+        default: 60
+        type: number
+      allowed_tools:
+        required: false
+        default: "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
+        type: string
+      # Trigger context. Empty on a scheduled run; set when a comment or a PR woke us.
+      issue_number:
+        required: false
+        default: ""
+        type: string
+      comment_id:
+        required: false
+        default: ""
+        type: string
+      pr_number:
+        required: false
+        default: ""
+        type: string
+    secrets:
+      APP_ID:
+        required: true
+      APP_PRIVATE_KEY:
+        required: true
+      PUBLIC_APP_ID:
+        required: false
+      PUBLIC_APP_PRIVATE_KEY:
+        required: false
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  session:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+
+    # secrets are not usable in a step-level `if`, so the presence check is hoisted here.
+    env:
+      HAS_PUBLIC_APP: ${{ secrets.PUBLIC_APP_ID != '' }}
+
+    steps:
+      - name: Mint the private-tracker token
+        id: private
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # A PR opened with the default GITHUB_TOKEN does not trigger pull_request workflows, so CI
+      # would never run and the gate would be empty. The App token is not optional here.
+      - name: Mint the public-repo token
+        id: public
+        if: env.HAS_PUBLIC_APP == 'true'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.PUBLIC_APP_ID }}
+          private-key: ${{ secrets.PUBLIC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # The ops repo is the only thing we can clone without having read a manifest, so it goes
+      # first and then tells us everything else.
+      - name: Check out the org brain
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.ops_repo }}
+          path: roster-ops
+          token: ${{ steps.private.outputs.token }}
+
+      - name: Work out what to check out
+        id: plan
+        run: node roster-ops/runner-plan.mjs --staff "${{ inputs.staff }}" --ops roster-ops >> "$GITHUB_OUTPUT"
+
+      - name: Check out the brain
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.plan.outputs.brain_repo }}
+          path: ${{ steps.plan.outputs.brain_dir }}
+          token: ${{ steps.private.outputs.token }}
+          fetch-depth: 0
+
+      # Peers and product repos vary per staff member, so they are cloned rather than declared.
+      - name: Check out peers and product repos
+        env:
+          PRIVATE_TOKEN: ${{ steps.private.outputs.token }}
+          PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
+          PEERS: ${{ steps.plan.outputs.peers }}
+          PRODUCTS: ${{ steps.plan.outputs.products }}
+        run: |
+          set -euo pipefail
+          for spec in $PEERS; do
+            repo="${spec%%:*}"; dir="${spec##*:}"
+            git clone --quiet --depth 1 "https://x-access-token:${PRIVATE_TOKEN}@github.com/${repo}.git" "$dir"
+            echo "peer:    $repo -> $dir"
+          done
+          for spec in $PRODUCTS; do
+            IFS=':' read -r repo dir depth <<< "$spec"
+            token="${PUBLIC_TOKEN:-$PRIVATE_TOKEN}"
+            args=(--quiet)
+            [ "$depth" != "0" ] && args+=(--depth "$depth")
+            git clone "${args[@]}" "https://x-access-token:${token}@github.com/${repo}.git" "$dir"
+            echo "product: $repo -> $dir"
+          done
+
+      # Commits read as the bot, not as a human, so the git history stays legible.
+      - name: Set git identity
+        env:
+          PRIVATE_SLUG: ${{ steps.private.outputs.app-slug }}
+          PUBLIC_SLUG: ${{ steps.public.outputs.app-slug }}
+          BRAIN_DIR: ${{ steps.plan.outputs.brain_dir }}
+          PEERS: ${{ steps.plan.outputs.peers }}
+          PRODUCTS: ${{ steps.plan.outputs.products }}
+        run: |
+          set -euo pipefail
+          identify() {
+            git -C "$1" config user.name "$2[bot]"
+            git -C "$1" config user.email "$2[bot]@users.noreply.github.com"
+          }
+          identify roster-ops "$PRIVATE_SLUG"
+          identify "$BRAIN_DIR" "$PRIVATE_SLUG"
+          for spec in $PEERS; do
+            dir="${spec##*:}"; [ -d "$dir" ] && identify "$dir" "$PRIVATE_SLUG"
+          done
+          for spec in $PRODUCTS; do
+            dir=$(echo "$spec" | cut -d: -f2)
+            [ -d "$dir" ] && identify "$dir" "${PUBLIC_SLUG:-$PRIVATE_SLUG}"
+          done
+
+      # A PR request is answered on the PR's own branch, never on a new one.
+      - name: Check out the PR branch
+        if: inputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ steps.public.outputs.token || steps.private.outputs.token }}
+          PRODUCT_DIR: ${{ steps.plan.outputs.product_dir }}
+          PRODUCT_REPO: ${{ steps.plan.outputs.product_repo }}
+        run: |
+          set -euo pipefail
+          [ -n "$PRODUCT_DIR" ] || { echo "no product repo to check a PR out of"; exit 1; }
+          cd "$PRODUCT_DIR"
+          gh pr checkout "${{ inputs.pr_number }}" --repo "$PRODUCT_REPO"
+          echo "on $(git branch --show-current)"
+
+      - uses: pnpm/action-setup@v6
+        if: steps.plan.outputs.needs_node == 'true'
+        with:
+          package_json_file: ${{ steps.plan.outputs.package_json }}
+
+      - name: Use Node.js 22
+        if: steps.plan.outputs.needs_node == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ${{ steps.plan.outputs.package_json }}
+
+      # Composed at run time rather than baked in, so editing org/voice.md reaches every staff
+      # member on their next run without regenerating anything.
+      - name: Compose the prompt
+        id: compose
+        env:
+          ROSTER_CONTEXT: >-
+            {"issue_number":"${{ inputs.issue_number }}",
+             "comment_id":"${{ inputs.comment_id }}",
+             "pr_number":"${{ inputs.pr_number }}",
+             "repo":"${{ github.repository }}",
+             "actor":"${{ github.actor }}"}
+        run: |
+          {
+            echo 'text<<ROSTER_PROMPT_5f3a9c'
+            node roster-ops/compose.mjs --staff "${{ inputs.staff }}" --kind "${{ inputs.kind }}" --ops roster-ops --brains .
+            echo 'ROSTER_PROMPT_5f3a9c'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run the session
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ steps.private.outputs.token }}
+          PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
+          # Kept as an alias while charters and memory still name it. Retire once they do not.
+          PIPWEB_TOKEN: ${{ steps.public.outputs.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # These repos are private and single-user, so the usual reason to hide a run's output does
+          # not apply, and hiding it turns any failure into "is_error: true" with no message.
+          # Registered secrets are still masked by the runner.
+          show_full_output: true
+          github_token: ${{ steps.private.outputs.token }}
+          # No --max-turns. A run that legitimately needs more turns should get them: capping it
+          # fails the action *after* the work is done and committed, which is a false red rather
+          # than a saved penny. timeout-minutes is the real bound.
+          claude_args: >-
+            --model ${{ inputs.model }}
+            --allowedTools "${{ inputs.allowed_tools }}"
+          prompt: ${{ steps.compose.outputs.text }}
+
+      # A failed unattended run is otherwise a red X in a tab nobody opens. New in the roster
+      # migration, and deliberate: every failure path should end somewhere a human reads.
+      - name: Say so if the run did not finish
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ steps.private.outputs.token }}
+          BRAIN_DIR: ${{ steps.plan.outputs.brain_dir }}
+          BRAIN_REPO: ${{ steps.plan.outputs.brain_repo }}
+        run: |
+          set -euo pipefail
+          issue="${{ inputs.issue_number }}"
+          if [ -z "$issue" ]; then
+            issue=$(sed -n 's/^status_issue:[[:space:]]*//p' "$BRAIN_DIR/staff.yaml" | head -1 || true)
+          fi
+          [ -n "$issue" ] || { echo "no status_issue in staff.yaml; nothing to comment on"; exit 0; }
+          gh issue comment "$issue" --repo "$BRAIN_REPO" --body \
+            "This run did not finish, so there is no answer coming. [Run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) has the error."

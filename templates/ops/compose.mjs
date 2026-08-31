@@ -245,8 +245,21 @@ export function compose({ opsDir, brainsDir, staff, kind }) {
     .filter((s) => s.handle !== staff)
     .map((s) => ({ ...s, ...(s.dir ? {} : { dir: s.handle }) }));
 
+  // Trigger context (the comment that woke us, the PR we were asked to amend) arrives as
+  // JSON in the environment rather than as arguments, so a workflow never has to quote a
+  // comment body onto a command line.
+  let event = {};
+  if (process.env.ROSTER_CONTEXT) {
+    try {
+      event = JSON.parse(process.env.ROSTER_CONTEXT);
+    } catch (err) {
+      throw new Error(`ROSTER_CONTEXT is not valid JSON: ${err.message}`);
+    }
+  }
+
   const ctx = {
     org,
+    event,
     human: org.human,
     ops: { dir: org.ops_dir ?? "roster-ops" },
     // `dir` lives in the org registry (it is where the checkout lands), everything
