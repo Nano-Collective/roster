@@ -30,6 +30,18 @@ export async function promptCommand(argv: string[]): Promise<number> {
   const org = readOrg(ws.opsDir, parseYaml);
   const kind = opts.kind ?? "daily";
 
+  // A mention prompt is written for the comment that woke it, so previewing one needs
+  // stand-in context. Obviously-fake values, so nobody mistakes a preview for a real run.
+  if (kind !== "daily" && !process.env.ROSTER_CONTEXT) {
+    process.env.ROSTER_CONTEXT = JSON.stringify({
+      issue_number: "0",
+      comment_id: "0",
+      pr_number: "0",
+      repo: `${org.org}/<repo>`,
+      actor: "<actor>",
+    });
+  }
+
   const composed = compose({ opsDir: ws.opsDir, brainsDir: ws.root, staff: handle, kind });
 
   if (!opts.diff) {
