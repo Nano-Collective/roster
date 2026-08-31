@@ -208,7 +208,18 @@ export function render(template, ctx, readPartial, depth = 0) {
 
   out = out.replace(/\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g, (_, path) => {
     const v = lookup(ctx, path);
-    if (v === undefined || v === null) throw new Error(`unknown or empty placeholder: {{${path}}}`);
+    if (v === undefined || v === null) {
+      if (path.startsWith("event.")) {
+        throw new Error(
+          `{{${path}}} needs trigger context, which arrives as ROSTER_CONTEXT.\n` +
+            `  A "mention" or "pr-mention" prompt is written for a comment that woke it, so it cannot\n` +
+            `  be composed without one. To see it locally:\n` +
+            `    ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","pr_number":"1","repo":"o/r"}' \\\n` +
+            `      node compose.mjs --staff <handle> --kind <kind>`,
+        );
+      }
+      throw new Error(`unknown or empty placeholder: {{${path}}}`);
+    }
     return String(v);
   });
 
