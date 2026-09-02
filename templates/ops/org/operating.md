@@ -44,6 +44,9 @@ overhead.**
 - **A fact earns its place by changing what you would do.** Write it once, in the fewest words that
   keep it true, and **correct it in place** rather than appending "updated:" to it.
 - **Measurements carry `n` and a date. Constraints do not expire; measurements do.**
+- **Link facts to each other with `[[slug]]`.** When a fact only makes sense next to another one,
+  say so in the line. The links are how the brain is navigable rather than a flat list, and a
+  `[[slug]]` pointing at nothing fails `roster lint`.
 - **Deleting is the maintenance.** Cut any line that no longer changes a decision, and say so in
   `log/decisions.md`. A memory that only grows is a memory nobody reads.
 - Mark every fact with where it came from: `[{{human.marker}}]` for a ruling, `[measured]` for
