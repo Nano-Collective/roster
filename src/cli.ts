@@ -1,20 +1,29 @@
 #!/usr/bin/env node
 import { promptCommand, promptHelp } from "./commands/prompt.js";
+import { lintCommand, lintHelp } from "./commands/lint.js";
+import { portalCommand, portalHelp } from "./commands/portal.js";
+import { exportCommand, exportHelp } from "./commands/export.js";
 
 const HELP = `
 roster — an agent-run org, powered by GitHub
 
   roster prompt <handle>    compose the runtime prompt for a staff member
+  roster lint [handle]      check memory against the grammar
+  roster portal             browse every brain, locally
+  roster export             the whole org as one JSON
   roster help [command]
 
-Not built yet: init, hire, doctor, lint, portal, export, upgrade.
+Not built yet: init, hire, doctor, upgrade.
 `;
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   prompt: promptCommand,
+  lint: lintCommand,
+  portal: portalCommand,
+  export: exportCommand,
 };
 
-const HELPS: Record<string, string> = { prompt: promptHelp };
+const HELPS: Record<string, string> = { prompt: promptHelp, lint: lintHelp, portal: portalHelp, export: exportHelp };
 
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;

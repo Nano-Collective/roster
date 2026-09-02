@@ -17,7 +17,7 @@
   "scripts": {
     "build": "tsup src/cli.ts --format esm --target node20 --clean --dts=false",
     "dev": "tsx src/cli.ts",
-    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
