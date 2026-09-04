@@ -197,3 +197,51 @@ test("the graph collapses to a readable number of groups", () => {
     for (const f of s.facts) assert.ok(groups.has(f.section || "Ungrouped"), "every fact needs a group");
   }
 });
+
+test("an opened group fans outwards, clear of every other group", () => {
+  // The complaint this answers: opened members landing in among the other group nodes.
+  // Mirrors the fan geometry in drawGraph, so the numbers here move if that does.
+  for (const s of ORG.staff as any[]) {
+    const bySlug = new Map(s.facts.map((f: any) => [f.slug, f]));
+    const groupOf = (id: string) => {
+      const f: any = bySlug.get(id);
+      return f ? (f.section || "Ungrouped") : id.startsWith("#") ? "Issues" : s.notes.includes(id) ? "Notes" : "Files";
+    };
+    const ids = new Set<string>(s.facts.map((f: any) => f.slug));
+    for (const l of s.links) { ids.add(l.from); ids.add(l.to); }
+    const members = new Map<string, string[]>();
+    for (const id of ids) members.set(groupOf(id), [...(members.get(groupOf(id)) ?? []), id]);
+    const groups = [...members.keys()].sort((a, b) => members.get(b)!.length - members.get(a)!.length);
+
+    const RING = Math.max(260, groups.length * 62);
+    const gr = (n: number) => 16 + Math.sqrt(n) * 3.6;
+    const gnode = new Map(groups.map((g, i) => {
+      const angle = (i / groups.length) * Math.PI * 2 - Math.PI / 2;
+      return [g, { angle, x: Math.cos(angle) * RING, y: Math.sin(angle) * RING, n: members.get(g)!.length }];
+    }));
+
+    for (const g of groups) {
+      const gn = gnode.get(g)!;
+      const n = gn.n;
+      const perShell = Math.max(5, Math.ceil(Math.sqrt(n) * 1.6));
+      for (let i = 0; i < n; i++) {
+        const shell = Math.floor(i / perShell), inShell = i % perShell;
+        const count = Math.min(perShell, n - shell * perShell);
+        const spread = Math.min(1.15, 0.5 + n * 0.012) * (1 + shell * 0.16);
+        const t = count === 1 ? 0 : (inShell / (count - 1) - 0.5) * spread;
+        const a = gn.angle + t, r = RING + gr(n) + 95 + shell * 62;
+        const x = Math.cos(a) * r, y = Math.sin(a) * r;
+
+        assert.ok(Math.hypot(x, y) > RING, `${g}: a member landed inside the ring`);
+        for (const other of groups) {
+          if (other === g) continue;
+          const o = gnode.get(other)!;
+          assert.ok(
+            Math.hypot(x - o.x, y - o.y) - gr(o.n) > 40,
+            `${g}: a member landed on top of "${other}"`,
+          );
+        }
+      }
+    }
+  }
+});
