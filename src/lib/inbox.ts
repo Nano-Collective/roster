@@ -77,7 +77,9 @@ export async function fetchInbox(repos: Array<{ name: string; owner: string; rol
   });
 
   await Promise.all(jobs);
-  items.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  // Newest first. Must return 0 for a tie: a comparator that never does claims both
+  // orders for equal keys, and the sort result becomes arbitrary.
+  items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return { items, errors };
 }
 
