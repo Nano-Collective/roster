@@ -122,6 +122,7 @@ function harness(hash = "") {
     }),
     requestAnimationFrame: () => 0,
     addEventListener() {},
+    setInterval: () => 0,
     devicePixelRatio: 1,
     getComputedStyle: () => ({ getPropertyValue: () => "#000" }),
     localStorage: { getItem: () => null, setItem: (k: string, v: string) => saved.push([k, v]) },
@@ -262,6 +263,22 @@ test("the inbox renders newest first", async () => {
   assert.ok(first.includes("Needs a ruling"), "the newer item must come first");
   assert.ok(second.includes("An older pull request"));
   assert.ok(first.includes("brain"), "each row should name its project");
+});
+
+test("refreshAll re-fetches and re-renders, so a run that lands is visible", async () => {
+  const s = await renderAll();
+  let calls = 0;
+  const first = s.DATA;
+  s.fetch = async (u: string) => {
+    if (String(u).startsWith("/api/org")) calls++;
+    return { ok: true, json: async () => ({ ...first, generatedAt: "2030-01-01T00:00:00Z" }), text: async () => "" };
+  };
+  s.INBOX = { items: [], repos: [], errors: [] };
+  await s.refreshAll(false);
+  assert.equal(calls, 1, "org data must be re-fetched");
+  assert.equal(s.DATA.generatedAt, "2030-01-01T00:00:00Z", "state must be replaced");
+  assert.equal(s.INBOX, null, "the inbox must be invalidated so it refetches");
+  assert.ok(s._byId.main.children.length > 0, "and the view re-rendered");
 });
 
 test("mdlite escapes before it formats", async () => {

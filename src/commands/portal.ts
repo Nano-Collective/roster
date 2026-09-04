@@ -5,6 +5,7 @@ import { join, resolve, extname } from "node:path";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { buildExport } from "../lib/export.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
+import { syncRepos } from "../lib/sync.js";
 import { PORTAL_HTML } from "../portal/html.js";
 
 export const portalHelp = `
@@ -62,7 +63,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
     try {
       if (url.pathname === "/") {
-        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
         res.end(PORTAL_HTML);
         return;
       }
@@ -72,15 +73,31 @@ export async function portalCommand(argv: string[]): Promise<number> {
         // including whatever an agent pushed thirty seconds ago.
         const org = readOrg(ws.opsDir, parseYaml);
         const data = buildExport(ws, org as any, parseYaml);
-        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      if (url.pathname === "/api/sync") {
+        const org = readOrg(ws.opsDir, parseYaml) as any;
+        const dirs = [ws.opsName, ...(org.staff ?? []).map((s: any) => s.dir ?? s.handle)];
+        syncRepos(ws.root, dirs)
+          .then((results) => {
+            cache = null; // anything pulled invalidates the inbox too
+            res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+            res.end(JSON.stringify({ results }));
+          })
+          .catch((err) => {
+            res.writeHead(500, { "content-type": "application/json" });
+            res.end(JSON.stringify({ results: [], error: String(err?.message ?? err) }));
+          });
         return;
       }
 
       if (url.pathname === "/api/inbox") {
         const fresh = url.searchParams.get("refresh") === "1";
         if (!fresh && cache && Date.now() - cache.at < TTL) {
-          res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+          res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
           res.end(cache.body);
           return;
         }

@@ -44,6 +44,16 @@ a{color:inherit}
 .brand{padding:0 20px 18px;font:600 15px var(--sans);letter-spacing:-.01em}
 .brand small{display:block;color:var(--ink-faint);font-weight:400;font-size:11.5px;
              letter-spacing:.02em;margin-top:2px}
+.notice{background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid
+      color-mix(in srgb,var(--warn) 40%,transparent);color:var(--ink-dim);border-radius:8px;
+      padding:10px 13px;margin-bottom:16px;font-size:12.5px;line-height:1.6}
+.notice b{color:var(--ink)}
+.refreshall{display:flex;align-items:center;gap:8px;width:calc(100% - 24px);margin:0 12px 4px;
+      background:var(--panel-2);border:1px solid var(--line);color:var(--ink-faint);
+      border-radius:7px;padding:7px 10px;cursor:pointer;font:11px var(--sans);text-align:left}
+.refreshall:hover{color:var(--ink);border-color:var(--accent-dim)}
+.refreshall .sync{font-size:13px;line-height:1}
+.refreshall.spin .sync{animation:spin .9s linear infinite}
 .sect{padding:14px 20px 6px;font:600 10.5px var(--sans);letter-spacing:.09em;
       text-transform:uppercase;color:var(--ink-faint)}
 .nav{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink-dim);
@@ -218,6 +228,9 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
 <div class="app">
   <aside class="side">
     <div class="brand">roster<small id="orgname">loading…</small></div>
+    <button class="refreshall" id="refreshall" title="Reload everything from disk (r)">
+      <span class="sync">&#10227;</span><span id="loaded">data now</span>
+    </button>
     <div class="sect">Org</div>
     <button class="nav" id="inboxnav" data-view="inbox">Inbox</button>
     <div class="sect">Staff</div>
@@ -254,6 +267,8 @@ var changedFilter = "";
    Changing staff or view pushes; typing in a filter replaces, so a search does not
    bury the back button under one entry per keystroke. */
 var applyingHash = false;
+var LOADED = null;
+var SYNC = null;
 
 function readHash() {
   const raw = (location.hash || "").replace(/^#\/?/, "");
@@ -321,9 +336,51 @@ function inline(s) {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
 
+/* Everything is read from disk per request, so a refresh is just re-fetching. Without it a
+   run that lands while the page is open stays invisible until a reload, which is what made
+   the diffs look days old. */
+async function refreshAll(soft) {
+  const bar = $("#refreshall");
+  bar?.classList.add("spin");
+  try {
+    // Pull first. The portal reads the working tree, so a run that has landed on GitHub is
+    // invisible here until the checkout catches up.
+    SYNC = await (await fetch("/api/sync", { cache: "no-store" })).json().catch(() => null);
+    DATA = await (await fetch("/api/org", { cache: "no-store" })).json();
+    INBOX = null;                       // the inbox re-fetches itself on next paint
+    LOADED = new Date();
+    if (!soft) render();
+    stampLoaded();
+  } finally {
+    bar?.classList.remove("spin");
+  }
+}
+
+function stampLoaded() {
+  const s = $("#loaded");
+  if (s && LOADED) s.textContent = "data " + ago(LOADED.toISOString());
+}
+
+/* A repo that could not be fast-forwarded is the difference between "nothing happened
+   today" and "something happened and you cannot see it", so it is said out loud. */
+function syncNotice() {
+  const stuck = (SYNC?.results ?? []).filter((r) => r.skipped || r.error || r.behind > 0);
+  if (!stuck.length) return null;
+  const d = el("div", { className: "notice" });
+  d.innerHTML = stuck.map((r) =>
+    "<b>" + esc(r.dir) + "</b> " +
+    (r.error ? "could not sync: " + esc(r.error)
+      : r.skipped === "dirty" ? "is " + r.behind + " behind and has uncommitted changes, so it was not pulled"
+      : r.skipped === "diverged" ? "has diverged (" + r.ahead + " ahead, " + r.behind + " behind)"
+      : r.skipped === "no-remote" ? "has no remote"
+      : "is still " + r.behind + " behind")).join("<br>");
+  return d;
+}
+
 async function boot() {
-  const res = await fetch("/api/org");
+  const res = await fetch("/api/org", { cache: "no-store" });
   DATA = await res.json();
+  LOADED = new Date();
   staffHandle = DATA.staff[0]?.handle ?? null;
   $("#orgname").textContent = DATA.name + " · " + DATA.staff.length + " staff";
 
@@ -341,10 +398,30 @@ async function boot() {
     return b;
   }));
   $("#inboxnav").onclick = () => { view = "inbox"; render(); };
+  $("#refreshall").onclick = () => refreshAll(false);
+  // Coming back to the tab after a run should show the run.
+  addEventListener("focus", () => { if (LOADED && Date.now() - LOADED > 30000) refreshAll(false); });
+  addEventListener("keydown", (e) => {
+    if (e.key === "r" && !e.metaKey && !e.ctrlKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName ?? "")) {
+      e.preventDefault();
+      refreshAll(false);
+    }
+  });
+  setInterval(stampLoaded, 30000);
   applyHash();
   addEventListener("hashchange", () => {
     applyingHash = true;
     $("#inboxnav").onclick = () => { view = "inbox"; render(); };
+  $("#refreshall").onclick = () => refreshAll(false);
+  // Coming back to the tab after a run should show the run.
+  addEventListener("focus", () => { if (LOADED && Date.now() - LOADED > 30000) refreshAll(false); });
+  addEventListener("keydown", (e) => {
+    if (e.key === "r" && !e.metaKey && !e.ctrlKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName ?? "")) {
+      e.preventDefault();
+      refreshAll(false);
+    }
+  });
+  setInterval(stampLoaded, 30000);
   applyHash();
     applyingHash = false;
     render();
@@ -358,8 +435,11 @@ function render() {
     if (b.dataset.view) b.setAttribute("aria-current", String(b.dataset.view === view));
   }
   writeHash(true);
+  stampLoaded();
   const m = $("#main");
   m.replaceChildren();
+  const notice = syncNotice();
+  if (notice) m.append(notice);
   ({ inbox: viewInbox, memory: viewMemory, graph: viewGraph, brain: viewBrain, changed: viewChanged, health: viewHealth }[view] ?? viewMemory)(m);
 }
 
