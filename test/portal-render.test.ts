@@ -213,7 +213,8 @@ test("an opened group fans outwards, clear of every other group", () => {
     for (const id of ids) members.set(groupOf(id), [...(members.get(groupOf(id)) ?? []), id]);
     const groups = [...members.keys()].sort((a, b) => members.get(b)!.length - members.get(a)!.length);
 
-    const RING = Math.max(260, groups.length * 62);
+    const RING = Math.max(340, groups.length * 84);
+    const SECTOR = (Math.PI * 2) / groups.length;
     const gr = (n: number) => 16 + Math.sqrt(n) * 3.6;
     const gnode = new Map(groups.map((g, i) => {
       const angle = (i / groups.length) * Math.PI * 2 - Math.PI / 2;
@@ -223,22 +224,30 @@ test("an opened group fans outwards, clear of every other group", () => {
     for (const g of groups) {
       const gn = gnode.get(g)!;
       const n = gn.n;
-      const perShell = Math.max(5, Math.ceil(Math.sqrt(n) * 1.6));
+      const perShell = Math.max(4, Math.ceil(Math.sqrt(n) * 1.15));
       for (let i = 0; i < n; i++) {
         const shell = Math.floor(i / perShell), inShell = i % perShell;
         const count = Math.min(perShell, n - shell * perShell);
-        const spread = Math.min(1.15, 0.5 + n * 0.012) * (1 + shell * 0.16);
+        const spread = SECTOR * 0.66;
         const t = count === 1 ? 0 : (inShell / (count - 1) - 0.5) * spread;
-        const a = gn.angle + t, r = RING + gr(n) + 95 + shell * 62;
+        const a = gn.angle + t, r = RING + gr(n) + 210 + shell * 96;
         const x = Math.cos(a) * r, y = Math.sin(a) * r;
 
-        assert.ok(Math.hypot(x, y) > RING, `${g}: a member landed inside the ring`);
+        assert.ok(Math.hypot(x, y) > RING + 120, `${g}: a member did not clear the ring`);
+
+        // The bug a screenshot caught: with 11 groups the slices are 33 degrees apart, and
+        // the fan was up to 66 wide, so every fan swept across its neighbours. A fan must
+        // stay inside its own slice.
+        let off = Math.abs(a - gn.angle) % (Math.PI * 2);
+        if (off > Math.PI) off = Math.PI * 2 - off;
+        assert.ok(off <= SECTOR / 2, `${g}: fan reaches into the neighbouring slice`);
+
         for (const other of groups) {
           if (other === g) continue;
           const o = gnode.get(other)!;
           assert.ok(
-            Math.hypot(x - o.x, y - o.y) - gr(o.n) > 40,
-            `${g}: a member landed on top of "${other}"`,
+            Math.hypot(x - o.x, y - o.y) - gr(o.n) > 120,
+            `${g}: a member landed too close to "${other}"`,
           );
         }
       }
