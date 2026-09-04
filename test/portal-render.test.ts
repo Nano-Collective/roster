@@ -169,3 +169,31 @@ test("inline() escapes markup before formatting it", async () => {
   assert.ok(out.includes("<b>bold</b>"));
   assert.ok(out.includes('data-goto="a-slug"'));
 });
+
+test("the graph collapses to a readable number of groups", () => {
+  // The complaint the hierarchy exists to fix: 100+ loose nodes is not a picture. Every
+  // node must land in exactly one group, and bundling must genuinely reduce the edges.
+  for (const s of ORG.staff as any[]) {
+    const bySlug = new Map(s.facts.map((f: any) => [f.slug, f]));
+    const groupOf = (id: string) => {
+      const f: any = bySlug.get(id);
+      if (f) return f.section || "Ungrouped";
+      return id.startsWith("#") ? "Issues" : s.notes.includes(id) ? "Notes" : "Files";
+    };
+    const ids = new Set<string>(s.facts.map((f: any) => f.slug));
+    for (const l of s.links) { ids.add(l.from); ids.add(l.to); }
+
+    const groups = new Set([...ids].map(groupOf));
+    assert.ok(groups.size >= 3, `${s.handle}: too few groups to be useful`);
+    assert.ok(groups.size <= 20, `${s.handle}: ${groups.size} groups is not a readable top level`);
+    assert.ok(ids.size / groups.size > 4, `${s.handle}: groups are not actually collapsing anything`);
+
+    const bundled = new Set<string>();
+    for (const l of s.links) {
+      const [a, b] = [groupOf(l.from), groupOf(l.to)].sort();
+      if (a !== b) bundled.add(a + " ~ " + b);
+    }
+    assert.ok(bundled.size < s.links.length, `${s.handle}: bundling reduced nothing`);
+    for (const f of s.facts) assert.ok(groups.has(f.section || "Ungrouped"), "every fact needs a group");
+  }
+});

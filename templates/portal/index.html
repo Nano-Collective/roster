@@ -298,96 +298,130 @@ function viewGraph(m) {
   const s = staff();
   m.append(el("h1", { textContent: s.handle.toUpperCase() + " · graph" }));
   m.append(el("p", { className: "sub", innerHTML:
-    "Facts cluster by section. Authored links (<code>[[slug]]</code>, notes) draw solid; links inferred " +
-    "from issue numbers, file paths and backticked slugs draw faint. " +
-    "<b>Drag a node</b> to move it, drag the background to pan, scroll to zoom." }));
+    "One node per group. <b>Click a group to open it</b> and see the facts inside; click again to " +
+    "close. Edges between groups are every underlying link bundled, and thickness is how many." }));
 
   const wrap = el("div", { className: "graphwrap" });
-  const canvas = el("canvas", { id: "graph" });
-  wrap.append(canvas);
+  wrap.append(el("canvas", { id: "graph" }));
   m.append(wrap);
-  requestAnimationFrame(() => drawGraph(canvas, wrap, s));
+  requestAnimationFrame(() => drawGraph($("#graph", wrap), wrap, s));
 }
 
-/* A small force layout. Nodes repel, edges pull, each section has an anchor so facts that
-   belong together end up together, and a collision pass stops the overlap that made the
-   first version unreadable. */
+/* A two-level graph. At rest it is one node per group, which is a picture you can actually
+   read; opening a group swaps it for its members in place. Edges resolve through whatever
+   each endpoint currently collapses into, so the bundling is automatic. */
 function drawGraph(canvas, wrap, s) {
   const factBySlug = new Map(s.facts.map((f) => [f.slug, f]));
   const kindOf = (id) => factBySlug.has(id) ? "fact"
-    : id.startsWith("#") ? "issue"
-    : s.notes.includes(id) ? "note"
-    : "file";
+    : id.startsWith("#") ? "issue" : s.notes.includes(id) ? "note" : "file";
+  const groupOf = (id) => {
+    const f = factBySlug.get(id);
+    if (f) return f.section || "Ungrouped";
+    const k = kindOf(id);
+    return k === "note" ? "Notes" : k === "issue" ? "Issues" : "Files";
+  };
 
   const ids = new Set(s.facts.map((f) => f.slug));
   for (const l of s.links) { ids.add(l.from); ids.add(l.to); }
 
-  // One anchor per section, spread around a ring. Notes, issues and files orbit outside.
-  const groups = [...s.sections, "notes", "issues", "files"];
-  const anchors = new Map(groups.map((g, i) => {
-    const a = (i / groups.length) * Math.PI * 2;
-    const outer = i >= s.sections.length;
-    return [g, { x: Math.cos(a) * (outer ? 620 : 330), y: Math.sin(a) * (outer ? 620 : 330) }];
-  }));
-  const groupOf = (id) => {
-    const f = factBySlug.get(id);
-    if (f) return f.section || groups[0];
-    const k = kindOf(id);
-    return k === "note" ? "notes" : k === "issue" ? "issues" : "files";
-  };
-
-  const PALETTE = ["#7cc7a4","#7aa2f7","#c99bd6","#d8a657","#e07b7b","#6fc3c9","#b3c46b","#e0a1c0","#9d9ff5"];
-  const colorOf = (g) => {
-    const i = s.sections.indexOf(g);
-    return i >= 0 ? PALETTE[i % PALETTE.length] : null; // null = neutral, resolved at draw time
-  };
-
-  const nodes = [...ids].map((id, i) => {
+  const members = new Map();
+  for (const id of ids) {
     const g = groupOf(id);
-    const a = anchors.get(g) ?? { x: 0, y: 0 };
-    return {
-      id, group: g, kind: kindOf(id), color: colorOf(g),
-      x: a.x + Math.cos(i * 2.399) * 90, y: a.y + Math.sin(i * 2.399) * 90,
-      vx: 0, vy: 0, deg: 0, fixed: false,
-    };
-  });
-  const index = new Map(nodes.map((n) => [n.id, n]));
-  const edges = s.links.map((l) => ({ a: index.get(l.from), b: index.get(l.to), ...l })).filter((e) => e.a && e.b);
-  for (const e of edges) { e.a.deg++; e.b.deg++; }
-  const radius = (n) => 4 + Math.min(9, n.deg * 0.9);
+    if (!members.has(g)) members.set(g, []);
+    members.get(g).push(id);
+  }
+  const groups = [...members.keys()].sort((a, b) => members.get(b).length - members.get(a).length);
+
+  const PALETTE = ["#7cc7a4","#7aa2f7","#c99bd6","#d8a657","#6fc3c9","#e07b7b","#b3c46b","#e0a1c0","#9d9ff5","#8fb0d9"];
+  const colour = new Map(groups.map((g, i) => [g, PALETTE[i % PALETTE.length]]));
+
+  // Group nodes sit on a ring; members start at their group's position so opening one reads
+  // as unfolding rather than as everything jumping.
+  const groupNodes = new Map(groups.map((g, i) => {
+    const a = (i / groups.length) * Math.PI * 2;
+    return [g, { id: g, group: g, isGroup: true, count: members.get(g).length,
+                 x: Math.cos(a) * 300, y: Math.sin(a) * 300, vx: 0, vy: 0, fixed: false }];
+  }));
+  const memberNodes = new Map();
+  for (const g of groups) {
+    const list = members.get(g);
+    list.forEach((id, i) => {
+      const gn = groupNodes.get(g);
+      const a = (i / list.length) * Math.PI * 2;
+      memberNodes.set(id, { id, group: g, isGroup: false, kind: kindOf(id),
+        x: gn.x + Math.cos(a) * 40, y: gn.y + Math.sin(a) * 40, vx: 0, vy: 0, fixed: false });
+    });
+  }
+
+  const expanded = new Set();
+  const hidden = new Set();
+  const resolve = (id) => (expanded.has(groupOf(id)) ? memberNodes.get(id) : groupNodes.get(groupOf(id)));
+  const shown = () => groups.filter((g) => !hidden.has(g))
+    .flatMap((g) => (expanded.has(g) ? members.get(g).map((id) => memberNodes.get(id)) : [groupNodes.get(g)]));
+
+  function activeEdges() {
+    const acc = new Map();
+    for (const l of s.links) {
+      const a = resolve(l.from), b = resolve(l.to);
+      if (!a || !b || a === b) continue;
+      if (hidden.has(a.group) || hidden.has(b.group)) continue;
+      const key = a.id < b.id ? a.id + " " + b.id : b.id + " " + a.id;
+      const e = acc.get(key) ?? { a, b, weight: 0, authored: 0 };
+      e.weight++; if (!l.inferred) e.authored++;
+      acc.set(key, e);
+    }
+    return [...acc.values()];
+  }
+
+  const radius = (n) => n.isGroup ? 15 + Math.sqrt(n.count) * 3.4 : 5;
+  let edges = [];
+  let alpha = 1;
+  const degree = new Map();
+  function recompute() {
+    edges = activeEdges();
+    degree.clear();
+    for (const e of edges) {
+      degree.set(e.a, (degree.get(e.a) ?? 0) + e.weight);
+      degree.set(e.b, (degree.get(e.b) ?? 0) + e.weight);
+    }
+    alpha = 1;
+  }
   const neighbours = (n) => edges.filter((e) => e.a === n || e.b === n).map((e) => (e.a === n ? e.b : e.a));
 
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const hidden = new Set();
-  let tx = 0, ty = 0, scale = 0.62;
+  let tx = 0, ty = 0, scale = 0.85;
   let selected = null, hover = null, drag = null, panning = false, lx = 0, ly = 0, moved = 0;
-  let alpha = 1;
   const ctx = canvas.getContext("2d");
 
-  /* ---- tools ---- */
-  const search = el("input", { type: "search", placeholder: "Find a node…" });
+  const search = el("input", { type: "search", placeholder: "Find a fact..." });
   search.oninput = () => {
     const q = search.value.trim().toLowerCase();
     if (!q) return;
-    const hit = nodes.find((n) => n.id.toLowerCase().includes(q));
-    if (hit) { selected = hit; centreOn(hit); paintInspector(); }
+    const id = [...ids].find((x) => x.toLowerCase().includes(q));
+    if (!id) return;
+    expanded.add(groupOf(id));
+    recompute();
+    selected = memberNodes.get(id);
+    centreOn(selected);
+    paintInspector();
   };
-  const tools = el("div", { className: "gtools" }, [
+  wrap.append(el("div", { className: "gtools" }, [
     search,
-    el("button", { textContent: "re-layout", onclick: () => { alpha = 1; for (const n of nodes) n.fixed = false; } }),
+    el("button", { textContent: "open all", onclick: () => { for (const g of groups) expanded.add(g); recompute(); } }),
+    el("button", { textContent: "close all", onclick: () => { expanded.clear(); selected = null; paintInspector(); recompute(); } }),
     el("button", { textContent: "fit", onclick: fit }),
-  ]);
-  wrap.append(tools);
+  ]));
 
   const legend = el("div", { className: "legend" });
   for (const g of groups) {
     const row = el("div", { className: "on" });
-    const c = colorOf(g);
-    row.innerHTML = '<i style="background:' + (c ?? "var(--ink-faint)") + '"></i>' +
-      esc(g.length > 30 ? g.slice(0, 29) + "…" : g);
+    row.innerHTML = '<i style="background:' + colour.get(g) + '"></i>' +
+      esc(g.length > 26 ? g.slice(0, 25) + "..." : g) +
+      ' <b style="color:var(--ink-faint);font-weight:400">' + members.get(g).length + "</b>";
     row.onclick = () => {
       hidden.has(g) ? hidden.delete(g) : hidden.add(g);
       row.className = hidden.has(g) ? "" : "on";
+      recompute();
     };
     legend.append(row);
   }
@@ -396,31 +430,46 @@ function drawGraph(canvas, wrap, s) {
   let inspector = null;
   function paintInspector() {
     inspector?.remove();
-    if (!selected) { inspector = null; return; }
+    inspector = null;
+    if (!selected) return;
     const n = selected;
-    const f = factBySlug.get(n.id);
     inspector = el("div", { className: "inspect" });
-    const close = el("button", { className: "x", textContent: "✕", onclick: () => { selected = null; paintInspector(); } });
-    inspector.append(close);
-    inspector.insertAdjacentHTML("beforeend",
-      "<h4>" + esc(n.id) + "</h4>" +
-      '<div class="meta">' + esc(n.group) + " · " + n.deg + " link" + (n.deg === 1 ? "" : "s") + "</div>" +
-      (f ? "<p>" + inline(f.statement) + "</p>" +
-           (f.consequence ? '<p class="so"><b>So:</b> ' + inline(f.consequence) + "</p>" : "") : ""));
+    inspector.append(el("button", { className: "x", textContent: "✕",
+      onclick: () => { selected = null; paintInspector(); } }));
 
-    const links = neighbours(n);
-    if (links.length) inspector.append(el("div", { className: "sect", style: "padding:12px 0 2px", textContent: "Linked" }));
-    for (const other of links.slice(0, 14)) {
-      inspector.append(el("button", { className: "lk", textContent: "→ " + other.id,
-        onclick: () => { selected = other; centreOn(other); paintInspector(); } }));
+    if (n.isGroup) {
+      inspector.insertAdjacentHTML("beforeend",
+        "<h4>" + esc(n.id) + "</h4>" +
+        '<div class="meta">' + n.count + " nodes · " + (degree.get(n) ?? 0) + " links out</div>");
+      inspector.append(el("button", { className: "lk", style: "margin-top:10px;width:auto",
+        textContent: expanded.has(n.id) ? "close this group" : "open this group",
+        onclick: () => { expanded.has(n.id) ? expanded.delete(n.id) : expanded.add(n.id); recompute(); paintInspector(); } }));
+      inspector.append(el("div", { className: "sect", style: "padding:12px 0 2px", textContent: "Inside" }));
+      for (const id of members.get(n.id).slice(0, 18)) {
+        inspector.append(el("button", { className: "lk", textContent: id, onclick: () => {
+          expanded.add(n.id); recompute(); selected = memberNodes.get(id); centreOn(selected); paintInspector();
+        } }));
+      }
+    } else {
+      const f = factBySlug.get(n.id);
+      inspector.insertAdjacentHTML("beforeend",
+        "<h4>" + esc(n.id) + "</h4>" +
+        '<div class="meta">' + esc(n.group) + " · " + (degree.get(n) ?? 0) + " links</div>" +
+        (f ? "<p>" + inline(f.statement) + "</p>" +
+             (f.consequence ? '<p class="so"><b>So:</b> ' + inline(f.consequence) + "</p>" : "") : ""));
+      const links = neighbours(n);
+      if (links.length) inspector.append(el("div", { className: "sect", style: "padding:12px 0 2px", textContent: "Linked" }));
+      for (const other of links.slice(0, 14)) {
+        inspector.append(el("button", { className: "lk", textContent: other.id,
+          onclick: () => { selected = other; centreOn(other); paintInspector(); } }));
+      }
+      const row = el("div", { className: "row", style: "margin-top:12px" });
+      if (f) row.append(el("button", { className: "lk", style: "width:auto", textContent: "open in memory",
+        onclick: () => { query = n.id; view = "memory"; render(); } }));
+      if (n.kind === "note") row.append(el("button", { className: "lk", style: "width:auto", textContent: "open note",
+        onclick: () => { openFile = "memory/notes/" + n.id; view = "brain"; render(); } }));
+      inspector.append(row);
     }
-
-    const row = el("div", { className: "row", style: "margin-top:12px" });
-    if (f) row.append(el("button", { className: "lk", style: "width:auto", textContent: "open in memory ↗",
-      onclick: () => { query = n.id; view = "memory"; render(); } }));
-    if (n.kind === "note") row.append(el("button", { className: "lk", style: "width:auto", textContent: "open note ↗",
-      onclick: () => { openFile = "memory/notes/" + n.id; view = "brain"; render(); } }));
-    inspector.append(row);
     wrap.append(inspector);
   }
 
@@ -434,58 +483,61 @@ function drawGraph(canvas, wrap, s) {
   let rect = size();
   addEventListener("resize", () => { rect = size(); });
 
-  function visible(n) { return !hidden.has(n.group); }
   function centreOn(n) { tx = -n.x * scale; ty = -n.y * scale; }
   function fit() {
-    const vis = nodes.filter(visible);
+    const vis = shown();
     if (!vis.length) return;
     const xs = vis.map((n) => n.x), ys = vis.map((n) => n.y);
-    const w = Math.max(...xs) - Math.min(...xs) || 1, h = Math.max(...ys) - Math.min(...ys) || 1;
-    scale = Math.min(2.2, Math.max(0.2, Math.min(rect.width / (w + 160), rect.height / (h + 160))));
-    tx = -((Math.min(...xs) + w / 2)) * scale;
-    ty = -((Math.min(...ys) + h / 2)) * scale;
+    const minx = Math.min(...xs), miny = Math.min(...ys);
+    const w = Math.max(...xs) - minx || 1, h = Math.max(...ys) - miny || 1;
+    scale = Math.min(2, Math.max(0.15, Math.min(rect.width / (w + 220), rect.height / (h + 220))));
+    tx = -(minx + w / 2) * scale;
+    ty = -(miny + h / 2) * scale;
   }
 
   function step() {
-    if (alpha < 0.005) return;
-    alpha *= 0.994;
-    const vis = nodes.filter(visible);
+    if (alpha < 0.004) return;
+    alpha *= 0.99;
+    const vis = shown();
 
     for (let i = 0; i < vis.length; i++) {
       const a = vis[i];
       for (let j = i + 1; j < vis.length; j++) {
         const b = vis[j];
-        let dx = b.x - a.x, dy = b.y - a.y;
-        let d2 = dx * dx + dy * dy || 0.01;
-        if (d2 > 250000) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d2 = dx * dx + dy * dy || 0.01;
+        if (d2 > 360000) continue;
         const d = Math.sqrt(d2);
-        // Repulsion, plus a hard collision floor so circles never sit on top of each other.
-        const push = 5200 / d2;
-        const overlap = radius(a) + radius(b) + 16 - d;
-        const f = push + (overlap > 0 ? overlap * 0.34 : 0);
+        // Groups push each other much harder than members do, so the top level stays legible.
+        const strength = a.isGroup && b.isGroup ? 42000 : 3000;
+        const gap = radius(a) + radius(b) + (a.isGroup || b.isGroup ? 34 : 14);
+        const overlap = gap - d;
+        const f = strength / d2 + (overlap > 0 ? overlap * 0.4 : 0);
         const ux = dx / d, uy = dy / d;
         a.vx -= ux * f; a.vy -= uy * f; b.vx += ux * f; b.vy += uy * f;
       }
     }
     for (const e of edges) {
-      if (!visible(e.a) || !visible(e.b)) continue;
       const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
       const d = Math.hypot(dx, dy) || 0.01;
-      const rest = e.inferred ? 190 : 120;
-      const f = (d - rest) * (e.inferred ? 0.006 : 0.017);
+      const rest = (e.a.isGroup && e.b.isGroup) ? 340 : 150;
+      const f = (d - rest) * 0.01;
       const ux = dx / d, uy = dy / d;
       e.a.vx += ux * f; e.a.vy += uy * f; e.b.vx -= ux * f; e.b.vy -= uy * f;
     }
     for (const n of vis) {
-      const a = anchors.get(n.group);
-      if (a) { n.vx += (a.x - n.x) * 0.0075; n.vy += (a.y - n.y) * 0.0075; }
+      // Members are held near their own group's ring position, so an open group reads as a
+      // cluster rather than dissolving into the rest of the picture.
+      const home = groupNodes.get(n.group);
+      if (!n.isGroup && home) { n.vx += (home.x - n.x) * 0.02; n.vy += (home.y - n.y) * 0.02; }
+      if (n.isGroup) { n.vx -= n.x * 0.001; n.vy -= n.y * 0.001; }
       if (n.fixed || n === drag) { n.vx = n.vy = 0; continue; }
-      n.x += (n.vx *= 0.78); n.y += (n.vy *= 0.78);
+      n.x += (n.vx *= 0.8); n.y += (n.vy *= 0.8);
     }
   }
 
   function draw() {
-    if (!document.body.contains(canvas)) return; // view switched away
+    if (!document.body.contains(canvas)) return;
     step();
     ctx.clearRect(0, 0, rect.width, rect.height);
     ctx.save();
@@ -494,66 +546,80 @@ function drawGraph(canvas, wrap, s) {
 
     const near = selected ? new Set([selected, ...neighbours(selected)]) : null;
     for (const e of edges) {
-      if (!visible(e.a) || !visible(e.b)) continue;
       const lit = !near || (near.has(e.a) && near.has(e.b));
-      ctx.strokeStyle = lit && near ? css("--accent") : css("--line");
-      ctx.globalAlpha = near ? (lit ? 0.9 : 0.12) : e.inferred ? 0.3 : 0.75;
-      ctx.lineWidth = (e.inferred ? 0.7 : 1.3) / Math.max(1, scale * 0.7);
+      ctx.strokeStyle = near && lit ? css("--accent") : css("--line");
+      ctx.globalAlpha = near ? (lit ? 0.95 : 0.08) : 0.6;
+      ctx.lineWidth = Math.min(6, 0.8 + Math.log2(e.weight + 1) * 1.3) / Math.max(1, scale * 0.8);
       ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); ctx.stroke();
     }
     ctx.globalAlpha = 1;
 
-    for (const n of nodes) {
-      if (!visible(n)) continue;
+    for (const n of shown()) {
       const r = radius(n);
       const dim = near && !near.has(n);
-      ctx.globalAlpha = dim ? 0.16 : 1;
-      ctx.fillStyle = n.color ?? css("--ink-faint");
-      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
-      if (n === selected || n === hover) {
-        ctx.strokeStyle = css("--ink"); ctx.lineWidth = 1.6 / scale;
-        ctx.beginPath(); ctx.arc(n.x, n.y, r + 3.5, 0, 7); ctx.stroke();
+      ctx.globalAlpha = dim ? 0.14 : 1;
+      ctx.fillStyle = colour.get(n.group) ?? css("--ink-faint");
+
+      if (n.isGroup) {
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
+        // An open group keeps a hollow ring where it was, so it stays findable and closable.
+        if (expanded.has(n.id)) {
+          ctx.globalAlpha = dim ? 0.1 : 0.3;
+          ctx.beginPath(); ctx.arc(n.x, n.y, r + 7, 0, 7);
+          ctx.strokeStyle = colour.get(n.group); ctx.lineWidth = 2 / scale; ctx.stroke();
+          ctx.globalAlpha = dim ? 0.14 : 1;
+        }
+        ctx.fillStyle = css("--bg");
+        ctx.font = "600 " + Math.max(9, r * 0.62) + "px ui-monospace,monospace";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(String(n.count), n.x, n.y + 0.5);
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = css(n === hover || n === selected ? "--ink" : "--ink-dim");
+        ctx.font = "600 " + Math.max(10, 12 / scale) + "px -apple-system,system-ui,sans-serif";
+        ctx.fillText(n.id.length > 30 ? n.id.slice(0, 29) + "..." : n.id, n.x + r + 7, n.y + 4);
+      } else {
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
+        if (n === selected || n === hover || scale > 1.15) {
+          ctx.fillStyle = css(n === selected || n === hover ? "--ink" : "--ink-dim");
+          ctx.font = Math.max(9, 10.5 / scale) + "px ui-monospace,monospace";
+          ctx.fillText(n.id.length > 26 ? n.id.slice(0, 25) + "..." : n.id, n.x + r + 4, n.y + 3.5);
+        }
       }
-      const label = n === selected || n === hover || (scale > 0.85 && n.deg > 2) || scale > 1.5;
-      if (label && !dim) {
-        ctx.fillStyle = css(n === selected || n === hover ? "--ink" : "--ink-dim");
-        ctx.font = (n === selected ? "600 " : "") + Math.max(9, 11 / scale) + "px ui-monospace,monospace";
-        ctx.fillText(n.id.length > 28 ? n.id.slice(0, 27) + "…" : n.id, n.x + r + 4, n.y + 3.5);
+      if (n === selected || n === hover) {
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = css("--ink"); ctx.lineWidth = 1.5 / scale;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r + 3.5, 0, 7); ctx.stroke();
       }
     }
     ctx.restore();
     requestAnimationFrame(draw);
   }
+  recompute();
   fit();
   draw();
 
   const toWorld = (ev) => {
     const r = canvas.getBoundingClientRect();
-    return {
-      x: (ev.clientX - r.left - r.width / 2 - tx) / scale,
-      y: (ev.clientY - r.top - r.height / 2 - ty) / scale,
-    };
+    return { x: (ev.clientX - r.left - r.width / 2 - tx) / scale,
+             y: (ev.clientY - r.top - r.height / 2 - ty) / scale };
   };
   const at = (ev) => {
     const p = toWorld(ev);
-    return nodes.filter(visible).find((n) => Math.hypot(n.x - p.x, n.y - p.y) < radius(n) + 6);
+    return shown().find((n) => Math.hypot(n.x - p.x, n.y - p.y) < radius(n) + 5);
   };
 
   canvas.onpointerdown = (ev) => {
-    canvas.setPointerCapture(ev.pointerId);
+    canvas.setPointerCapture?.(ev.pointerId);
     moved = 0; lx = ev.clientX; ly = ev.clientY;
     const n = at(ev);
-    if (n) { drag = n; n.fixed = true; alpha = Math.max(alpha, 0.35); }
+    if (n) { drag = n; n.fixed = true; alpha = Math.max(alpha, 0.3); }
     else { panning = true; canvas.classList.add("grabbing"); }
   };
   canvas.onpointermove = (ev) => {
     moved += Math.abs(ev.clientX - lx) + Math.abs(ev.clientY - ly);
-    if (drag) {
-      const p = toWorld(ev);
-      drag.x = p.x; drag.y = p.y; drag.vx = drag.vy = 0;
-    } else if (panning) {
-      tx += ev.clientX - lx; ty += ev.clientY - ly;
-    } else {
+    if (drag) { const p = toWorld(ev); drag.x = p.x; drag.y = p.y; drag.vx = drag.vy = 0; }
+    else if (panning) { tx += ev.clientX - lx; ty += ev.clientY - ly; }
+    else {
       const h = at(ev);
       if (h !== hover) { hover = h; canvas.classList.toggle("onnode", !!h); }
     }
@@ -561,22 +627,24 @@ function drawGraph(canvas, wrap, s) {
   };
   canvas.onpointerup = (ev) => {
     canvas.releasePointerCapture?.(ev.pointerId);
-    // A click is a press that did not travel. Anything further is a drag, and a drag must
-    // never also select — that was the "clicking a node opens a new page" complaint.
+    // Only a press that did not travel counts as a click, so dragging never also acts.
     if (moved < 4) {
       const n = at(ev);
-      selected = n && n !== selected ? n : null;
-      paintInspector();
+      if (n && n.isGroup) {
+        expanded.has(n.id) ? expanded.delete(n.id) : expanded.add(n.id);
+        selected = n; recompute(); paintInspector();
+      } else {
+        selected = n && n !== selected ? n : null;
+        paintInspector();
+      }
     }
-    if (drag) drag = null;
-    panning = false;
+    drag = null; panning = false;
     canvas.classList.remove("grabbing");
   };
   canvas.ondblclick = (ev) => { const n = at(ev); if (n) { n.fixed = false; alpha = Math.max(alpha, 0.4); } };
   canvas.onwheel = (ev) => {
     ev.preventDefault();
-    const k = ev.deltaY < 0 ? 1.12 : 0.89;
-    scale = Math.min(3.5, Math.max(0.15, scale * k));
+    scale = Math.min(3.5, Math.max(0.12, scale * (ev.deltaY < 0 ? 1.12 : 0.89)));
   };
 }
 
