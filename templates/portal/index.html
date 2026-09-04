@@ -100,7 +100,7 @@ input[type=search]:focus,select:focus{border-color:var(--accent-dim)}
 .tfile:hover{background:var(--panel-2);color:var(--ink)}
 .tfile[aria-current="true"]{background:var(--panel-2);color:var(--accent)}
 .tfile i{float:right;color:var(--ink-faint);font-style:normal;font-size:10.5px}
-.viewer{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:16px;
+.viewer{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:20px 22px;
         min-height:340px;max-height:74vh;overflow:auto}
 .viewer pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12.5px/1.65 var(--mono);color:var(--ink-dim)}
 .viewer img{max-width:100%;border-radius:6px;background:#fff}
@@ -143,18 +143,63 @@ input[type=search]:focus,select:focus{border-color:var(--accent-dim)}
        text-overflow:ellipsis}
 .sheet .lk:hover{color:var(--accent)}
 @media (max-width:760px){.sheet{width:100%}}
-.ghbtn{display:inline-block;margin-top:12px;padding:6px 12px;border:1px solid var(--line);
-       border-radius:7px;font:12px var(--mono);color:var(--ink-dim);text-decoration:none}
-.ghbtn:hover{color:var(--ink);border-color:var(--accent-dim)}
-.cmt{border-top:1px solid var(--line);padding:14px 0}
-.cmt.first{border-top:0;padding-top:4px}
-.cbody{margin-top:7px;font-size:13.4px;line-height:1.6}
-.cbody .ch{display:block;margin:10px 0 4px}
-.cbody .cli{margin:2px 0 2px 4px}
-.cbody code{font:12px var(--mono);color:var(--accent)}
-.cbody .cblock{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
-       padding:9px 11px;font:12px var(--mono);white-space:pre-wrap;margin:8px 0}
+.ghbtn{display:inline-block;padding:5px 11px;border:1px solid var(--line);border-radius:7px;
+       font:12px var(--sans);color:var(--ink-dim);text-decoration:none;white-space:nowrap}
+.ghbtn:hover{color:var(--ink);border-color:var(--accent-dim);background:var(--panel-2)}
+.iconbtn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);
+       border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:15px;line-height:1}
+.iconbtn:hover{color:var(--ink);border-color:var(--accent-dim)}
+.iconbtn .sync{display:inline-block}
+.iconbtn.spin .sync{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- inbox rows ---------- */
+.irow{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
+      padding:9px 10px;border-radius:7px;color:var(--ink-dim)}
+.irow:hover{background:var(--panel-2)}
+.irow[aria-current="true"]{background:var(--panel-2);box-shadow:inset 2px 0 0 var(--accent)}
+.ititle{font:13.5px/1.4 var(--sans);color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;
+        -webkit-box-orient:vertical;overflow:hidden}
+.irow[aria-current="true"] .ititle{color:var(--accent)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);
+     margin-right:6px;vertical-align:2px}
+.imeta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px}
+.imeta .num{font:10.5px var(--mono);color:var(--ink-faint)}
+.imeta .when{font:10.5px var(--sans);color:var(--ink-faint);margin-left:auto}
+.ck{font:10.5px var(--mono)}
+.ck.passing{color:var(--accent)} .ck.failing{color:var(--err)} .ck.pending{color:var(--warn)}
+.chip{font:10px var(--sans);letter-spacing:.02em;padding:1.5px 7px;border-radius:20px;
+      border:1px solid var(--line);color:var(--ink-faint);white-space:nowrap}
+.chip.hot{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}
+.chip.warm{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.chip.cool{color:var(--will);border-color:color-mix(in srgb,var(--will) 40%,transparent)}
+
+/* ---------- thread ---------- */
+.thead{border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:4px}
+.trow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.thead h3{margin:8px 0 0;font:600 17px/1.35 var(--sans);letter-spacing:-.012em;color:var(--ink)}
+.cmt{border-top:1px solid var(--line);padding:16px 0}
+.cmt.first{border-top:0}
+.cbody{margin-top:8px;font-size:13.5px;line-height:1.65;max-width:74ch}
+.cbody p{margin:0 0 10px}
+.cbody .ch{font-weight:600;color:var(--ink);margin:16px 0 6px}
+.cbody .ch.h1{font-size:16px} .cbody .ch.h2{font-size:15px} .cbody .ch.h3{font-size:14px}
+.cbody .cli{margin:3px 0}
+.cbody .cli .box{color:var(--ink-faint)}
+.cbody code{font:12px var(--mono);color:var(--accent);background:var(--panel-2);
+      padding:1px 4px;border-radius:4px}
+.cbody .cblock{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;
+      padding:10px 12px;font:12px/1.6 var(--mono);white-space:pre-wrap;margin:10px 0;color:var(--ink-dim)}
+.cbody .cblock code{background:none;padding:0}
 .cbody a{color:var(--will)}
+.cbody blockquote{margin:10px 0;padding:2px 0 2px 12px;border-left:2px solid var(--line);color:var(--ink-dim)}
+.cbody hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.ctable{overflow-x:auto;margin:10px 0;max-width:100%}
+.ctable table{border-collapse:collapse;font-size:12.5px;width:100%}
+.ctable th,.ctable td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+.ctable th{background:var(--panel-2);color:var(--ink);font-weight:600;white-space:nowrap}
+.ctable td{color:var(--ink-dim)}
+.ctable td b{color:var(--ink)}
 .pill{font:11px var(--mono);color:var(--ink-faint);border:1px solid var(--line);
       border-radius:20px;padding:2px 9px}
 .err{color:var(--err)} .warn{color:var(--warn)} .ok{color:var(--accent)}
@@ -331,7 +376,8 @@ function viewInbox(m) {
     el("option", { value: "pr", textContent: "Open work (PRs)" }),
   );
   scope.value = inboxFilter;
-  const refresh = el("button", { className: "lk", style: "width:auto;font:12px var(--mono)", textContent: "refresh" });
+  const refresh = el("button", { className: "iconbtn", title: "Refresh from GitHub" });
+  refresh.innerHTML = '<span class="sync">\u27F3</span>';
   m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [search, scope, refresh]));
 
   const split = el("div", { className: "split" });
@@ -342,7 +388,7 @@ function viewInbox(m) {
 
   search.oninput = () => { query = search.value; writeHash(false); paint(); };
   scope.onchange = () => { inboxFilter = scope.value; writeHash(false); paint(); };
-  refresh.onclick = () => load(true);
+  refresh.onclick = () => { refresh.classList.add("spin"); load(true); };
 
   if (INBOX) { paint(); if (inboxOpen) openThread(inboxOpen); }
   else load(false);
@@ -352,9 +398,11 @@ function viewInbox(m) {
     try {
       INBOX = await (await fetch("/api/inbox" + (force ? "?refresh=1" : ""))).json();
     } catch (e) {
+      refresh.classList.remove("spin");
       list.replaceChildren(el("p", { className: "empty err", textContent: "Could not reach GitHub: " + e.message }));
       return;
     }
+    refresh.classList.remove("spin");
     paint();
   }
 
@@ -373,7 +421,7 @@ function viewInbox(m) {
     const prs = INBOX.items.filter((i) => i.kind === "pr").length;
     sub.innerHTML = INBOX.items.length + " open across " + (INBOX.repos ?? []).length + " repos · " +
       "<b>" + onYou + " on " + esc(DATA.human.name ?? "you") + "</b> · " + prs + " open PRs" +
-      (INBOX.fetchedAt ? ' <span class="meta">· ' + new Date(INBOX.fetchedAt).toLocaleTimeString() + "</span>" : "");
+      (INBOX.fetchedAt ? ' <span class="meta">· checked ' + ago(INBOX.fetchedAt) + "</span>" : "");
 
     list.replaceChildren();
     for (const e of INBOX.errors ?? []) {
@@ -393,14 +441,19 @@ function viewInbox(m) {
       const role = rows[0].role;
       list.append(el("div", { className: "tdir", textContent: repo.split("/")[1] + "  (" + role + ", " + rows.length + ")" }));
       for (const i of rows) {
-        const b = el("button", { className: "tfile", title: i.title });
+        const b = el("button", { className: "irow" });
         const mine = i.assignees.includes(human);
+        const chips = i.labels.slice(0, 3)
+          .map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>").join("");
         b.innerHTML =
-          '<span class="' + (i.kind === "pr" ? "ok" : "") + '" style="font:10.5px var(--mono)">' +
-            (i.kind === "pr" ? "PR" : "  ") + "</span> " +
-          (mine ? '<span class="warn">● </span>' : "") +
-          esc(i.title.length > 42 ? i.title.slice(0, 41) + "…" : i.title) +
-          "<i>#" + i.number + (i.checks && i.checks !== "none" ? " " + checkGlyph(i.checks) : "") + "</i>";
+          '<div class="ititle">' + (mine ? '<span class="dot" title="assigned to you"></span>' : "") +
+            esc(i.title) + "</div>" +
+          '<div class="imeta">' +
+            '<span class="num">' + (i.kind === "pr" ? "PR " : "") + "#" + i.number + "</span>" +
+            (i.checks && i.checks !== "none" ? '<span class="ck ' + i.checks + '">' + checkGlyph(i.checks) + "</span>" : "") +
+            chips +
+            '<span class="when">' + ago(i.updatedAt) + "</span>" +
+          "</div>";
         b.onclick = () => {
           markCurrent(list, b);
           inboxOpen = { repo: i.repo, number: i.number, kind: i.kind };
@@ -426,16 +479,19 @@ function viewInbox(m) {
       return;
     }
 
-    const head = el("div", { style: "margin-bottom:14px" });
+    const head = el("div", { className: "thead" });
     head.innerHTML =
-      '<div class="meta">' + esc(ref.repo) + " · #" + ref.number + " · " + esc(t.state ?? "") + "</div>" +
-      '<h3 style="margin:6px 0 8px;font:600 16px var(--sans)">' + esc(t.title) + "</h3>" +
-      '<div class="row">' +
-        (item ? item.labels.map((l) => '<span class="pill">' + esc(l) + "</span>").join("") : "") +
-      "</div>";
-    const open = el("a", { href: t.url, target: "_blank", rel: "noopener", className: "ghbtn",
-                           textContent: "Open in GitHub ↗" });
-    head.append(open);
+      '<div class="trow">' +
+        '<div class="meta">' + esc(ref.repo) + " · " + (ref.kind === "pr" ? "PR " : "") + "#" + ref.number +
+          ' · <span class="' + (t.state === "OPEN" ? "ok" : "") + '">' + esc(t.state ?? "") + "</span></div>" +
+        '<a class="ghbtn" href="' + esc(t.url) + '" target="_blank" rel="noopener">Open in GitHub</a>' +
+      "</div>" +
+      "<h3>" + esc(t.title) + "</h3>" +
+      (item && item.labels.length
+        ? '<div class="row" style="margin-top:8px">' +
+          item.labels.map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>").join("") +
+          "</div>"
+        : "");
     viewer.replaceChildren(head);
 
     viewer.append(comment(t.author, t.createdAt, t.body, true));
@@ -444,6 +500,17 @@ function viewInbox(m) {
       viewer.append(el("p", { className: "meta", style: "margin-top:14px", textContent: "No replies yet." }));
     }
   }
+}
+
+const LABEL_TONE = { decision: "hot", blocked: "hot", will: "hot", review: "warm", submit: "warm",
+                     idea: "cool", build: "cool", setup: "cool", data: "cool" };
+
+function ago(iso) {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 90) return "just now";
+  if (s < 5400) return Math.round(s / 60) + "m ago";
+  if (s < 172800) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
 }
 
 function checkGlyph(state) {
@@ -457,34 +524,103 @@ function comment(author, when, body, isBody) {
   return d;
 }
 
-/* Enough markdown for an issue thread, escaped first. Not a parser: headings, bold, code,
-   links, list items and paragraphs, which is what these threads actually contain. */
+/* Enough markdown for an issue thread, escaped first. Not a general parser: tables,
+   headings, lists, code, quotes, rules and links, which is what these threads contain.
+   Tables matter most - the status issues are mostly tables, and without them the body is
+   a wall of pipes. */
 function mdlite(src) {
   const lines = esc(src).replace(/\r/g, "").split("\n");
   const out = [];
-  let inCode = false;
-  for (let line of lines) {
+  let i = 0;
+
+  const inlineFmt = (s) => s
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>")
+    .replace(/~~([^~]+)~~/g, "<s>$1</s>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+
+  const cells = (row) => {
+    let s = row.trim();
+    if (s.startsWith("|")) s = s.slice(1);
+    if (s.endsWith("|")) s = s.slice(0, -1);
+    return s.split("|").map((c) => inlineFmt(c.trim()));
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+
     if (line.trim().startsWith("```")) {
-      out.push(inCode ? "</pre>" : '<pre class="cblock">');
-      inCode = !inCode;
+      const buf = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith("```")) buf.push(lines[i++]);
+      i++;
+      out.push('<pre class="cblock">' + buf.join("\n") + "</pre>");
       continue;
     }
-    if (inCode) { out.push(line); continue; }
-    if (!line.trim()) { out.push(""); continue; }
-    line = line
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-      .replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
-    const h = line.match(/^(#{1,4})\s+(.*)$/);
-    if (h) { out.push("<b class='ch'>" + h[2] + "</b>"); continue; }
-    const li = line.match(/^\s*[-*]\s+(.*)$/);
-    if (li) { out.push("<div class='cli'>• " + li[1] + "</div>"); continue; }
-    const ol = line.match(/^\s*(\d+)\.\s+(.*)$/);
-    if (ol) { out.push("<div class='cli'>" + ol[1] + ". " + ol[2] + "</div>"); continue; }
-    out.push("<div>" + line + "</div>");
+
+    // A table is a pipe row followed by a --- separator row.
+    if (line.trim().startsWith("|") && (lines[i + 1] ?? "").replace(/[^|:\-\s]/g, "") === (lines[i + 1] ?? "").trim() &&
+        /^\|?[\s:|-]+\|[\s:|-]*$/.test((lines[i + 1] ?? "").trim())) {
+      const head = cells(line);
+      i += 2;
+      const body = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) body.push(cells(lines[i++]));
+      const th = head.map((h) => "<th>" + h + "</th>").join("");
+      const tr = body.map((r) => "<tr>" + r.map((c) => "<td>" + c + "</td>").join("") + "</tr>").join("");
+      // A leading empty header cell is how these issues start a two-column "thing | ask"
+      // table; keeping the row would just print a blank strip.
+      const showHead = head.some((h) => h.trim());
+      out.push('<div class="ctable"><table>' + (showHead ? "<thead><tr>" + th + "</tr></thead>" : "") +
+               "<tbody>" + tr + "</tbody></table></div>");
+      continue;
+    }
+
+    if (!line.trim()) { i++; continue; }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { out.push("<div class='ch h" + h[1].length + "'>" + inlineFmt(h[2]) + "</div>"); i++; continue; }
+
+    if (/^\s*([-*_])\s*\1\s*\1[\s\-*_]*$/.test(line)) { out.push("<hr>"); i++; continue; }
+
+    if (line.trim().startsWith("&gt;")) {
+      const buf = [];
+      while (i < lines.length && lines[i].trim().startsWith("&gt;")) {
+        buf.push(inlineFmt(lines[i++].trim().replace(/^&gt;\s?/, "")));
+      }
+      out.push('<blockquote>' + buf.join("<br>") + "</blockquote>");
+      continue;
+    }
+
+    const task = line.match(/^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/);
+    if (task) {
+      out.push("<div class='cli'><span class='box'>" + (task[1] === " " ? "☐" : "☑") + "</span> " +
+               inlineFmt(task[2]) + "</div>");
+      i++; continue;
+    }
+    const li = line.match(/^(\s*)[-*]\s+(.*)$/);
+    if (li) {
+      const depth = Math.min(3, Math.floor(li[1].length / 2));
+      out.push("<div class='cli' style='margin-left:" + depth * 14 + "px'>• " + inlineFmt(li[2]) + "</div>");
+      i++; continue;
+    }
+    const ol = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+    if (ol) {
+      const depth = Math.min(3, Math.floor(ol[1].length / 2));
+      out.push("<div class='cli' style='margin-left:" + depth * 14 + "px'>" + ol[2] + ". " + inlineFmt(ol[3]) + "</div>");
+      i++; continue;
+    }
+
+    // Consecutive plain lines are one paragraph; markdown hard-wraps and we should not.
+    const para = [];
+    while (i < lines.length && lines[i].trim() &&
+           !/^\s*([-*]|\d+\.|#{1,6}\s|\||&gt;|```)/.test(lines[i])) {
+      para.push(inlineFmt(lines[i++]));
+    }
+    if (para.length) out.push("<p>" + para.join(" ") + "</p>");
+    else { out.push("<p>" + inlineFmt(lines[i++]) + "</p>"); }
   }
-  if (inCode) out.push("</pre>");
   return out.join("\n");
 }
 
