@@ -335,7 +335,10 @@ function drawGraph(canvas, wrap, s) {
 
   // The ring grows with the number of groups so they never crowd, and each group keeps its
   // angle for the life of the view. That angle is also the direction its members fan out in.
-  const RING = Math.max(260, groups.length * 62);
+  const RING = Math.max(340, groups.length * 84);
+  // Each group owns one slice of the circle. A fan wider than its own slice sweeps across
+  // the neighbours, which is exactly what it was doing.
+  const SECTOR = (Math.PI * 2) / groups.length;
   const groupNodes = new Map(groups.map((g, i) => {
     const angle = (i / groups.length) * Math.PI * 2 - Math.PI / 2;
     return [g, { id: g, group: g, isGroup: true, angle, count: members.get(g).length,
@@ -349,14 +352,16 @@ function drawGraph(canvas, wrap, s) {
   function fanAnchor(g, i) {
     const gn = groupNodes.get(g);
     const n = members.get(g).length;
-    const perShell = Math.max(5, Math.ceil(Math.sqrt(n) * 1.6));
+    const perShell = Math.max(4, Math.ceil(Math.sqrt(n) * 1.15));
     const shell = Math.floor(i / perShell);
     const inShell = i % perShell;
     const count = Math.min(perShell, n - shell * perShell);
-    const spread = Math.min(1.15, 0.5 + n * 0.012) * (1 + shell * 0.16);
+    // Never wider than the group's own slice, so one fan can never reach into another.
+    const spread = SECTOR * 0.66;
     const t = count === 1 ? 0 : (inShell / (count - 1) - 0.5) * spread;
     const a = gn.angle + t;
-    const r = RING + radius(gn) + 95 + shell * 62;
+    // Well clear of the ring, and each shell steps a long way further out.
+    const r = RING + radius(gn) + 210 + shell * 96;
     return { x: Math.cos(a) * r, y: Math.sin(a) * r };
   }
 
@@ -547,19 +552,20 @@ function drawGraph(canvas, wrap, s) {
       }
     }
     for (const e of edges) {
-      if (e.a.isGroup && e.b.isGroup) continue; // the ring is fixed; springs would only fight it
+      // Only members of the same group attract. A cross-group spring drags a fact out of its
+      // own fan and across the picture, which is most of what made this unreadable.
+      if (e.a.isGroup || e.b.isGroup || e.a.group !== e.b.group) continue;
       const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
       const d = Math.hypot(dx, dy) || 0.01;
-      const f = (d - 150) * 0.004;
+      const f = (d - 120) * 0.004;
       const ux = dx / d, uy = dy / d;
-      if (!e.a.isGroup) { e.a.vx += ux * f; e.a.vy += uy * f; }
-      if (!e.b.isGroup) { e.b.vx -= ux * f; e.b.vy -= uy * f; }
+      e.a.vx += ux * f; e.a.vy += uy * f; e.b.vx -= ux * f; e.b.vy -= uy * f;
     }
     for (const n of loose) {
       // The fan position is the strong term: it is what keeps a group's facts together and
       // out on their own side of the picture.
-      n.vx += (n.home.x - n.x) * 0.055;
-      n.vy += (n.home.y - n.y) * 0.055;
+      n.vx += (n.home.x - n.x) * 0.09;
+      n.vy += (n.home.y - n.y) * 0.09;
       if (n.pinned || n === drag) { n.vx = n.vy = 0; continue; }
       n.x += (n.vx *= 0.72); n.y += (n.vy *= 0.72);
     }
@@ -574,6 +580,7 @@ function drawGraph(canvas, wrap, s) {
     ctx.scale(scale, scale);
 
     const near = selected ? new Set([selected, ...neighbours(selected)]) : null;
+    const labelBoxes = [];
 
     // A faint spoke from an open group to its own fan, so the ownership is obvious.
     for (const g of groups) {
@@ -597,7 +604,8 @@ function drawGraph(canvas, wrap, s) {
     }
     ctx.globalAlpha = 1;
 
-    for (const n of shown()) {
+    const painted = shown().sort((a, b) => (b.isGroup ? b.count : 0) - (a.isGroup ? a.count : 0));
+    for (const n of painted) {
       const r = radius(n);
       const dim = near && !near.has(n);
       ctx.globalAlpha = dim ? 0.13 : 1;
@@ -617,10 +625,21 @@ function drawGraph(canvas, wrap, s) {
         ctx.font = "600 " + Math.max(9, r * 0.6) + "px ui-monospace,monospace";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(String(n.count), n.x, n.y + 0.5);
-        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-        ctx.fillStyle = css(n === hover ? "--ink" : "--ink-dim");
-        ctx.font = "600 " + Math.max(10, 12 / scale) + "px -apple-system,system-ui,sans-serif";
-        ctx.fillText(n.id.length > 30 ? n.id.slice(0, 29) + "..." : n.id, n.x + r + 8, n.y + 4);
+        ctx.textBaseline = "alphabetic";
+        const text = n.id.length > 24 ? n.id.slice(0, 23) + "..." : n.id;
+        const fs = Math.max(10, 12 / scale);
+        ctx.font = "600 " + fs + "px -apple-system,system-ui,sans-serif";
+        const w = ctx.measureText(text).width;
+        const bx = n.x - w / 2, by = n.y + r + 6, bh = fs * 1.25;
+        const clashes = labelBoxes.some((o) =>
+          bx < o.x + o.w + 8 && bx + w + 8 > o.x && by < o.y + o.h + 4 && by + bh + 4 > o.y);
+        if (!clashes || n === hover) {
+          labelBoxes.push({ x: bx, y: by, w, h: bh });
+          ctx.textAlign = "center";
+          ctx.fillStyle = css(n === hover ? "--ink" : "--ink-dim");
+          ctx.fillText(text, n.x, by + fs);
+        }
+        ctx.textAlign = "left";
       } else {
         ctx.fillStyle = colour.get(n.group) ?? css("--ink-faint");
         ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
