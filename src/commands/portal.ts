@@ -4,6 +4,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, extname } from "node:path";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { buildExport } from "../lib/export.js";
+import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { PORTAL_HTML } from "../portal/html.js";
 
 export const portalHelp = `
@@ -46,6 +47,16 @@ export async function portalCommand(argv: string[]): Promise<number> {
   const { parseYaml } = await loadComposer(ws.opsDir);
   const port = opts.port ?? 4300;
 
+  // gh calls take about a second each and the inbox hits every repo, so a short cache keeps
+  // switching views instant. The refresh button bypasses it.
+  let cache: { at: number; body: string } | null = null;
+  const TTL = 45_000;
+
+  const knownRepos = () => {
+    const org = readOrg(ws.opsDir, parseYaml) as any;
+    return (org.repos ?? []).map((r: any) => ({ name: r.name, owner: org.org, role: r.role ?? "repo" }));
+  };
+
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
 
@@ -63,6 +74,50 @@ export async function portalCommand(argv: string[]): Promise<number> {
         const data = buildExport(ws, org as any, parseYaml);
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      if (url.pathname === "/api/inbox") {
+        const fresh = url.searchParams.get("refresh") === "1";
+        if (!fresh && cache && Date.now() - cache.at < TTL) {
+          res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+          res.end(cache.body);
+          return;
+        }
+        fetchInbox(knownRepos())
+          .then((data) => {
+            const body = JSON.stringify({ ...data, repos: knownRepos(), fetchedAt: new Date().toISOString() });
+            cache = { at: Date.now(), body };
+            res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+            res.end(body);
+          })
+          .catch((err) => {
+            res.writeHead(500, { "content-type": "application/json" });
+            res.end(JSON.stringify({ items: [], errors: [String(err?.message ?? err)] }));
+          });
+        return;
+      }
+
+      if (url.pathname === "/api/thread") {
+        const repo = url.searchParams.get("repo") ?? "";
+        const number = Number(url.searchParams.get("number"));
+        const kind = url.searchParams.get("kind") === "pr" ? "pr" : "issue";
+        // Both reach a command line, so neither is trusted: the repo must be one of ours and
+        // the number must be a number.
+        const allowed = knownRepos().some((r: any) => `${r.owner}/${r.name}` === repo);
+        if (!allowed || !Number.isInteger(number) || number <= 0) {
+          res.writeHead(400).end("bad request");
+          return;
+        }
+        fetchThread(repo, number, kind)
+          .then((thread) => {
+            res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+            res.end(JSON.stringify(thread));
+          })
+          .catch((err) => {
+            res.writeHead(502, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+          });
         return;
       }
 
