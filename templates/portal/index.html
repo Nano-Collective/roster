@@ -14,13 +14,22 @@
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
 }
+/* System preference wins unless the toggle has stamped data-theme on the root. */
 @media (prefers-color-scheme:light){
-  :root{
+  :root:not([data-theme="dark"]){
     --bg:#fbfbfa; --panel:#fff; --panel-2:#f4f5f7; --line:#e3e5ea;
     --ink:#1b1f26; --ink-dim:#5b6472; --ink-faint:#8b95a5;
     --accent:#2f7d5b; --accent-dim:#a8d5bf;
+    --warn:#a5701d; --err:#b34a4a;
     --will:#3b5fa8; --measured:#2f7d5b; --derived:#8a52a8;
   }
+}
+:root[data-theme="light"]{
+    --bg:#fbfbfa; --panel:#fff; --panel-2:#f4f5f7; --line:#e3e5ea;
+    --ink:#1b1f26; --ink-dim:#5b6472; --ink-faint:#8b95a5;
+    --accent:#2f7d5b; --accent-dim:#a8d5bf;
+    --warn:#a5701d; --err:#b34a4a;
+    --will:#3b5fa8; --measured:#2f7d5b; --derived:#8a52a8;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans);
@@ -107,14 +116,38 @@ input[type=search]:focus,select:focus{border-color:var(--accent-dim)}
 
 /* ---------- graph ---------- */
 .graphwrap{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
-#graph{display:block;width:100%;height:70vh;cursor:grab}
-#graph:active{cursor:grabbing}
-.legend{position:absolute;left:12px;bottom:12px;font:11px var(--mono);color:var(--ink-faint);
-        background:color-mix(in srgb,var(--panel) 88%,transparent);padding:7px 10px;border-radius:7px;
-        border:1px solid var(--line)}
-.legend i{display:inline-block;width:16px;height:2px;vertical-align:3px;margin-right:5px}
-.hint{position:absolute;right:12px;top:12px;font:11px var(--mono);color:var(--ink-faint)}
-
+#graph{display:block;width:100%;height:72vh;cursor:grab;touch-action:none}
+#graph.grabbing{cursor:grabbing}
+#graph.onnode{cursor:pointer}
+.legend{position:absolute;left:12px;bottom:12px;font:11px var(--mono);color:var(--ink-dim);
+        background:color-mix(in srgb,var(--panel) 92%,transparent);padding:8px 11px;border-radius:7px;
+        border:1px solid var(--line);max-height:44%;overflow:auto}
+.legend div{white-space:nowrap;line-height:1.75;cursor:pointer;opacity:.55}
+.legend div.on{opacity:1}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.gtools{position:absolute;right:12px;top:12px;display:flex;gap:7px;align-items:center}
+.gtools button{background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);
+        color:var(--ink-dim);border-radius:7px;padding:5px 10px;font:11.5px var(--mono);cursor:pointer}
+.gtools button:hover{color:var(--ink);border-color:var(--accent-dim)}
+.gtools input[type=search]{width:170px;padding:5px 10px;font:11.5px var(--mono)}
+.inspect{position:absolute;right:12px;bottom:12px;width:330px;max-width:calc(100% - 24px);
+        background:color-mix(in srgb,var(--panel) 96%,transparent);border:1px solid var(--line);
+        border-radius:9px;padding:14px 15px;max-height:56%;overflow:auto;
+        box-shadow:0 8px 30px rgba(0,0,0,.22)}
+.inspect .x{float:right;background:none;border:0;color:var(--ink-faint);cursor:pointer;font:14px var(--mono);padding:0 2px}
+.inspect h4{margin:0 0 6px;font:12px var(--mono);color:var(--accent);word-break:break-all;padding-right:18px}
+.inspect p{margin:6px 0 0;font-size:13px}
+.inspect .lk{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink-dim);
+        font:11.5px var(--mono);padding:3px 0;cursor:pointer}
+.inspect .lk:hover{color:var(--accent)}
+.diff{font:12px/1.6 var(--mono)}
+.dline{display:block}
+.dadd{color:var(--accent);background:color-mix(in srgb,var(--accent) 11%,transparent)}
+.ddel{color:var(--err);background:color-mix(in srgb,var(--err) 11%,transparent)}
+.dhunk{color:var(--will)}
+.dmeta{color:var(--ink-faint)}
+.dfocus{outline:1px solid var(--accent);border-radius:3px}
+#theme .n{text-transform:none;letter-spacing:0}
 .pill{font:11px var(--mono);color:var(--ink-faint);border:1px solid var(--line);
       border-radius:20px;padding:2px 9px}
 .err{color:var(--err)} .warn{color:var(--warn)} .ok{color:var(--accent)}
@@ -131,8 +164,8 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
     <div id="stafflist"></div>
     <div class="sect">View</div>
     <div id="viewlist"></div>
-    <div class="sect">Org</div>
-    <button class="nav" data-view="roster">Roster</button>
+    <div class="sect">Appearance</div>
+    <button class="nav" id="theme">Theme</button>
   </aside>
   <main id="main"><p class="sub">Loading…</p></main>
 </div>
@@ -151,6 +184,9 @@ let staffHandle = null;
 let view = "memory";
 let query = "";
 let openFile = null;
+let fileQuery = "";
+let changedQuery = "";
+let changedFilter = "";
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (t, props = {}, kids = []) => {
@@ -180,7 +216,8 @@ async function boot() {
   $("#stafflist").replaceChildren(...DATA.staff.map((s) => {
     const b = el("button", { className: "nav", onclick: () => { staffHandle = s.handle; openFile = null; render(); } });
     b.dataset.staff = s.handle;
-    b.append(s.name.replace(/^Chief /, "").replace(/ Officer$/, ""));
+    b.title = s.name + " · " + s.dir;
+    b.append(s.handle.toUpperCase());
     b.append(el("span", { className: "n", textContent: s.facts.length }));
     return b;
   }));
@@ -189,7 +226,6 @@ async function boot() {
     b.dataset.view = id;
     return b;
   }));
-  document.querySelector('[data-view="roster"]').onclick = () => { view = "roster"; render(); };
   render();
 }
 
@@ -200,34 +236,7 @@ function render() {
   }
   const m = $("#main");
   m.replaceChildren();
-  ({ memory: viewMemory, graph: viewGraph, brain: viewBrain, changed: viewChanged, health: viewHealth, roster: viewRoster }[view] ?? viewMemory)(m);
-}
-
-/* ------------------------------- roster ------------------------------- */
-function viewRoster(m) {
-  m.append(el("h1", { textContent: DATA.name }), el("p", { className: "sub", innerHTML:
-    "Generated " + new Date(DATA.generatedAt).toLocaleString() + " · human <code>@" + esc(DATA.human.github ?? "") + "</code>" }));
-  const g = el("div", { className: "grid" });
-  for (const s of DATA.staff) {
-    const errs = s.problems.filter((p) => p.level === "error").length;
-    const last = s.recentCommits[0];
-    const c = el("div", { className: "card" });
-    c.innerHTML =
-      "<h3>" + esc(s.name) + "</h3>" +
-      '<div class="meta">' + esc(s.dir) + " · " + esc(s.mention ?? "") + " · " + esc(s.schedule ?? "no schedule") + "</div>" +
-      '<div class="row" style="margin-top:10px">' +
-        '<span class="pill">' + s.facts.length + " facts</span>" +
-        '<span class="pill">' + s.notes.length + " notes</span>" +
-        '<span class="pill">' + s.links.length + " links</span>" +
-        '<span class="pill ' + (errs ? "err" : "ok") + '">' + (errs ? errs + " errors" : "lint clean") + "</span>" +
-      "</div>" +
-      (last ? '<div class="meta" style="margin-top:10px">last commit ' + new Date(last.date).toLocaleDateString() +
-        " · " + esc(last.subject.slice(0, 60)) + "</div>" : "");
-    c.style.cursor = "pointer";
-    c.onclick = () => { staffHandle = s.handle; view = "memory"; render(); };
-    g.append(c);
-  }
-  m.append(g);
+  ({ memory: viewMemory, graph: viewGraph, brain: viewBrain, changed: viewChanged, health: viewHealth }[view] ?? viewMemory)(m);
 }
 
 /* ------------------------------- memory ------------------------------- */
@@ -287,47 +296,133 @@ function viewMemory(m) {
 /* -------------------------------- graph ------------------------------- */
 function viewGraph(m) {
   const s = staff();
-  m.append(el("h1", { textContent: s.name + " · graph" }));
+  m.append(el("h1", { textContent: s.handle.toUpperCase() + " · graph" }));
   m.append(el("p", { className: "sub", innerHTML:
-    "Every fact, note and reference. Authored links (<code>[[slug]]</code>, notes) are solid; inferred ones are faint. " +
-    "Drag to pan, scroll to zoom, click a node to search it." }));
+    "Facts cluster by section. Authored links (<code>[[slug]]</code>, notes) draw solid; links inferred " +
+    "from issue numbers, file paths and backticked slugs draw faint. " +
+    "<b>Drag a node</b> to move it, drag the background to pan, scroll to zoom." }));
 
   const wrap = el("div", { className: "graphwrap" });
   const canvas = el("canvas", { id: "graph" });
   wrap.append(canvas);
-  wrap.insertAdjacentHTML("beforeend",
-    '<div class="legend">' +
-      '<div><i style="background:var(--accent)"></i>fact</div>' +
-      '<div><i style="background:var(--will)"></i>note</div>' +
-      '<div><i style="background:var(--warn)"></i>issue</div>' +
-      '<div><i style="background:var(--ink-faint)"></i>file</div>' +
-    "</div><div class=\"hint\">scroll to zoom · drag to pan</div>");
   m.append(wrap);
-  requestAnimationFrame(() => drawGraph(canvas, s));
+  requestAnimationFrame(() => drawGraph(canvas, wrap, s));
 }
 
-function drawGraph(canvas, s) {
-  const kindOf = (id) => id.startsWith("#") ? "issue" : id.endsWith(".md") && s.notes.includes(id) ? "note"
-    : /\.[a-z]+$/.test(id) ? "file" : "fact";
-  const ids = new Set();
-  for (const f of s.facts) ids.add(f.slug);
+/* A small force layout. Nodes repel, edges pull, each section has an anchor so facts that
+   belong together end up together, and a collision pass stops the overlap that made the
+   first version unreadable. */
+function drawGraph(canvas, wrap, s) {
+  const factBySlug = new Map(s.facts.map((f) => [f.slug, f]));
+  const kindOf = (id) => factBySlug.has(id) ? "fact"
+    : id.startsWith("#") ? "issue"
+    : s.notes.includes(id) ? "note"
+    : "file";
+
+  const ids = new Set(s.facts.map((f) => f.slug));
   for (const l of s.links) { ids.add(l.from); ids.add(l.to); }
 
-  const nodes = [...ids].map((id, i) => ({
-    id, kind: kindOf(id),
-    // Seeded ring start: deterministic, so the layout does not jump between refreshes.
-    x: Math.cos(i * 2.399) * (60 + i * 2.2), y: Math.sin(i * 2.399) * (60 + i * 2.2),
-    vx: 0, vy: 0, deg: 0,
+  // One anchor per section, spread around a ring. Notes, issues and files orbit outside.
+  const groups = [...s.sections, "notes", "issues", "files"];
+  const anchors = new Map(groups.map((g, i) => {
+    const a = (i / groups.length) * Math.PI * 2;
+    const outer = i >= s.sections.length;
+    return [g, { x: Math.cos(a) * (outer ? 620 : 330), y: Math.sin(a) * (outer ? 620 : 330) }];
   }));
+  const groupOf = (id) => {
+    const f = factBySlug.get(id);
+    if (f) return f.section || groups[0];
+    const k = kindOf(id);
+    return k === "note" ? "notes" : k === "issue" ? "issues" : "files";
+  };
+
+  const PALETTE = ["#7cc7a4","#7aa2f7","#c99bd6","#d8a657","#e07b7b","#6fc3c9","#b3c46b","#e0a1c0","#9d9ff5"];
+  const colorOf = (g) => {
+    const i = s.sections.indexOf(g);
+    return i >= 0 ? PALETTE[i % PALETTE.length] : null; // null = neutral, resolved at draw time
+  };
+
+  const nodes = [...ids].map((id, i) => {
+    const g = groupOf(id);
+    const a = anchors.get(g) ?? { x: 0, y: 0 };
+    return {
+      id, group: g, kind: kindOf(id), color: colorOf(g),
+      x: a.x + Math.cos(i * 2.399) * 90, y: a.y + Math.sin(i * 2.399) * 90,
+      vx: 0, vy: 0, deg: 0, fixed: false,
+    };
+  });
   const index = new Map(nodes.map((n) => [n.id, n]));
   const edges = s.links.map((l) => ({ a: index.get(l.from), b: index.get(l.to), ...l })).filter((e) => e.a && e.b);
   for (const e of edges) { e.a.deg++; e.b.deg++; }
+  const radius = (n) => 4 + Math.min(9, n.deg * 0.9);
+  const neighbours = (n) => edges.filter((e) => e.a === n || e.b === n).map((e) => (e.a === n ? e.b : e.a));
 
-  const COLOR = { fact: "--accent", note: "--will", issue: "--warn", file: "--ink-faint" };
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-
-  let tx = 0, ty = 0, scale = 1, dragging = false, lx = 0, ly = 0, hover = null;
+  const hidden = new Set();
+  let tx = 0, ty = 0, scale = 0.62;
+  let selected = null, hover = null, drag = null, panning = false, lx = 0, ly = 0, moved = 0;
+  let alpha = 1;
   const ctx = canvas.getContext("2d");
+
+  /* ---- tools ---- */
+  const search = el("input", { type: "search", placeholder: "Find a node…" });
+  search.oninput = () => {
+    const q = search.value.trim().toLowerCase();
+    if (!q) return;
+    const hit = nodes.find((n) => n.id.toLowerCase().includes(q));
+    if (hit) { selected = hit; centreOn(hit); paintInspector(); }
+  };
+  const tools = el("div", { className: "gtools" }, [
+    search,
+    el("button", { textContent: "re-layout", onclick: () => { alpha = 1; for (const n of nodes) n.fixed = false; } }),
+    el("button", { textContent: "fit", onclick: fit }),
+  ]);
+  wrap.append(tools);
+
+  const legend = el("div", { className: "legend" });
+  for (const g of groups) {
+    const row = el("div", { className: "on" });
+    const c = colorOf(g);
+    row.innerHTML = '<i style="background:' + (c ?? "var(--ink-faint)") + '"></i>' +
+      esc(g.length > 30 ? g.slice(0, 29) + "…" : g);
+    row.onclick = () => {
+      hidden.has(g) ? hidden.delete(g) : hidden.add(g);
+      row.className = hidden.has(g) ? "" : "on";
+    };
+    legend.append(row);
+  }
+  wrap.append(legend);
+
+  let inspector = null;
+  function paintInspector() {
+    inspector?.remove();
+    if (!selected) { inspector = null; return; }
+    const n = selected;
+    const f = factBySlug.get(n.id);
+    inspector = el("div", { className: "inspect" });
+    const close = el("button", { className: "x", textContent: "✕", onclick: () => { selected = null; paintInspector(); } });
+    inspector.append(close);
+    inspector.insertAdjacentHTML("beforeend",
+      "<h4>" + esc(n.id) + "</h4>" +
+      '<div class="meta">' + esc(n.group) + " · " + n.deg + " link" + (n.deg === 1 ? "" : "s") + "</div>" +
+      (f ? "<p>" + inline(f.statement) + "</p>" +
+           (f.consequence ? '<p class="so"><b>So:</b> ' + inline(f.consequence) + "</p>" : "") : ""));
+
+    const links = neighbours(n);
+    if (links.length) inspector.append(el("div", { className: "sect", style: "padding:12px 0 2px", textContent: "Linked" }));
+    for (const other of links.slice(0, 14)) {
+      inspector.append(el("button", { className: "lk", textContent: "→ " + other.id,
+        onclick: () => { selected = other; centreOn(other); paintInspector(); } }));
+    }
+
+    const row = el("div", { className: "row", style: "margin-top:12px" });
+    if (f) row.append(el("button", { className: "lk", style: "width:auto", textContent: "open in memory ↗",
+      onclick: () => { query = n.id; view = "memory"; render(); } }));
+    if (n.kind === "note") row.append(el("button", { className: "lk", style: "width:auto", textContent: "open note ↗",
+      onclick: () => { openFile = "memory/notes/" + n.id; view = "brain"; render(); } }));
+    inspector.append(row);
+    wrap.append(inspector);
+  }
 
   function size() {
     const r = canvas.getBoundingClientRect();
@@ -339,89 +434,149 @@ function drawGraph(canvas, s) {
   let rect = size();
   addEventListener("resize", () => { rect = size(); });
 
-  // A small force layout: repulsion between all nodes, springs along edges, gentle centring.
-  // Runs for a fixed number of ticks rather than forever, so an idle tab costs nothing.
-  let ticks = 0;
+  function visible(n) { return !hidden.has(n.group); }
+  function centreOn(n) { tx = -n.x * scale; ty = -n.y * scale; }
+  function fit() {
+    const vis = nodes.filter(visible);
+    if (!vis.length) return;
+    const xs = vis.map((n) => n.x), ys = vis.map((n) => n.y);
+    const w = Math.max(...xs) - Math.min(...xs) || 1, h = Math.max(...ys) - Math.min(...ys) || 1;
+    scale = Math.min(2.2, Math.max(0.2, Math.min(rect.width / (w + 160), rect.height / (h + 160))));
+    tx = -((Math.min(...xs) + w / 2)) * scale;
+    ty = -((Math.min(...ys) + h / 2)) * scale;
+  }
+
   function step() {
-    if (ticks++ > 420) return;
-    for (let i = 0; i < nodes.length; i++) {
-      const a = nodes[i];
-      for (let j = i + 1; j < nodes.length; j++) {
-        const b = nodes[j];
+    if (alpha < 0.005) return;
+    alpha *= 0.994;
+    const vis = nodes.filter(visible);
+
+    for (let i = 0; i < vis.length; i++) {
+      const a = vis[i];
+      for (let j = i + 1; j < vis.length; j++) {
+        const b = vis[j];
         let dx = b.x - a.x, dy = b.y - a.y;
         let d2 = dx * dx + dy * dy || 0.01;
-        if (d2 > 90000) continue;
-        const f = 620 / d2;
+        if (d2 > 250000) continue;
         const d = Math.sqrt(d2);
+        // Repulsion, plus a hard collision floor so circles never sit on top of each other.
+        const push = 5200 / d2;
+        const overlap = radius(a) + radius(b) + 16 - d;
+        const f = push + (overlap > 0 ? overlap * 0.34 : 0);
         const ux = dx / d, uy = dy / d;
         a.vx -= ux * f; a.vy -= uy * f; b.vx += ux * f; b.vy += uy * f;
       }
     }
     for (const e of edges) {
+      if (!visible(e.a) || !visible(e.b)) continue;
       const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
       const d = Math.hypot(dx, dy) || 0.01;
-      const f = (d - (e.inferred ? 120 : 78)) * 0.012;
+      const rest = e.inferred ? 190 : 120;
+      const f = (d - rest) * (e.inferred ? 0.006 : 0.017);
       const ux = dx / d, uy = dy / d;
       e.a.vx += ux * f; e.a.vy += uy * f; e.b.vx -= ux * f; e.b.vy -= uy * f;
     }
-    for (const n of nodes) {
-      n.vx -= n.x * 0.0016; n.vy -= n.y * 0.0016;
-      n.x += (n.vx *= 0.82); n.y += (n.vy *= 0.82);
+    for (const n of vis) {
+      const a = anchors.get(n.group);
+      if (a) { n.vx += (a.x - n.x) * 0.0075; n.vy += (a.y - n.y) * 0.0075; }
+      if (n.fixed || n === drag) { n.vx = n.vy = 0; continue; }
+      n.x += (n.vx *= 0.78); n.y += (n.vy *= 0.78);
     }
   }
 
   function draw() {
+    if (!document.body.contains(canvas)) return; // view switched away
     step();
     ctx.clearRect(0, 0, rect.width, rect.height);
     ctx.save();
     ctx.translate(rect.width / 2 + tx, rect.height / 2 + ty);
     ctx.scale(scale, scale);
 
+    const near = selected ? new Set([selected, ...neighbours(selected)]) : null;
     for (const e of edges) {
-      ctx.strokeStyle = css("--line");
-      ctx.globalAlpha = e.inferred ? 0.34 : 0.85;
-      ctx.lineWidth = e.inferred ? 0.6 : 1.1;
+      if (!visible(e.a) || !visible(e.b)) continue;
+      const lit = !near || (near.has(e.a) && near.has(e.b));
+      ctx.strokeStyle = lit && near ? css("--accent") : css("--line");
+      ctx.globalAlpha = near ? (lit ? 0.9 : 0.12) : e.inferred ? 0.3 : 0.75;
+      ctx.lineWidth = (e.inferred ? 0.7 : 1.3) / Math.max(1, scale * 0.7);
       ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); ctx.stroke();
     }
     ctx.globalAlpha = 1;
 
     for (const n of nodes) {
-      const r = 3 + Math.min(7, n.deg * 0.8);
-      ctx.fillStyle = css(COLOR[n.kind]);
-      ctx.globalAlpha = hover && hover !== n && !edges.some((e) => (e.a === hover && e.b === n) || (e.b === hover && e.a === n)) ? 0.25 : 1;
+      if (!visible(n)) continue;
+      const r = radius(n);
+      const dim = near && !near.has(n);
+      ctx.globalAlpha = dim ? 0.16 : 1;
+      ctx.fillStyle = n.color ?? css("--ink-faint");
       ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
-      if (scale > 0.75 && (n.deg > 2 || n === hover)) {
-        ctx.fillStyle = css("--ink-dim");
-        ctx.font = "10px ui-monospace,monospace";
-        ctx.globalAlpha = n === hover ? 1 : 0.75;
-        ctx.fillText(n.id.length > 26 ? n.id.slice(0, 25) + "…" : n.id, n.x + r + 3, n.y + 3);
+      if (n === selected || n === hover) {
+        ctx.strokeStyle = css("--ink"); ctx.lineWidth = 1.6 / scale;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r + 3.5, 0, 7); ctx.stroke();
+      }
+      const label = n === selected || n === hover || (scale > 0.85 && n.deg > 2) || scale > 1.5;
+      if (label && !dim) {
+        ctx.fillStyle = css(n === selected || n === hover ? "--ink" : "--ink-dim");
+        ctx.font = (n === selected ? "600 " : "") + Math.max(9, 11 / scale) + "px ui-monospace,monospace";
+        ctx.fillText(n.id.length > 28 ? n.id.slice(0, 27) + "…" : n.id, n.x + r + 4, n.y + 3.5);
       }
     }
     ctx.restore();
     requestAnimationFrame(draw);
   }
+  fit();
   draw();
 
-  const at = (ev) => {
+  const toWorld = (ev) => {
     const r = canvas.getBoundingClientRect();
-    const x = (ev.clientX - r.left - r.width / 2 - tx) / scale;
-    const y = (ev.clientY - r.top - r.height / 2 - ty) / scale;
-    return nodes.find((n) => Math.hypot(n.x - x, n.y - y) < 9 + n.deg * 0.6);
+    return {
+      x: (ev.clientX - r.left - r.width / 2 - tx) / scale,
+      y: (ev.clientY - r.top - r.height / 2 - ty) / scale,
+    };
   };
-  canvas.onmousedown = (e) => { dragging = true; lx = e.clientX; ly = e.clientY; };
-  addEventListener("mouseup", () => { dragging = false; });
-  canvas.onmousemove = (e) => {
-    if (dragging) { tx += e.clientX - lx; ty += e.clientY - ly; lx = e.clientX; ly = e.clientY; return; }
-    const h = at(e);
-    if (h !== hover) { hover = h; canvas.title = h ? h.id : ""; }
+  const at = (ev) => {
+    const p = toWorld(ev);
+    return nodes.filter(visible).find((n) => Math.hypot(n.x - p.x, n.y - p.y) < radius(n) + 6);
   };
-  canvas.onwheel = (e) => { e.preventDefault(); scale = Math.min(3, Math.max(0.25, scale * (e.deltaY < 0 ? 1.11 : 0.9))); };
-  canvas.onclick = (e) => {
-    const n = at(e);
-    if (!n) return;
-    if (n.kind === "note") { openFile = "memory/notes/" + n.id; view = "brain"; }
-    else { query = n.id; view = "memory"; }
-    render();
+
+  canvas.onpointerdown = (ev) => {
+    canvas.setPointerCapture(ev.pointerId);
+    moved = 0; lx = ev.clientX; ly = ev.clientY;
+    const n = at(ev);
+    if (n) { drag = n; n.fixed = true; alpha = Math.max(alpha, 0.35); }
+    else { panning = true; canvas.classList.add("grabbing"); }
+  };
+  canvas.onpointermove = (ev) => {
+    moved += Math.abs(ev.clientX - lx) + Math.abs(ev.clientY - ly);
+    if (drag) {
+      const p = toWorld(ev);
+      drag.x = p.x; drag.y = p.y; drag.vx = drag.vy = 0;
+    } else if (panning) {
+      tx += ev.clientX - lx; ty += ev.clientY - ly;
+    } else {
+      const h = at(ev);
+      if (h !== hover) { hover = h; canvas.classList.toggle("onnode", !!h); }
+    }
+    lx = ev.clientX; ly = ev.clientY;
+  };
+  canvas.onpointerup = (ev) => {
+    canvas.releasePointerCapture?.(ev.pointerId);
+    // A click is a press that did not travel. Anything further is a drag, and a drag must
+    // never also select — that was the "clicking a node opens a new page" complaint.
+    if (moved < 4) {
+      const n = at(ev);
+      selected = n && n !== selected ? n : null;
+      paintInspector();
+    }
+    if (drag) drag = null;
+    panning = false;
+    canvas.classList.remove("grabbing");
+  };
+  canvas.ondblclick = (ev) => { const n = at(ev); if (n) { n.fixed = false; alpha = Math.max(alpha, 0.4); } };
+  canvas.onwheel = (ev) => {
+    ev.preventDefault();
+    const k = ev.deltaY < 0 ? 1.12 : 0.89;
+    scale = Math.min(3.5, Math.max(0.15, scale * k));
   };
 }
 
@@ -432,20 +587,35 @@ function viewBrain(m) {
   m.append(el("p", { className: "sub", textContent:
     "Every file this staff member holds, grouped by the surfaces their manifest declares." }));
 
+  const filter = el("input", { type: "search", placeholder: "Filter files…", value: fileQuery });
+  const count = el("span", { className: "meta" });
+  m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [filter, count]));
+
   const split = el("div", { className: "split" });
   const tree = el("div", { className: "tree" });
   const viewer = el("div", { className: "viewer" });
   split.append(tree, viewer);
   m.append(split);
 
+  filter.oninput = () => { fileQuery = filter.value; paintTree(); };
+  paintTree();
+
+  function paintTree() {
+  const q = fileQuery.trim().toLowerCase();
+  tree.replaceChildren();
+  let shown = 0, total = 0;
   for (const surface of s.surfaces) {
+    const files = surface.files.filter((f) => !q || f.path.toLowerCase().includes(q));
+    total += surface.files.length;
+    shown += files.length;
+    if (!files.length) continue;
     tree.append(el("div", { className: "tdir", textContent: surface.path + "  (" + surface.render + ")" }));
-    if (surface.render === "gallery") {
+    if (surface.render === "gallery" && !q) {
       const b = el("button", { className: "tfile", textContent: "◹ view gallery" });
       b.onclick = () => showGallery(viewer, s, surface);
       tree.append(b);
     }
-    for (const f of surface.files.slice(0, 400)) {
+    for (const f of files.slice(0, 400)) {
       const b = el("button", { className: "tfile", title: f.path });
       b.append(f.path.replace(surface.path, ""));
       b.append(el("i", { textContent: kb(f.bytes) }));
@@ -453,6 +623,9 @@ function viewBrain(m) {
       b.onclick = () => { openFile = f.path; show(viewer, s, f); for (const o of tree.querySelectorAll(".tfile")) o.setAttribute("aria-current", "false"); b.setAttribute("aria-current", "true"); };
       tree.append(b);
     }
+  }
+  count.textContent = q ? shown + " of " + total + " files" : total + " files";
+  if (!shown) tree.append(el("p", { className: "empty", textContent: "Nothing matches." }));
   }
 
   const initial = s.surfaces.flatMap((x) => x.files).find((f) => f.path === openFile);
@@ -504,37 +677,109 @@ function showGallery(viewer, s, surface) {
 /* ------------------------------- changed ------------------------------ */
 function viewChanged(m) {
   const s = staff();
-  m.append(el("h1", { textContent: s.name + " · what changed" }));
+  m.append(el("h1", { textContent: s.handle.toUpperCase() + " · what changed" }));
   m.append(el("p", { className: "sub", textContent:
-    "What this agent learned and forgot over the last fortnight. Nothing else surfaces this." }));
+    "What this agent learned and forgot. Click any row to see the diff that did it." }));
 
-  if (!s.factsChanged.length) {
-    m.append(el("p", { className: "empty", textContent: "No memory changes in the window." }));
-  } else {
-    const byDay = new Map();
-    for (const c of s.factsChanged) {
-      const d = c.date.slice(0, 10);
-      if (!byDay.has(d)) byDay.set(d, []);
-      byDay.get(d).push(c);
-    }
-    for (const [day, items] of byDay) {
-      m.append(el("div", { className: "sect", style: "padding-left:0", textContent: day }));
-      for (const c of items) {
-        const d = el("div", { className: "fact" });
-        d.innerHTML = '<span class="' + (c.change === "added" ? "ok" : "err") + '" style="font:12px var(--mono)">' +
-          (c.change === "added" ? "+ " : "− ") + esc(c.slug) + '</span> <span class="meta">' + esc(c.sha) + "</span>";
-        m.append(d);
+  const filter = el("input", { type: "search", placeholder: "Filter by slug or commit…", value: changedQuery });
+  const only = el("select");
+  only.append(el("option", { value: "", textContent: "Everything" }),
+              el("option", { value: "added", textContent: "Learned" }),
+              el("option", { value: "removed", textContent: "Forgotten" }));
+  only.value = changedFilter;
+  m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [filter, only]));
+
+  const split = el("div", { className: "split" });
+  const list = el("div", { className: "tree" });
+  const viewer = el("div", { className: "viewer" });
+  split.append(list, viewer);
+  m.append(split);
+  viewer.append(el("p", { className: "empty", textContent: "Pick a change." }));
+
+  filter.oninput = () => { changedQuery = filter.value; paint(); };
+  only.onchange = () => { changedFilter = only.value; paint(); };
+  paint();
+
+  function paint() {
+    const q = changedQuery.trim().toLowerCase();
+    list.replaceChildren();
+
+    const facts = s.factsChanged.filter((c) =>
+      (!changedFilter || c.change === changedFilter) &&
+      (!q || (c.slug + " " + c.sha).toLowerCase().includes(q)));
+
+    if (facts.length) {
+      const byDay = new Map();
+      for (const c of facts) {
+        const d = c.date.slice(0, 10);
+        if (!byDay.has(d)) byDay.set(d, []);
+        byDay.get(d).push(c);
+      }
+      for (const [day, items] of byDay) {
+        list.append(el("div", { className: "tdir", textContent: day }));
+        for (const c of items) {
+          const b = el("button", { className: "tfile" });
+          b.innerHTML = '<span class="' + (c.change === "added" ? "ok" : "err") + '">' +
+            (c.change === "added" ? "+" : "−") + "</span> " + esc(c.slug) + "<i>" + esc(c.sha) + "</i>";
+          b.onclick = () => { markCurrent(list, b); showDiff(viewer, s, c.sha, "memory/INDEX.md", c.slug); };
+          list.append(b);
+        }
       }
     }
-  }
 
-  m.append(el("div", { className: "sect", style: "padding-left:0;margin-top:22px", textContent: "Recent commits" }));
-  for (const c of s.recentCommits.slice(0, 12)) {
-    m.append(el("div", { className: "fact" }, [
-      el("div", { textContent: c.subject }),
-      el("div", { className: "meta", textContent: c.sha + " · " + new Date(c.date).toLocaleString() + " · " + c.author }),
-    ]));
+    const commits = s.recentCommits.filter((c) => !q || (c.subject + " " + c.sha).toLowerCase().includes(q));
+    if (commits.length && !changedFilter) {
+      list.append(el("div", { className: "tdir", textContent: "commits" }));
+      for (const c of commits.slice(0, 25)) {
+        const b = el("button", { className: "tfile", title: c.subject });
+        b.append(c.subject.slice(0, 44));
+        b.append(el("i", { textContent: c.sha }));
+        b.onclick = () => { markCurrent(list, b); showDiff(viewer, s, c.sha, "", null); };
+        list.append(b);
+      }
+    }
+
+    if (!list.children.length) list.append(el("p", { className: "empty", textContent: "Nothing matches." }));
   }
+}
+
+function markCurrent(list, btn) {
+  for (const o of list.querySelectorAll(".tfile")) o.setAttribute("aria-current", "false");
+  btn.setAttribute("aria-current", "true");
+}
+
+async function showDiff(viewer, s, sha, path, highlight) {
+  viewer.replaceChildren(el("p", { className: "empty", textContent: "Loading diff…" }));
+  const url = "/api/diff?dir=" + encodeURIComponent(s.dir) + "&sha=" + encodeURIComponent(sha) +
+              (path ? "&path=" + encodeURIComponent(path) : "");
+  const res = await fetch(url);
+  if (!res.ok) { viewer.replaceChildren(el("p", { className: "empty err", textContent: "Could not load that diff." })); return; }
+  const text = await res.text();
+
+  // The first line is author\x1fdate\x1fsubject, prepended by the endpoint.
+  const nl = text.indexOf("\n");
+  const [author, date, subject] = text.slice(0, nl).split("\x1f");
+  const body = text.slice(nl + 1);
+
+  const head = el("div", { style: "margin-bottom:12px" }, [
+    el("div", { style: "font-weight:600", textContent: subject ?? sha }),
+    el("div", { className: "meta", textContent: sha + " · " + new Date(date).toLocaleString() + " · " + author }),
+  ]);
+
+  const pre = el("pre", { className: "diff" });
+  for (const line of body.split("\n")) {
+    const cls = line.startsWith("+++") || line.startsWith("---") ? "dmeta"
+      : line.startsWith("@@") ? "dhunk"
+      : line.startsWith("+") ? "dadd"
+      : line.startsWith("-") ? "ddel"
+      : line.startsWith("diff ") || line.startsWith("index ") ? "dmeta" : "";
+    const row = el("span", { className: "dline " + cls, textContent: line + "\n" });
+    if (highlight && line.includes("`" + highlight + "`")) row.classList.add("dfocus");
+    pre.append(row);
+  }
+  viewer.replaceChildren(head, pre);
+  const focus = pre.querySelector(".dfocus");
+  if (focus) focus.scrollIntoView({ block: "center" });
 }
 
 /* -------------------------------- health ------------------------------ */
@@ -566,6 +811,29 @@ function viewHealth(m) {
     m.append(d);
   }
 }
+
+/* Three states on purpose: "system" is the default and has to be reachable again after
+   someone has tried both others. */
+const THEMES = ["system", "light", "dark"];
+function store(k, v) { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch { return null; } }
+function applyTheme(name) {
+  if (name === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", name);
+  const b = $("#theme");
+  if (b) b.replaceChildren("Theme", el("span", { className: "n", textContent: name }));
+}
+function initTheme() {
+  let theme = store("roster.theme") ?? "system";
+  if (!THEMES.includes(theme)) theme = "system";
+  applyTheme(theme);
+  const b = $("#theme");
+  if (b) b.onclick = () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store("roster.theme", theme);
+    applyTheme(theme);
+  };
+}
+initTheme();
 
 boot().catch((e) => { $("#main").innerHTML = '<p class="empty err">' + esc(e.message) + "</p>"; });
 </script>

@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, extname } from "node:path";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
@@ -62,6 +63,27 @@ export async function portalCommand(argv: string[]): Promise<number> {
         const data = buildExport(ws, org as any, parseYaml);
         res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      if (url.pathname === "/api/diff") {
+        const dir = url.searchParams.get("dir") ?? "";
+        const sha = url.searchParams.get("sha") ?? "";
+        const path = url.searchParams.get("path") ?? "memory/INDEX.md";
+        // Both are attacker-controlled and both reach a command line, so neither is trusted:
+        // the directory must be a known staff repo and the sha must look like a sha.
+        const org = readOrg(ws.opsDir, parseYaml);
+        const known = (org.staff ?? []).map((s) => s.dir ?? s.handle);
+        if (!known.includes(dir) || !/^[0-9a-f]{7,40}$/i.test(sha)) {
+          res.writeHead(400).end("bad request");
+          return;
+        }
+        const out = execFileSync("git", ["-C", join(ws.root, dir), "show", "--format=%an%x1f%aI%x1f%s", sha, "--", path], {
+          encoding: "utf8",
+          maxBuffer: 8 * 1024 * 1024,
+        });
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end(out);
         return;
       }
 

@@ -61,6 +61,9 @@ function makeNode(tag: string): any {
     getAttribute(k: string) {
       return node.attributes[k] ?? null;
     },
+    removeAttribute(k: string) {
+      delete node.attributes[k];
+    },
     addEventListener() {},
     querySelector: () => makeNode("div"),
     querySelectorAll: () => [],
@@ -73,6 +76,7 @@ function makeNode(tag: string): any {
 }
 
 function harness() {
+  const saved: Array<[string, string]> = [];
   const byId: Record<string, any> = {};
   for (const id of ["orgname", "stafflist", "viewlist", "main"]) byId[id] = makeNode("div");
   const navs: any[] = [];
@@ -81,11 +85,6 @@ function harness() {
     createElement: (t: string) => makeNode(t),
     querySelector(sel: string) {
       if (sel.startsWith("#")) return (byId[sel.slice(1)] ??= makeNode("div"));
-      if (sel === '[data-view="roster"]') {
-        const n = makeNode("button");
-        n.dataset.view = "roster";
-        return n;
-      }
       return makeNode("div");
     },
     querySelectorAll: (sel: string) => (sel === ".nav" ? navs : []),
@@ -100,6 +99,7 @@ function harness() {
     addEventListener() {},
     devicePixelRatio: 1,
     getComputedStyle: () => ({ getPropertyValue: () => "#000" }),
+    localStorage: { getItem: () => null, setItem: (k: string, v: string) => saved.push([k, v]) },
     Math,
     Date,
     JSON,
@@ -107,6 +107,7 @@ function harness() {
     encodeURIComponent,
     setTimeout,
     _byId: byId,
+    _saved: saved,
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
@@ -147,6 +148,17 @@ test("every view renders for every staff member", async () => {
       assert.doesNotThrow(() => s.render(), `${staff.handle}/${view} threw`);
     }
   }
+});
+
+test("the theme toggle cycles system → light → dark and persists", async () => {
+  const s = await renderAll();
+  const root = s.document.documentElement;
+  const btn = s._byId.theme;
+  assert.equal(root.getAttribute("data-theme"), null, "system uses the media query, not an attribute");
+  btn.onclick(); assert.equal(root.getAttribute("data-theme"), "light");
+  btn.onclick(); assert.equal(root.getAttribute("data-theme"), "dark");
+  btn.onclick(); assert.equal(root.getAttribute("data-theme"), null, "system must be reachable again");
+  assert.deepEqual(s._saved, [["roster.theme", "light"], ["roster.theme", "dark"], ["roster.theme", "system"]]);
 });
 
 test("inline() escapes markup before formatting it", async () => {
