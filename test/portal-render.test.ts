@@ -96,7 +96,30 @@ function harness(hash = "") {
 
   const sandbox: any = {
     document,
-    fetch: async () => ({ json: async () => ORG, text: async () => "sample" }),
+    fetch: async (u: string) => ({
+      ok: true,
+      json: async () =>
+        String(u).startsWith("/api/inbox")
+          ? {
+              repos: [{ name: "product", owner: "acme", role: "product" }],
+              fetchedAt: new Date().toISOString(),
+              errors: [],
+              items: [
+                { repo: "acme/product", role: "product", kind: "pr", number: 7, title: "A pull request",
+                  labels: ["build"], assignees: [], author: "bot", updatedAt: new Date().toISOString(),
+                  url: "https://example.invalid/7", checks: "passing" },
+                { repo: "acme/brain", role: "brain", kind: "issue", number: 3, title: "Needs a ruling",
+                  labels: ["decision"], assignees: [String(ORG.human.github)], author: "bot",
+                  updatedAt: new Date().toISOString(), url: "https://example.invalid/3" },
+              ],
+            }
+          : String(u).startsWith("/api/thread")
+            ? { title: "Needs a ruling", body: "# Head\n\n- a point\n\n`code` and **bold**",
+                author: "bot", createdAt: new Date().toISOString(), url: "https://example.invalid/3",
+                state: "OPEN", comments: [{ author: "will", createdAt: new Date().toISOString(), body: "ok" }] }
+            : ORG,
+      text: async () => "sample",
+    }),
     requestAnimationFrame: () => 0,
     addEventListener() {},
     devicePixelRatio: 1,
@@ -194,6 +217,22 @@ test("an unknown handle in the hash does not strand the page", async () => {
   const s = await renderAll("#/nobody/memory");
   assert.equal(s.staffHandle, ORG.staff[0].handle, "should fall back to the first staff member");
   assert.ok(s._byId.main.children.length > 0, "and still render");
+});
+
+test("the inbox renders, groups by repo and counts what is on the human", async () => {
+  const s = await renderAll("#/x/inbox");
+  assert.equal(s.view, "inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(s._byId.main.children.length > 0, "inbox rendered nothing");
+  assert.equal(s.INBOX.items.length, 2);
+});
+
+test("mdlite escapes before it formats", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("<script>alert(1)</script> **b** `c` # Head\n- item");
+  assert.ok(!out.includes("<script>"), "raw markup must not survive an issue body");
+  assert.ok(out.includes("&lt;script&gt;"));
+  assert.ok(out.includes("<b>b</b>") && out.includes("<code>c</code>"));
 });
 
 test("inline() escapes markup before formatting it", async () => {
