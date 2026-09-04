@@ -235,6 +235,39 @@ test("mdlite escapes before it formats", async () => {
   assert.ok(out.includes("<b>b</b>") && out.includes("<code>c</code>"));
 });
 
+test("mdlite renders tables, which is most of what a status issue is", async () => {
+  const s = await renderAll();
+  // Without this the pinned issues render as a wall of pipes, which is what a screenshot
+  // of the first version showed.
+  const out = s.mdlite([
+    "| | The ask |",
+    "|---|---|",
+    "| [#113](https://example.invalid/113) | **Merge first.** The `fast-uri` pin. |",
+    "| #114 | Merge. Second row. |",
+  ].join("\n"));
+  assert.ok(out.includes("<table>"), "no table produced");
+  assert.equal((out.match(/<tr>/g) ?? []).length, 3, "header plus two rows");
+  assert.ok(out.includes("<b>Merge first.</b>"), "inline formatting inside a cell");
+  assert.ok(out.includes("<code>fast-uri</code>"));
+  assert.ok(out.includes('href="https://example.invalid/113"'));
+  assert.ok(!/^\s*\|/m.test(out), "no raw pipes should survive");
+});
+
+test("mdlite handles the rest of an issue body without leaking pipes or markers", async () => {
+  const s = await renderAll();
+  const out = s.mdlite([
+    "## Heading", "", "> a quote", "", "- [ ] unticked", "- [x] ticked",
+    "1. first", "", "```", "code | with | pipes", "```", "", "---", "",
+    "a paragraph that", "wraps over two source lines",
+  ].join("\n"));
+  assert.ok(out.includes("class='ch h2'"));
+  assert.ok(out.includes("<blockquote>"));
+  assert.ok(out.includes("☐") && out.includes("☑"));
+  assert.ok(out.includes("<hr>"));
+  assert.ok(out.includes("code | with | pipes"), "pipes inside a fence are content, not a table");
+  assert.ok(out.includes("a paragraph that wraps over two source lines"), "hard wraps should join");
+});
+
 test("inline() escapes markup before formatting it", async () => {
   const s = await renderAll();
   const out = s.inline('<img src=x onerror=alert(1)> **bold** `code` [[a-slug]]');
