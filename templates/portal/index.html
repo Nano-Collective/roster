@@ -174,14 +174,55 @@ const VIEWS = [
   ["health", "Health"],
 ];
 
-let DATA = null;
-let staffHandle = null;
-let view = "memory";
-let query = "";
-let openFile = null;
-let fileQuery = "";
-let changedQuery = "";
-let changedFilter = "";
+// `var` rather than `let` on purpose: these are the page's state, and a classic script's
+// top-level `let` is not reachable as a global, which makes the state untestable.
+var DATA = null;
+var staffHandle = null;
+var view = "memory";
+var query = "";
+var openFile = null;
+var fileQuery = "";
+var changedQuery = "";
+var changedFilter = "";
+
+/* The URL is the state, so a refresh lands where you were and a link is shareable.
+   Changing staff or view pushes; typing in a filter replaces, so a search does not
+   bury the back button under one entry per keystroke. */
+var applyingHash = false;
+
+function readHash() {
+  const raw = (location.hash || "").replace(/^#\/?/, "");
+  if (!raw) return null;
+  const [path, qs] = raw.split("?");
+  const [handle, v] = path.split("/");
+  const params = new URLSearchParams(qs || "");
+  return { handle, view: v, q: params.get("q") || "", f: params.get("f") || null };
+}
+
+function writeHash(push) {
+  if (applyingHash || !staffHandle) return;
+  const params = new URLSearchParams();
+  const q = view === "brain" ? fileQuery : view === "changed" ? changedQuery : query;
+  if (q) params.set("q", q);
+  if (view === "brain" && openFile) params.set("f", openFile);
+  const qs = params.toString();
+  const next = "#/" + staffHandle + "/" + view + (qs ? "?" + qs : "");
+  if (location.hash === next) return;
+  if (history.pushState) history[push ? "pushState" : "replaceState"](null, "", next);
+  else location.hash = next;
+}
+
+function applyHash() {
+  const h = readHash();
+  if (!h) return false;
+  const known = DATA.staff.some((s) => s.handle === h.handle);
+  if (known) staffHandle = h.handle;
+  if (VIEWS.some(([id]) => id === h.view)) view = h.view;
+  if (view === "brain") { fileQuery = h.q; openFile = h.f; }
+  else if (view === "changed") changedQuery = h.q;
+  else query = h.q;
+  return known;
+}
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (t, props = {}, kids = []) => {
@@ -221,6 +262,13 @@ async function boot() {
     b.dataset.view = id;
     return b;
   }));
+  applyHash();
+  addEventListener("hashchange", () => {
+    applyingHash = true;
+    applyHash();
+    applyingHash = false;
+    render();
+  });
   render();
 }
 
@@ -229,6 +277,7 @@ function render() {
     if (b.dataset.staff) b.setAttribute("aria-current", String(b.dataset.staff === staffHandle));
     if (b.dataset.view) b.setAttribute("aria-current", String(b.dataset.view === view));
   }
+  writeHash(true);
   const m = $("#main");
   m.replaceChildren();
   ({ memory: viewMemory, graph: viewGraph, brain: viewBrain, changed: viewChanged, health: viewHealth }[view] ?? viewMemory)(m);
@@ -242,7 +291,7 @@ function viewMemory(m) {
     s.facts.length + " facts across " + s.sections.length + " sections, " + s.notes.length + " notes. Read in full at every boot." }));
 
   const search = el("input", { type: "search", placeholder: "Search facts…", value: query });
-  search.oninput = (e) => { query = e.target.value; renderList(); };
+  search.oninput = (e) => { query = e.target.value; writeHash(false); renderList(); };
   const sel = el("select");
   sel.append(el("option", { value: "", textContent: "All sections" }),
     ...s.sections.map((x) => el("option", { value: x, textContent: x })));
@@ -727,7 +776,7 @@ function viewBrain(m) {
   split.append(tree, viewer);
   m.append(split);
 
-  filter.oninput = () => { fileQuery = filter.value; paintTree(); };
+  filter.oninput = () => { fileQuery = filter.value; writeHash(false); paintTree(); };
   paintTree();
 
   function paintTree() {
@@ -750,7 +799,7 @@ function viewBrain(m) {
       b.append(f.path.replace(surface.path, ""));
       b.append(el("i", { textContent: kb(f.bytes) }));
       b.setAttribute("aria-current", String(openFile === f.path));
-      b.onclick = () => { openFile = f.path; show(viewer, s, f); for (const o of tree.querySelectorAll(".tfile")) o.setAttribute("aria-current", "false"); b.setAttribute("aria-current", "true"); };
+      b.onclick = () => { openFile = f.path; writeHash(false); show(viewer, s, f); for (const o of tree.querySelectorAll(".tfile")) o.setAttribute("aria-current", "false"); b.setAttribute("aria-current", "true"); };
       tree.append(b);
     }
   }
@@ -826,7 +875,7 @@ function viewChanged(m) {
   m.append(split);
   viewer.append(el("p", { className: "empty", textContent: "Pick a change." }));
 
-  filter.oninput = () => { changedQuery = filter.value; paint(); };
+  filter.oninput = () => { changedQuery = filter.value; writeHash(false); paint(); };
   only.onchange = () => { changedFilter = only.value; paint(); };
   paint();
 
