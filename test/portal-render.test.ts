@@ -75,8 +75,10 @@ function makeNode(tag: string): any {
   return node;
 }
 
-function harness() {
+function harness(hash = "") {
   const saved: Array<[string, string]> = [];
+  const pushes: string[] = [];
+  const replaces: string[] = [];
   const byId: Record<string, any> = {};
   for (const id of ["orgname", "stafflist", "viewlist", "main"]) byId[id] = makeNode("div");
   const navs: any[] = [];
@@ -100,6 +102,12 @@ function harness() {
     devicePixelRatio: 1,
     getComputedStyle: () => ({ getPropertyValue: () => "#000" }),
     localStorage: { getItem: () => null, setItem: (k: string, v: string) => saved.push([k, v]) },
+    location: { hash },
+    history: {
+      pushState(_a: unknown, _b: unknown, url: string) { sandbox.location.hash = url; pushes.push(url); },
+      replaceState(_a: unknown, _b: unknown, url: string) { sandbox.location.hash = url; replaces.push(url); },
+    },
+    URLSearchParams,
     Math,
     Date,
     JSON,
@@ -108,14 +116,16 @@ function harness() {
     setTimeout,
     _byId: byId,
     _saved: saved,
+    _pushes: pushes,
+    _replaces: replaces,
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   return sandbox;
 }
 
-async function renderAll() {
-  const sandbox = harness();
+async function renderAll(hash = "") {
+  const sandbox = harness(hash);
   vm.createContext(sandbox);
   vm.runInContext(SCRIPT, sandbox, { filename: "portal.js" });
   // boot() is async and kicked off at load; wait for the fetch microtasks to settle.
@@ -135,6 +145,7 @@ test("every view renders and produces content", async () => {
   for (const view of ["memory", "graph", "brain", "changed", "health", "roster"]) {
     s.view = view;
     assert.doesNotThrow(() => s.render(), `${view} threw`);
+    assert.equal(s.view, view, "the harness must actually be driving the page's state");
     assert.ok(s._byId.main.children.length > 0, `${view} rendered nothing`);
   }
 });
@@ -159,6 +170,30 @@ test("the theme toggle cycles system → light → dark and persists", async () 
   btn.onclick(); assert.equal(root.getAttribute("data-theme"), "dark");
   btn.onclick(); assert.equal(root.getAttribute("data-theme"), null, "system must be reachable again");
   assert.deepEqual(s._saved, [["roster.theme", "light"], ["roster.theme", "dark"], ["roster.theme", "system"]]);
+});
+
+test("the URL carries the state, so a refresh lands where you were", async () => {
+  const s = await renderAll();
+  assert.match(s.location.hash, /^#\/[a-z]+\/memory$/, "boot should record staff and view");
+
+  s.view = "graph";
+  s.render();
+  assert.match(s.location.hash, /\/graph$/);
+  assert.ok(s._pushes.length >= 2, "a view change belongs in history");
+});
+
+test("a hash restores staff, view and filter on load", async () => {
+  const handle = (ORG.staff[1] ?? ORG.staff[0]).handle;
+  const s = await renderAll("#/" + handle + "/changed?q=drills");
+  assert.equal(s.staffHandle, handle);
+  assert.equal(s.view, "changed");
+  assert.equal(s.changedQuery, "drills");
+});
+
+test("an unknown handle in the hash does not strand the page", async () => {
+  const s = await renderAll("#/nobody/memory");
+  assert.equal(s.staffHandle, ORG.staff[0].handle, "should fall back to the first staff member");
+  assert.ok(s._byId.main.children.length > 0, "and still render");
 });
 
 test("inline() escapes markup before formatting it", async () => {
