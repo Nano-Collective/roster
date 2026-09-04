@@ -105,12 +105,12 @@ function harness(hash = "") {
               fetchedAt: new Date().toISOString(),
               errors: [],
               items: [
-                { repo: "acme/product", role: "product", kind: "pr", number: 7, title: "A pull request",
-                  labels: ["build"], assignees: [], author: "bot", updatedAt: new Date().toISOString(),
+                { repo: "acme/product", role: "product", kind: "pr", number: 7, title: "An older pull request",
+                  labels: ["build"], assignees: [], author: "bot", updatedAt: "2026-01-01T00:00:00Z",
                   url: "https://example.invalid/7", checks: "passing" },
                 { repo: "acme/brain", role: "brain", kind: "issue", number: 3, title: "Needs a ruling",
                   labels: ["decision"], assignees: [String(ORG.human.github)], author: "bot",
-                  updatedAt: new Date().toISOString(), url: "https://example.invalid/3" },
+                  updatedAt: "2026-06-01T00:00:00Z", url: "https://example.invalid/3" },
               ],
             }
           : String(u).startsWith("/api/thread")
@@ -225,6 +225,43 @@ test("the inbox renders, groups by repo and counts what is on the human", async 
   await new Promise((r) => setTimeout(r, 20));
   assert.ok(s._byId.main.children.length > 0, "inbox rendered nothing");
   assert.equal(s.INBOX.items.length, 2);
+});
+
+test("selecting a row deselects the previous one", async () => {
+  // The screenshot bug: markCurrent cleared .tfile while the inbox rows are .irow, so every
+  // row that had ever been clicked stayed highlighted.
+  const s = await renderAll();
+  const rows = [0, 1, 2].map(() => {
+    const b = s.document.createElement("button");
+    b.setAttribute("aria-current", "false");
+    return b;
+  });
+  const list = { querySelectorAll: (sel: string) => (sel === '[aria-current="true"]' ? rows.filter((r) => r.getAttribute("aria-current") === "true") : []) };
+  s.markCurrent(list, rows[0]);
+  s.markCurrent(list, rows[1]);
+  s.markCurrent(list, rows[2]);
+  assert.deepEqual(rows.map((r) => r.getAttribute("aria-current")), ["false", "false", "true"]);
+});
+
+test("the inbox renders newest first", async () => {
+  // The fixture is deliberately supplied oldest-first, so a list that just echoes the API
+  // order would fail this.
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+
+  const rows: string[] = [];
+  const walk = (n: any) => {
+    if (!n || typeof n !== "object") return;
+    if (typeof n.innerHTML === "string" && n.innerHTML.includes("class=\"ititle\"")) rows.push(n.innerHTML);
+    for (const c of n.children ?? []) walk(c);
+  };
+  walk(s._byId.main);
+
+  assert.equal(rows.length, 2, "expected both fixture rows to render");
+  const [first, second] = rows as [string, string];
+  assert.ok(first.includes("Needs a ruling"), "the newer item must come first");
+  assert.ok(second.includes("An older pull request"));
+  assert.ok(first.includes("brain"), "each row should name its project");
 });
 
 test("mdlite escapes before it formats", async () => {
