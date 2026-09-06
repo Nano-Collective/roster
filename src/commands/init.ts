@@ -23,6 +23,8 @@ roster init --org <github-org> [--name "Acme"] [--human <login>] [--apply]
   --marker <tag>    provenance tag on a fact they ruled on. Defaults to the login's first part.
   --dir <path>      where to create the workspace. Defaults to the current directory.
   --ops <name>      ops repo name. Defaults to roster-ops.
+  --agent <id>      coding agent: claude-code-action (default), claude, codex, nanocoder,
+                    or any id you describe yourself in org.yaml.
   --apply           actually create it
 
   After this: \`roster hire <handle>\` for the first staff member, then \`roster app <handle>\`.
@@ -53,7 +55,7 @@ export async function initCommand(argv: string[]): Promise<number> {
     return 2;
   }
 
-  const files = initFiles({ org: opts.org, name, human, marker, opsName });
+  const files = initFiles({ org: opts.org, name, human, marker, opsName, agent: opts.agent });
 
   process.stdout.write(`\n  roster init — ${name} (${opts.org})\n\n`);
   process.stdout.write(`    ops repo    ${opts.org}/${opsName}\n`);
@@ -119,18 +121,18 @@ export async function initCommand(argv: string[]): Promise<number> {
  * a temp directory. That end-to-end run is the plan's own acceptance test for this phase, and
  * it is the only thing that proves a brand new org is coherent rather than merely plausible.
  */
-export function initFiles(o: { org: string; name: string; human: string; marker: string; opsName: string }): Map<string, string> {
+export function initFiles(o: { org: string; name: string; human: string; marker: string; opsName: string; agent?: string }): Map<string, string> {
   const files = new Map<string, string>();
   for (const rel of templateFiles(opsTemplateDir())) {
     files.set(rel, readFileSync(join(opsTemplateDir(), rel), "utf8"));
   }
-  files.set("org.yaml", orgYaml(o));
+  files.set("org.yaml", orgYaml({ ...o, agent: o.agent ?? "claude-code-action" }));
   files.set("org/business.md", businessStub(o.name, o.org));
   files.set(".roster-version", stamp() + "\n");
   return files;
 }
 
-function orgYaml(o: { org: string; name: string; human: string; marker: string; opsName: string }): string {
+function orgYaml(o: { org: string; name: string; human: string; marker: string; opsName: string; agent: string }): string {
   return `# The org manifest. Read at the top of every composed prompt.
 # Kept deliberately simple: compose.mjs parses a small, strict YAML subset, and a manifest
 # that needs more than this has outgrown being a manifest.
@@ -146,6 +148,13 @@ human:
   role: founder
 
 experiment_private: true
+
+# Which coding agent runs a session. roster knows nothing about any particular one: a runner is
+# an install command, a run command, and the env var carrying its credential. Presets ship for
+# claude-code-action (this one, the reference), claude, codex and nanocoder — and anything else
+# works by writing the three fields out longhand. See agents.mjs.
+agent:
+  id: ${o.agent}
 
 defaults:
   model: claude-opus-5
@@ -230,7 +239,7 @@ function git(cwd: string, args: string[]) {
 
 interface Flags {
   org?: string; name?: string; human?: string; marker?: string;
-  dir?: string; ops?: string; apply?: boolean;
+  dir?: string; ops?: string; agent?: string; apply?: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
@@ -246,6 +255,7 @@ function parseFlags(argv: string[]): Flags {
     else if (flag === "--marker") out.marker = value;
     else if (flag === "--dir") out.dir = value;
     else if (flag === "--ops") out.ops = value;
+    else if (flag === "--agent") out.agent = value;
     else throw new Error(`unknown flag ${flag}`);
   }
   return out;

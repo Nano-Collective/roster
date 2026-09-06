@@ -37,6 +37,8 @@ export interface StaffSpec {
   app: string;
   publicApp: string;
   publicTokenEnv: string;
+  /** The repo secret holding the agent's credential, named after the credential itself. */
+  agentSecret: string;
 }
 
 export interface OrgSpec {
@@ -90,6 +92,7 @@ export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
     APP: s.app,
     PUBLIC_APP: s.publicApp,
     PUBLIC_TOKEN_ENV: s.publicTokenEnv,
+    AGENT_SECRET: s.agentSecret,
   };
 }
 
@@ -200,5 +203,6 @@ export function specFromManifest(m: Record<string, any>, dir: string): StaffSpec
     app: String(priv.app ?? ""),
     publicApp: String(pub.app ?? ""),
     publicTokenEnv: String(m.public_token_env ?? "PUBLIC_TOKEN"),
+    agentSecret: String(m.agent_secret ?? "CLAUDE_CODE_OAUTH_TOKEN"),
   };
 }

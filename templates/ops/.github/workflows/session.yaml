@@ -57,8 +57,13 @@ on:
         required: false
       PUBLIC_APP_PRIVATE_KEY:
         required: false
+      # The agent's credential. Which one a caller passes depends on the agent it runs:
+      # AGENT_TOKEN is the general form, CLAUDE_CODE_OAUTH_TOKEN the name the reference runner
+      # has always used. Neither is required on its own, and exactly one has to be present.
+      AGENT_TOKEN:
+        required: false
       CLAUDE_CODE_OAUTH_TOKEN:
-        required: true
+        required: false
 
 permissions:
   contents: read
@@ -225,13 +230,34 @@ jobs:
              "repo":"${{ github.repository }}",
              "actor":"${{ github.actor }}"}
         run: |
+          node roster-ops/compose.mjs --staff "${{ inputs.staff }}" --kind "${{ inputs.kind }}" --ops roster-ops --brains . > .roster-prompt.txt
           {
             echo 'text<<ROSTER_PROMPT_5f3a9c'
-            node roster-ops/compose.mjs --staff "${{ inputs.staff }}" --kind "${{ inputs.kind }}" --ops roster-ops --brains .
+            cat .roster-prompt.txt
             echo 'ROSTER_PROMPT_5f3a9c'
           } >> "$GITHUB_OUTPUT"
 
+      # A caller may pass its credential under either name. Checked here so a missing one is an
+      # immediate, obvious failure rather than an authentication error from inside the agent,
+      # forty lines into a log, after the checkout has already happened.
+      - name: Check the agent has a credential
+        env:
+          A: ${{ secrets.AGENT_TOKEN }}
+          B: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$A" ] && [ -z "$B" ]; then
+            echo "::error::the caller passed no agent credential. Expected AGENT_TOKEN." >&2
+            exit 1
+          fi
+
+      - name: Work out which agent runs this
+        id: agent
+        run: node roster-ops/agents.mjs --staff "${{ inputs.staff }}" --ops roster-ops --brains . >> "$GITHUB_OUTPUT"
+
+      # `uses:` cannot be an expression, so an Action-based runner has to be written out
+      # literally. This is the reference one; every other agent goes through the step below.
       - name: Run the session
+        if: steps.agent.outputs.kind == 'action'
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ steps.private.outputs.token }}
@@ -239,7 +265,7 @@ jobs:
           # Kept as an alias while charters and memory still name it. Retire once they do not.
           PIPWEB_TOKEN: ${{ steps.public.outputs.token }}
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.AGENT_TOKEN }}
           # These repos are private and single-user, so the usual reason to hide a run's output does
           # not apply, and hiding it turns any failure into "is_error: true" with no message.
           # Registered secrets are still masked by the runner.
@@ -252,6 +278,41 @@ jobs:
             --model ${{ inputs.model }}
             --allowedTools "${{ inputs.allowed_tools }}"
           prompt: ${{ steps.compose.outputs.text }}
+
+      # Any agent with a command line. The prompt is handed over as a file, never as an
+      # argument: it is thousands of words containing quotes and backticks, and argv limits and
+      # shell quoting fail at 07:00 rather than in review.
+      - name: Run the session
+        if: steps.agent.outputs.kind == 'cli'
+        env:
+          GH_TOKEN: ${{ steps.private.outputs.token }}
+          PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
+          PIPWEB_TOKEN: ${{ steps.public.outputs.token }}
+          AGENT_MODEL: ${{ steps.agent.outputs.model || inputs.model }}
+          AGENT_TOOLS: ${{ inputs.allowed_tools }}
+          AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          TOKEN_ENV: ${{ steps.agent.outputs.token_env }}
+          INSTALL: ${{ steps.agent.outputs.install }}
+          RUN: ${{ steps.agent.outputs.run }}
+        run: |
+          set -euo pipefail
+          TOKEN="${AGENT_TOKEN:-$FALLBACK_TOKEN}"
+          if [ -z "$TOKEN" ]; then
+            echo "::error::no credential. Pass AGENT_TOKEN from the caller." >&2
+            exit 1
+          fi
+          # The env var name is the agent's, so it is set here rather than declared above:
+          # an `env:` key cannot be an expression.
+          export "$TOKEN_ENV=$TOKEN"
+          export AGENT_PROMPT_FILE="$PWD/.roster-prompt.txt"
+
+          if [ -n "$INSTALL" ]; then
+            echo "::group::install ${{ steps.agent.outputs.id }}"
+            eval "$INSTALL"
+            echo "::endgroup::"
+          fi
+          eval "$RUN"
 
       # A failed unattended run is otherwise a red X in a tab nobody opens. New in the roster
       # migration, and deliberate: every failure path should end somewhere a human reads.
