@@ -1,3 +1,9 @@
+---
+title: "Cost"
+description: "What an agent-run org spends, and on what."
+sidebar_order: 12
+---
+
 # Cost
 
 Three separate bills, and they behave differently.

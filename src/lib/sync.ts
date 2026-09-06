@@ -33,7 +33,8 @@ async function syncOne(path: string, dir: string): Promise<SyncResult> {
   const base: SyncResult = { dir, behind: 0, ahead: 0, dirty: false, pulled: false };
   if (!existsSync(join(path, ".git"))) return { ...base, skipped: "no-remote" };
 
-  const git = async (...args: string[]) => (await run("git", ["-C", path, ...args], { encoding: "utf8" })).stdout.trim();
+  const git = async (...args: string[]) =>
+    (await run("git", ["-C", path, ...args], { encoding: "utf8" })).stdout.trim();
 
   try {
     const remotes = await git("remote");

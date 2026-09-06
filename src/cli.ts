@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-import { promptCommand, promptHelp } from "./commands/prompt.js";
+import { appCommand, appHelp } from "./commands/app.js";
+import { doctorCommand, doctorHelp } from "./commands/doctor.js";
+import { exportCommand, exportHelp } from "./commands/export.js";
+import { hireCommand, hireHelp } from "./commands/hire.js";
+import { initCommand, initHelp } from "./commands/init.js";
 import { lintCommand, lintHelp } from "./commands/lint.js";
 import { portalCommand, portalHelp } from "./commands/portal.js";
-import { exportCommand, exportHelp } from "./commands/export.js";
+import { promptCommand, promptHelp } from "./commands/prompt.js";
 import { upgradeCommand, upgradeHelp } from "./commands/upgrade.js";
-import { doctorCommand, doctorHelp } from "./commands/doctor.js";
-import { hireCommand, hireHelp } from "./commands/hire.js";
-import { appCommand, appHelp } from "./commands/app.js";
-import { initCommand, initHelp } from "./commands/init.js";
 
 const HELP = `
 roster — an agent-run org, powered by GitHub
@@ -38,8 +38,15 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
 };
 
 const HELPS: Record<string, string> = {
-  init: initHelp, prompt: promptHelp, lint: lintHelp, upgrade: upgradeHelp, doctor: doctorHelp, hire: hireHelp, app: appHelp,
-  portal: portalHelp, export: exportHelp,
+  init: initHelp,
+  prompt: promptHelp,
+  lint: lintHelp,
+  upgrade: upgradeHelp,
+  doctor: doctorHelp,
+  hire: hireHelp,
+  app: appHelp,
+  portal: portalHelp,
+  export: exportHelp,
 };
 
 async function main(argv: string[]): Promise<number> {

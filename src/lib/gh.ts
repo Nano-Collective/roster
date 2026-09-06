@@ -35,7 +35,10 @@ export function api<T = unknown>(path: string, extra: string[] = []): Promise<Gh
 }
 
 /** A GraphQL query. `-f` pairs are passed as name=value. */
-export function graphql<T = unknown>(query: string, vars: Record<string, string>): Promise<GhResult<T>> {
+export function graphql<T = unknown>(
+  query: string,
+  vars: Record<string, string>,
+): Promise<GhResult<T>> {
   const args = ["api", "graphql", "-f", `query=${query}`];
   for (const [k, v] of Object.entries(vars)) args.push("-F", `${k}=${v}`);
   return ghJson<T>(args);
@@ -50,7 +53,11 @@ function httpStatus(stderr: string): number | undefined {
 function tidy(stderr: string): string {
   const msg = /"message"\s*:\s*"([^"]+)"/.exec(stderr);
   if (msg) return msg[1]!;
-  const first = stderr.split("\n").map((l) => l.trim()).filter(Boolean)[0] ?? "unknown error";
+  const first =
+    stderr
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)[0] ?? "unknown error";
   return first.replace(/^gh:\s*/, "").slice(0, 160);
 }
 

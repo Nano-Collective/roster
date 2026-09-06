@@ -1,3 +1,9 @@
+---
+title: "The portal"
+description: "Every view and every action."
+sidebar_order: 17
+---
+
 # The portal
 
 ```bash

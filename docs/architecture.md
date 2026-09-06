@@ -1,3 +1,9 @@
+---
+title: "Architecture"
+description: "What happens during a run, and the constraint that decided the design."
+sidebar_order: 20
+---
+
 # Architecture
 
 What actually happens, and why it is shaped this way.

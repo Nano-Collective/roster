@@ -80,7 +80,8 @@ export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
     MENTION: s.mention,
     STATUS_ISSUE: String(s.statusIssue),
     WORKS_IN: s.worksIn.length
-      ? "\n" + s.worksIn.map((r) => `  - { repo: ${r}, role: contributor, checkout: true }`).join("\n")
+      ? "\n" +
+        s.worksIn.map((r) => `  - { repo: ${r}, role: contributor, checkout: true }`).join("\n")
       : " []",
     SCHEDULE: s.schedule,
     MODEL: s.model,
@@ -104,7 +105,10 @@ export function render(text: string, tokens: Record<string, string>, where = "te
   const lines = text.split("\n");
   const kept: string[] = [];
   for (let i = 0; i < lines.length; i++) {
-    if (!lines[i]!.includes(NOTE)) { kept.push(lines[i]!); continue; }
+    if (!lines[i]!.includes(NOTE)) {
+      kept.push(lines[i]!);
+      continue;
+    }
     // Take the separator that introduced the note with it, rather than leaving a bare "#".
     while (kept.length && /^\s*#\s*$/.test(kept[kept.length - 1]!)) kept.pop();
   }
@@ -123,7 +127,7 @@ export function render(text: string, tokens: Record<string, string>, where = "te
   if (missing.size) {
     throw new Error(
       `${where}: no value for ${[...missing].map((m) => `%%${m}%%`).join(", ")}.\n` +
-      `Known tokens: ${Object.keys(tokens).sort().join(", ")}`,
+        `Known tokens: ${Object.keys(tokens).sort().join(", ")}`,
     );
   }
   return out;
@@ -180,7 +184,8 @@ export function nextSlot(existing: string[], gapMinutes = 40): string | null {
  * org defaults, say — and the CTO's deliberate 90-minute ceiling reads as something to revert.
  */
 export function specFromManifest(m: Record<string, any>, dir: string): StaffSpec {
-  const identity = (scope: string) => (m.identities ?? []).find((i: any) => i?.scope === scope) ?? {};
+  const identity = (scope: string) =>
+    (m.identities ?? []).find((i: any) => i?.scope === scope) ?? {};
   const priv = identity("private");
   const pub = identity("public");
   return {

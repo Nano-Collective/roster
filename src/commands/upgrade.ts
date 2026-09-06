@@ -1,12 +1,23 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 import { merge3 } from "../lib/merge.js";
-import { classify, classifyBrain, opsTemplateDir, templateFiles, type TemplateClass } from "../lib/templates.js";
-import { brainTemplateDir, renderTree, specFromManifest, tokensFor, type OrgSpec } from "../lib/render.js";
+import {
+  brainTemplateDir,
+  type OrgSpec,
+  renderTree,
+  specFromManifest,
+  tokensFor,
+} from "../lib/render.js";
+import {
+  classify,
+  classifyBrain,
+  opsTemplateDir,
+  type TemplateClass,
+  templateFiles,
+} from "../lib/templates.js";
+import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 
 export const upgradeHelp = `
 roster upgrade [--apply] [--check] [--baseline <git-ref>]
@@ -124,7 +135,9 @@ export function plan(rel: string, tplDir: string, seedDir: string, opsDir: strin
   }
   if (base === null) {
     return {
-      rel, kind, verdict: "no-base",
+      rel,
+      kind,
+      verdict: "no-base",
       note: "differs, and there is no recorded base to merge against",
     };
   }
@@ -135,8 +148,12 @@ export function plan(rel: string, tplDir: string, seedDir: string, opsDir: strin
        conflict at best. Reported even though there is nothing to write, because being quiet
        here is how a fix gets applied to a tenant and silently lost later. */
     return kind === "managed"
-      ? { rel, kind, verdict: "edited-managed",
-          note: "edited here, but the framework owns it — move your change upstream" }
+      ? {
+          rel,
+          kind,
+          verdict: "edited-managed",
+          note: "edited here, but the framework owns it — move your change upstream",
+        }
       : { rel, kind, verdict: "local", note: "your own version; the framework has not changed it" };
   }
   if (base === current) {
@@ -146,23 +163,35 @@ export function plan(rel: string, tplDir: string, seedDir: string, opsDir: strin
   const { text, conflicts } = merge3(current, base, incoming);
   if (conflicts === 0) {
     return {
-      rel, kind,
+      rel,
+      kind,
       verdict: kind === "managed" ? "edited-managed" : "merged",
-      note: kind === "managed"
-        ? "merged, but this is a framework file — move your change upstream"
-        : "merged with your changes",
+      note:
+        kind === "managed"
+          ? "merged, but this is a framework file — move your change upstream"
+          : "merged with your changes",
       next: text,
     };
   }
   return {
-    rel, kind, verdict: "conflict", conflicts, rejected: text,
+    rel,
+    kind,
+    verdict: "conflict",
+    conflicts,
+    rejected: text,
     note: `${conflicts} conflict${conflicts === 1 ? "" : "s"}`,
   };
 }
 
 const GLYPH: Record<Verdict, string> = {
-  same: "✓", added: "+", updated: "↑", local: "=", merged: "~",
-  conflict: "✗", "no-base": "?", "edited-managed": "!",
+  same: "✓",
+  added: "+",
+  updated: "↑",
+  local: "=",
+  merged: "~",
+  conflict: "✗",
+  "no-base": "?",
+  "edited-managed": "!",
 };
 
 function report(ws: { opsName: string }, plans: FilePlan[], opts: Flags) {
@@ -190,13 +219,13 @@ function report(ws: { opsName: string }, plans: FilePlan[], opts: Flags) {
   if (n("no-base")) {
     process.stdout.write(
       "\n  No base was recorded for some files, so they cannot be merged. Reconstruct one\n" +
-      "  from the framework's history with:  roster upgrade --baseline <git-ref>\n",
+        "  from the framework's history with:  roster upgrade --baseline <git-ref>\n",
     );
   }
   if (n("edited-managed")) {
     process.stdout.write(
       "\n  A framework file edited in the tenant will be merged on every upgrade until the\n" +
-      "  change moves into the framework's own copy. That is how a fix gets quietly reverted.\n",
+        "  change moves into the framework's own copy. That is how a fix gets quietly reverted.\n",
     );
   }
   process.stdout.write("\n");
@@ -216,7 +245,10 @@ export function apply(opsDir: string, seedDir: string, tplDir: string, plans: Fi
       left++;
       continue;
     }
-    if (p.verdict === "no-base") { left++; continue; }
+    if (p.verdict === "no-base") {
+      left++;
+      continue;
+    }
     if (p.next === undefined) {
       // Nothing to write, but the base still advances when the framework has not moved.
       if (p.verdict === "same") seed(seedDir, tplDir, p.rel);
@@ -252,9 +284,15 @@ function writeBaseline(opsDir: string, seedDir: string, tplDir: string, ref: str
   const framework = join(tplDir, "..", "..");
   let files: string[];
   try {
-    files = execFileSync("git", ["-C", framework, "ls-tree", "-r", "--name-only", `${ref}:templates/ops`], {
-      encoding: "utf8",
-    }).split("\n").filter(Boolean);
+    files = execFileSync(
+      "git",
+      ["-C", framework, "ls-tree", "-r", "--name-only", `${ref}:templates/ops`],
+      {
+        encoding: "utf8",
+      },
+    )
+      .split("\n")
+      .filter(Boolean);
   } catch {
     process.stderr.write(`roster: cannot read templates/ops at "${ref}" in ${framework}\n`);
     return 2;
@@ -263,7 +301,8 @@ function writeBaseline(opsDir: string, seedDir: string, tplDir: string, ref: str
   rmSync(seedDir, { recursive: true, force: true });
   for (const rel of files) {
     const text = execFileSync("git", ["-C", framework, "show", `${ref}:templates/ops/${rel}`], {
-      encoding: "utf8", maxBuffer: 16 * 1024 * 1024,
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
     });
     const dest = join(seedDir, rel);
     mkdirSync(dirname(dest), { recursive: true });
@@ -273,8 +312,8 @@ function writeBaseline(opsDir: string, seedDir: string, tplDir: string, ref: str
 
   process.stdout.write(
     `\n  Recorded ${files.length} files as the base, from the framework at ${ref}.\n` +
-    `  Written to ${join(opsDir, ".roster", "seed")} — commit it; it is what makes the next\n` +
-    "  upgrade a merge rather than a copy.\n\n  Now run: roster upgrade\n\n",
+      `  Written to ${join(opsDir, ".roster", "seed")} — commit it; it is what makes the next\n` +
+      "  upgrade a merge rather than a copy.\n\n  Now run: roster upgrade\n\n",
   );
   return 0;
 }
@@ -282,15 +321,26 @@ function writeBaseline(opsDir: string, seedDir: string, tplDir: string, ref: str
 /** What the tenant was last upgraded to. A label for humans; .roster/seed is the truth. */
 function stamp(): string {
   try {
-    return execFileSync("git", ["-C", join(opsTemplateDir(), "..", ".."), "rev-parse", "--short", "HEAD"], {
-      encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    return execFileSync(
+      "git",
+      ["-C", join(opsTemplateDir(), "..", ".."), "rev-parse", "--short", "HEAD"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
   } catch {
     return "unknown";
   }
 }
 
-interface Flags { apply?: boolean; check?: boolean; ops?: string; baseline?: string; verbose?: boolean }
+interface Flags {
+  apply?: boolean;
+  check?: boolean;
+  ops?: string;
+  baseline?: string;
+  verbose?: boolean;
+}
 
 function parseFlags(argv: string[]): Flags {
   const out: Flags = {};
@@ -306,7 +356,6 @@ function parseFlags(argv: string[]): Flags {
   if (out.apply && out.check) throw new Error("--apply and --check do different jobs; pick one");
   return out;
 }
-
 
 /* ------------------------------ brain repos ------------------------------ */
 
@@ -362,10 +411,16 @@ export function planBrains(ws: Workspace, parseYaml: ParseYaml): BrainPlan[] {
 
     let want: Map<string, string>;
     try {
-      const spec = specFromManifest(parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any, dir);
+      const spec = specFromManifest(
+        parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any,
+        dir,
+      );
       want = renderTree(brainTemplateDir(), tokensFor(orgSpec, spec));
     } catch (err) {
-      out.push({ ...base, problem: `cannot render: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}` });
+      out.push({
+        ...base,
+        problem: `cannot render: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`,
+      });
       continue;
     }
 
@@ -383,9 +438,11 @@ export function planBrains(ws: Workspace, parseYaml: ParseYaml): BrainPlan[] {
       }
       if (kind === "scaffold") continue; // theirs from the moment it was written
       const have = readFileSync(live, "utf8");
-      base.files.push(have === text
-        ? { rel, kind, verdict: "same" }
-        : { rel, kind, verdict: "regenerate", next: text, diff: unified(have, text) });
+      base.files.push(
+        have === text
+          ? { rel, kind, verdict: "same" }
+          : { rel, kind, verdict: "regenerate", next: text, diff: unified(have, text) },
+      );
     }
     out.push(base);
   }
@@ -399,8 +456,11 @@ function unified(before: string, after: string): string {
     writeFileSync(join(dir, "a"), before);
     writeFileSync(join(dir, "b"), after);
     try {
-      execFileSync("diff", ["-u", "--label", "yours", "--label", "generated", join(dir, "a"), join(dir, "b")],
-        { encoding: "utf8" });
+      execFileSync(
+        "diff",
+        ["-u", "--label", "yours", "--label", "generated", join(dir, "a"), join(dir, "b")],
+        { encoding: "utf8" },
+      );
       return "";
     } catch (err) {
       const out = String((err as { stdout?: string }).stdout ?? "");

@@ -1,3 +1,9 @@
+---
+title: "Memory"
+description: "The grammar, the five rules, and why deleting is the maintenance."
+sidebar_order: 7
+---
+
 # Memory
 
 A staff member's memory is markdown in its own repository. There is no database, deliberately:

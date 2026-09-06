@@ -1,3 +1,9 @@
+---
+title: "Working on roster itself"
+description: "Layout, template classes, and the rules that matter."
+sidebar_order: 22
+---
+
 # Working on roster itself
 
 ```bash

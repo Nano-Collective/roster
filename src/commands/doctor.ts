@@ -1,10 +1,10 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
-import { parseMemory } from "../lib/memory.js";
-import { planAll } from "./upgrade.js";
-import { opsTemplateDir } from "../lib/templates.js";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
+import { parseMemory } from "../lib/memory.js";
+import { opsTemplateDir } from "../lib/templates.js";
+import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
+import { planAll } from "./upgrade.js";
 
 export const doctorHelp = `
 roster doctor [handle] [--offline] [--json]
@@ -84,7 +84,9 @@ export async function doctorCommand(argv: string[]): Promise<number> {
   }
 
   if (opts.json) {
-    process.stdout.write(JSON.stringify({ org: result.org.org, findings: result.findings }, null, 2) + "\n");
+    process.stdout.write(
+      JSON.stringify({ org: result.org.org, findings: result.findings }, null, 2) + "\n",
+    );
   } else {
     report(result.org, result.findings, result.online, opts.offline === true);
   }
@@ -95,13 +97,20 @@ async function gate(found: Finding[]): Promise<boolean> {
   const who = await ghReady();
   if (!who.ok) {
     found.push({
-      scope: "workspace", level: "warn", id: "gh",
+      scope: "workspace",
+      level: "warn",
+      id: "gh",
       title: who.error ?? "gh is unavailable",
       fix: "Everything needing the network was skipped. Re-run with --offline to hide this.",
     });
     return false;
   }
-  found.push({ scope: "workspace", level: "ok", id: "gh", title: `gh authenticated as ${who.data!.login}` });
+  found.push({
+    scope: "workspace",
+    level: "ok",
+    id: "gh",
+    title: `gh authenticated as ${who.data!.login}`,
+  });
   return true;
 }
 
@@ -120,13 +129,17 @@ function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
   const scope = "workspace";
 
   out.push({
-    scope, level: "ok", id: "org.yaml",
+    scope,
+    level: "ok",
+    id: "org.yaml",
     title: `org.yaml names ${org.repos?.length ?? 0} repos and ${org.staff?.length ?? 0} staff`,
   });
 
   if (!org.human?.github) {
     out.push({
-      scope, level: "fail", id: "human",
+      scope,
+      level: "fail",
+      id: "human",
       title: "org.yaml has no human.github",
       fix: "The mention callers gate on this login. Without it nothing can wake an agent.",
     });
@@ -142,23 +155,32 @@ function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
 
     for (const p of edited) {
       out.push({
-        scope, level: "fail", id: "upgrade.owned",
+        scope,
+        level: "fail",
+        id: "upgrade.owned",
         title: `${p.rel} is the framework's file but was edited here`,
         fix: "Move the change into roster's templates/ops, or the next upgrade reverts it.",
       });
     }
     if (stale.length) {
       out.push({
-        scope, level: "warn", id: "upgrade.stale",
+        scope,
+        level: "warn",
+        id: "upgrade.stale",
         title: `${stale.length} generated file${stale.length === 1 ? " is" : "s are"} behind the framework`,
         fix: "roster upgrade --apply",
       });
     }
     for (const p of unmergeable) {
       out.push({
-        scope, level: "warn", id: "upgrade.blocked",
+        scope,
+        level: "warn",
+        id: "upgrade.blocked",
         title: `${p.rel} cannot be merged: ${p.note}`,
-        fix: p.verdict === "no-base" ? "roster upgrade --baseline <git-ref>" : "Resolve the .roster-merge beside it.",
+        fix:
+          p.verdict === "no-base"
+            ? "roster upgrade --baseline <git-ref>"
+            : "Resolve the .roster-merge beside it.",
       });
     }
     if (!edited.length && !stale.length && !unmergeable.length) {
@@ -166,7 +188,9 @@ function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
     }
   } catch (err) {
     out.push({
-      scope, level: "warn", id: "upgrade",
+      scope,
+      level: "warn",
+      id: "upgrade",
       title: `could not compare against the framework: ${firstLine(err)}`,
       fix: "roster upgrade",
     });
@@ -200,59 +224,96 @@ async function checkStaff(
   const root = join(ws.root, dir);
 
   if (!existsSync(root)) {
-    return [{
-      scope, level: "fail", id: "checkout",
-      title: `${dir}/ is not checked out beside the ops repo`,
-      fix: `git clone the brain repo into ${ws.root}`,
-    }];
+    return [
+      {
+        scope,
+        level: "fail",
+        id: "checkout",
+        title: `${dir}/ is not checked out beside the ops repo`,
+        fix: `git clone the brain repo into ${ws.root}`,
+      },
+    ];
   }
 
   const manifestPath = join(root, "staff.yaml");
   let manifest: Manifest = {};
   if (!existsSync(manifestPath)) {
-    out.push({ scope, level: "fail", id: "manifest", title: "no staff.yaml", fix: "The manifest is the machine-readable half of the charter." });
+    out.push({
+      scope,
+      level: "fail",
+      id: "manifest",
+      title: "no staff.yaml",
+      fix: "The manifest is the machine-readable half of the charter.",
+    });
   } else {
     try {
       manifest = composer.parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as Manifest;
       if (manifest.handle !== entry.handle) {
         out.push({
-          scope, level: "fail", id: "manifest.handle",
+          scope,
+          level: "fail",
+          id: "manifest.handle",
           title: `staff.yaml says handle "${manifest.handle}", org.yaml says "${entry.handle}"`,
           fix: "The composer looks the staff member up by the org.yaml handle; a mismatch composes the wrong brain.",
         });
       }
       if (!manifest.brain) {
         out.push({
-          scope, level: "fail", id: "manifest.brain", title: "staff.yaml has no brain repo",
+          scope,
+          level: "fail",
+          id: "manifest.brain",
+          title: "staff.yaml has no brain repo",
           fix: "Nothing can find their tracker without it: no secrets check, no labels, no runs.",
         });
       }
     } catch (err) {
       out.push({
-        scope, level: "fail", id: "manifest", title: `staff.yaml does not parse: ${firstLine(err)}`,
+        scope,
+        level: "fail",
+        id: "manifest",
+        title: `staff.yaml does not parse: ${firstLine(err)}`,
         fix: "compose.mjs parses a small strict YAML subset; a manifest needing more has outgrown being one.",
       });
     }
   }
 
-  out.push(existsSync(join(root, "CHARTER.md"))
-    ? { scope, level: "ok", id: "charter", title: "CHARTER.md present" }
-    : { scope, level: "fail", id: "charter", title: "no CHARTER.md", fix: "The charter is the personality; nothing else supplies it." });
+  out.push(
+    existsSync(join(root, "CHARTER.md"))
+      ? { scope, level: "ok", id: "charter", title: "CHARTER.md present" }
+      : {
+          scope,
+          level: "fail",
+          id: "charter",
+          title: "no CHARTER.md",
+          fix: "The charter is the personality; nothing else supplies it.",
+        },
+  );
 
   // Memory
   const memDir = join(root, "memory");
   if (!existsSync(join(memDir, "INDEX.md"))) {
     out.push({
-      scope, level: "fail", id: "memory", title: "no memory/INDEX.md",
+      scope,
+      level: "fail",
+      id: "memory",
+      title: "no memory/INDEX.md",
       fix: "This is the file read at every boot. Without it the agent starts each day blank.",
     });
   } else {
     try {
       const doc = parseMemory(memDir);
-      out.push({ scope, level: "ok", id: "memory", title: `memory reads: ${doc.facts.length} facts, ${doc.notes.length} notes` });
+      out.push({
+        scope,
+        level: "ok",
+        id: "memory",
+        title: `memory reads: ${doc.facts.length} facts, ${doc.notes.length} notes`,
+      });
     } catch (err) {
       out.push({
-        scope, level: "fail", id: "memory", title: `memory/INDEX.md does not parse: ${firstLine(err)}`,
+        scope,
+        level: "fail",
+        id: "memory",
+        title: `memory/INDEX.md does not parse: ${firstLine(err)}`,
         fix: "roster lint",
       });
     }
@@ -263,17 +324,29 @@ async function checkStaff(
      compose without one, which is correct — so they are given a stand-in, exactly as the
      workflow supplies the real thing. Composing them with no context proves nothing except
      that they are strict. */
-  const CONTEXT = JSON.stringify({ issue_number: "1", comment_id: "1", pr_number: "1", repo: `${org.org}/example` });
+  const CONTEXT = JSON.stringify({
+    issue_number: "1",
+    comment_id: "1",
+    pr_number: "1",
+    repo: `${org.org}/example`,
+  });
   const before = process.env.ROSTER_CONTEXT;
   for (const kind of ["daily", "mention", "pr-mention"]) {
     try {
       if (kind === "daily") delete process.env.ROSTER_CONTEXT;
       else process.env.ROSTER_CONTEXT = CONTEXT;
-      const text = composer.compose({ opsDir: ws.opsDir, brainsDir: ws.root, staff: entry.handle, kind });
+      const text = composer.compose({
+        opsDir: ws.opsDir,
+        brainsDir: ws.root,
+        staff: entry.handle,
+        kind,
+      });
       if (!text.trim()) throw new Error("composed to nothing");
     } catch (err) {
       out.push({
-        scope, level: "fail", id: `compose.${kind}`,
+        scope,
+        level: "fail",
+        id: `compose.${kind}`,
         title: `the ${kind} prompt does not compose: ${firstLine(err)}`,
         fix: `roster prompt ${entry.handle} --kind ${kind}`,
       });
@@ -282,14 +355,21 @@ async function checkStaff(
   if (before === undefined) delete process.env.ROSTER_CONTEXT;
   else process.env.ROSTER_CONTEXT = before;
   if (!out.some((f) => f.id.startsWith("compose."))) {
-    out.push({ scope, level: "ok", id: "compose", title: "prompts compose for daily, mention and pr-mention" });
+    out.push({
+      scope,
+      level: "ok",
+      id: "compose",
+      title: "prompts compose for daily, mention and pr-mention",
+    });
   }
 
   // Callers, and whether they point at a reusable workflow that exists.
   const callers = readCallers(root);
   if (callers.length !== 3) {
     out.push({
-      scope, level: callers.length ? "warn" : "fail", id: "callers",
+      scope,
+      level: callers.length ? "warn" : "fail",
+      id: "callers",
       title: `${callers.length} caller workflow${callers.length === 1 ? "" : "s"}, expected 3 (daily, mention, pr-mention)`,
       fix: "A missing caller is a route that silently never fires. Compare against roster's templates/brain.",
     });
@@ -299,7 +379,10 @@ async function checkStaff(
     const used = /uses:\s*([^\s@]+)@(\S+)/.exec(c.text);
     if (!used) {
       out.push({
-        scope, level: "fail", id: "callers.uses", title: `${c.name} calls no reusable workflow`,
+        scope,
+        level: "fail",
+        id: "callers.uses",
+        title: `${c.name} calls no reusable workflow`,
         fix: "A caller with no `uses:` does nothing at all.",
       });
       continue;
@@ -307,7 +390,9 @@ async function checkStaff(
     const [, ref, at] = used;
     if (!ref!.startsWith(opsRepo + "/")) {
       out.push({
-        scope, level: "fail", id: "callers.uses",
+        scope,
+        level: "fail",
+        id: "callers.uses",
         title: `${c.name} calls ${ref}, but this org's ops repo is ${opsRepo}`,
         fix: "A private reusable workflow is only callable inside its own org, so this can never resolve.",
       });
@@ -315,9 +400,11 @@ async function checkStaff(
     const local = join(ws.opsDir, ref!.slice(opsRepo.length + 1));
     if (!existsSync(local)) {
       out.push({
-        scope, level: "fail", id: "callers.target",
+        scope,
+        level: "fail",
+        id: "callers.target",
         title: `${c.name} calls ${ref}@${at}, which does not exist in the ops repo`,
-        fix: "This fails at run time as a confusing \"workflow not found\".",
+        fix: 'This fails at run time as a confusing "workflow not found".',
       });
     }
   }
@@ -326,23 +413,30 @@ async function checkStaff(
   }
 
   // Surfaces the portal and the agent both expect to be able to open.
-  const missing = (manifest.surfaces ?? []).map((s) => s.path).filter((p) => p && !existsSync(join(root, p)));
+  const missing = (manifest.surfaces ?? [])
+    .map((s) => s.path)
+    .filter((p) => p && !existsSync(join(root, p)));
   if (missing.length) {
     out.push({
-      scope, level: "warn", id: "surfaces",
+      scope,
+      level: "warn",
+      id: "surfaces",
       title: `declared but not on disk: ${missing.join(", ")}`,
       fix: "Create them or drop them from staff.yaml; the portal renders nothing for a missing surface.",
     });
   }
 
   if (online && manifest.brain) {
-    out.push(...(await checkStaffOnline(scope, manifest, callers, org)));
+    out.push(...(await checkStaffOnline(scope, manifest, callers)));
   }
 
   return out;
 }
 
-interface Caller { name: string; text: string }
+interface Caller {
+  name: string;
+  text: string;
+}
 
 export interface Run {
   conclusion: string | null;
@@ -385,7 +479,10 @@ export function inferredCeiling(cancelled: Run[]): number | null {
   let best: number | null = null;
   let most = 1;
   for (const [minutes, n] of counts) {
-    if (n > most || (n === most && best !== null && minutes > best)) { best = minutes; most = n; }
+    if (n > most || (n === most && best !== null && minutes > best)) {
+      best = minutes;
+      most = n;
+    }
   }
   return most >= 2 ? best : null;
 }
@@ -412,12 +509,20 @@ async function checkOrgOnline(ws: Workspace, org: OrgFile): Promise<Finding[]> {
   seen.forEach((res, i) => {
     const r = repos[i]!;
     if (!res.ok) {
-      out.push({ scope, level: "fail", id: "repo", title: `${org.org}/${r.name} is unreachable: ${res.error}`, fix: "Either it does not exist, or your gh cannot see it." });
+      out.push({
+        scope,
+        level: "fail",
+        id: "repo",
+        title: `${org.org}/${r.name} is unreachable: ${res.error}`,
+        fix: "Either it does not exist, or your gh cannot see it.",
+      });
       return;
     }
     if (r.visibility && res.data!.visibility !== r.visibility) {
       out.push({
-        scope, level: "warn", id: "repo.visibility",
+        scope,
+        level: "warn",
+        id: "repo.visibility",
         title: `${r.name} is ${res.data!.visibility}, org.yaml says ${r.visibility}`,
         fix: "Correct org.yaml, or the visibility posture it records is fiction.",
       });
@@ -434,19 +539,29 @@ async function checkOrgOnline(ws: Workspace, org: OrgFile): Promise<Finding[]> {
   );
   if (!access.ok) {
     out.push({
-      scope, level: "warn", id: "actions-access",
+      scope,
+      level: "warn",
+      id: "actions-access",
       title: `could not read Actions access on ${ws.opsName}: ${access.error}`,
-      fix: "This needs admin on the ops repo. Until it is read, \"workflow not found\" stays unexplained.",
+      fix: 'This needs admin on the ops repo. Until it is read, "workflow not found" stays unexplained.',
     });
   } else if (access.data!.access_level !== "organization") {
     out.push({
-      scope, level: "fail", id: "actions-access",
+      scope,
+      level: "fail",
+      id: "actions-access",
       title: `${ws.opsName} Actions access is "${access.data!.access_level}", not "organization"`,
-      fix: `Settings → Actions → General → allow access from repositories in this organisation. ` +
-           `Until then every caller fails with "workflow not found".`,
+      fix:
+        `Settings → Actions → General → allow access from repositories in this organisation. ` +
+        `Until then every caller fails with "workflow not found".`,
     });
   } else {
-    out.push({ scope, level: "ok", id: "actions-access", title: `${ws.opsName} is callable from the whole org` });
+    out.push({
+      scope,
+      level: "ok",
+      id: "actions-access",
+      title: `${ws.opsName} is callable from the whole org`,
+    });
   }
 
   return out;
@@ -456,7 +571,6 @@ async function checkStaffOnline(
   scope: string,
   manifest: Manifest,
   callers: Caller[],
-  org: OrgFile,
 ): Promise<Finding[]> {
   const out: Finding[] = [];
   const repo = manifest.brain!;
@@ -470,48 +584,85 @@ async function checkStaffOnline(
   const [secrets, labels, runs, pinned] = await Promise.all([
     api<{ secrets: Array<{ name: string }> }>(`repos/${repo}/actions/secrets`),
     api<Array<{ name: string }>>(`repos/${repo}/labels?per_page=100`),
-    Promise.all(callers.map((c) =>
-      ghJson<Run[]>([
-        "run", "list", "--repo", repo, "--workflow", c.name, "--limit", "10",
-        "--json", "conclusion,status,createdAt,updatedAt",
-      ]).then((r) => ({ name: c.name, res: r })))),
+    Promise.all(
+      callers.map((c) =>
+        ghJson<Run[]>([
+          "run",
+          "list",
+          "--repo",
+          repo,
+          "--workflow",
+          c.name,
+          "--limit",
+          "10",
+          "--json",
+          "conclusion,status,createdAt,updatedAt",
+        ]).then((r) => ({ name: c.name, res: r })),
+      ),
+    ),
     manifest.status_issue
-      ? graphql<{ data: { repository: { pinnedIssues: { nodes: Array<{ issue: { number: number } }> } } } }>(
+      ? graphql<{
+          data: { repository: { pinnedIssues: { nodes: Array<{ issue: { number: number } }> } } };
+        }>(
           "query($owner:String!,$name:String!){repository(owner:$owner,name:$name){" +
-          "pinnedIssues(first:3){nodes{issue{number state}}}}}",
+            "pinnedIssues(first:3){nodes{issue{number state}}}}}",
           { owner: repo.split("/")[0]!, name: repo.split("/")[1]! },
         )
       : Promise.resolve(null),
   ]);
 
   if (!secrets.ok) {
-    out.push({ scope, level: "warn", id: "secrets", title: `cannot read secrets on ${repo}: ${secrets.error}`,
-      fix: "Secrets need admin on the repo; without it this check cannot run." });
+    out.push({
+      scope,
+      level: "warn",
+      id: "secrets",
+      title: `cannot read secrets on ${repo}: ${secrets.error}`,
+      fix: "Secrets need admin on the repo; without it this check cannot run.",
+    });
   } else {
     const have = new Set(secrets.data!.secrets.map((s) => s.name));
     const gone = [...needed].filter((n) => !have.has(n));
-    out.push(gone.length
-      ? {
-          scope, level: "fail", id: "secrets",
-          title: `missing on ${repo}: ${gone.join(", ")}`,
-          fix: "The callers reference these by name; a run dies at the token step without them.",
-        }
-      : { scope, level: "ok", id: "secrets", title: `all ${needed.size} referenced secrets present` });
+    out.push(
+      gone.length
+        ? {
+            scope,
+            level: "fail",
+            id: "secrets",
+            title: `missing on ${repo}: ${gone.join(", ")}`,
+            fix: "The callers reference these by name; a run dies at the token step without them.",
+          }
+        : {
+            scope,
+            level: "ok",
+            id: "secrets",
+            title: `all ${needed.size} referenced secrets present`,
+          },
+    );
   }
 
   if (!labels.ok) {
-    out.push({ scope, level: "warn", id: "labels", title: `cannot read labels on ${repo}: ${labels.error}`, fix: "Check your access to the repo." });
+    out.push({
+      scope,
+      level: "warn",
+      id: "labels",
+      title: `cannot read labels on ${repo}: ${labels.error}`,
+      fix: "Check your access to the repo.",
+    });
   } else {
     const have = new Set(labels.data!.map((l) => l.name));
     const declared = Object.values(manifest.labels ?? {}).flat();
     const gone = [...new Set(declared)].filter((l) => !have.has(l));
-    out.push(gone.length
-      ? {
-          scope, level: "warn", id: "labels",
-          title: `declared in staff.yaml but not on ${repo}: ${gone.join(", ")}`,
-          fix: "An agent applying a label that does not exist gets an API error mid-run.",
-        }
-      : { scope, level: "ok", id: "labels", title: "every declared label exists" });
+    out.push(
+      gone.length
+        ? {
+            scope,
+            level: "warn",
+            id: "labels",
+            title: `declared in staff.yaml but not on ${repo}: ${gone.join(", ")}`,
+            fix: "An agent applying a label that does not exist gets an API error mid-run.",
+          }
+        : { scope, level: "ok", id: "labels", title: "every declared label exists" },
+    );
   }
 
   /* A peer label lives on the *peer's* tracker, not here: `from-cto` is how the CTO marks an
@@ -519,34 +670,59 @@ async function checkStaffOnline(
      correctly wired pair as missing, which is worse than not checking at all. */
   const peers = (manifest.peers ?? []).filter((p) => p.label && p.brain);
   const peerLabels = await Promise.all(
-    peers.map((p) => api<Array<{ name: string }>>(`repos/${p.brain}/labels?per_page=100`)
-      .then((res) => ({ peer: p, res }))),
+    peers.map((p) =>
+      api<Array<{ name: string }>>(`repos/${p.brain}/labels?per_page=100`).then((res) => ({
+        peer: p,
+        res,
+      })),
+    ),
   );
   for (const { peer, res } of peerLabels) {
     if (!res.ok) {
-      out.push({ scope, level: "warn", id: "peer-labels", title: `cannot read labels on ${peer.brain}: ${res.error}`, fix: "Check your access to the peer repo." });
+      out.push({
+        scope,
+        level: "warn",
+        id: "peer-labels",
+        title: `cannot read labels on ${peer.brain}: ${res.error}`,
+        fix: "Check your access to the peer repo.",
+      });
       continue;
     }
     const has = res.data!.some((l) => l.name === peer.label);
-    out.push(has
-      ? { scope, level: "ok", id: "peer-labels", title: `"${peer.label}" exists on ${peer.brain}` }
-      : {
-          scope, level: "warn", id: "peer-labels",
-          title: `"${peer.label}" is missing from ${peer.brain}`,
-          fix: `${scope} labels its asks to ${peer.handle} with this; without it the write fails mid-run.`,
-        });
+    out.push(
+      has
+        ? {
+            scope,
+            level: "ok",
+            id: "peer-labels",
+            title: `"${peer.label}" exists on ${peer.brain}`,
+          }
+        : {
+            scope,
+            level: "warn",
+            id: "peer-labels",
+            title: `"${peer.label}" is missing from ${peer.brain}`,
+            fix: `${scope} labels its asks to ${peer.handle} with this; without it the write fails mid-run.`,
+          },
+    );
   }
 
   if (manifest.status_issue) {
-    const nodes = (pinned as { ok: boolean; data?: any } | null)?.data?.data?.repository?.pinnedIssues?.nodes ?? [];
+    const nodes =
+      (pinned as { ok: boolean; data?: any } | null)?.data?.data?.repository?.pinnedIssues?.nodes ??
+      [];
     const isPinned = nodes.some((n: any) => n?.issue?.number === manifest.status_issue);
-    out.push(isPinned
-      ? { scope, level: "ok", id: "status-issue", title: `#${manifest.status_issue} is pinned` }
-      : {
-          scope, level: "warn", id: "status-issue",
-          title: `#${manifest.status_issue} is declared as the status issue but is not pinned on ${repo}`,
-          fix: "Pin it, or the one place the human looks is not the one the agent maintains.",
-        });
+    out.push(
+      isPinned
+        ? { scope, level: "ok", id: "status-issue", title: `#${manifest.status_issue} is pinned` }
+        : {
+            scope,
+            level: "warn",
+            id: "status-issue",
+            title: `#${manifest.status_issue} is declared as the status issue but is not pinned on ${repo}`,
+            fix: "Pin it, or the one place the human looks is not the one the agent maintains.",
+          },
+    );
   }
 
   /* The headline. Nothing else here proves the app is installed *and* granted — that pair is
@@ -554,7 +730,13 @@ async function checkStaffOnline(
      just the last one. One bad run is noise; four in ten is the thing you wanted to know. */
   for (const { name, res } of runs) {
     if (!res.ok) {
-      out.push({ scope, level: "warn", id: "runs", title: `cannot read runs for ${name}: ${res.error}`, fix: "Without run history nothing here proves the app grant." });
+      out.push({
+        scope,
+        level: "warn",
+        id: "runs",
+        title: `cannot read runs for ${name}: ${res.error}`,
+        fix: "Without run history nothing here proves the app grant.",
+      });
       continue;
     }
     const all = res.data ?? [];
@@ -564,7 +746,9 @@ async function checkStaffOnline(
 
     if (!all.length) {
       out.push({
-        scope, level: "warn", id: "runs",
+        scope,
+        level: "warn",
+        id: "runs",
         title: `${name} has never run, so nothing has proved its app grant or secrets`,
         fix: "Trigger it once by hand before trusting it.",
       });
@@ -572,7 +756,9 @@ async function checkStaffOnline(
     }
     if (!real.length) {
       out.push({
-        scope, level: "warn", id: "runs",
+        scope,
+        level: "warn",
+        id: "runs",
         title: `${name}: ${all.length} recent triggers, all gated out before doing anything`,
         fix: "Nothing here has exercised the app grant. A skipped run proves only the trigger.",
       });
@@ -583,11 +769,13 @@ async function checkStaffOnline(
     // A ceiling in force when those runs happened, which may not be the one set today.
     const past = inferredCeiling(real.filter((r) => r.conclusion === "cancelled"));
     const killed = (r: Run) =>
-      isTimeout(r, timeout) || (past !== null && r.conclusion === "cancelled" && Math.abs(runMinutes(r) - past) < 1);
+      isTimeout(r, timeout) ||
+      (past !== null && r.conclusion === "cancelled" && Math.abs(runMinutes(r) - past) < 1);
 
     const timedOut = real.filter(killed);
-    const failed = real.filter((r) => !killed(r) &&
-      r.conclusion !== "success" && r.conclusion !== "cancelled");
+    const failed = real.filter(
+      (r) => !killed(r) && r.conclusion !== "success" && r.conclusion !== "cancelled",
+    );
     const cancelled = real.filter((r) => !killed(r) && r.conclusion === "cancelled");
     const ok = real.filter((r) => r.conclusion === "success");
     const ceiling = timedOut.length ? Math.round(runMinutes(timedOut[0]!)) : timeout;
@@ -597,34 +785,46 @@ async function checkStaffOnline(
        "cancelled, no idea why" and "the session no longer fits in its hour". */
     if (timedOut.length) {
       out.push({
-        scope, level: "fail", id: "runs.timeout",
-        title: `${name}: ${timedOut.length} of the last ${real.length} ran to a ${ceiling}m ceiling ` +
-               `and were killed (most recent ${ago(timedOut[0]!.createdAt)})` +
-               (ceiling !== timeout ? `; the caller now allows ${timeout}m` : ""),
-        fix: ceiling !== timeout
-          ? `Already raised to ${timeout}m — check the next scheduled run actually finishes.`
-          : "Those runs produced nothing. Raise timeout_minutes in the manifest, or shorten the work.",
+        scope,
+        level: "fail",
+        id: "runs.timeout",
+        title:
+          `${name}: ${timedOut.length} of the last ${real.length} ran to a ${ceiling}m ceiling ` +
+          `and were killed (most recent ${ago(timedOut[0]!.createdAt)})` +
+          (ceiling !== timeout ? `; the caller now allows ${timeout}m` : ""),
+        fix:
+          ceiling !== timeout
+            ? `Already raised to ${timeout}m — check the next scheduled run actually finishes.`
+            : "Those runs produced nothing. Raise timeout_minutes in the manifest, or shorten the work.",
       });
     }
     if (failed.length) {
       out.push({
-        scope, level: "fail", id: "runs",
-        title: `${name}: ${failed.length} of the last ${real.length} ${failed.length === 1 ? "run" : "runs"} failed ` +
-               `(most recent ${ago(failed[0]!.createdAt)})`,
+        scope,
+        level: "fail",
+        id: "runs",
+        title:
+          `${name}: ${failed.length} of the last ${real.length} ${failed.length === 1 ? "run" : "runs"} failed ` +
+          `(most recent ${ago(failed[0]!.createdAt)})`,
         fix: `gh run list --repo ${repo} --workflow ${name}`,
       });
     }
     if (cancelled.length) {
       out.push({
-        scope, level: "warn", id: "runs.cancelled",
-        title: `${name}: ${cancelled.length} of the last ${real.length} were cancelled ` +
-               `(${cancelled.map((r) => Math.round(runMinutes(r)) + "m").join(", ")})`,
+        scope,
+        level: "warn",
+        id: "runs.cancelled",
+        title:
+          `${name}: ${cancelled.length} of the last ${real.length} were cancelled ` +
+          `(${cancelled.map((r) => Math.round(runMinutes(r)) + "m").join(", ")})`,
         fix: `gh run list --repo ${repo} --workflow ${name}`,
       });
     }
     if (!timedOut.length && !failed.length && !cancelled.length) {
       out.push({
-        scope, level: "ok", id: "runs",
+        scope,
+        level: "ok",
+        id: "runs",
         title: `${name}: ${ok.length}/${real.length} recent runs succeeded, last ${ago(real[0]!.createdAt)}`,
       });
     }
@@ -672,7 +872,11 @@ function ago(iso: string): string {
   return `${Math.round(s / 86400)}d ago`;
 }
 
-export interface Flags { ops?: string; offline?: boolean; json?: boolean }
+export interface Flags {
+  ops?: string;
+  offline?: boolean;
+  json?: boolean;
+}
 
 function parseFlags(argv: string[]): Flags {
   const out: Flags = {};

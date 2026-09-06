@@ -1,14 +1,14 @@
-import { createServer } from "node:http";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join, resolve, extname } from "node:path";
-import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
+import { createServer } from "node:http";
+import { extname, join, resolve } from "node:path";
+import { type ActRequest, act } from "../lib/act.js";
+import { docPages, docsDir } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { syncRepos } from "../lib/sync.js";
-import { act, type ActRequest } from "../lib/act.js";
+import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { PORTAL_HTML } from "../portal/html.js";
-import { docsDir, docPages } from "../lib/docs.js";
 
 export const portalHelp = `
 roster portal
@@ -62,7 +62,11 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
   const knownRepos = () => {
     const org = readOrg(ws.opsDir, parseYaml) as any;
-    return (org.repos ?? []).map((r: any) => ({ name: r.name, owner: org.org, role: r.role ?? "repo" }));
+    return (org.repos ?? []).map((r: any) => ({
+      name: r.name,
+      owner: org.org,
+      role: r.role ?? "repo",
+    }));
   };
 
   /* A local server that can write to GitHub is reachable by any page in the browser, so a
@@ -92,7 +96,10 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
     try {
       if (url.pathname === "/") {
-        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+        res.writeHead(200, {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+        });
         res.end(PORTAL_HTML);
         return;
       }
@@ -122,7 +129,10 @@ export async function portalCommand(argv: string[]): Promise<number> {
         // including whatever an agent pushed thirty seconds ago.
         const org = readOrg(ws.opsDir, parseYaml);
         const data = buildExport(ws, org as any, parseYaml);
-        res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+        res.writeHead(200, {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-store",
+        });
         res.end(JSON.stringify(data));
         return;
       }
@@ -138,10 +148,14 @@ export async function portalCommand(argv: string[]): Promise<number> {
             const payload = JSON.parse(raw || "{}") as ActRequest;
             const org = readOrg(ws.opsDir, parseYaml) as any;
             const known = (org.repos ?? []).map((r: any) => `${org.org}/${r.name}`);
-            if (!known.includes(payload.repo)) throw new Error(`${payload.repo} is not a repo in org.yaml`);
+            if (!known.includes(payload.repo))
+              throw new Error(`${payload.repo} is not a repo in org.yaml`);
             const result = await act(payload);
             cache = null; // the inbox is now wrong
-            res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+            res.writeHead(200, {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            });
             res.end(JSON.stringify(result));
           })
           .catch((err) => {
@@ -157,7 +171,10 @@ export async function portalCommand(argv: string[]): Promise<number> {
         syncRepos(ws.root, dirs)
           .then((results) => {
             cache = null; // anything pulled invalidates the inbox too
-            res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+            res.writeHead(200, {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            });
             res.end(JSON.stringify({ results }));
           })
           .catch((err) => {
@@ -170,13 +187,20 @@ export async function portalCommand(argv: string[]): Promise<number> {
       if (url.pathname === "/api/inbox") {
         const fresh = url.searchParams.get("refresh") === "1";
         if (!fresh && cache && Date.now() - cache.at < TTL) {
-          res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+          res.writeHead(200, {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+          });
           res.end(cache.body);
           return;
         }
         fetchInbox(knownRepos())
           .then((data) => {
-            const body = JSON.stringify({ ...data, repos: knownRepos(), fetchedAt: new Date().toISOString() });
+            const body = JSON.stringify({
+              ...data,
+              repos: knownRepos(),
+              fetchedAt: new Date().toISOString(),
+            });
             cache = { at: Date.now(), body };
             res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
             res.end(body);
@@ -202,7 +226,10 @@ export async function portalCommand(argv: string[]): Promise<number> {
         fetchThread(repo, number, kind)
           .then((thread) => {
             cache = null;
-            res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+            res.writeHead(200, {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            });
             res.end(JSON.stringify(thread));
           })
           .catch((err) => {
@@ -224,10 +251,14 @@ export async function portalCommand(argv: string[]): Promise<number> {
           res.writeHead(400).end("bad request");
           return;
         }
-        const out = execFileSync("git", ["-C", join(ws.root, dir), "show", "--format=%an%x1f%aI%x1f%s", sha, "--", path], {
-          encoding: "utf8",
-          maxBuffer: 8 * 1024 * 1024,
-        });
+        const out = execFileSync(
+          "git",
+          ["-C", join(ws.root, dir), "show", "--format=%an%x1f%aI%x1f%s", sha, "--", path],
+          {
+            encoding: "utf8",
+            maxBuffer: 8 * 1024 * 1024,
+          },
+        );
         res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
         res.end(out);
         return;
@@ -238,7 +269,11 @@ export async function portalCommand(argv: string[]): Promise<number> {
         const full = resolve(ws.root, rel);
         // Everything the portal serves must live under the workspace. Without this a crafted
         // path walks straight out of it, and this server is trivially reachable on a LAN.
-        if (!full.startsWith(resolve(ws.root) + "/") || !existsSync(full) || statSync(full).isDirectory()) {
+        if (
+          !full.startsWith(resolve(ws.root) + "/") ||
+          !existsSync(full) ||
+          statSync(full).isDirectory()
+        ) {
           res.writeHead(404).end("not found");
           return;
         }
@@ -268,8 +303,13 @@ export async function portalCommand(argv: string[]): Promise<number> {
       done(1);
     });
     server.listen(port, host, () => {
-      const warn = host === "127.0.0.1" ? "" : `\n  ⚠ bound to ${host}: write actions are reachable from the network.\n`;
-      process.stdout.write(`\n  roster portal\n  http://localhost:${port}\n${warn}\n  workspace: ${ws.root}\n  Ctrl-C to stop.\n\n`);
+      const warn =
+        host === "127.0.0.1"
+          ? ""
+          : `\n  ⚠ bound to ${host}: write actions are reachable from the network.\n`;
+      process.stdout.write(
+        `\n  roster portal\n  http://localhost:${port}\n${warn}\n  workspace: ${ws.root}\n  Ctrl-C to stop.\n\n`,
+      );
     });
   });
 }

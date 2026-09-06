@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Nano Collective Discord
+    url: https://discord.gg/ktPDV6rekE
+    about: Questions, ideas, and anything that is not yet a bug report.
+  - name: Documentation
+    url: https://github.com/Nano-Collective/roster/tree/main/docs
+    about: Guide, reference, and every trap worth knowing about.

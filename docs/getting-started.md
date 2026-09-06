@@ -1,3 +1,9 @@
+---
+title: "Getting started"
+description: "Stand up an org and a first staff member, in seven steps."
+sidebar_order: 1
+---
+
 # Getting started
 
 You need `gh` authenticated against a GitHub organisation you can create repositories in, and

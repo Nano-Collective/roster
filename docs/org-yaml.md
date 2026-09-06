@@ -1,3 +1,9 @@
+---
+title: "org.yaml reference"
+description: "Every field in the org manifest, and what reads it."
+sidebar_order: 13
+---
+
 # `org.yaml` reference
 
 The org manifest. Lives at the root of the ops repo, and is read at the top of every composed

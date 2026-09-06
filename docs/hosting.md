@@ -1,3 +1,9 @@
+---
+title: "Hosting the portal"
+description: "Local is the default, and the honest options if you want it elsewhere."
+sidebar_order: 11
+---
+
 # Hosting the portal
 
 `roster portal` is local-first and that is the intended way to run it. It reads the checked-out

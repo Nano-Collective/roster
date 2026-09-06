@@ -77,7 +77,16 @@ export async function fetchInbox(
       try {
         const { stdout } = await run(
           "gh",
-          ["api", "graphql", "-f", `query=${QUERY}`, "-F", `owner=${r.owner}`, "-F", `name=${r.name}`],
+          [
+            "api",
+            "graphql",
+            "-f",
+            `query=${QUERY}`,
+            "-F",
+            `owner=${r.owner}`,
+            "-F",
+            `name=${r.name}`,
+          ],
           { maxBuffer: 48 * 1024 * 1024 },
         );
         const repo = JSON.parse(stdout)?.data?.repository;

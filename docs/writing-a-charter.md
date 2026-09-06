@@ -1,3 +1,9 @@
+---
+title: "Writing a charter"
+description: "The one file nothing can generate for you, and the shape that has worked."
+sidebar_order: 5
+---
+
 # Writing a charter
 
 The charter is the personality. It decides what a staff member does when nobody is watching,

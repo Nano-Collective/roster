@@ -1,6 +1,6 @@
 import { join } from "node:path";
+import { type LintProblem, lintMemory, parseMemory } from "../lib/memory.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
-import { parseMemory, lintMemory, type LintProblem } from "../lib/memory.js";
 
 export const lintHelp = `
 roster lint [handle]
@@ -38,7 +38,9 @@ export async function lintCommand(argv: string[]): Promise<number> {
       factCount = doc.facts.length;
       problems = lintMemory(doc, dir);
     } catch (err) {
-      process.stdout.write(`\n  ${s.name}  ✗ ${err instanceof Error ? err.message : String(err)}\n`);
+      process.stdout.write(
+        `\n  ${s.name}  ✗ ${err instanceof Error ? err.message : String(err)}\n`,
+      );
       errors++;
       continue;
     }
@@ -54,7 +56,9 @@ export async function lintCommand(argv: string[]): Promise<number> {
     process.stdout.write(`\n  ${badge} ${s.name}  ${factCount} facts\n`);
     for (const p of problems) {
       const where = p.line ? `INDEX.md:${p.line}` : "notes/";
-      process.stdout.write(`      ${p.level === "error" ? "error " : "warn  "} ${where.padEnd(15)} ${p.message}\n`);
+      process.stdout.write(
+        `      ${p.level === "error" ? "error " : "warn  "} ${where.padEnd(15)} ${p.message}\n`,
+      );
       process.stdout.write(`      ${" ".repeat(6)} ${" ".repeat(15)} (${p.rule})\n`);
     }
   }

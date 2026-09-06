@@ -1,7 +1,7 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { test } from "node:test";
 // The tenant vendors this file; the framework tests the same copy it ships.
 // @ts-expect-error - plain JS, no types by design
 import { parseYaml, render } from "../templates/ops/compose.mjs";
@@ -19,7 +19,9 @@ test("parses nested maps", () => {
 });
 
 test("parses a list of inline maps, which is how staff and repos are written", () => {
-  const y = parseYaml(`staff:\n  - { handle: cto, dir: technology }\n  - { handle: cmo, dir: marketing }`) as any;
+  const y = parseYaml(
+    `staff:\n  - { handle: cto, dir: technology }\n  - { handle: cmo, dir: marketing }`,
+  ) as any;
   assert.equal(y.staff.length, 2);
   assert.deepEqual(y.staff[0], { handle: "cto", dir: "technology" });
   assert.deepEqual(y.staff[1], { handle: "cmo", dir: "marketing" });
@@ -51,7 +53,10 @@ test("reports the file and line on failure", () => {
 
 test("renders placeholders and fails loudly on an unknown one", () => {
   const ctx = { a: { b: "x" } };
-  assert.equal(render("v={{a.b}}", ctx, () => null), "v=x");
+  assert.equal(
+    render("v={{a.b}}", ctx, () => null),
+    "v=x",
+  );
   assert.throws(() => render("{{a.nope}}", ctx, () => null), /unknown or empty placeholder/);
 });
 
@@ -74,7 +79,10 @@ test("an excluded block's partials are never read", () => {
 
 test("required partials throw, optional ones render empty", () => {
   assert.throws(() => render("{{> gone.md}}", {}, () => null), /partial not found/);
-  assert.equal(render("{{>? gone.md}}", {}, () => null), "");
+  assert.equal(
+    render("{{>? gone.md}}", {}, () => null),
+    "",
+  );
 });
 
 test("stops runaway includes instead of hanging the runner", () => {
@@ -83,7 +91,9 @@ test("stops runaway includes instead of hanging the runner", () => {
 
 test("the shipped org.yaml template parses", () => {
   // Guards against a template edit that composes locally and breaks in a runner.
-  const org = parseYaml(readFileSync(join(OPS, "..", "..", "..", "roster-ops", "org.yaml"), "utf8")) as any;
+  const org = parseYaml(
+    readFileSync(join(OPS, "..", "..", "..", "roster-ops", "org.yaml"), "utf8"),
+  ) as any;
   assert.equal(typeof org.org, "string");
   assert.ok(Array.isArray(org.staff) && org.staff.length > 0, "org.yaml must list staff");
   for (const s of org.staff) assert.ok(s.handle, "every staff entry needs a handle");

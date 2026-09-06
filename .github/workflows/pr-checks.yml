@@ -1,0 +1,20 @@
+name: PR checks
+
+# The collective's shared gate: lint, format, types, knip, coverage, build, dependency audit
+# and Semgrep. Kept as a call rather than a copy so a change to the collective's standard
+# reaches this project without anyone remembering to bring it across.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pr-checks:
+    uses: Nano-Collective/.github/.github/workflows/pr-checks.yml@main
+    with:
+      # The CLI is exercised end to end; the portal is one HTML file run in a vm shim, and the
+      # templates are rendered artefacts rather than source. Raise this as coverage grows.
+      coverage-threshold: 60
+      fail-on-coverage-drop: true
+      verify-build: true
+      build-output-dir: dist

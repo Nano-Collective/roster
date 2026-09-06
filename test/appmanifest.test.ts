@@ -1,6 +1,12 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildManifest, handoffPage, createApp, PERMISSIONS, type AppSpec } from "../src/lib/appmanifest.js";
+import { test } from "node:test";
+import {
+  type AppSpec,
+  buildManifest,
+  createApp,
+  handoffPage,
+  PERMISSIONS,
+} from "../src/lib/appmanifest.js";
 
 /**
  * The browser leg of this cannot be exercised here: creating a GitHub App needs a human to
@@ -27,7 +33,10 @@ test("the manifest asks for what an agent does and nothing more", () => {
   assert.equal(m.hook_attributes.active, false);
 
   assert.deepEqual(m.default_permissions, {
-    contents: "write", issues: "write", pull_requests: "write", metadata: "read",
+    contents: "write",
+    issues: "write",
+    pull_requests: "write",
+    metadata: "read",
   });
 });
 
@@ -42,7 +51,10 @@ test("a new App is not given permission to rewrite its own workflows", () => {
 
 test("the hand-off posts to the org's own settings page, carrying the state", () => {
   const page = handoffPage(SPEC, buildManifest(SPEC, "http://localhost:4310/callback"), "abc123");
-  assert.match(page, /action="https:\/\/github\.com\/organizations\/playpip\/settings\/apps\/new\?state=abc123"/);
+  assert.match(
+    page,
+    /action="https:\/\/github\.com\/organizations\/playpip\/settings\/apps\/new\?state=abc123"/,
+  );
   assert.match(page, /name="manifest"/);
   assert.match(page, /method="post"/);
   assert.match(page, /\.submit\(\)/, "it submits itself; there is nothing on it to read");
@@ -59,7 +71,10 @@ test("the manifest survives being embedded in an attribute", () => {
   const value = /name="manifest" value="([^"]*)"/.exec(page)?.[1];
   assert.ok(value, "the manifest must be in a value attribute the browser can read");
   const unescaped = value
-    .replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
   assert.deepEqual(JSON.parse(unescaped), manifest, "what GitHub receives must be what was built");
   assert.ok(!page.includes("<thing>"), "and the markup must not survive as markup");
 });
@@ -73,14 +88,23 @@ test("the manifest survives being embedded in an attribute", () => {
  * happens during `drive`, and an `await` attached afterwards is too late — node calls it an
  * unhandled rejection and fails the run.
  */
-async function withFlow(port: number, drive: (base: string, state: string) => Promise<void>): Promise<Error | null> {
-  const outcome = createApp({ ...SPEC }, { port, noOpen: true, log: () => {} })
-    .then(() => null, (err: Error) => err);
+async function withFlow(
+  port: number,
+  drive: (base: string, state: string) => Promise<void>,
+): Promise<Error | null> {
+  const outcome = createApp({ ...SPEC }, { port, noOpen: true, log: () => {} }).then(
+    () => null,
+    (err: Error) => err,
+  );
   const base = `http://localhost:${port}`;
 
   let page = "";
   for (let i = 0; i < 40 && !page; i++) {
-    try { page = await (await fetch(base + "/")).text(); } catch { await new Promise((r) => setTimeout(r, 25)); }
+    try {
+      page = await (await fetch(base + "/")).text();
+    } catch {
+      await new Promise((r) => setTimeout(r, 25));
+    }
   }
   const state = /state=([a-f0-9]+)"/.exec(page)?.[1] ?? "";
   assert.ok(state, "the hand-off page must carry a state");
@@ -118,11 +142,22 @@ test("nothing else on the server answers", async () => {
 });
 
 test("the port being taken is an error, not a hang", async () => {
-  const first = createApp(SPEC, { port: 4364, noOpen: true, log: () => {} }).then(() => null, (e: Error) => e);
+  const first = createApp(SPEC, { port: 4364, noOpen: true, log: () => {} }).then(
+    () => null,
+    (e: Error) => e,
+  );
   for (let i = 0; i < 40; i++) {
-    try { await fetch("http://localhost:4364/"); break; } catch { await new Promise((r) => setTimeout(r, 25)); }
+    try {
+      await fetch("http://localhost:4364/");
+      break;
+    } catch {
+      await new Promise((r) => setTimeout(r, 25));
+    }
   }
-  const clash = await createApp(SPEC, { port: 4364, noOpen: true, log: () => {} }).then(() => null, (e: Error) => e);
+  const clash = await createApp(SPEC, { port: 4364, noOpen: true, log: () => {} }).then(
+    () => null,
+    (e: Error) => e,
+  );
   assert.match(clash?.message ?? "", /EADDRINUSE/);
 
   await fetch("http://localhost:4364/callback?state=wrong").catch(() => undefined);

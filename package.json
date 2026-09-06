@@ -1,6 +1,6 @@
 {
-  "name": "@nano-collective/roster",
-  "version": "0.0.0",
+  "name": "@nanocollective/roster",
+  "version": "0.1.0",
   "description": "An agent-run org, powered by GitHub. Scaffold AI staff members whose brain is a repo.",
   "type": "module",
   "bin": {
@@ -9,26 +9,48 @@
   "files": [
     "dist",
     "templates",
-    "README.md"
+    "docs",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup src/cli.ts --format esm --target node20 --clean --dts=false",
+    "build": "tsup src/cli.ts --format esm --target node20 --clean",
     "dev": "tsx src/cli.ts",
     "test": "tsx --test test/*.test.ts",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "yaml": "^2.6.1"
+    "test:all": "pnpm test:format && pnpm test:lint && pnpm test:types && pnpm test:knip && pnpm test",
+    "test:ava:coverage": "c8 --reporter=text --reporter=json-summary tsx --test test/*.test.ts",
+    "test:format": "biome check --no-errors-on-unmatched .",
+    "test:lint": "biome lint .",
+    "test:lint:fix": "biome check --write .",
+    "test:types": "tsc --noEmit",
+    "test:knip": "knip",
+    "test:audit": "pnpm audit --audit-level=high",
+    "test:security": "semgrep scan --config auto --error",
+    "typecheck": "tsc --noEmit",
+    "format": "biome check --write ."
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
     "@types/node": "^22.10.2",
+    "c8": "^12.0.0",
+    "knip": "^6.34.0",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },
   "license": "MIT",
-  "private": true
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nano-Collective/roster.git"
+  },
+  "homepage": "https://github.com/Nano-Collective/roster#readme",
+  "bugs": {
+    "url": "https://github.com/Nano-Collective/roster/issues"
+  },
+  "author": "Nano Collective",
+  "packageManager": "pnpm@11.0.9"
 }

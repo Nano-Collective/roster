@@ -1,3 +1,9 @@
+---
+title: "Manual steps"
+description: "Every human action, why it cannot be automated, and what breaks if you skip it."
+sidebar_order: 2
+---
+
 # Manual steps
 
 Everything a human has to do, why it cannot be automated, and what it looks like when you skip
