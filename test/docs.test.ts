@@ -156,3 +156,60 @@ test("the codes reference does not invent findings that do not exist", () => {
   const invented = claimed.filter((id) => !ids.has(id));
   assert.deepEqual(invented, [], "doctor-codes.md documents findings doctor cannot produce");
 });
+
+test("every session.yaml input and secret is in the workflow reference", () => {
+  const yaml = readFileSync(join(ROOT, "templates", "ops", ".github", "workflows", "session.yaml"), "utf8");
+  const block = (name: string) => {
+    const at = yaml.indexOf(`    ${name}:\n`);
+    const end = name === "inputs" ? yaml.indexOf("    secrets:") : yaml.indexOf("permissions:");
+    return yaml.slice(at, end);
+  };
+  const names = (name: string) =>
+    [...block(name).matchAll(/^      ([a-z_A-Z]+):$/gm)].map((m) => m[1]!);
+
+  const page = read("session-workflow.md");
+  for (const input of names("inputs")) {
+    assert.ok(page.includes(`\`${input}\``), `session.yaml takes "${input}" and the reference omits it`);
+  }
+  for (const secret of names("secrets")) {
+    assert.ok(page.includes(`\`${secret}\``), `session.yaml declares secret "${secret}" and the reference omits it`);
+  }
+});
+
+test("every manifest field the code reads is in the staff.yaml reference", () => {
+  /* The reference is only worth having if it is complete. A field added to the renderer and
+     left undocumented is a field nobody knows they can set. */
+  const src = readFileSync(join(ROOT, "src", "lib", "render.ts"), "utf8");
+  const fields = new Set(
+    [...src.matchAll(/\bm\.([a-z_]+)\b/g)].map((m) => m[1]!).filter((f) => f !== "identities"),
+  );
+  assert.ok(fields.size >= 10, `expected specFromManifest to read many fields, found ${fields.size}`);
+
+  const page = read("staff-yaml.md");
+  const missing = [...fields].filter((f) => !page.includes(`\`${f}\``)).sort();
+  assert.deepEqual(missing, [], "specFromManifest reads these and staff-yaml.md does not document them");
+});
+
+test("the export reference matches the shape the exporter actually produces", async () => {
+  const { buildExport } = await import("../src/lib/export.js");
+  const { findWorkspace, loadComposer, readOrg } = await import("../src/lib/workspace.js");
+  const ws = findWorkspace(join(ROOT, ".."));
+  const { parseYaml } = await loadComposer(ws.opsDir);
+  const org = buildExport(ws, readOrg(ws.opsDir, parseYaml) as never, parseYaml);
+
+  const page = read("export.md");
+  // A list is documented as `name[]`, a scalar as `name`. Either spelling counts.
+  const documented = (key: string) => page.includes(`\`${key}\``) || page.includes(`\`${key}[]\``);
+
+  for (const key of Object.keys(org)) {
+    assert.ok(documented(key), `export produces "${key}" and export.md does not mention it`);
+  }
+  const staff = org.staff[0];
+  if (!staff) return;
+  for (const key of Object.keys(staff)) {
+    assert.ok(documented(key), `a staff member has "${key}" and export.md does not mention it`);
+  }
+  for (const key of Object.keys(staff.rig)) {
+    assert.ok(documented(key), `rig has "${key}" and export.md does not mention it`);
+  }
+});
