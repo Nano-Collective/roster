@@ -30,7 +30,20 @@ function makeNode(tag: string): any {
     children: [] as any[],
     style: {},
     dataset: {},
-    classList: { add() {}, remove() {} },
+    // Real enough to be worth asserting on: classList.add used to be a no-op, so a test
+    // could not tell a highlighted diff row from an ordinary one.
+    classList: {
+      add(...cs: string[]) {
+        node.className = [node.className, ...cs].filter(Boolean).join(" ");
+      },
+      remove(...cs: string[]) {
+        node.className = String(node.className ?? "").split(/\s+/).filter((c) => c && !cs.includes(c)).join(" ");
+      },
+      contains(c: string) {
+        return String(node.className ?? "").split(/\s+/).includes(c);
+      },
+      toggle() {},
+    },
     attributes: {} as Record<string, string>,
     _text: "",
     set textContent(v: string) {
@@ -124,6 +137,7 @@ function harness(hash = "") {
       text: async () => "sample",
     }),
     requestAnimationFrame: () => 0,
+    confirm: () => true,
     addEventListener() {},
     setInterval: () => 0,
     devicePixelRatio: 1,
@@ -162,14 +176,15 @@ async function renderAll(hash = "") {
 
 test("boot renders without throwing and populates the sidebar", async () => {
   const s = await renderAll();
-  assert.ok(s._byId.stafflist.children.length >= 2, "expected a nav entry per staff member");
+  assert.equal(s._byId.stafflist.children.length, 1, "the staff picker is one select, not a tab per staff member");
+  assert.equal(s._byId.stafflist.children[0].children.length, ORG.staff.length, "one option per staff member");
   assert.ok(s._byId.viewlist.children.length >= 4, "expected the view switcher");
   assert.match(s._byId.orgname.textContent, /staff/);
 });
 
 test("every view renders and produces content", async () => {
   const s = await renderAll();
-  for (const view of ["memory", "graph", "brain", "changed", "health", "roster"]) {
+  for (const view of ["brain", "graph", "changed", "health", "roster"]) {
     s.view = view;
     assert.doesNotThrow(() => s.render(), `${view} threw`);
     assert.equal(s.view, view, "the harness must actually be driving the page's state");
@@ -181,7 +196,7 @@ test("every view renders for every staff member", async () => {
   const s = await renderAll();
   for (const staff of ORG.staff) {
     s.staffHandle = staff.handle;
-    for (const view of ["memory", "graph", "brain", "changed", "health"]) {
+    for (const view of ["brain", "graph", "changed", "health"]) {
       s.view = view;
       assert.doesNotThrow(() => s.render(), `${staff.handle}/${view} threw`);
     }
@@ -201,7 +216,7 @@ test("the theme toggle cycles system → light → dark and persists", async () 
 
 test("the URL carries the state, so a refresh lands where you were", async () => {
   const s = await renderAll();
-  assert.match(s.location.hash, /^#\/[a-z]+\/memory$/, "boot should record staff and view");
+  assert.match(s.location.hash, /^#\/[a-z]+\/brain$/, "boot should record staff and view");
 
   s.view = "graph";
   s.render();
@@ -334,7 +349,7 @@ test("mdlite handles the rest of an issue body without leaking pipes or markers"
     "1. first", "", "```", "code | with | pipes", "```", "", "---", "",
     "a paragraph that", "wraps over two source lines",
   ].join("\n"));
-  assert.ok(out.includes("class='ch h2'"));
+  assert.ok(out.includes("<h2>Heading</h2>"));
   assert.ok(out.includes("<blockquote>"));
   assert.ok(out.includes("☐") && out.includes("☑"));
   assert.ok(out.includes("<hr>"));
@@ -434,4 +449,255 @@ test("an opened group fans outwards, clear of every other group", () => {
       }
     }
   }
+});
+
+/* Everything below covers the amendments: a readable diff, real markdown, one brain view,
+   a health screen you can act on, and an inbox you can scope to one staff member. */
+
+function walkNodes(n: any, out: any[] = []): any[] {
+  if (!n || typeof n !== "object") return out;
+  out.push(n);
+  for (const c of n.children ?? []) walkNodes(c, out);
+  return out;
+}
+
+const DIFF = [
+  "diff --git a/memory/INDEX.md b/memory/INDEX.md",
+  "index 1111111..2222222 100644",
+  "--- a/memory/INDEX.md",
+  "+++ b/memory/INDEX.md",
+  "@@ -10,3 +10,3 @@ Coaching",
+  " context line",
+  "-- **`old-fact`** · it went",
+  "+- **`new-fact`** · it arrived",
+].join("\n");
+
+test("a diff renders as coloured rows with line numbers, not as raw git output", async () => {
+  const s = await renderAll();
+  const blocks = s.renderDiff(DIFF, "new-fact");
+  assert.equal(blocks.length, 1, "one block per file");
+
+  const nodes = walkNodes(blocks[0]);
+  const cls = (c: string) => nodes.filter((n) => String(n.className ?? "").split(/\s+/).includes(c));
+  assert.equal(cls("dadd").length, 1, "the added line should be tagged as an addition");
+  assert.equal(cls("ddel").length, 1, "and the removed line as a removal");
+  assert.equal(cls("dhunk").length, 1);
+  assert.equal(cls("dline").length, 4, "hunk, context, removal, addition");
+
+  // The header lines git emits between files are noise once the filename is a heading.
+  const text = nodes.map((n) => String(n._text ?? "")).join("\n");
+  assert.ok(!text.includes("index 1111111"), "index lines should not survive");
+  assert.ok(!text.includes("+++ b/memory"), "nor the +++/--- pair");
+  const heading = nodes.filter((n) => String(n.className ?? "") === "dfile")[0];
+  assert.ok(heading, "each file gets a heading");
+  assert.ok(heading.innerHTML.includes("memory/INDEX.md"), "named after the file");
+  assert.match(heading.innerHTML, /\+1/, "with what it added");
+  assert.match(heading.innerHTML, /−1/, "and what it removed");
+
+  const added = cls("dadd")[0];
+  assert.deepEqual(added.children.map((c: any) => c.textContent), ["", "11", "- **`new-fact`** · it arrived"],
+    "an addition numbers the new side only, and the leading + is the gutter's job");
+  assert.ok(String(added.className).includes("dfocus"), "the fact you clicked should be marked");
+});
+
+test("a diff that touches nothing says so rather than rendering an empty box", async () => {
+  const s = await renderAll();
+  const out = s.renderDiff("", null);
+  assert.equal(out.length, 1);
+  assert.match(out[0].textContent, /changed nothing/);
+});
+
+test("mdlite nests a sub-list inside the bullet it belongs to", async () => {
+  const s = await renderAll();
+  const out = s.mdlite(["- top", "  - under", "- second"].join("\n"));
+  assert.ok(out.includes("<ul><li>top<ul><li>under</li></ul></li><li>second</li></ul>"),
+    "a sub-point should be a nested list, not a div with a left margin: " + out);
+});
+
+test("mdlite renders headings and fences as real elements", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("## Heading\n\n```\ncode\n```\n\n1. one\n2. two");
+  assert.ok(out.includes("<h2>Heading</h2>"));
+  assert.ok(out.includes("<pre><code>code</code></pre>"));
+  assert.ok(out.includes("<ol><li>one</li><li>two</li></ol>"));
+});
+
+test("issue and PR references become links you can click through to GitHub", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("blocked by #113, and playpip/pip-web#7", { repo: "playpip/technology" });
+  assert.ok(out.includes('href="https://github.com/playpip/technology/issues/113"'), out);
+  assert.ok(out.includes('href="https://github.com/playpip/pip-web/issues/7"'), out);
+  assert.equal((out.match(/class="ref"/g) ?? []).length, 2);
+});
+
+test("a bare github URL collapses to a chip that says which PR it is", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("see https://github.com/playpip/pip-web/pull/98", { repo: "playpip/pip-web" });
+  assert.ok(out.includes('class="ref pr"'), out);
+  assert.ok(out.includes(">#98</a>"), "the repo is redundant when it is the one you are reading");
+});
+
+test("a reference inside a link does not become a link inside a link", async () => {
+  // [#113](url) is how the status issues write these, and chipping the text first would
+  // have produced an anchor nested in an anchor.
+  const s = await renderAll();
+  const out = s.mdlite("[#113](https://example.invalid/113)", { repo: "playpip/technology" });
+  assert.equal((out.match(/<a\s/g) ?? []).length, 1, out);
+  assert.ok(out.includes('href="https://example.invalid/113"'));
+});
+
+test("a relative image in a brain file resolves against the file, not the repo root", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("![shot](../assets/x.png)", { file: { dir: "drafts/", staffDir: "marketing" } });
+  assert.ok(out.includes("assets%2Fx.png"), out);
+  assert.ok(out.includes("marketing"), "and it must be fetched from that staff member's checkout");
+});
+
+test("a markdown file in the brain renders as a document rather than as source", async () => {
+  const s = await renderAll();
+  s.fetch = async () => ({ ok: true, text: async () => "# Title\n\n- a\n  - b\n", json: async () => ({}) });
+  const viewer = s.document.createElement("div");
+  await s.show(viewer, { dir: "technology", brain: "playpip/technology" },
+    { path: "strategy/plan.md", ext: "md", bytes: 20, modified: new Date().toISOString() });
+  const html = viewer.children.map((c: any) => c.innerHTML ?? "").join("");
+  assert.ok(html.includes("<h1>Title</h1>"), "the heading should be a heading: " + html);
+  assert.ok(html.includes("<ul><li>a<ul><li>b</li></ul></li></ul>"));
+});
+
+test("the brain view lists memory beside the files and opens on memory", async () => {
+  const s = await renderAll();
+  s.view = "brain";
+  s.openFile = null;
+  s.fileQuery = "";
+  s.render();
+
+  const keys = walkNodes(s._byId.main).filter((n) => n.dataset?.key).map((n) => n.dataset.key);
+  assert.ok(keys.includes("mem:*"), "memory should be in the tree: " + keys.slice(0, 8));
+  assert.ok(keys.some((k: string) => k.startsWith("mem:") && k !== "mem:*"), "one row per section");
+  assert.ok(keys.some((k: string) => k.endsWith(".md")), "and the files are in the same tree");
+  assert.equal(s.openFile, "mem:*", "a brain opens on what it knows");
+});
+
+test("opening a fact shows its section with that fact lit", async () => {
+  const s = await renderAll();
+  const who = ORG.staff.find((x: any) => x.facts.length) ?? ORG.staff[0];
+  const fact = who.facts[0];
+  s.staffHandle = who.handle;
+  s.view = "brain";
+  s.fileQuery = "";
+  s.openFile = "fact:" + fact.slug;
+  s.render();
+
+  const lit = walkNodes(s._byId.main).filter((n) => String(n.className ?? "").split(/\s+/).includes("lit"));
+  assert.equal(lit.length, 1, "exactly one fact should be marked");
+  assert.equal(lit[0].id, "fact-" + fact.slug);
+});
+
+test("searching the brain searches facts and files at once", async () => {
+  const s = await renderAll();
+  const who = ORG.staff.find((x: any) => x.facts.length) ?? ORG.staff[0];
+  s.staffHandle = who.handle;
+  s.view = "brain";
+  s.openFile = "mem:*";
+  s.fileQuery = who.facts[0].slug;
+  s.render();
+
+  const keys = walkNodes(s._byId.main).filter((n) => n.dataset?.key).map((n) => n.dataset.key);
+  assert.ok(keys.includes("fact:" + who.facts[0].slug), "a matching fact should be offered directly");
+  assert.ok(!keys.includes("mem:*"), "the section list gives way to the matches");
+});
+
+test("an old #/handle/memory link still lands somewhere", async () => {
+  const s = await renderAll("#/" + ORG.staff[0].handle + "/memory");
+  assert.equal(s.view, "brain", "memory is a surface of the brain now");
+  assert.ok(s._byId.main.children.length > 0);
+});
+
+test("the inbox can be scoped to one staff member", async () => {
+  const s = await renderAll();
+  const cto = { handle: "cto", brain: "acme/brain", soloBots: ["cto-app"],
+                sharedBots: ["robot"], worksIn: ["acme/product"] };
+  const item = (over: any) => ({ repo: "acme/product", author: "someone", labels: [], assignees: [], ...over });
+
+  assert.equal(s.belongsTo(item({ repo: "acme/brain" }), cto), true, "their own brain");
+  assert.equal(s.belongsTo(item({ author: "cto-app" }), cto), true, "anything their own app wrote");
+  assert.equal(s.belongsTo(item({ labels: ["from-cto"] }), cto), true, "anything a peer addressed to them");
+  assert.equal(s.belongsTo(item({ assignees: ["cto-app"] }), cto), true, "anything assigned to them");
+  assert.equal(s.belongsTo(item({ author: "robot" }), cto), true, "the shared robot, in a repo they work in");
+  assert.equal(s.belongsTo(item({ author: "robot", repo: "acme/elsewhere" }), cto), false,
+    "but not the shared robot somewhere they have no business");
+  assert.equal(s.belongsTo(item({}), cto), false, "and nothing else");
+  assert.equal(s.belongsTo(item({}), null), true, "Everyone is not a filter");
+});
+
+test("a bot identity is matched however the manifest spells it", async () => {
+  // staff.yaml says pip-cto[bot]; GitHub reports the author as pip-cto. Getting this wrong
+  // silently disabled the whole author rule.
+  for (const who of ORG.staff) {
+    for (const b of who.bots) assert.ok(!b.endsWith("[bot]"), b + " should be normalised in the export");
+  }
+  const shared = ORG.staff.flatMap((x: any) => x.sharedBots);
+  const solo = ORG.staff.flatMap((x: any) => x.soloBots);
+  assert.ok(solo.length >= ORG.staff.length, "each staff member needs an identity of their own");
+  for (const b of shared) assert.ok(!solo.includes(b), b + " cannot be both shared and exclusive");
+});
+
+test("a cron line is rendered in words", async () => {
+  const s = await renderAll();
+  assert.equal(s.cronText("0 7 * * 1-5"), "07:00 UTC · Mon–Fri");
+  assert.equal(s.cronText("40 7 * * 0,6"), "07:40 UTC · Sun, Sat");
+  assert.equal(s.cronText("*/5 * * * *"), "*/5 * * * *", "an unusual spec is shown as written");
+  assert.equal(s.cronText(""), "no schedule");
+});
+
+test("health shows the rig, and every problem comes with a way to ask for a fix", async () => {
+  const s = await renderAll();
+  const who = ORG.staff.find((x: any) => x.problems.length) ?? ORG.staff[0];
+  s.staffHandle = who.handle;
+  s.view = "health";
+  s.render();
+
+  const nodes = walkNodes(s._byId.main);
+  const all = nodes.map((n) => String(n.innerHTML ?? "") + String(n._text ?? "")).join(" ");
+  for (const label of ["Runs", "Last commit", "Last thought", "Memory", "Charter"]) {
+    assert.ok(all.includes(label), label + " should be on the health screen");
+  }
+  const asks = nodes.filter((n) => String(n.textContent ?? "").startsWith("Ask "));
+  if (who.problems.length) {
+    assert.ok(asks.length >= who.problems.length, "one ask per problem, plus a fix-all");
+  }
+});
+
+test("asking an agent to fix lint opens one issue in its own repo", async () => {
+  const s = await renderAll();
+  const sent: any[] = [];
+  s.fetch = async (u: string, init: any) => {
+    sent.push({ u, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ url: "https://github.com/playpip/technology/issues/9" }) };
+  };
+  const btn = s.document.createElement("button");
+  const status = s.document.createElement("span");
+  await s.askToFix({ brain: "playpip/technology", handle: "cto" }, [
+    { level: "warning", rule: "too-long", message: "`a-fact` is 550 characters.", line: 12, slug: "a-fact" },
+    { level: "error", rule: "dangling-note", message: "`b` links notes/b.md, which does not exist.", line: 30 },
+  ], btn, status);
+
+  assert.equal(sent.length, 1, "one issue, not one per problem");
+  assert.equal(sent[0].u, "/api/act");
+  assert.equal(sent[0].body.action, "create");
+  assert.equal(sent[0].body.repo, "playpip/technology", "it goes to their brain, not the ops repo");
+  assert.match(sent[0].body.title, /2 problems/);
+  assert.match(sent[0].body.body, /INDEX.md:12/);
+  assert.match(sent[0].body.body, /dangling-note/);
+});
+
+test("a staff member with no brain repo cannot have an issue opened against nothing", async () => {
+  const s = await renderAll();
+  let called = false;
+  s.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
+  const status = s.document.createElement("span");
+  await s.askToFix({ handle: "cto" }, [{ level: "error", rule: "x", message: "y" }],
+    s.document.createElement("button"), status);
+  assert.equal(called, false);
+  assert.match(status.textContent, /no brain repo/);
 });

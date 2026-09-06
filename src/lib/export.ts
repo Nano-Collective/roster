@@ -25,6 +25,20 @@ export interface StaffExport {
   statusIssue?: number;
   schedule?: string;
   mention?: string;
+  /**
+   * The app identities this staff member posts as, as GitHub reports them — the manifest
+   * writes `pip-cto[bot]`, an authored issue says `pip-cto`, so the suffix is stripped here
+   * rather than in four places downstream.
+   *
+   * Split because they mean different things: a solo identity names one staff member, and a
+   * shared one (the public robot both agents push through) names only "one of them".
+   */
+  bots: string[];
+  soloBots: string[];
+  sharedBots: string[];
+  /** Repos they contribute to but do not own, so their work outside the brain is findable. */
+  worksIn: string[];
+  peers: Array<{ handle: string; brain?: string; label?: string }>;
   facts: Fact[];
   sections: string[];
   notes: string[];
@@ -33,6 +47,27 @@ export interface StaffExport {
   surfaces: Surface[];
   recentCommits: Commit[];
   factsChanged: FactChange[];
+  rig: Rig;
+}
+
+/**
+ * The half of "is this staff member healthy" that has nothing to do with memory grammar:
+ * is the scaffolding still there, and has the agent actually run.
+ *
+ * This is deliberately what can be answered from the checkout alone. Anything needing the
+ * GitHub API — installation grants, secrets, ruleset state — is `roster doctor`'s job.
+ */
+export interface Rig {
+  workflows: string[];
+  hasCharter: boolean;
+  hasManifest: boolean;
+  /** Declared in staff.yaml but not on disk. A surface nobody can see is a broken promise. */
+  missingSurfaces: string[];
+  memoryBytes: number;
+  notesBytes: number;
+  lastCommit?: Commit;
+  /** Last commit that touched memory/, which is the one that says the agent is thinking. */
+  lastMemoryCommit?: Commit;
 }
 
 export interface Commit {
@@ -79,6 +114,7 @@ export function buildExport(
       ? parseMemory(memDir)
       : { facts: [], sections: [], notes: [], preamble: "", links: [] };
 
+    const commits = gitLog(root, 25);
     staff.push({
       handle: entry.handle,
       name: entry.name ?? manifest.name ?? entry.handle,
@@ -87,15 +123,29 @@ export function buildExport(
       statusIssue: manifest.status_issue,
       schedule: entry.schedule ?? manifest.schedule,
       mention: manifest.mention,
+      bots: [manifest.bot, manifest.public_bot].filter(Boolean).map(botName),
+      soloBots: [],
+      sharedBots: [],
+      worksIn: (manifest.works_in ?? []).map((w: any) => w?.repo).filter(Boolean),
+      peers: (manifest.peers ?? []).filter((p: any) => p?.handle),
       facts: doc.facts,
       sections: doc.sections,
       notes: doc.notes,
       links: doc.links,
       problems: existsSync(join(memDir, "INDEX.md")) ? lintMemory(doc, memDir) : [],
       surfaces: readSurfaces(root, manifest.surfaces ?? []),
-      recentCommits: gitLog(root, 25),
+      recentCommits: commits,
       factsChanged: factsChanged(root, opts.since ?? "14 days ago"),
+      rig: readRig(root, manifest, commits),
     });
+  }
+
+  // Which identities are exclusive can only be known once every staff member is read.
+  const times = new Map<string, number>();
+  for (const s of staff) for (const b of s.bots) times.set(b, (times.get(b) ?? 0) + 1);
+  for (const s of staff) {
+    s.soloBots = s.bots.filter((b) => times.get(b) === 1);
+    s.sharedBots = s.bots.filter((b) => (times.get(b) ?? 0) > 1);
   }
 
   return {
@@ -107,6 +157,11 @@ export function buildExport(
   };
 }
 
+/** `pip-cto[bot]` in a manifest is `pip-cto` on everything it authors. */
+function botName(raw: string): string {
+  return String(raw).replace(/\[bot\]$/, "");
+}
+
 function readManifest(root: string, parseYaml: (t: string, f?: string) => Record<string, unknown>) {
   const path = join(root, "staff.yaml");
   if (!existsSync(path)) return {} as Record<string, any>;
@@ -116,6 +171,34 @@ function readManifest(root: string, parseYaml: (t: string, f?: string) => Record
     // A broken manifest should not take the whole portal down; lint is where that gets reported.
     return {} as Record<string, any>;
   }
+}
+
+function readRig(root: string, manifest: Record<string, any>, commits: Commit[]): Rig {
+  const wfDir = join(root, ".github", "workflows");
+  const declared: Array<{ path?: string }> = manifest.surfaces ?? [];
+  return {
+    workflows: existsSync(wfDir) ? readdirSync(wfDir).filter((f) => /\.ya?ml$/.test(f)).sort() : [],
+    hasCharter: existsSync(join(root, "CHARTER.md")),
+    hasManifest: existsSync(join(root, "staff.yaml")),
+    missingSurfaces: declared.filter((s) => s?.path && !existsSync(join(root, s.path))).map((s) => s.path!),
+    memoryBytes: bytesOf(join(root, "memory", "INDEX.md")),
+    notesBytes: dirBytes(join(root, "memory", "notes")),
+    lastCommit: commits[0],
+    lastMemoryCommit: gitLog(root, 1, ["--", "memory"])[0],
+  };
+}
+
+function bytesOf(path: string): number {
+  try {
+    return statSync(path).size;
+  } catch {
+    return 0;
+  }
+}
+
+function dirBytes(dir: string): number {
+  if (!existsSync(dir)) return 0;
+  return walk(dir, dir).reduce((n, f) => n + f.bytes, 0);
 }
 
 function readSurfaces(root: string, declared: Array<{ path: string; render: string }>): Surface[] {
@@ -154,8 +237,8 @@ function git(root: string, args: string[]): string {
   }
 }
 
-function gitLog(root: string, n: number): Commit[] {
-  const out = git(root, ["log", `-${n}`, "--format=%H%x1f%aI%x1f%s%x1f%an"]);
+function gitLog(root: string, n: number, extra: string[] = []): Commit[] {
+  const out = git(root, ["log", `-${n}`, "--format=%H%x1f%aI%x1f%s%x1f%an", ...extra]);
   return out
     .split("\n")
     .filter(Boolean)
