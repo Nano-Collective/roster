@@ -28,6 +28,7 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
   --pr-timeout <n>       PR-amendment run ceiling, minutes
   --secret-prefix <X>    secrets are <X>_APP_ID and <X>_APP_PRIVATE_KEY. Defaults to HANDLE.
   --app <slug>           this staff member's GitHub App. Defaults to the pattern its peers use.
+  --public-app <slug>    the shared public identity. Defaults to whatever the peers use.
   --private             create the repo private (default)
   --apply                actually do it
 
@@ -120,8 +121,12 @@ function buildPlan(
   }
   if (!app) warnings.push("no app slug could be inferred; pass --app");
 
-  const publicApp = publicIdentity?.app ?? "";
-  if (!publicApp) warnings.push("no shared public app found on an existing staff member");
+  const publicApp = opts.publicApp ?? publicIdentity?.app ?? "";
+  if (!publicApp) {
+    // The first hire in a fresh org has nobody to copy it from, and a made-up name would be
+    // worse than an empty one: it would reach a workflow and fail at token-minting time.
+    warnings.push("no shared public identity yet — pass --public-app, or the product-repo lane will not work");
+  }
 
   const staff: StaffSpec = {
     handle,
@@ -143,7 +148,7 @@ function buildPlan(
     secretPrefix: opts.secretPrefix ?? handle.toUpperCase(),
     publicSecretPrefix: publicIdentity?.secret_prefix ?? "BOT",
     app: app ?? `${handle}`,
-    publicApp: publicApp || "public-app",
+    publicApp: publicApp || `${org.org}-robot`,
     publicTokenEnv: String(sample?.public_token_env ?? "PUBLIC_TOKEN"),
   };
   if (!opts.name) warnings.push(`no --name given, so the role is called "${staff.name}"`);
@@ -347,14 +352,13 @@ async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise<number
 export function wirePeers(ws: Workspace, plan: Plan, root: string) {
   const { staff } = plan;
 
-  const mine = plan.peers
-    .map((p) => `  - { handle: ${p.handle}, brain: ${p.brain}, label: from-${staff.handle} }`)
-    .join("\n");
   const manifest = join(root, "staff.yaml");
-  writeFileSync(manifest, readFileSync(manifest, "utf8").replace(
-    /^peers: \[\]$/m,
-    mine ? `peers:\n${mine}` : "peers: []",
-  ));
+  let mineText = readFileSync(manifest, "utf8");
+  for (const p of plan.peers) {
+    mineText = insertUnder(mineText, "peers",
+      `  - { handle: ${p.handle}, brain: ${p.brain}, label: from-${staff.handle} }`);
+  }
+  writeFileSync(manifest, mineText);
 
   for (const p of plan.peers) {
     const path = join(ws.root, p.dir, "staff.yaml");
@@ -362,7 +366,7 @@ export function wirePeers(ws: Workspace, plan: Plan, root: string) {
     const text = readFileSync(path, "utf8");
     if (new RegExp(`handle: ${staff.handle}[,\\s}]`).test(text)) continue; // already wired
     const line = `  - { handle: ${staff.handle}, brain: ${staff.brain}, label: from-${p.handle} }`;
-    writeFileSync(path, insertUnder(text, /^peers:\s*$/m, line));
+    writeFileSync(path, insertUnder(text, "peers", line));
   }
 }
 
@@ -379,14 +383,26 @@ export function addToOrgYaml(ws: Workspace, plan: Plan) {
   const staffLine = `  - { handle: ${staff.handle}, dir: ${plan.dir}, name: ${staff.name}, schedule: "${staff.schedule}" }\n`;
   const repoLine = `  - { name: ${plan.dir}, visibility: private, role: brain }\n`;
 
-  const withStaff = insertUnder(text, /^staff:\s*$/m, staffLine);
-  writeFileSync(path, insertUnder(withStaff, /^repos:\s*$/m, repoLine));
+  const withStaff = insertUnder(text, "staff", staffLine);
+  writeFileSync(path, insertUnder(withStaff, "repos", repoLine));
 }
 
-/** Add a line at the end of the block a heading introduces, keeping the rest untouched. */
-export function insertUnder(text: string, heading: RegExp, line: string): string {
+/**
+ * Add a line at the end of the block a key introduces, leaving the rest of the file untouched.
+ *
+ * Three shapes, because all three occur. `key:` with entries under it is the common one. `key: []`
+ * is what a fresh org.yaml and a fresh staff.yaml both carry, and it has to become a block list
+ * rather than gain a stray line that belongs to nothing — the first end-to-end init found that by
+ * producing an org with a staff list nobody could read. A key that is absent is appended.
+ */
+export function insertUnder(text: string, key: string, line: string): string {
+  const empty = new RegExp(`^${key}:\\s*\\[\\]\\s*$`, "m");
+  if (empty.test(text)) return text.replace(empty, `${key}:\n${line.trimEnd()}`);
+
+  const heading = new RegExp(`^${key}:\\s*$`, "m");
   const m = heading.exec(text);
-  if (!m) return text.trimEnd() + "\n\n" + heading.source.replace(/[\^$\\s*]/g, "") + "\n" + line;
+  if (!m) return `${text.trimEnd()}\n\n${key}:\n${line.trimEnd()}\n`;
+
   const lines = text.split("\n");
   let i = text.slice(0, m.index).split("\n").length;
   while (i < lines.length && (lines[i]!.startsWith("  ") || lines[i]!.trim().startsWith("#"))) i++;
@@ -417,7 +433,7 @@ function git(cwd: string, args: string[]) {
 
 interface Flags {
   ops?: string; name?: string; dir?: string; schedule?: string; model?: string;
-  timeout?: number; mentionTimeout?: number; prMentionTimeout?: number; secretPrefix?: string; app?: string; statusIssue?: number;
+  timeout?: number; mentionTimeout?: number; prMentionTimeout?: number; secretPrefix?: string; app?: string; publicApp?: string; statusIssue?: number;
   visibility?: string; apply?: boolean;
 }
 
@@ -440,6 +456,7 @@ function parseFlags(argv: string[]): Flags {
     else if (flag === "--pr-timeout") out.prMentionTimeout = Number(value);
     else if (flag === "--secret-prefix") out.secretPrefix = value;
     else if (flag === "--app") out.app = value;
+    else if (flag === "--public-app") out.publicApp = value;
     else throw new Error(`unknown flag ${flag}`);
   }
   return out;

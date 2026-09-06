@@ -142,7 +142,7 @@ test("a line is inserted under its heading, leaving the rest of the file alone",
     "  - { name: technology }",
     "",
   ].join("\n");
-  const after = insertUnder(before, /^staff:\s*$/m, "  - { handle: cfo, dir: finance }");
+  const after = insertUnder(before, "staff", "  - { handle: cfo, dir: finance }");
   assert.match(after, /- \{ handle: cto, dir: technology \}\n  - \{ handle: cfo, dir: finance \}/);
   assert.ok(after.includes("# a comment at the top"), "comments survive");
   assert.ok(after.includes("repos:\n  - { name: technology }"), "later blocks are untouched");
