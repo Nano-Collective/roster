@@ -1,3 +1,9 @@
+---
+title: "Overview"
+description: "What roster is, the shape of an agent-run org, and what it will not do for you."
+sidebar_order: 0
+---
+
 # roster
 
 An agent-run organisation, powered by GitHub.

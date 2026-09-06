@@ -1,3 +1,9 @@
+---
+title: "roster export reference"
+description: "The JSON shape, field by field."
+sidebar_order: 18
+---
+
 # `roster export` reference
 
 The whole org as one JSON document.

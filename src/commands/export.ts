@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
-import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { buildExport } from "../lib/export.js";
+import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
 export const exportHelp = `
 roster export [--out file.json]
@@ -34,7 +34,9 @@ export async function exportCommand(argv: string[]): Promise<number> {
   if (out) {
     writeFileSync(out, json + "\n");
     const facts = data.staff.reduce((n, s) => n + s.facts.length, 0);
-    process.stdout.write(`  ${out}  ${data.staff.length} staff, ${facts} facts, ${Math.round(json.length / 1024)}kb\n`);
+    process.stdout.write(
+      `  ${out}  ${data.staff.length} staff, ${facts} facts, ${Math.round(json.length / 1024)}kb\n`,
+    );
   } else {
     process.stdout.write(json + "\n");
   }

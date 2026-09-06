@@ -1,3 +1,9 @@
+---
+title: "Concepts"
+description: "The ops repo, the brain, charters, manifests, surfaces and peers."
+sidebar_order: 3
+---
+
 # Concepts
 
 ## The ops repo

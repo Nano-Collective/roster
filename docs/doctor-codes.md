@@ -1,3 +1,9 @@
+---
+title: "doctor codes"
+description: "Every finding roster doctor can emit, what it means, and what to do."
+sidebar_order: 19
+---
+
 # doctor codes
 
 Every finding `roster doctor` can emit. Each carries a stable `id`, which is what

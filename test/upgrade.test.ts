@@ -1,12 +1,20 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { planAll, apply, planBrains, type FilePlan } from "../src/commands/upgrade.js";
-import { findWorkspace, loadComposer } from "../src/lib/workspace.js";
-import { classify } from "../src/lib/templates.js";
+import { test } from "node:test";
+import { apply, type FilePlan, planAll, planBrains } from "../src/commands/upgrade.js";
 import { merge3 } from "../src/lib/merge.js";
+import { classify } from "../src/lib/templates.js";
+import { findWorkspace, loadComposer } from "../src/lib/workspace.js";
 
 /**
  * Upgrading is the one operation that can silently destroy a tenant's work, so these tests
@@ -17,7 +25,11 @@ import { merge3 } from "../src/lib/merge.js";
 
 function scratch() {
   const root = mkdtempSync(join(tmpdir(), "roster-upgrade-"));
-  const dirs = { tpl: join(root, "tpl"), seed: join(root, "ops", ".roster", "seed"), ops: join(root, "ops") };
+  const dirs = {
+    tpl: join(root, "tpl"),
+    seed: join(root, "ops", ".roster", "seed"),
+    ops: join(root, "ops"),
+  };
   const put = (base: string, rel: string, text: string) => {
     const p = join(base, rel);
     mkdirSync(dirname(p), { recursive: true });
@@ -37,7 +49,13 @@ function scratch() {
   };
 }
 
-const VOICE = ["# Voice", "", "Concision, not word counts.", "", "Orwell's rules are the guide."].join("\n");
+const VOICE = [
+  "# Voice",
+  "",
+  "Concision, not word counts.",
+  "",
+  "Orwell's rules are the guide.",
+].join("\n");
 
 test("a file the tenant never touched follows the framework", () => {
   const s = scratch();
@@ -50,7 +68,9 @@ test("a file the tenant never touched follows the framework", () => {
     assert.equal(p.verdict, "updated");
     s.run(s.plans());
     assert.match(s.read("org/voice.md"), /No adverbs/);
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("a local edit survives an unrelated framework change", () => {
@@ -58,8 +78,14 @@ test("a local edit survives an unrelated framework change", () => {
   const s = scratch();
   try {
     s.base("org/voice.md", VOICE + "\n");
-    s.template("org/voice.md", "# Voice\n\nConcision, not word counts.\n\nOrwell's rules are the guide.\nNo adverbs.\n");
-    s.tenant("org/voice.md", "# Voice\n\nPip never says 'leverage'.\n\nConcision, not word counts.\n\nOrwell's rules are the guide.\n");
+    s.template(
+      "org/voice.md",
+      "# Voice\n\nConcision, not word counts.\n\nOrwell's rules are the guide.\nNo adverbs.\n",
+    );
+    s.tenant(
+      "org/voice.md",
+      "# Voice\n\nPip never says 'leverage'.\n\nConcision, not word counts.\n\nOrwell's rules are the guide.\n",
+    );
 
     const p = s.plans()[0]!;
     assert.equal(p.verdict, "merged", p.note);
@@ -69,7 +95,9 @@ test("a local edit survives an unrelated framework change", () => {
     assert.match(out, /Pip never says/, "the tenant's line must survive");
     assert.match(out, /No adverbs/, "and the framework's must arrive");
     assert.ok(!out.includes("<<<<<<<"), "a clean merge must not carry markers");
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("the framework standing still leaves a rewritten file alone", () => {
@@ -84,7 +112,9 @@ test("the framework standing still leaves a rewritten file alone", () => {
     assert.equal(p.next, undefined, "there is nothing to write");
     s.run(s.plans());
     assert.match(s.read("org/guardrails.md"), /Pip's own rule/);
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("a conflict never reaches the live file", () => {
@@ -100,13 +130,18 @@ test("a conflict never reaches the live file", () => {
 
     const code = s.run(s.plans());
     assert.equal(code, 1, "an unresolved conflict is a non-zero exit");
-    assert.equal(s.read("org/voice.md"), "# Voice\n\nPip's incompatible rule\n",
-      "the file an agent reads every morning must be untouched");
+    assert.equal(
+      s.read("org/voice.md"),
+      "# Voice\n\nPip's incompatible rule\n",
+      "the file an agent reads every morning must be untouched",
+    );
     assert.ok(s.has("org/voice.md.roster-merge"), "the merge goes beside it, for a human");
     const rej = s.read("org/voice.md.roster-merge");
     assert.match(rej, /<<<<<<</);
     assert.match(rej, /the original rule/, "--diff3 keeps what it used to say");
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("a conflicted file keeps its old base, so it can still be merged next time", () => {
@@ -122,11 +157,19 @@ test("a conflicted file keeps its old base, so it can still be merged next time"
     s.tenant("prompts/daily.md", "x\n");
 
     s.run(s.plans());
-    assert.equal(readFileSync(join(s.seed, "org/voice.md"), "utf8"), "one\n",
-      "the conflicted file's base must not move");
-    assert.equal(readFileSync(join(s.seed, "prompts/daily.md"), "utf8"), "y\n",
-      "the resolved one's must");
-  } finally { s.cleanup(); }
+    assert.equal(
+      readFileSync(join(s.seed, "org/voice.md"), "utf8"),
+      "one\n",
+      "the conflicted file's base must not move",
+    );
+    assert.equal(
+      readFileSync(join(s.seed, "prompts/daily.md"), "utf8"),
+      "y\n",
+      "the resolved one's must",
+    );
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("editing a framework-owned file is called out, not silently merged away", () => {
@@ -146,7 +189,9 @@ test("editing a framework-owned file is called out, not silently merged away", (
     s.run(s.plans());
     assert.match(s.read(".github/workflows/session.yaml"), /patched in the tenant/);
     assert.match(s.read(".github/workflows/session.yaml"), /from the framework/);
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("without a base nothing is guessed at", () => {
@@ -160,7 +205,9 @@ test("without a base nothing is guessed at", () => {
     assert.equal(p.next, undefined);
     assert.equal(s.run(s.plans()), 1);
     assert.equal(s.read("org/voice.md"), "different\n", "and nothing is overwritten");
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("a file new in the framework is added", () => {
@@ -172,7 +219,9 @@ test("a file new in the framework is added", () => {
     s.run(s.plans());
     assert.equal(s.read("prompts/review.md"), "a new fragment\n");
     assert.equal(readFileSync(join(s.seed, "prompts/review.md"), "utf8"), "a new fragment\n");
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("dotfiles are compared, which is how the reusable workflow got missed before", () => {
@@ -182,7 +231,9 @@ test("dotfiles are compared, which is how the reusable workflow got missed befor
     const plans = s.plans();
     assert.equal(plans.length, 1);
     assert.equal(plans[0]!.rel, ".github/workflows/session.yaml");
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("ownership follows the org/prompts split the design already draws", () => {
@@ -225,15 +276,23 @@ test("a framework file edited in the tenant is flagged before the framework move
     s.tenant(".github/workflows/session.yaml", "steps:\n  - a\n  - react with eyes\n");
 
     const p = s.plans()[0]!;
-    assert.equal(p.verdict, "edited-managed",
-      "a local edit to a framework file is never merely 'yours to keep'");
+    assert.equal(
+      p.verdict,
+      "edited-managed",
+      "a local edit to a framework file is never merely 'yours to keep'",
+    );
     assert.match(p.note, /move your change upstream/);
     assert.equal(p.next, undefined, "there is nothing to write; the fix has to move, not merge");
 
     s.run(s.plans());
-    assert.match(s.read(".github/workflows/session.yaml"), /react with eyes/,
-      "and the tenant's file is left exactly as it was");
-  } finally { s.cleanup(); }
+    assert.match(
+      s.read(".github/workflows/session.yaml"),
+      /react with eyes/,
+      "and the tenant's file is left exactly as it was",
+    );
+  } finally {
+    s.cleanup();
+  }
 });
 
 test("the same edit to a seeded file is nobody's business", () => {
@@ -243,7 +302,9 @@ test("the same edit to a seeded file is nobody's business", () => {
     s.template("org/voice.md", "a\n");
     s.tenant("org/voice.md", "a\nPip's own line\n");
     assert.equal(s.plans()[0]!.verdict, "local");
-  } finally { s.cleanup(); }
+  } finally {
+    s.cleanup();
+  }
 });
 
 /* ------------------------------ brain repos ------------------------------ */
@@ -252,31 +313,52 @@ function brainWorkspace() {
   const root = mkdtempSync(join(tmpdir(), "roster-brain-"));
   const ops = join(root, "roster-ops");
   mkdirSync(ops, { recursive: true });
-  copyFileSync(join(import.meta.dirname, "..", "templates", "ops", "compose.mjs"), join(ops, "compose.mjs"));
-  writeFileSync(join(ops, "org.yaml"), [
-    "org: acme", "name: Acme",
-    "human:", "  github: someone", "  marker: boss",
-    "staff:", "  - { handle: cto, dir: technology, name: Chief Technology Officer }",
-    "repos:", "  - { name: product, visibility: public, role: product }",
-  ].join("\n") + "\n");
+  copyFileSync(
+    join(import.meta.dirname, "..", "templates", "ops", "compose.mjs"),
+    join(ops, "compose.mjs"),
+  );
+  writeFileSync(
+    join(ops, "org.yaml"),
+    [
+      "org: acme",
+      "name: Acme",
+      "human:",
+      "  github: someone",
+      "  marker: boss",
+      "staff:",
+      "  - { handle: cto, dir: technology, name: Chief Technology Officer }",
+      "repos:",
+      "  - { name: product, visibility: public, role: product }",
+    ].join("\n") + "\n",
+  );
   return { root, ops };
 }
 
 function writeManifest(root: string, extra: string[] = []) {
   mkdirSync(join(root, "technology"), { recursive: true });
-  writeFileSync(join(root, "technology", "staff.yaml"), [
-    "handle: cto", "name: Chief Technology Officer", "mention: \"@cto\"",
-    "brain: acme/technology", "status_issue: 15",
-    'schedule: "0 7 * * 1-5"', "model: claude-opus-5", "timeout_minutes: 60",
-    "public_token_env: PRODUCT_TOKEN",
-    "identities:",
-    "  - { app: acme-cto, secret_prefix: CTO, scope: private }",
-    "  - { app: acme-robot, secret_prefix: BOT, scope: public }",
-    "works_in:", "  - { repo: acme/product, role: contributor, checkout: true }",
-    "peers: []",
-    "surfaces:", "  - { path: memory/, render: memory }",
-    ...extra,
-  ].join("\n") + "\n");
+  writeFileSync(
+    join(root, "technology", "staff.yaml"),
+    [
+      "handle: cto",
+      "name: Chief Technology Officer",
+      'mention: "@cto"',
+      "brain: acme/technology",
+      "status_issue: 15",
+      'schedule: "0 7 * * 1-5"',
+      "model: claude-opus-5",
+      "timeout_minutes: 60",
+      "public_token_env: PRODUCT_TOKEN",
+      "identities:",
+      "  - { app: acme-cto, secret_prefix: CTO, scope: private }",
+      "  - { app: acme-robot, secret_prefix: BOT, scope: public }",
+      "works_in:",
+      "  - { repo: acme/product, role: contributor, checkout: true }",
+      "peers: []",
+      "surfaces:",
+      "  - { path: memory/, render: memory }",
+      ...extra,
+    ].join("\n") + "\n",
+  );
 }
 
 test("a caller that matches the template is left alone", async () => {
@@ -295,9 +377,14 @@ test("a caller that matches the template is left alone", async () => {
       writeFileSync(dest, f.next);
     }
     const [again] = planBrains(ws, parseYaml);
-    assert.deepEqual(again!.files.filter((f) => f.verdict !== "same").map((f) => f.rel), [],
-      "a freshly generated brain must be idempotent under upgrade");
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    assert.deepEqual(
+      again!.files.filter((f) => f.verdict !== "same").map((f) => f.rel),
+      [],
+      "a freshly generated brain must be idempotent under upgrade",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("a value that lives in the manifest is never mistaken for drift", async () => {
@@ -318,15 +405,26 @@ test("a value that lives in the manifest is never mistaken for drift", async () 
 
     // Raise the ceiling the way a human would: in the manifest and the caller together.
     const mf = join(root, "technology", "staff.yaml");
-    writeFileSync(mf, readFileSync(mf, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"));
+    writeFileSync(
+      mf,
+      readFileSync(mf, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"),
+    );
     const daily = join(brainRoot(root), ".github", "workflows", "cto-daily.yaml");
-    writeFileSync(daily, readFileSync(daily, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"));
+    writeFileSync(
+      daily,
+      readFileSync(daily, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"),
+    );
 
     const [after] = planBrains(ws, parseYaml);
     const dailyPlan = after!.files.find((f) => f.rel.endsWith("cto-daily.yaml"))!;
-    assert.equal(dailyPlan.verdict, "same",
-      "a manifest value must render into both sides and cancel, not read as drift");
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    assert.equal(
+      dailyPlan.verdict,
+      "same",
+      "a manifest value must render into both sides and cancel, not read as drift",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("raising the daily ceiling does not drag the PR-amendment ceiling with it", async () => {
@@ -335,16 +433,25 @@ test("raising the daily ceiling does not drag the PR-amendment ceiling with it",
   try {
     writeManifest(root);
     const mf = join(root, "technology", "staff.yaml");
-    writeFileSync(mf, readFileSync(mf, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"));
+    writeFileSync(
+      mf,
+      readFileSync(mf, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"),
+    );
     const ws = findWorkspace(ops);
     const { parseYaml } = await loadComposer(ops);
     const files = planBrains(ws, parseYaml)[0]!.files;
 
     const text = (name: string) => files.find((f) => f.rel.endsWith(name))!.next!;
     assert.match(text("cto-daily.yaml"), /timeout_minutes: 90/);
-    assert.match(text("cto-pr-mention.yaml"), /timeout_minutes: 60/, "a PR amendment is not a session");
+    assert.match(
+      text("cto-pr-mention.yaml"),
+      /timeout_minutes: 60/,
+      "a PR amendment is not a session",
+    );
     assert.match(text("cto-mention.yaml"), /timeout_minutes: 30/);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("the files a staff member owns are never rewritten", async () => {
@@ -354,7 +461,10 @@ test("the files a staff member owns are never rewritten", async () => {
     const brainDir = brainRoot(root);
     mkdirSync(join(brainDir, "memory"), { recursive: true });
     // What a working agent's memory index looks like: nothing like the template.
-    writeFileSync(join(brainDir, "memory", "INDEX.md"), "# Memory index\n\n- **`a-fact`** · it is so. **So:** it matters.\n");
+    writeFileSync(
+      join(brainDir, "memory", "INDEX.md"),
+      "# Memory index\n\n- **`a-fact`** · it is so. **So:** it matters.\n",
+    );
     writeFileSync(join(brainDir, "CHARTER.md"), "# Charter\n\nEntirely rewritten by hand.\n");
 
     const ws = findWorkspace(ops);
@@ -362,11 +472,19 @@ test("the files a staff member owns are never rewritten", async () => {
     const files = planBrains(ws, parseYaml)[0]!.files;
 
     for (const owned of ["memory/INDEX.md", "CHARTER.md"]) {
-      assert.equal(files.find((f) => f.rel === owned), undefined,
-        `${owned} belongs to the staff member and must not appear in a plan at all`);
+      assert.equal(
+        files.find((f) => f.rel === owned),
+        undefined,
+        `${owned} belongs to the staff member and must not appear in a plan at all`,
+      );
     }
-    assert.ok(files.some((f) => f.rel.endsWith("cto-daily.yaml")), "the callers still do");
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    assert.ok(
+      files.some((f) => f.rel.endsWith("cto-daily.yaml")),
+      "the callers still do",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("a template change to a caller shows up, with the diff", async () => {
@@ -383,12 +501,17 @@ test("a template change to a caller shows up, with the diff", async () => {
     }
     // Someone edits a generated caller by hand, which is the thing that must not go quietly.
     const daily = join(brainRoot(root), ".github", "workflows", "cto-daily.yaml");
-    writeFileSync(daily, readFileSync(daily, "utf8").replace("workflow_dispatch:", "workflow_dispatch: # tweaked"));
+    writeFileSync(
+      daily,
+      readFileSync(daily, "utf8").replace("workflow_dispatch:", "workflow_dispatch: # tweaked"),
+    );
 
     const plan = planBrains(ws, parseYaml)[0]!.files.find((f) => f.rel.endsWith("cto-daily.yaml"))!;
     assert.equal(plan.verdict, "regenerate");
-    assert.ok(plan.diff && plan.diff.includes("tweaked"), "the diff must show what would be lost");
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    assert.ok(plan.diff?.includes("tweaked"), "the diff must show what would be lost");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("a staff member with no manifest is reported, not skipped or crashed on", async () => {
@@ -397,7 +520,9 @@ test("a staff member with no manifest is reported, not skipped or crashed on", a
     const [brain] = planBrains(findWorkspace(ops), (await loadComposer(ops)).parseYaml);
     assert.match(brain!.problem ?? "", /not checked out|no staff.yaml/);
     assert.deepEqual(brain!.files, []);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 /** The brain repo inside a scratch workspace. */

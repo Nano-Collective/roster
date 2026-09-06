@@ -1,6 +1,6 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { promisify } from "node:util";
 import { ghJson } from "./gh.js";
 
@@ -79,7 +79,10 @@ and you will come straight back here.</p>
 }
 
 function esc(s: string): string {
-  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
+  return String(s).replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+  );
 }
 
 export interface FlowOptions {
@@ -126,14 +129,23 @@ export async function createApp(spec: AppSpec, opts: FlowOptions = {}): Promise<
       }
 
       if (url.searchParams.get("state") !== state) {
-        res.writeHead(400, { "content-type": "text/html" }).end(page("Wrong state", "That did not come from the hand-off this command started. Nothing was created."));
+        res
+          .writeHead(400, { "content-type": "text/html" })
+          .end(
+            page(
+              "Wrong state",
+              "That did not come from the hand-off this command started. Nothing was created.",
+            ),
+          );
         finish(() => reject(new Error("state did not match; refusing the callback")));
         return;
       }
 
       const code = url.searchParams.get("code");
       if (!code) {
-        res.writeHead(400, { "content-type": "text/html" }).end(page("No code", "GitHub came back without a code."));
+        res
+          .writeHead(400, { "content-type": "text/html" })
+          .end(page("No code", "GitHub came back without a code."));
         finish(() => reject(new Error("no code in the callback")));
         return;
       }
@@ -141,15 +153,19 @@ export async function createApp(spec: AppSpec, opts: FlowOptions = {}): Promise<
       exchange(code)
         .then((app) => {
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(page(
-            `${app.slug} created`,
-            "The private key went straight into the repository's secrets and was never written to disk. " +
-            "You can close this tab; the terminal has the next step.",
-          ));
+          res.end(
+            page(
+              `${app.slug} created`,
+              "The private key went straight into the repository's secrets and was never written to disk. " +
+                "You can close this tab; the terminal has the next step.",
+            ),
+          );
           finish(() => resolve(app));
         })
         .catch((err: Error) => {
-          res.writeHead(502, { "content-type": "text/html" }).end(page("Exchange failed", esc(err.message)));
+          res
+            .writeHead(502, { "content-type": "text/html" })
+            .end(page("Exchange failed", esc(err.message)));
           finish(() => reject(err));
         });
     });
@@ -167,10 +183,15 @@ export async function createApp(spec: AppSpec, opts: FlowOptions = {}): Promise<
 /** Trade the one-time code for the App's id and private key. The code is good for one hour. */
 export async function exchange(code: string): Promise<CreatedApp> {
   const res = await ghJson<CreatedApp & { message?: string }>([
-    "api", "-X", "POST", `/app-manifests/${encodeURIComponent(code)}/conversions`,
+    "api",
+    "-X",
+    "POST",
+    `/app-manifests/${encodeURIComponent(code)}/conversions`,
   ]);
   if (!res.ok || !res.data?.pem) {
-    throw new Error(`could not convert the manifest code: ${res.error ?? "no private key came back"}`);
+    throw new Error(
+      `could not convert the manifest code: ${res.error ?? "no private key came back"}`,
+    );
   }
   return res.data;
 }
@@ -184,7 +205,8 @@ export async function exchange(code: string): Promise<CreatedApp> {
 export async function setSecret(repo: string, name: string, value: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = execFile("gh", ["secret", "set", name, "--repo", repo], (err) =>
-      err ? reject(new Error(`gh secret set ${name}: ${err.message}`)) : resolve());
+      err ? reject(new Error(`gh secret set ${name}: ${err.message}`)) : resolve(),
+    );
     child.stdin?.end(value);
   });
 }
@@ -197,7 +219,8 @@ padding:0 1.5rem;color:#1b1f26}@media(prefers-color-scheme:dark){body{background
 }
 
 async function open(url: string): Promise<void> {
-  const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+  const cmd =
+    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
   try {
     await run(cmd, [url]);
   } catch {

@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
-import { specFromManifest } from "../lib/render.js";
-import { createApp, setSecret, type AppSpec } from "../lib/appmanifest.js";
+import { type AppSpec, type CreatedApp, createApp, setSecret } from "../lib/appmanifest.js";
 import { api, ghReady } from "../lib/gh.js";
+import { specFromManifest } from "../lib/render.js";
+import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
 export const appHelp = `
 roster app <handle> [--public] [--port 4310] [--no-open]
@@ -52,10 +52,15 @@ export async function appCommand(argv: string[]): Promise<number> {
   const dir = entry.dir ?? entry.handle;
   const manifestPath = join(ws.root, dir, "staff.yaml");
   if (!existsSync(manifestPath)) {
-    process.stderr.write(`roster: ${dir}/staff.yaml is missing. Run \`roster hire ${handle}\` first.\n`);
+    process.stderr.write(
+      `roster: ${dir}/staff.yaml is missing. Run \`roster hire ${handle}\` first.\n`,
+    );
     return 2;
   }
-  const spec = specFromManifest(parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any, dir);
+  const spec = specFromManifest(
+    parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any,
+    dir,
+  );
 
   const scope = opts.public ? "public" : "private";
   const name = opts.public ? spec.publicApp : spec.app;
@@ -71,8 +76,8 @@ export async function appCommand(argv: string[]): Promise<number> {
   if (existing.ok) {
     process.stderr.write(
       `roster: an App called "${name}" already exists.\n` +
-      `  If it is yours, it only needs installing and its secrets setting:\n` +
-      `    https://github.com/organizations/${org.org}/settings/apps/${name}/installations\n`,
+        `  If it is yours, it only needs installing and its secrets setting:\n` +
+        `    https://github.com/organizations/${org.org}/settings/apps/${name}/installations\n`,
     );
     return 1;
   }
@@ -86,7 +91,7 @@ export async function appCommand(argv: string[]): Promise<number> {
       : `${spec.name} at ${org.name}. An agent-run staff member, managed by roster.`,
   };
 
-  let created;
+  let created: CreatedApp;
   try {
     created = await createApp(appSpec, { port: opts.port, noOpen: opts.noOpen });
   } catch (err) {
@@ -102,9 +107,9 @@ export async function appCommand(argv: string[]): Promise<number> {
   } catch (err) {
     process.stderr.write(
       `roster: the App was created but its secrets were not written: ` +
-      `${err instanceof Error ? err.message : String(err)}\n` +
-      `  The private key is not recoverable from here. Generate a new one at\n` +
-      `  ${created.html_url} and set ${prefix}_APP_PRIVATE_KEY on ${spec.brain} by hand.\n`,
+        `${err instanceof Error ? err.message : String(err)}\n` +
+        `  The private key is not recoverable from here. Generate a new one at\n` +
+        `  ${created.html_url} and set ${prefix}_APP_PRIVATE_KEY on ${spec.brain} by hand.\n`,
     );
     return 1;
   }
@@ -116,18 +121,22 @@ export async function appCommand(argv: string[]): Promise<number> {
   const targets = [spec.brain, ...spec.worksIn, ...peerBrains(ws, org, parseYaml, handle)];
   process.stdout.write(
     `\n  Now install it. GitHub asks a human which repos to grant:\n` +
-    `    ${created.html_url}/installations/new\n\n` +
-    `  Grant it on:\n` +
-    [...new Set(targets)].map((r) => `    ${r}\n`).join("") +
-    `\n  Then check the grant actually took — a declaration is not a grant:\n` +
-    `    roster doctor ${handle}\n\n`,
+      `    ${created.html_url}/installations/new\n\n` +
+      `  Grant it on:\n` +
+      [...new Set(targets)].map((r) => `    ${r}\n`).join("") +
+      `\n  Then check the grant actually took — a declaration is not a grant:\n` +
+      `    roster doctor ${handle}\n\n`,
   );
   return 0;
 }
 
 /** The other staff members this one files work with, so the install covers their trackers too. */
-function peerBrains(ws: ReturnType<typeof findWorkspace>, org: any,
-                    parseYaml: (t: string, f?: string) => Record<string, unknown>, handle: string): string[] {
+function peerBrains(
+  ws: ReturnType<typeof findWorkspace>,
+  org: any,
+  parseYaml: (t: string, f?: string) => Record<string, unknown>,
+  handle: string,
+): string[] {
   const out: string[] = [];
   for (const s of org.staff ?? []) {
     if (s.handle === handle) continue;
@@ -136,19 +145,32 @@ function peerBrains(ws: ReturnType<typeof findWorkspace>, org: any,
     try {
       const m = parseYaml(readFileSync(p, "utf8"), "staff.yaml") as any;
       if (m.brain) out.push(String(m.brain));
-    } catch { /* a manifest that will not parse is doctor's problem, not this command's */ }
+    } catch {
+      /* a manifest that will not parse is doctor's problem, not this command's */
+    }
   }
   return out;
 }
 
-interface Flags { ops?: string; public?: boolean; port?: number; noOpen?: boolean }
+interface Flags {
+  ops?: string;
+  public?: boolean;
+  port?: number;
+  noOpen?: boolean;
+}
 
 function parseFlags(argv: string[]): Flags {
   const out: Flags = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
-    if (flag === "--public") { out.public = true; continue; }
-    if (flag === "--no-open") { out.noOpen = true; continue; }
+    if (flag === "--public") {
+      out.public = true;
+      continue;
+    }
+    if (flag === "--no-open") {
+      out.noOpen = true;
+      continue;
+    }
     const value = argv[++i];
     if (value === undefined) throw new Error(`${flag} needs a value`);
     if (flag === "--ops") out.ops = value;

@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { parseMemory, lintMemory, type Fact, type Link, type LintProblem } from "./memory.js";
+import { type Fact, type Link, type LintProblem, lintMemory, parseMemory } from "./memory.js";
 import type { Workspace } from "./workspace.js";
 
 export interface Surface {
@@ -97,7 +97,12 @@ const SKIP = new Set([".git", "node_modules", ".next", "dist", "out", ".DS_Store
 
 export function buildExport(
   ws: Workspace,
-  org: { org: string; name: string; human?: Record<string, unknown>; staff?: Array<Record<string, any>> },
+  org: {
+    org: string;
+    name: string;
+    human?: Record<string, unknown>;
+    staff?: Array<Record<string, any>>;
+  },
   parseYaml: (t: string, f?: string) => Record<string, unknown>,
   opts: { since?: string } = {},
 ): OrgExport {
@@ -177,10 +182,16 @@ function readRig(root: string, manifest: Record<string, any>, commits: Commit[])
   const wfDir = join(root, ".github", "workflows");
   const declared: Array<{ path?: string }> = manifest.surfaces ?? [];
   return {
-    workflows: existsSync(wfDir) ? readdirSync(wfDir).filter((f) => /\.ya?ml$/.test(f)).sort() : [],
+    workflows: existsSync(wfDir)
+      ? readdirSync(wfDir)
+          .filter((f) => /\.ya?ml$/.test(f))
+          .sort()
+      : [],
     hasCharter: existsSync(join(root, "CHARTER.md")),
     hasManifest: existsSync(join(root, "staff.yaml")),
-    missingSurfaces: declared.filter((s) => s?.path && !existsSync(join(root, s.path))).map((s) => s.path!),
+    missingSurfaces: declared
+      .filter((s) => s?.path && !existsSync(join(root, s.path)))
+      .map((s) => s.path!),
     memoryBytes: bytesOf(join(root, "memory", "INDEX.md")),
     notesBytes: dirBytes(join(root, "memory", "notes")),
     lastCommit: commits[0],
@@ -231,7 +242,10 @@ function walk(dir: string, root: string, out: FileEntry[] = []): FileEntry[] {
 
 function git(root: string, args: string[]): string {
   try {
-    return execFileSync("git", ["-C", root, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return execFileSync("git", ["-C", root, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
   } catch {
     return "";
   }
@@ -275,6 +289,8 @@ function factsChanged(root: string, since: string): FactChange[] {
   // A fact edited in place shows as remove+add in the same commit; that is a change, not both.
   return changes.filter(
     (c, i) =>
-      !changes.some((o, j) => j < i && o.slug === c.slug && o.sha === c.sha && o.change !== c.change),
+      !changes.some(
+        (o, j) => j < i && o.slug === c.slug && o.sha === c.sha && o.change !== c.change,
+      ),
   );
 }

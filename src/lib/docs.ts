@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -39,6 +39,8 @@ export function docPages(): DocPage[] {
 }
 
 function titleOf(path: string): string {
-  const first = readFileSync(path, "utf8").split("\n").find((l) => l.startsWith("# "));
+  const first = readFileSync(path, "utf8")
+    .split("\n")
+    .find((l) => l.startsWith("# "));
   return first ? first.slice(2).trim() : path.split("/").pop()!;
 }

@@ -1,3 +1,9 @@
+---
+title: "Commands"
+description: "Every CLI command and flag."
+sidebar_order: 8
+---
+
 # Commands
 
 Every command prints a plan and changes nothing unless you pass `--apply`, except `lint`,

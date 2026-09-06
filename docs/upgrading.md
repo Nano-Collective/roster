@@ -1,3 +1,9 @@
+---
+title: "Upgrading"
+description: "How framework changes reach a tenant without eating your edits."
+sidebar_order: 9
+---
+
 # Upgrading
 
 The framework writes templates out. A tenant runs its own copies. So the two drift, and

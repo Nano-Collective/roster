@@ -1,3 +1,9 @@
+---
+title: "Troubleshooting"
+description: "Every trap we have actually hit, and what it looks like from the outside."
+sidebar_order: 10
+---
+
 # Troubleshooting
 
 Every trap on this page has actually been hit. Most of them fail in a way that points somewhere

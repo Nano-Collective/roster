@@ -1,3 +1,9 @@
+---
+title: "staff.yaml reference"
+description: "Every field in a staff member's manifest."
+sidebar_order: 14
+---
+
 # `staff.yaml` reference
 
 A staff member's manifest: the machine-readable half of their charter. Lives at the root of

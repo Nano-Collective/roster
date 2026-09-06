@@ -1,3 +1,9 @@
+---
+title: "Prompt reference"
+description: "The template syntax, the context, and what has to be guarded."
+sidebar_order: 15
+---
+
 # Prompt reference
 
 What a staff member is actually sent, and how to change it.

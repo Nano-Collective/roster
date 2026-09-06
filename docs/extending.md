@@ -1,3 +1,9 @@
+---
+title: "Extending it"
+description: "The four seams, and which one to reach for."
+sidebar_order: 6
+---
+
 # Extending it for your business
 
 Four seams, in the order you are likely to reach for them.

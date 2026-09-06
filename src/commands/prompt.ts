@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { extractLivePrompt } from "../lib/livePrompt.js";
+import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
 export const promptHelp = `
 roster prompt <handle> [options]

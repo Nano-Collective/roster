@@ -1,12 +1,18 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
-import { addToOrgYaml, buildPlan, insertUnder, wirePeers, type Plan } from "../src/commands/hire.js";
+import { test } from "node:test";
 import { collect } from "../src/commands/doctor.js";
+import {
+  addToOrgYaml,
+  buildPlan,
+  insertUnder,
+  type Plan,
+  wirePeers,
+} from "../src/commands/hire.js";
 import { nextSlot, render } from "../src/lib/render.js";
+import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
 
 /**
  * Hiring writes into repos that already exist — a peer's manifest, the org's own org.yaml —
@@ -21,7 +27,13 @@ const { parseYaml } = await loadComposer(ws.opsDir);
 const ORG = readOrg(ws.opsDir, parseYaml) as any;
 
 const plan = (handle: string, opts: Record<string, unknown> = {}): Plan =>
-  buildPlan(ws, ORG, handle, { name: "Chief Financial Officer", dir: "finance", ...opts } as never, parseYaml);
+  buildPlan(
+    ws,
+    ORG,
+    handle,
+    { name: "Chief Financial Officer", dir: "finance", ...opts } as never,
+    parseYaml,
+  );
 
 /* --------------------------------- rendering --------------------------------- */
 
@@ -32,13 +44,16 @@ test("an unfilled token is an error, not something left on the page", () => {
 });
 
 test("a note to the template's reader is dropped, along with the separator above it", () => {
-  const out = render([
-    "# Real header.",
-    "#",
-    "# NOTE: %%TOKENS%% are filled by `roster hire`.",
-    "",
-    "handle: %%STAFF%%",
-  ].join("\n"), { STAFF: "cfo" });
+  const out = render(
+    [
+      "# Real header.",
+      "#",
+      "# NOTE: %%TOKENS%% are filled by `roster hire`.",
+      "",
+      "handle: %%STAFF%%",
+    ].join("\n"),
+    { STAFF: "cfo" },
+  );
   assert.ok(!out.includes("NOTE"), out);
   assert.ok(!out.includes("%%TOKENS%%"));
   assert.ok(out.includes("# Real header."), "the useful half of the comment must survive");
@@ -59,15 +74,20 @@ test("the generated manifest parses with the tenant's own parser", () => {
   assert.equal(m.handle, "cfo");
   assert.equal(m.brain, "acme/finance");
   assert.equal(m.identities.length, 2);
-  assert.ok(m.surfaces.some((s: any) => s.path === "memory/" && s.render === "memory"),
-    "memory must be a declared surface, or the portal cannot render it");
+  assert.ok(
+    m.surfaces.some((s: any) => s.path === "memory/" && s.render === "memory"),
+    "memory must be a declared surface, or the portal cannot render it",
+  );
 });
 
 test("the scaffold contains the things a staff member cannot work without", () => {
   const files = new Set(plan("cfo").files.keys());
   for (const needed of [
-    "staff.yaml", "CHARTER.md", "memory/INDEX.md",
-    ".github/workflows/cfo-daily.yaml", ".github/workflows/cfo-mention.yaml",
+    "staff.yaml",
+    "CHARTER.md",
+    "memory/INDEX.md",
+    ".github/workflows/cfo-daily.yaml",
+    ".github/workflows/cfo-mention.yaml",
     ".github/workflows/cfo-pr-mention.yaml",
     ".claude/commands/charter.md",
   ]) {
@@ -79,8 +99,10 @@ test("the charter is a stub that says so, because a generated one would be worth
   const charter = plan("cfo").files.get("CHARTER.md")!;
   assert.match(charter, /stub/i);
   assert.match(charter, /\/charter/, "it has to say how to write it");
-  assert.ok(!/Chief Financial Officer is responsible for/i.test(charter),
-    "it must not invent a personality");
+  assert.ok(
+    !/Chief Financial Officer is responsible for/i.test(charter),
+    "it must not invent a personality",
+  );
 });
 
 /* ---------------------------------- defaults ---------------------------------- */
@@ -98,7 +120,10 @@ test("the app slug follows the house pattern rather than the org name", () => {
   const p = plan("cfo");
   assert.equal(p.staff.app, "acme-cfo");
   assert.equal(p.staff.publicApp, "acme-robot", "the public identity is shared, so it is copied");
-  assert.ok(p.warnings.some((w) => w.includes("acme-cto")), "an inferred value should say what it followed");
+  assert.ok(
+    p.warnings.some((w) => w.includes("acme-cto")),
+    "an inferred value should say what it followed",
+  );
 });
 
 test("an explicit flag beats every inference", () => {
@@ -106,7 +131,10 @@ test("an explicit flag beats every inference", () => {
   assert.equal(p.staff.app, "acme-money");
   assert.equal(p.staff.schedule, "5 6 * * 1");
   assert.equal(p.staff.name, "Money Person");
-  assert.ok(!p.warnings.some((w) => w.includes("was chosen")), "nothing was assumed, so nothing is warned about");
+  assert.ok(
+    !p.warnings.some((w) => w.includes("was chosen")),
+    "nothing was assumed, so nothing is warned about",
+  );
 });
 
 test("the secrets listed are the ones the generated workflows actually reference", () => {
@@ -116,16 +144,21 @@ test("the secrets listed are the ones the generated workflows actually reference
     if (!rel.startsWith(".github/")) continue;
     for (const m of text.matchAll(/secrets\.([A-Z0-9_]+)/g)) referenced.add(m[1]!);
   }
-  assert.deepEqual([...referenced].sort(), [...p.secrets].sort(),
-    "the manual-steps list and the workflows must not disagree");
+  assert.deepEqual(
+    [...referenced].sort(),
+    [...p.secrets].sort(),
+    "the manual-steps list and the workflows must not disagree",
+  );
 });
 
 test("peers are found from the org, both trackers", () => {
   const p = plan("cfo");
   assert.deepEqual(p.peers.map((x) => x.handle).sort(), ["cmo", "cto"]);
   assert.ok(p.peers.every((x) => x.label === "from-cfo"));
-  assert.ok(p.labels.includes("from-cto") && p.labels.includes("from-cmo"),
-    "and their labels are created on the new tracker too");
+  assert.ok(
+    p.labels.includes("from-cto") && p.labels.includes("from-cmo"),
+    "and their labels are created on the new tracker too",
+  );
 });
 
 /* ------------------------------- editing others ------------------------------- */
@@ -143,7 +176,10 @@ test("a line is inserted under its heading, leaving the rest of the file alone",
     "",
   ].join("\n");
   const after = insertUnder(before, "staff", "  - { handle: cfo, dir: finance }");
-  assert.match(after, /- \{ handle: cto, dir: technology \}\n  - \{ handle: cfo, dir: finance \}/);
+  assert.match(
+    after,
+    /- \{ handle: cto, dir: technology \}\n {2}- \{ handle: cfo, dir: finance \}/,
+  );
   assert.ok(after.includes("# a comment at the top"), "comments survive");
   assert.ok(after.includes("repos:\n  - { name: technology }"), "later blocks are untouched");
 });
@@ -153,10 +189,15 @@ test("peer wiring goes both ways, and the label is the file owner's own", () => 
   try {
     // A peer that already exists, and the new hire's freshly rendered scaffold.
     mkdirSync(join(root, "technology"), { recursive: true });
-    writeFileSync(join(root, "technology", "staff.yaml"),
-      "handle: cto\nbrain: acme/technology\n\npeers:\n  - { handle: cmo, brain: acme/marketing, label: from-cto }\n\nsurfaces: []\n");
+    writeFileSync(
+      join(root, "technology", "staff.yaml"),
+      "handle: cto\nbrain: acme/technology\n\npeers:\n  - { handle: cmo, brain: acme/marketing, label: from-cto }\n\nsurfaces: []\n",
+    );
     mkdirSync(join(root, "finance"), { recursive: true });
-    writeFileSync(join(root, "finance", "staff.yaml"), "handle: cfo\nbrain: acme/finance\n\npeers: []\n");
+    writeFileSync(
+      join(root, "finance", "staff.yaml"),
+      "handle: cfo\nbrain: acme/finance\n\npeers: []\n",
+    );
 
     const p = {
       staff: { handle: "cfo", brain: "acme/finance" },
@@ -165,12 +206,18 @@ test("peer wiring goes both ways, and the label is the file owner's own", () => 
     wirePeers({ root, opsDir: join(root, "ops"), opsName: "ops" }, p, join(root, "finance"));
 
     const cfo = readFileSync(join(root, "finance", "staff.yaml"), "utf8");
-    assert.match(cfo, /- \{ handle: cto, brain: acme\/technology, label: from-cfo \}/,
-      "the new hire marks its own asks with from-cfo");
+    assert.match(
+      cfo,
+      /- \{ handle: cto, brain: acme\/technology, label: from-cfo \}/,
+      "the new hire marks its own asks with from-cfo",
+    );
 
     const cto = readFileSync(join(root, "technology", "staff.yaml"), "utf8");
-    assert.match(cto, /- \{ handle: cfo, brain: acme\/finance, label: from-cto \}/,
-      "and the CTO marks its asks to the CFO with from-cto, not from-cfo");
+    assert.match(
+      cto,
+      /- \{ handle: cfo, brain: acme\/finance, label: from-cto \}/,
+      "and the CTO marks its asks to the CFO with from-cto, not from-cfo",
+    );
     assert.match(cto, /handle: cmo/, "the existing peer entry survives");
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -214,27 +261,44 @@ test("a scaffolded hire is coherent: doctor passes and all three prompts compose
      run with "unknown or empty placeholder". Neither unit test would have caught it. */
   const root = mkdtempSync(join(tmpdir(), "roster-e2e-"));
   try {
-    cpSync(ws.opsDir, join(root, "roster-ops"), { recursive: true, filter: (s) => !s.includes("/.git/") });
+    cpSync(ws.opsDir, join(root, "roster-ops"), {
+      recursive: true,
+      filter: (s) => !s.includes("/.git/"),
+    });
 
     // Enough of the existing staff for the inference and peer wiring to be real, without
     // copying two brain repos and 16MB of brand assets into a temp directory.
-    for (const [dir, handle, app] of [["technology", "cto", "acme-cto"], ["marketing", "cmo", "acme-cmo"]]) {
+    for (const [dir, handle, app] of [
+      ["technology", "cto", "acme-cto"],
+      ["marketing", "cmo", "acme-cmo"],
+    ]) {
       mkdirSync(join(root, dir!), { recursive: true });
-      writeFileSync(join(root, dir!, "staff.yaml"), [
-        `handle: ${handle}`, `brain: acme/${dir}`, `schedule: "0 7 * * 1-5"`,
-        `public_token_env: PIPWEB_TOKEN`,
-        `identities:`,
-        `  - { app: ${app}, secret_prefix: ${handle!.toUpperCase()}, scope: private }`,
-        `  - { app: acme-robot, secret_prefix: BOT, scope: public }`,
-        `peers:`, ``,
-      ].join("\n"));
+      writeFileSync(
+        join(root, dir!, "staff.yaml"),
+        [
+          `handle: ${handle}`,
+          `brain: acme/${dir}`,
+          `schedule: "0 7 * * 1-5"`,
+          `public_token_env: PIPWEB_TOKEN`,
+          `identities:`,
+          `  - { app: ${app}, secret_prefix: ${handle!.toUpperCase()}, scope: private }`,
+          `  - { app: acme-robot, secret_prefix: BOT, scope: public }`,
+          `peers:`,
+          ``,
+        ].join("\n"),
+      );
     }
 
     const sandbox = findWorkspace(join(root, "roster-ops"));
     const sandboxOrg = readOrg(sandbox.opsDir, parseYaml) as any;
     // statusIssue is what --apply learns from GitHub; everything else is offline.
-    const p = buildPlan(sandbox, sandboxOrg, "cfo",
-      { name: "Chief Financial Officer", dir: "finance", statusIssue: 1 } as never, parseYaml);
+    const p = buildPlan(
+      sandbox,
+      sandboxOrg,
+      "cfo",
+      { name: "Chief Financial Officer", dir: "finance", statusIssue: 1 } as never,
+      parseYaml,
+    );
 
     assert.equal(p.staff.app, "acme-cfo", "the app slug should still be inferred here");
 
@@ -249,8 +313,11 @@ test("a scaffolded hire is coherent: doctor passes and all three prompts compose
 
     const health = (await collect({ offline: true, ops: sandbox.opsDir, only: "cfo" }))!;
     const failures = health.findings.filter((f) => f.level === "fail");
-    assert.deepEqual(failures.map((f) => f.title), [],
-      "a freshly hired staff member must be healthy the moment it is scaffolded");
+    assert.deepEqual(
+      failures.map((f) => f.title),
+      [],
+      "a freshly hired staff member must be healthy the moment it is scaffolded",
+    );
 
     const ids = new Set(health.findings.map((f) => f.id));
     assert.ok(ids.has("compose"), "all three prompts must compose, including pr-mention");
@@ -277,8 +344,11 @@ test("the generated callers are valid workflows with the triggers they are meant
   const mention = files.get(".github/workflows/cfo-mention.yaml")!;
   // The regression fixed earlier today has to survive being generated for a new hire.
   assert.match(mention, /^\s{2}issues:$/m, "a mention in a new issue body must still wake a run");
-  assert.match(mention, /github\.event\.sender\.login == 'you'/,
-    "and the loop guard must be on the sender, not the author");
+  assert.match(
+    mention,
+    /github\.event\.sender\.login == 'you'/,
+    "and the loop guard must be on the sender, not the author",
+  );
   assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
   assert.match(files.get(".github/workflows/cfo-pr-mention.yaml")!, /repository_dispatch/);
 });

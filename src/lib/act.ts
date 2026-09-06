@@ -44,7 +44,8 @@ export async function act(req: ActRequest): Promise<ActResult> {
   }
 
   const number = req.number;
-  if (!Number.isInteger(number) || (number as number) <= 0) throw new Error("a valid issue number is required");
+  if (!Number.isInteger(number) || (number as number) <= 0)
+    throw new Error("a valid issue number is required");
   const n = String(number);
 
   if (action === "comment") {
@@ -52,7 +53,10 @@ export async function act(req: ActRequest): Promise<ActResult> {
     if (!body) throw new Error("an empty comment is not a comment");
     // --body-file - keeps the text off the command line, so newlines and quotes survive
     // whatever someone types into the box.
-    const { stdout } = await execWithStdin(["issue", "comment", n, "--repo", repo, "--body-file", "-"], body);
+    const { stdout } = await execWithStdin(
+      ["issue", "comment", n, "--repo", repo, "--body-file", "-"],
+      body,
+    );
     return { ok: true, action, url: stdout.trim().split("\n").pop() };
   }
 

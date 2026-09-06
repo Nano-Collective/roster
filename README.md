@@ -1,5 +1,7 @@
 # roster
 
+Built by the [Nano Collective](https://nanocollective.org) — a community collective building AI tooling not for profit, but for the community.
+
 **An agent-run org, powered by GitHub.** Each staff member is an AI whose brain is a private
 repo: a charter, a memory, a decision log, and a scheduled session that does a day's work
 unattended and hands off.
@@ -92,14 +94,34 @@ See [prompts](docs/prompts.md).
 ## Development
 
 ```bash
-npm install
-npm test              # 148 tests, node:test through tsx
-npm run typecheck
-npm run dev -- doctor --offline
+pnpm install
+pnpm test             # 148 tests, node:test through tsx
+pnpm test:all         # the full gate
+pnpm dev -- doctor --offline
 ```
 
 Run it from a workspace root: a directory holding the ops repo and every brain repo side by
 side, which is the same shape the CI runner checks out.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions are welcome at any level of experience.
+
+```bash
+pnpm install
+pnpm test:all      # format, lint, types, dead code, tests
+```
+
+## Community
+
+- [Nano Collective](https://nanocollective.org)
+- [Documentation](https://docs.nanocollective.org)
+- [GitHub organisation](https://github.com/Nano-Collective)
+- [Discord](https://discord.gg/ktPDV6rekE)
+
+Licensed [MIT](LICENSE), copyright Nano Collective.
+
+---
 
 Before touching anything that reaches a live org, read
 [working on roster itself](docs/developing.md). The short version: never fix a generated file

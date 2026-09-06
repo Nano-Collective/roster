@@ -1,7 +1,7 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { test } from "node:test";
 
 /**
  * Documentation rots quietly. These tests hold it to the code: every command it mentions has to
@@ -16,19 +16,21 @@ const pages = readdirSync(DOCS).filter((f) => f.endsWith(".md"));
 const read = (f: string) => readFileSync(join(DOCS, f), "utf8");
 
 /** Prose only. A grammar shown inside a fence is an example, not a link to follow. */
-const prose = (body: string) =>
-  body.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+const prose = (body: string) => body.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
 const cli = readFileSync(join(ROOT, "src", "cli.ts"), "utf8");
 
 /** Headings, as GitHub would slugify them, for checking #anchors. */
 function anchors(body: string): Set<string> {
   const out = new Set<string>();
   for (const m of body.matchAll(/^#{1,6}\s+(.+?)\s*$/gm)) {
-    out.add(m[1]!.toLowerCase()
-      .replace(/`/g, "")
-      .replace(/[^\w\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-"));
+    out.add(
+      m[1]!
+        .toLowerCase()
+        .replace(/`/g, "")
+        .replace(/[^\w\s-]/g, "")
+        .trim()
+        .replace(/\s+/g, "-"),
+    );
   }
   return out;
 }
@@ -54,17 +56,17 @@ test("every link between pages goes somewhere", () => {
         assert.ok(existsSync(join(DOCS, file)), `${page} links to ${file}, which does not exist`);
       }
       if (anchor) {
-        assert.ok(anchors(read(target)).has(anchor),
-          `${page} links to ${href}, but ${target} has no such heading`);
+        assert.ok(
+          anchors(read(target)).has(anchor),
+          `${page} links to ${href}, but ${target} has no such heading`,
+        );
       }
     }
   }
 });
 
 test("every command the docs mention is one the CLI has", () => {
-  const known = new Set(
-    [...cli.matchAll(/^\s{2}(\w+): \w+Command,$/gm)].map((m) => m[1]!),
-  );
+  const known = new Set([...cli.matchAll(/^\s{2}(\w+): \w+Command,$/gm)].map((m) => m[1]!));
   assert.ok(known.size >= 8, `expected to find the command table in cli.ts, found ${known.size}`);
 
   for (const page of pages) {
@@ -79,8 +81,11 @@ test("every command the docs mention is one the CLI has", () => {
 test("every command the CLI has is documented", () => {
   const commands = readFileSync(join(ROOT, "docs", "commands.md"), "utf8");
   for (const m of cli.matchAll(/^\s{2}(\w+): \w+Command,$/gm)) {
-    assert.match(commands, new RegExp(`## \`roster ${m[1]}`),
-      `roster ${m[1]} exists but commands.md does not cover it`);
+    assert.match(
+      commands,
+      new RegExp(`## \`roster ${m[1]}`),
+      `roster ${m[1]} exists but commands.md does not cover it`,
+    );
   }
 });
 
@@ -104,15 +109,18 @@ test("every flag the docs promise is one the parser accepts", () => {
     for (const m of section.matchAll(/^(--[a-z-]+)/gm)) {
       const flag = m[1]!;
       if (flag === "--ops") continue; // common to all, parsed everywhere
-      assert.ok(src.includes(`"${flag}"`),
-        `commands.md promises ${flag} for "roster ${name}", but its parser does not accept it`);
+      assert.ok(
+        src.includes(`"${flag}"`),
+        `commands.md promises ${flag} for "roster ${name}", but its parser does not accept it`,
+      );
     }
   }
 });
 
 test("the agent presets the docs describe are the ones that ship", async () => {
-  const { PRESETS } = await import(`file://${join(ROOT, "templates", "ops", "agents.mjs")}`) as
-    { PRESETS: Record<string, any> };
+  const { PRESETS } = (await import(`file://${join(ROOT, "templates", "ops", "agents.mjs")}`)) as {
+    PRESETS: Record<string, any>;
+  };
   const body = read("agents.md");
 
   for (const id of Object.keys(PRESETS)) {
@@ -121,8 +129,10 @@ test("the agent presets the docs describe are the ones that ship", async () => {
   // And the install lines quoted in the docs are the ones actually used.
   for (const [id, p] of Object.entries(PRESETS)) {
     if (p.kind !== "cli") continue;
-    assert.ok(body.includes(p.install),
-      `agents.md quotes an install command for ${id} that is not the one in agents.mjs`);
+    assert.ok(
+      body.includes(p.install),
+      `agents.md quotes an install command for ${id} that is not the one in agents.mjs`,
+    );
   }
 });
 
@@ -145,7 +155,11 @@ test("every finding doctor can emit is in the codes reference", () => {
 
   const page = read("doctor-codes.md");
   const undocumented = [...ids].filter((id) => !page.includes(`\`${id}\``)).sort();
-  assert.deepEqual(undocumented, [], "doctor emits these ids and doctor-codes.md does not list them");
+  assert.deepEqual(
+    undocumented,
+    [],
+    "doctor emits these ids and doctor-codes.md does not list them",
+  );
 });
 
 test("the codes reference does not invent findings that do not exist", () => {
@@ -158,21 +172,30 @@ test("the codes reference does not invent findings that do not exist", () => {
 });
 
 test("every session.yaml input and secret is in the workflow reference", () => {
-  const yaml = readFileSync(join(ROOT, "templates", "ops", ".github", "workflows", "session.yaml"), "utf8");
+  const yaml = readFileSync(
+    join(ROOT, "templates", "ops", ".github", "workflows", "session.yaml"),
+    "utf8",
+  );
   const block = (name: string) => {
     const at = yaml.indexOf(`    ${name}:\n`);
     const end = name === "inputs" ? yaml.indexOf("    secrets:") : yaml.indexOf("permissions:");
     return yaml.slice(at, end);
   };
   const names = (name: string) =>
-    [...block(name).matchAll(/^      ([a-z_A-Z]+):$/gm)].map((m) => m[1]!);
+    [...block(name).matchAll(/^ {6}([a-z_A-Z]+):$/gm)].map((m) => m[1]!);
 
   const page = read("session-workflow.md");
   for (const input of names("inputs")) {
-    assert.ok(page.includes(`\`${input}\``), `session.yaml takes "${input}" and the reference omits it`);
+    assert.ok(
+      page.includes(`\`${input}\``),
+      `session.yaml takes "${input}" and the reference omits it`,
+    );
   }
   for (const secret of names("secrets")) {
-    assert.ok(page.includes(`\`${secret}\``), `session.yaml declares secret "${secret}" and the reference omits it`);
+    assert.ok(
+      page.includes(`\`${secret}\``),
+      `session.yaml declares secret "${secret}" and the reference omits it`,
+    );
   }
 });
 
@@ -183,11 +206,18 @@ test("every manifest field the code reads is in the staff.yaml reference", () =>
   const fields = new Set(
     [...src.matchAll(/\bm\.([a-z_]+)\b/g)].map((m) => m[1]!).filter((f) => f !== "identities"),
   );
-  assert.ok(fields.size >= 10, `expected specFromManifest to read many fields, found ${fields.size}`);
+  assert.ok(
+    fields.size >= 10,
+    `expected specFromManifest to read many fields, found ${fields.size}`,
+  );
 
   const page = read("staff-yaml.md");
   const missing = [...fields].filter((f) => !page.includes(`\`${f}\``)).sort();
-  assert.deepEqual(missing, [], "specFromManifest reads these and staff-yaml.md does not document them");
+  assert.deepEqual(
+    missing,
+    [],
+    "specFromManifest reads these and staff-yaml.md does not document them",
+  );
 });
 
 test("the export reference matches the shape the exporter actually produces", async () => {

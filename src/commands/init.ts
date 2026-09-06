@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { opsTemplateDir, templateFiles } from "../lib/templates.js";
 import { api, ghReady } from "../lib/gh.js";
+import { opsTemplateDir, templateFiles } from "../lib/templates.js";
 
 export const initHelp = `
 roster init --org <github-org> [--name "Acme"] [--human <login>] [--apply]
@@ -66,12 +66,12 @@ export async function initCommand(argv: string[]): Promise<number> {
 
   process.stdout.write(
     `\n  then, in order\n` +
-    `    1. Settings → Actions → General on ${opsName}: allow access from repositories in\n` +
-    `       this organisation. Callers cannot see the reusable workflow until you do, and the\n` +
-    `       failure reads as "workflow not found" rather than as a permission.\n` +
-    `    2. Put CLAUDE_CODE_OAUTH_TOKEN on each brain repo as you create it.\n` +
-    `    3. Write org/business.md. Everything the agents say is downstream of it.\n` +
-    `    4. roster hire <handle>   then   roster app <handle>\n\n`,
+      `    1. Settings → Actions → General on ${opsName}: allow access from repositories in\n` +
+      `       this organisation. Callers cannot see the reusable workflow until you do, and the\n` +
+      `       failure reads as "workflow not found" rather than as a permission.\n` +
+      `    2. Put CLAUDE_CODE_OAUTH_TOKEN on each brain repo as you create it.\n` +
+      `    3. Write org/business.md. Everything the agents say is downstream of it.\n` +
+      `    4. roster hire <handle>   then   roster app <handle>\n\n`,
   );
 
   if (!opts.apply) {
@@ -95,8 +95,14 @@ export async function initCommand(argv: string[]): Promise<number> {
   process.stdout.write(`  wrote ${files.size} files and the recorded base\n`);
 
   const created = await api(`orgs/${opts.org}/repos`, [
-    "-X", "POST", "-f", `name=${opsName}`, "-F", "private=true",
-    "-f", `description=${name}'s org layer and runner machinery, managed by roster`,
+    "-X",
+    "POST",
+    "-f",
+    `name=${opsName}`,
+    "-F",
+    "private=true",
+    "-f",
+    `description=${name}'s org layer and runner machinery, managed by roster`,
   ]);
   if (!created.ok) {
     process.stderr.write(`roster: could not create ${opts.org}/${opsName}: ${created.error}\n`);
@@ -121,7 +127,14 @@ export async function initCommand(argv: string[]): Promise<number> {
  * a temp directory. That end-to-end run is the plan's own acceptance test for this phase, and
  * it is the only thing that proves a brand new org is coherent rather than merely plausible.
  */
-export function initFiles(o: { org: string; name: string; human: string; marker: string; opsName: string; agent?: string }): Map<string, string> {
+export function initFiles(o: {
+  org: string;
+  name: string;
+  human: string;
+  marker: string;
+  opsName: string;
+  agent?: string;
+}): Map<string, string> {
   const files = new Map<string, string>();
   for (const rel of templateFiles(opsTemplateDir())) {
     files.set(rel, readFileSync(join(opsTemplateDir(), rel), "utf8"));
@@ -132,7 +145,14 @@ export function initFiles(o: { org: string; name: string; human: string; marker:
   return files;
 }
 
-function orgYaml(o: { org: string; name: string; human: string; marker: string; opsName: string; agent: string }): string {
+function orgYaml(o: {
+  org: string;
+  name: string;
+  human: string;
+  marker: string;
+  opsName: string;
+  agent: string;
+}): string {
   return `# The org manifest. Read at the top of every composed prompt.
 # Kept deliberately simple: compose.mjs parses a small, strict YAML subset, and a manifest
 # that needs more than this has outgrown being a manifest.
@@ -225,9 +245,14 @@ The org is \`${org}\`.
 
 function stamp(): string {
   try {
-    return execFileSync("git", ["-C", join(opsTemplateDir(), "..", ".."), "rev-parse", "--short", "HEAD"], {
-      encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    return execFileSync(
+      "git",
+      ["-C", join(opsTemplateDir(), "..", ".."), "rev-parse", "--short", "HEAD"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
   } catch {
     return "unknown";
   }
@@ -238,15 +263,24 @@ function git(cwd: string, args: string[]) {
 }
 
 interface Flags {
-  org?: string; name?: string; human?: string; marker?: string;
-  dir?: string; ops?: string; agent?: string; apply?: boolean;
+  org?: string;
+  name?: string;
+  human?: string;
+  marker?: string;
+  dir?: string;
+  ops?: string;
+  agent?: string;
+  apply?: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
   const out: Flags = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
-    if (flag === "--apply") { out.apply = true; continue; }
+    if (flag === "--apply") {
+      out.apply = true;
+      continue;
+    }
     const value = argv[++i];
     if (value === undefined) throw new Error(`${flag} needs a value`);
     if (flag === "--org") out.org = value;
@@ -261,4 +295,4 @@ function parseFlags(argv: string[]): Flags {
   return out;
 }
 
-export { orgYaml, businessStub };
+export { businessStub, orgYaml };

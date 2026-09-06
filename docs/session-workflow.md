@@ -1,3 +1,9 @@
+---
+title: "The session workflow"
+description: "Inputs, secrets, and what runs in what order."
+sidebar_order: 16
+---
+
 # The session workflow
 
 `roster-ops/.github/workflows/session.yaml` is the reusable workflow every staff repo calls.

@@ -1,3 +1,9 @@
+---
+title: "Security model"
+description: "What can reach what, what stops it, and what is not defended against."
+sidebar_order: 21
+---
+
 # Security model
 
 What can reach what, and what stops it.

@@ -33,8 +33,20 @@ export function merge3(current: string, base: string, incoming: string): MergeRe
     try {
       const text = execFileSync(
         "git",
-        ["merge-file", "-p", "--diff3", "-L", "yours", "-L", "the version you started from",
-         "-L", "the framework's", c, b, i],
+        [
+          "merge-file",
+          "-p",
+          "--diff3",
+          "-L",
+          "yours",
+          "-L",
+          "the version you started from",
+          "-L",
+          "the framework's",
+          c,
+          b,
+          i,
+        ],
         { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
       );
       return { text, conflicts: 0 };

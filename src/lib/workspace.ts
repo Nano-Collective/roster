@@ -57,7 +57,10 @@ export async function loadComposer(opsDir: string) {
   };
 }
 
-export function readOrg(opsDir: string, parseYaml: (t: string, f?: string) => Record<string, unknown>) {
+export function readOrg(
+  opsDir: string,
+  parseYaml: (t: string, f?: string) => Record<string, unknown>,
+) {
   return parseYaml(readFileSync(join(opsDir, "org.yaml"), "utf8"), "org.yaml") as {
     org: string;
     name: string;

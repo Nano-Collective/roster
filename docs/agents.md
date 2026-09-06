@@ -1,3 +1,9 @@
+---
+title: "Choosing a coding agent"
+description: "Claude, Codex, Nanocoder, or anything with a command line."
+sidebar_order: 4
+---
+
 # Choosing a coding agent
 
 roster is not a Claude harness. It composes a prompt, hands it to a coding agent, and gets out

@@ -1126,7 +1126,9 @@ function viewDocs(m) {
       return;
     }
     const doc = el("div", { className: "md doc" });
-    doc.innerHTML = mdlite(text, { docs: true });
+    // The pages carry YAML frontmatter for the collective's docs site. It is metadata, not
+    // content, so it is dropped rather than rendered as a rule and a stray paragraph.
+    doc.innerHTML = mdlite(text.replace(/^---\n[\s\S]*?\n---\n/, ""), { docs: true });
     doc.addEventListener("click", (e) => {
       const link = e.target.closest?.("[data-doc]");
       if (!link) return;
