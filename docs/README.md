@@ -9,7 +9,9 @@ off. You read the result on GitHub, or in a local portal.
 
 roster is the thing that sets that up and keeps it consistent.
 
-## Read in this order
+## Guide
+
+Read in this order.
 
 | | |
 |---|---|
@@ -23,9 +25,30 @@ roster is the thing that sets that up and keeps it consistent.
 | [Commands](commands.md) | Every CLI command and flag. |
 | [Upgrading](upgrading.md) | How framework changes reach a tenant without eating your edits. |
 | [Troubleshooting](troubleshooting.md) | Every trap we have actually hit, and what it looks like. |
-| [doctor codes](doctor-codes.md) | Every finding, what it means, what to do. |
 | [Hosting the portal](hosting.md) | Local is the default, and why. |
 | [Cost](cost.md) | What this spends, and on what. |
+
+## Reference
+
+Look things up.
+
+| | |
+|---|---|
+| [`org.yaml`](org-yaml.md) | Every field in the org manifest. |
+| [`staff.yaml`](staff-yaml.md) | Every field in a staff member's manifest. |
+| [Prompts](prompts.md) | The template syntax, the context, and what to guard. |
+| [The session workflow](session-workflow.md) | Inputs, secrets, and what runs in what order. |
+| [The portal](portal.md) | Every view and every action. |
+| [`roster export`](export.md) | The JSON shape. |
+| [doctor codes](doctor-codes.md) | Every finding, what it means, what to do. |
+
+## Understanding it
+
+| | |
+|---|---|
+| [Architecture](architecture.md) | What happens during a run, and why it is shaped this way. |
+| [Security model](security.md) | What can reach what, and what stops it. |
+| [Working on roster itself](developing.md) | Layout, template classes, and the rules that matter. |
 
 ## The shape of it
 
