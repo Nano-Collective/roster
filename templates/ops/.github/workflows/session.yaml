@@ -92,6 +92,32 @@ jobs:
           private-key: ${{ secrets.PUBLIC_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
+      # Tell the human it was heard. This is the only signal between the request and the reply
+      # several minutes later, and without it there is no way to tell "working" from "the trigger
+      # missed". It sits here, before any checkout, so the eyes land in seconds rather than after
+      # the clones.
+      #
+      # `mention` only. A pr-mention is already acknowledged by the forwarder in the public product
+      # repo, on the comment the human actually left, and reacting again here would put two on it.
+      # A daily run has nothing to react to.
+      #
+      # An `issues` payload carries no comment, so the eyes go on the issue itself. That is the
+      # route where a mention is typed straight into the body of a new issue.
+      #
+      # Never fatal: a missing reaction is cosmetic, and failing the job over one would cost the
+      # answer as well.
+      - name: React to the request
+        if: inputs.kind == 'mention' && (inputs.comment_id != '' || inputs.issue_number != '')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.private.outputs.token }}
+          TARGET: ${{ inputs.comment_id != ''
+            && format('issues/comments/{0}', inputs.comment_id)
+            || format('issues/{0}', inputs.issue_number) }}
+        run: |
+          gh api --method POST "repos/${{ github.repository }}/$TARGET/reactions" \
+            -f content=eyes --silent
+
       # The ops repo is the only thing we can clone without having read a manifest, so it goes
       # first and then tells us everything else.
       - name: Check out the org brain
