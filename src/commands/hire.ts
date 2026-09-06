@@ -150,6 +150,7 @@ function buildPlan(
     app: app ?? `${handle}`,
     publicApp: publicApp || `${org.org}-robot`,
     publicTokenEnv: String(sample?.public_token_env ?? "PUBLIC_TOKEN"),
+    agentSecret: opts.agentSecret ?? agentTokenEnv(org),
   };
   if (!opts.name) warnings.push(`no --name given, so the role is called "${staff.name}"`);
   if (staff.worksIn.length) {
@@ -191,10 +192,22 @@ function buildPlan(
     `${staff.secretPrefix}_APP_PRIVATE_KEY`,
     `${staff.publicSecretPrefix}_APP_ID`,
     `${staff.publicSecretPrefix}_APP_PRIVATE_KEY`,
-    "CLAUDE_CODE_OAUTH_TOKEN",
+    staff.agentSecret,
   ];
 
   return { org: orgSpec, staff, dir, files, peers, labels, secrets, warnings };
+}
+
+/** Which repo secret the agent's credential lives in, named after the credential itself. */
+function agentTokenEnv(org: OrgYaml): string {
+  const asked = (org as any).agent;
+  const spec = typeof asked === "string" ? { id: asked } : (asked ?? {});
+  if (spec.token_env) return String(spec.token_env);
+  const known: Record<string, string> = {
+    "claude-code-action": "CLAUDE_CODE_OAUTH_TOKEN", claude: "CLAUDE_CODE_OAUTH_TOKEN",
+    codex: "CODEX_API_KEY", nanocoder: "NANOCODER_API_KEY",
+  };
+  return known[spec.id ?? "claude-code-action"] ?? "AGENT_TOKEN";
 }
 
 /** `pip-cto` for handle `cto` implies `pip-cfo` for handle `cfo`. Anything less obvious is asked for. */
@@ -433,7 +446,7 @@ function git(cwd: string, args: string[]) {
 
 interface Flags {
   ops?: string; name?: string; dir?: string; schedule?: string; model?: string;
-  timeout?: number; mentionTimeout?: number; prMentionTimeout?: number; secretPrefix?: string; app?: string; publicApp?: string; statusIssue?: number;
+  timeout?: number; mentionTimeout?: number; prMentionTimeout?: number; secretPrefix?: string; app?: string; publicApp?: string; statusIssue?: number; agentSecret?: string;
   visibility?: string; apply?: boolean;
 }
 

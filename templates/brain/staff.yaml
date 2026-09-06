@@ -18,6 +18,8 @@ pr_mention_timeout_minutes: %%PR_MENTION_TIMEOUT%%
 bot: %%APP%%[bot]
 public_bot: %%PUBLIC_APP%%[bot]
 public_token_env: %%PUBLIC_TOKEN_ENV%%
+# The repo secret holding this staff member's coding-agent credential.
+agent_secret: %%AGENT_SECRET%%
 
 identities:
   - { app: %%APP%%, secret_prefix: %%SECRET_PREFIX%%, scope: private }
