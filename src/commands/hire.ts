@@ -25,6 +25,7 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
   --model <id>           defaults to org.yaml's
   --timeout <n>          daily run ceiling, minutes
   --mention-timeout <n>  mention run ceiling, minutes
+  --pr-timeout <n>       PR-amendment run ceiling, minutes
   --secret-prefix <X>    secrets are <X>_APP_ID and <X>_APP_PRIVATE_KEY. Defaults to HANDLE.
   --app <slug>           this staff member's GitHub App. Defaults to the pattern its peers use.
   --private             create the repo private (default)
@@ -138,6 +139,7 @@ function buildPlan(
     model,
     timeout: opts.timeout ?? org.defaults?.timeout_minutes ?? 60,
     mentionTimeout: opts.mentionTimeout ?? 30,
+    prMentionTimeout: opts.prMentionTimeout ?? 60,
     secretPrefix: opts.secretPrefix ?? handle.toUpperCase(),
     publicSecretPrefix: publicIdentity?.secret_prefix ?? "BOT",
     app: app ?? `${handle}`,
@@ -415,7 +417,7 @@ function git(cwd: string, args: string[]) {
 
 interface Flags {
   ops?: string; name?: string; dir?: string; schedule?: string; model?: string;
-  timeout?: number; mentionTimeout?: number; secretPrefix?: string; app?: string; statusIssue?: number;
+  timeout?: number; mentionTimeout?: number; prMentionTimeout?: number; secretPrefix?: string; app?: string; statusIssue?: number;
   visibility?: string; apply?: boolean;
 }
 
@@ -435,6 +437,7 @@ function parseFlags(argv: string[]): Flags {
     else if (flag === "--model") out.model = value;
     else if (flag === "--timeout") out.timeout = Number(value);
     else if (flag === "--mention-timeout") out.mentionTimeout = Number(value);
+    else if (flag === "--pr-timeout") out.prMentionTimeout = Number(value);
     else if (flag === "--secret-prefix") out.secretPrefix = value;
     else if (flag === "--app") out.app = value;
     else throw new Error(`unknown flag ${flag}`);

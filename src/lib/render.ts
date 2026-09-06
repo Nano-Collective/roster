@@ -24,6 +24,10 @@ export interface StaffSpec {
   model: string;
   timeout: number;
   mentionTimeout: number;
+  /* A PR amendment is a focused task, not a session. It shared %%TIMEOUT%% with the daily run
+     until raising the CTO's daily ceiling to 90 would have silently doubled it too — they had
+     only ever coincided at 60, which is why nobody had noticed the coupling. */
+  prMentionTimeout: number;
   /** Secret name prefix for this staff member's own app: CTO_APP_ID and so on. */
   secretPrefix: string;
   /** The shared public identity every staff member pushes through. */
@@ -80,6 +84,7 @@ export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
     MODEL: s.model,
     TIMEOUT: String(s.timeout),
     MENTION_TIMEOUT: String(s.mentionTimeout),
+    PR_MENTION_TIMEOUT: String(s.prMentionTimeout),
     SECRET_PREFIX: s.secretPrefix,
     PUBLIC_SECRET_PREFIX: s.publicSecretPrefix,
     APP: s.app,
@@ -121,11 +126,18 @@ export function render(text: string, tokens: Record<string, string>, where = "te
   return out;
 }
 
-/** Render a whole template directory, keyed by path relative to it. */
+/**
+ * Render a whole template directory, keyed by the path the file will have.
+ *
+ * Paths are rendered too. A caller workflow is called `cto-daily.yaml`, not `daily.yaml` —
+ * they sit in one Actions list per repo and an unprefixed name says nothing about whose run
+ * it is. Missing that is why the first comparison reported every live workflow as absent.
+ */
 export function renderTree(dir: string, tokens: Record<string, string>): Map<string, string> {
   const out = new Map<string, string>();
   for (const rel of templateFiles(dir)) {
-    out.set(rel, render(readFileSync(join(dir, rel), "utf8"), tokens, rel));
+    const path = render(rel, tokens, rel);
+    out.set(path, render(readFileSync(join(dir, rel), "utf8"), tokens, rel));
   }
   return out;
 }
@@ -154,4 +166,39 @@ export function nextSlot(existing: string[], gapMinutes = 40): string | null {
   // Past midnight is a different day's run, which is a decision rather than arithmetic.
   if (at >= 24 * 60) return null;
   return `${at % 60} ${Math.floor(at / 60)} * * ${latest.days}`;
+}
+
+/**
+ * The spec for a staff member who already exists, read from their own manifest.
+ *
+ * Every value here is the tenant's, not the framework's, and that is the whole point: rendering
+ * the base and the incoming version of a file with the *same* current spec cancels the tenant's
+ * values out, so only the template's own change shows up as drift. Read the wrong source — the
+ * org defaults, say — and the CTO's deliberate 90-minute ceiling reads as something to revert.
+ */
+export function specFromManifest(m: Record<string, any>, dir: string): StaffSpec {
+  const identity = (scope: string) => (m.identities ?? []).find((i: any) => i?.scope === scope) ?? {};
+  const priv = identity("private");
+  const pub = identity("public");
+  return {
+    handle: String(m.handle ?? dir),
+    name: String(m.name ?? m.handle ?? dir),
+    dir,
+    brain: String(m.brain ?? ""),
+    mention: String(m.mention ?? `@${m.handle ?? dir}`),
+    statusIssue: Number(m.status_issue ?? 0),
+    worksIn: (m.works_in ?? []).map((w: any) => String(w?.repo)).filter(Boolean),
+    schedule: String(m.schedule ?? ""),
+    model: String(m.model ?? ""),
+    timeout: Number(m.timeout_minutes ?? 60),
+    // Absent from the manifests written before these were separate fields. The defaults are
+    // the values those manifests were already producing, so nothing moves on the first upgrade.
+    mentionTimeout: Number(m.mention_timeout_minutes ?? 30),
+    prMentionTimeout: Number(m.pr_mention_timeout_minutes ?? 60),
+    secretPrefix: String(priv.secret_prefix ?? String(m.handle ?? dir).toUpperCase()),
+    publicSecretPrefix: String(pub.secret_prefix ?? "BOT"),
+    app: String(priv.app ?? ""),
+    publicApp: String(pub.app ?? ""),
+    publicTokenEnv: String(m.public_token_env ?? "PUBLIC_TOKEN"),
+  };
 }

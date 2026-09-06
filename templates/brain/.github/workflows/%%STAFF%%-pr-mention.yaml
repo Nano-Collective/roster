@@ -39,7 +39,7 @@ jobs:
       kind: pr-mention
       ops_repo: %%OPS_REPO%%
       model: %%MODEL%%
-      timeout_minutes: %%TIMEOUT%%
+      timeout_minutes: %%PR_MENTION_TIMEOUT%%
       pr_number: ${{ github.event.inputs.pr || github.event.client_payload.pr }}
       comment_id: ${{ github.event.inputs.comment_id || github.event.client_payload.comment_id }}
     secrets:

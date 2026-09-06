@@ -67,7 +67,8 @@ test("the scaffold contains the things a staff member cannot work without", () =
   const files = new Set(plan("cfo").files.keys());
   for (const needed of [
     "staff.yaml", "CHARTER.md", "memory/INDEX.md",
-    ".github/workflows/daily.yaml", ".github/workflows/mention.yaml", ".github/workflows/pr-mention.yaml",
+    ".github/workflows/cfo-daily.yaml", ".github/workflows/cfo-mention.yaml",
+    ".github/workflows/cfo-pr-mention.yaml",
     ".claude/commands/charter.md",
   ]) {
     assert.ok(files.has(needed), `a hire with no ${needed} is not a hire`);
@@ -260,13 +261,24 @@ test("a scaffolded hire is coherent: doctor passes and all three prompts compose
   }
 });
 
+test("a caller's filename is templated too, so it says whose run it is", () => {
+  // cto-daily.yaml, not daily.yaml: they sit in one Actions list per repo. Missing this is
+  // why the first brain comparison reported every live workflow as absent.
+  const names = [...plan("cfo").files.keys()].filter((k) => k.startsWith(".github/"));
+  assert.deepEqual(names.sort(), [
+    ".github/workflows/cfo-daily.yaml",
+    ".github/workflows/cfo-mention.yaml",
+    ".github/workflows/cfo-pr-mention.yaml",
+  ]);
+});
+
 test("the generated callers are valid workflows with the triggers they are meant to have", () => {
   const files = plan("cfo").files;
-  const mention = files.get(".github/workflows/mention.yaml")!;
+  const mention = files.get(".github/workflows/cfo-mention.yaml")!;
   // The regression fixed earlier today has to survive being generated for a new hire.
   assert.match(mention, /^\s{2}issues:$/m, "a mention in a new issue body must still wake a run");
   assert.match(mention, /github\.event\.sender\.login == 'will-lamerton'/,
     "and the loop guard must be on the sender, not the author");
-  assert.match(files.get(".github/workflows/daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
-  assert.match(files.get(".github/workflows/pr-mention.yaml")!, /repository_dispatch/);
+  assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
+  assert.match(files.get(".github/workflows/cfo-pr-mention.yaml")!, /repository_dispatch/);
 });
