@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { collect, doctorCommand, timeoutOf, isTimeout, type Run } from "../src/commands/doctor.js";
+import { collect, doctorCommand, timeoutOf, isTimeout, inferredCeiling, runMinutes, type Run } from "../src/commands/doctor.js";
 
 /**
  * Doctor's job is to be believed, so the tests here are mostly about not crying wolf. Every
@@ -140,4 +140,44 @@ test("a broken workspace produces failures, and every one says what to do", asyn
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("raising a ceiling does not rewrite the history of runs that hit the old one", () => {
+  /* A regression caught the moment the CTO's ceiling went 60 -> 90: five genuine timeouts were
+     instantly reclassified as ordinary cancellations, because they were being compared against
+     today's setting rather than the one in force when they ran. The runs themselves say what
+     the ceiling was — several stopping at the same minute is not a coincidence. */
+  const at60 = (day: string) => run({
+    conclusion: "cancelled",
+    createdAt: `2026-09-0${day}T11:00:00Z`,
+    updatedAt: `2026-09-0${day}T12:00:20Z`,
+  });
+  const killed = [at60("1"), at60("2"), at60("3")];
+
+  assert.equal(inferredCeiling(killed), 60);
+  // Still recognised as timeouts even though the caller now allows 90.
+  for (const r of killed) {
+    assert.equal(isTimeout(r, 90), false, "against the new ceiling alone it looks like a cancellation");
+    assert.ok(Math.abs(runMinutes(r) - inferredCeiling(killed)!) < 1, "but the runs still agree on 60");
+  }
+});
+
+test("one cancelled run is not a ceiling", () => {
+  const once = run({ conclusion: "cancelled", createdAt: "2026-09-01T11:00:00Z", updatedAt: "2026-09-01T11:12:00Z" });
+  assert.equal(inferredCeiling([once]), null, "somebody pressing stop is not a pattern");
+  assert.equal(inferredCeiling([]), null);
+});
+
+test("the ceiling is the duration the most runs agree on", () => {
+  const c = (from: string, to: string) => run({ conclusion: "cancelled", createdAt: from, updatedAt: to });
+  const runs = [
+    c("2026-09-01T11:00:00Z", "2026-09-01T12:00:00Z"),
+    c("2026-09-02T11:00:00Z", "2026-09-02T12:00:00Z"),
+    c("2026-09-03T11:00:00Z", "2026-09-03T11:07:00Z"), // a real cancellation, on its own
+  ];
+  assert.equal(inferredCeiling(runs), 60);
+});
+
+test("runMinutes measures the wall clock the run was allowed", () => {
+  assert.equal(runMinutes(run({ createdAt: "2026-09-01T11:00:00Z", updatedAt: "2026-09-01T11:30:00Z" })), 30);
 });

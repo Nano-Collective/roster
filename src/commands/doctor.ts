@@ -357,12 +357,37 @@ export function timeoutOf(callerText: string): number {
   return m ? Number(m[1]) : 60;
 }
 
+export function runMinutes(run: Run): number {
+  return (new Date(run.updatedAt).getTime() - new Date(run.createdAt).getTime()) / 60000;
+}
+
 /** GitHub reports a job killed by `timeout-minutes` as "cancelled", so it is recognised by
  *  running for as long as it was allowed to. One minute of slack for scheduling overhead. */
 export function isTimeout(run: Run, timeout: number): boolean {
   if (run.conclusion !== "cancelled") return false;
-  const mins = (new Date(run.updatedAt).getTime() - new Date(run.createdAt).getTime()) / 60000;
-  return mins >= timeout - 1;
+  return runMinutes(run) >= timeout - 1;
+}
+
+/**
+ * The ceiling those runs were actually stopped at, read from the runs themselves.
+ *
+ * Needed because the caller's current timeout says nothing about a run from last week. Raising
+ * the CTO's ceiling from 60 to 90 immediately reclassified five genuine timeouts as ordinary
+ * cancellations — the exact confusion the timeout detection exists to remove. Several
+ * cancelled runs stopping at the same minute is a ceiling whether or not it is today's.
+ */
+export function inferredCeiling(cancelled: Run[]): number | null {
+  const counts = new Map<number, number>();
+  for (const r of cancelled) {
+    const m = Math.round(runMinutes(r));
+    counts.set(m, (counts.get(m) ?? 0) + 1);
+  }
+  let best: number | null = null;
+  let most = 1;
+  for (const [minutes, n] of counts) {
+    if (n > most || (n === most && best !== null && minutes > best)) { best = minutes; most = n; }
+  }
+  return most >= 2 ? best : null;
 }
 
 function readCallers(root: string): Caller[] {
@@ -555,11 +580,17 @@ async function checkStaffOnline(
     }
 
     const timeout = timeoutOf(callers.find((c) => c.name === name)?.text ?? "");
-    const timedOut = real.filter((r) => isTimeout(r, timeout));
-    const failed = real.filter((r) => !isTimeout(r, timeout) &&
+    // A ceiling in force when those runs happened, which may not be the one set today.
+    const past = inferredCeiling(real.filter((r) => r.conclusion === "cancelled"));
+    const killed = (r: Run) =>
+      isTimeout(r, timeout) || (past !== null && r.conclusion === "cancelled" && Math.abs(runMinutes(r) - past) < 1);
+
+    const timedOut = real.filter(killed);
+    const failed = real.filter((r) => !killed(r) &&
       r.conclusion !== "success" && r.conclusion !== "cancelled");
-    const cancelled = real.filter((r) => !isTimeout(r, timeout) && r.conclusion === "cancelled");
+    const cancelled = real.filter((r) => !killed(r) && r.conclusion === "cancelled");
     const ok = real.filter((r) => r.conclusion === "success");
+    const ceiling = timedOut.length ? Math.round(runMinutes(timedOut[0]!)) : timeout;
 
     /* A job killed by `timeout-minutes` is reported by GitHub as "cancelled", which reads like
        somebody pressed a button. Recognising it by its duration is the difference between
@@ -567,9 +598,12 @@ async function checkStaffOnline(
     if (timedOut.length) {
       out.push({
         scope, level: "fail", id: "runs.timeout",
-        title: `${name}: ${timedOut.length} of the last ${real.length} hit the ${timeout}m timeout ` +
-               `(most recent ${ago(timedOut[0]!.createdAt)})`,
-        fix: `Those runs produced nothing. Raise timeout_minutes in the caller, or shorten the work.`,
+        title: `${name}: ${timedOut.length} of the last ${real.length} ran to a ${ceiling}m ceiling ` +
+               `and were killed (most recent ${ago(timedOut[0]!.createdAt)})` +
+               (ceiling !== timeout ? `; the caller now allows ${timeout}m` : ""),
+        fix: ceiling !== timeout
+          ? `Already raised to ${timeout}m — check the next scheduled run actually finishes.`
+          : "Those runs produced nothing. Raise timeout_minutes in the manifest, or shorten the work.",
       });
     }
     if (failed.length) {
@@ -583,7 +617,8 @@ async function checkStaffOnline(
     if (cancelled.length) {
       out.push({
         scope, level: "warn", id: "runs.cancelled",
-        title: `${name}: ${cancelled.length} of the last ${real.length} were cancelled short of the timeout`,
+        title: `${name}: ${cancelled.length} of the last ${real.length} were cancelled ` +
+               `(${cancelled.map((r) => Math.round(runMinutes(r)) + "m").join(", ")})`,
         fix: `gh run list --repo ${repo} --workflow ${name}`,
       });
     }
