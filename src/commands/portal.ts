@@ -8,6 +8,7 @@ import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { syncRepos } from "../lib/sync.js";
 import { act, type ActRequest } from "../lib/act.js";
 import { PORTAL_HTML } from "../portal/html.js";
+import { docsDir, docPages } from "../lib/docs.js";
 
 export const portalHelp = `
 roster portal
@@ -93,6 +94,26 @@ export async function portalCommand(argv: string[]): Promise<number> {
       if (url.pathname === "/") {
         res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
         res.end(PORTAL_HTML);
+        return;
+      }
+
+      /* The docs ship with the framework, so the portal serves them from there rather than
+         from the tenant. Reading them where you already are beats remembering a URL. */
+      if (url.pathname === "/api/docs") {
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(docPages()));
+        return;
+      }
+
+      if (url.pathname === "/api/doc") {
+        const page = url.searchParams.get("page") ?? "";
+        // Only a page the listing offered: the name is attacker-controlled and reaches the disk.
+        if (!docPages().some((d) => d.file === page)) {
+          res.writeHead(404).end("not found");
+          return;
+        }
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end(readFileSync(join(docsDir(), page), "utf8"));
         return;
       }
 

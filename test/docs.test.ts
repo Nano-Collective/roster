@@ -134,3 +134,25 @@ test("the docs do not use em-dashes", () => {
     assert.equal(line, -1, `${page}:${line + 1} uses an em-dash`);
   }
 });
+
+test("every finding doctor can emit is in the codes reference", () => {
+  /* A reference page is exactly the kind that goes stale invisibly: a new check ships, nobody
+     documents it, and the id in someone's --json output means nothing to them. */
+  const src = readFileSync(join(ROOT, "src", "commands", "doctor.ts"), "utf8");
+  const ids = new Set<string>();
+  for (const m of src.matchAll(/\bid:\s*"([\w.-]+)"/g)) ids.add(m[1]!);
+  assert.ok(ids.size >= 20, `expected doctor to have many findings, found ${ids.size}`);
+
+  const page = read("doctor-codes.md");
+  const undocumented = [...ids].filter((id) => !page.includes(`\`${id}\``)).sort();
+  assert.deepEqual(undocumented, [], "doctor emits these ids and doctor-codes.md does not list them");
+});
+
+test("the codes reference does not invent findings that do not exist", () => {
+  const src = readFileSync(join(ROOT, "src", "commands", "doctor.ts"), "utf8");
+  const ids = new Set([...src.matchAll(/\bid:\s*"([\w.-]+)"/g)].map((m) => m[1]!));
+  // Ids appear in the reference as `code` in the first column of a table row.
+  const claimed = [...read("doctor-codes.md").matchAll(/^\| `([\w.-]+)` \|/gm)].map((m) => m[1]!);
+  const invented = claimed.filter((id) => !ids.has(id));
+  assert.deepEqual(invented, [], "doctor-codes.md documents findings doctor cannot produce");
+});

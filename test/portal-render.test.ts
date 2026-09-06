@@ -129,12 +129,17 @@ function harness(hash = "") {
                   comments: [{ author: "cmo", createdAt: "2026-05-02T00:00:00Z", body: "a reply" }] },
               ],
             }
+          : String(u).startsWith("/api/docs")
+            ? [{ file: "README.md", title: "Overview" }, { file: "agents.md", title: "Choosing a coding agent" }]
           : String(u).startsWith("/api/thread")
             ? { title: "Needs a ruling", body: "# Head\n\n- a point\n\n`code` and **bold**",
                 author: "bot", createdAt: new Date().toISOString(), url: "https://example.invalid/3",
                 state: "OPEN", comments: [{ author: "will", createdAt: new Date().toISOString(), body: "ok" }] }
             : ORG,
-      text: async () => "sample",
+      text: async () =>
+        String(u).startsWith("/api/doc?")
+          ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
+          : "sample",
     }),
     requestAnimationFrame: () => 0,
     confirm: () => true,
@@ -700,4 +705,29 @@ test("a staff member with no brain repo cannot have an issue opened against noth
     s.document.createElement("button"), status);
   assert.equal(called, false);
   assert.match(status.textContent, /no brain repo/);
+});
+
+test("the docs render in the portal, and a link between pages stays inside it", async () => {
+  /* The docs ship with the framework, so they are read where you already are rather than by
+     remembering a path. A relative .md link has to navigate the portal, not 404 the browser. */
+  const s = await renderAll("#/-/docs");
+  assert.equal(s.view, "docs");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const nodes = walkNodes(s._byId.main);
+  const keys = nodes.filter((n) => n.dataset?.key).map((n) => n.dataset.key);
+  assert.deepEqual(keys, ["README.md", "agents.md"], "one entry per page, in reading order");
+
+  const html = nodes.map((n) => String(n.innerHTML ?? "")).join("");
+  assert.ok(html.includes("<h1>Choosing a coding agent</h1>"), "the page should render as a document");
+  assert.match(html, /data-doc="manual-steps\.md"/,
+    "a link to another page must be handled in the portal, not followed by the browser");
+  assert.ok(!html.includes('href="manual-steps.md"'), "and not left as a plain href");
+});
+
+test("docs work without a staff member selected", async () => {
+  // Every other view belongs to somebody; this one does not, and the URL must not demand one.
+  const s = await renderAll("#/-/docs");
+  assert.equal(s.view, "docs");
+  assert.ok(s._byId.main.children.length > 0);
 });
