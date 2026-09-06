@@ -4,8 +4,7 @@ name: %%STAFF_UPPER%% daily run
 # Edit this file only to change the schedule; everything else belongs in the ops repo, where
 # one change reaches every staff member.
 #
-# NOTE: %%TOKENS%% are filled by `roster hire`. GitHub's own ${{ }} expressions are left alone,
-# which is why this template uses a different delimiter from the runtime prompts.
+# NOTE: %%TOKENS%% are filled by `roster hire`; GitHub's own ${{ }} are left alone.
 
 on:
   schedule:

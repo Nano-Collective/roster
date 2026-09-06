@@ -1,0 +1,40 @@
+# %%NAME%%'s manifest. The machine-readable half of CHARTER.md.
+# `roster lint` fails if this and the charter disagree.
+#
+# NOTE: %%TOKENS%% are filled by `roster hire`.
+
+handle: %%STAFF%%
+name: %%NAME%%
+mention: "%%MENTION%%"
+brain: %%BRAIN%%
+status_issue: %%STATUS_ISSUE%%
+
+schedule: "%%SCHEDULE%%"
+model: %%MODEL%%
+timeout_minutes: %%TIMEOUT%%
+
+bot: %%APP%%[bot]
+public_bot: %%PUBLIC_APP%%[bot]
+public_token_env: %%PUBLIC_TOKEN_ENV%%
+
+identities:
+  - { app: %%APP%%, secret_prefix: %%SECRET_PREFIX%%, scope: private }
+  - { app: %%PUBLIC_APP%%, secret_prefix: %%PUBLIC_SECRET_PREFIX%%, scope: public }
+
+# Repos this staff member contributes to but does not own.
+works_in:%%WORKS_IN%%
+
+# Written by `roster hire`, both ways: every existing staff member gains an entry for this
+# one, and this one gains an entry for each of them.
+peers: []
+
+# What the portal renders, and what this staff member is expected to keep.
+surfaces:
+  - { path: memory/, render: memory }
+  - { path: strategy/, render: doc }
+  - { path: drafts/, render: doc }
+  - { path: log/, render: doc }
+
+labels:
+  owner: [%%HUMAN_MARKER%%, %%STAFF%%]
+  kind: [decision, setup, build, blocked]
