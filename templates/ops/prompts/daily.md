@@ -45,10 +45,12 @@ You are not writing a plan for {{human.name}} to approve.
 
 ## Then hand off, in order
 
+{{#if staff.product}}
 1. **Open the PR** on `{{staff.product.repo}}` if you produced anything there, from a branch:
    `GH_TOKEN=${{staff.public_token_env}} gh pr create --repo {{staff.product.repo}} ...`
    **Body: what it does, what the gate covered, what it did not cover. Nothing else** - no design
    essay, no narration of how you built it. It is reviewed on a phone and the diff is right there.
+{{/if}}
 2. **Rewrite pinned issue #{{staff.status_issue}} "Where we are"**: the situation in a line, what
    this run did, what the next run picks up in priority order. **It is a handover for the next run,
    not a diary.** Rewrite it, do not append, and cut anything the next run can find for itself.
