@@ -6,6 +6,7 @@ import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { buildExport } from "../lib/export.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { syncRepos } from "../lib/sync.js";
+import { act, type ActRequest } from "../lib/act.js";
 import { PORTAL_HTML } from "../portal/html.js";
 
 export const portalHelp = `
@@ -16,7 +17,11 @@ roster portal
 
   Reads the checked-out repos from disk. No auth, no API rate limits, works offline.
 
+  It can also act on GitHub as you: reply, close, reopen and open issues. Those go
+  through your own gh, so they are indistinguishable from doing it on the site.
+
   --port <n>     default 4300
+  --host <addr>  default 127.0.0.1. Anything else exposes write actions to the network.
   --ops <dir>    ops repo directory (default: found by walking up)
 `;
 
@@ -47,6 +52,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
   const ws = findWorkspace(opts.ops);
   const { parseYaml } = await loadComposer(ws.opsDir);
   const port = opts.port ?? 4300;
+  const host = opts.host ?? "127.0.0.1";
 
   // gh calls take about a second each and the inbox hits every repo, so a short cache keeps
   // switching views instant. The refresh button bypasses it.
@@ -57,6 +63,28 @@ export async function portalCommand(argv: string[]): Promise<number> {
     const org = readOrg(ws.opsDir, parseYaml) as any;
     return (org.repos ?? []).map((r: any) => ({ name: r.name, owner: org.org, role: r.role ?? "repo" }));
   };
+
+  /* A local server that can write to GitHub is reachable by any page in the browser, so a
+     write needs three things a drive-by request cannot produce: a POST, a custom header
+     (which forces a CORS preflight that will fail), and either no Origin or a local one. */
+  const writeAllowed = (req: import("node:http").IncomingMessage) => {
+    if (req.method !== "POST") return false;
+    if (req.headers["x-roster"] !== "1") return false;
+    const origin = req.headers.origin;
+    if (origin && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return false;
+    return true;
+  };
+
+  const body = (req: import("node:http").IncomingMessage) =>
+    new Promise<string>((resolve, reject) => {
+      let buf = "";
+      req.on("data", (c) => {
+        buf += c;
+        if (buf.length > 1_000_000) reject(new Error("body too large"));
+      });
+      req.on("end", () => resolve(buf));
+      req.on("error", reject);
+    });
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -75,6 +103,30 @@ export async function portalCommand(argv: string[]): Promise<number> {
         const data = buildExport(ws, org as any, parseYaml);
         res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      if (url.pathname === "/api/act") {
+        if (!writeAllowed(req)) {
+          res.writeHead(403, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
+          return;
+        }
+        body(req)
+          .then(async (raw) => {
+            const payload = JSON.parse(raw || "{}") as ActRequest;
+            const org = readOrg(ws.opsDir, parseYaml) as any;
+            const known = (org.repos ?? []).map((r: any) => `${org.org}/${r.name}`);
+            if (!known.includes(payload.repo)) throw new Error(`${payload.repo} is not a repo in org.yaml`);
+            const result = await act(payload);
+            cache = null; // the inbox is now wrong
+            res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+            res.end(JSON.stringify(result));
+          })
+          .catch((err) => {
+            res.writeHead(400, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+          });
         return;
       }
 
@@ -128,7 +180,8 @@ export async function portalCommand(argv: string[]): Promise<number> {
         }
         fetchThread(repo, number, kind)
           .then((thread) => {
-            res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+            cache = null;
+            res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
             res.end(JSON.stringify(thread));
           })
           .catch((err) => {
@@ -193,19 +246,21 @@ export async function portalCommand(argv: string[]): Promise<number> {
       }
       done(1);
     });
-    server.listen(port, () => {
-      process.stdout.write(`\n  roster portal\n  http://localhost:${port}\n\n  workspace: ${ws.root}\n  Ctrl-C to stop.\n\n`);
+    server.listen(port, host, () => {
+      const warn = host === "127.0.0.1" ? "" : `\n  ⚠ bound to ${host}: write actions are reachable from the network.\n`;
+      process.stdout.write(`\n  roster portal\n  http://localhost:${port}\n${warn}\n  workspace: ${ws.root}\n  Ctrl-C to stop.\n\n`);
     });
   });
 }
 
 function parseFlags(argv: string[]) {
-  const out: { port?: number; ops?: string } = {};
+  const out: { port?: number; ops?: string; host?: string } = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     const value = argv[++i];
     if (value === undefined) throw new Error(`${flag} needs a value`);
     if (flag === "--port") out.port = Number(value);
+    else if (flag === "--host") out.host = value;
     else if (flag === "--ops") out.ops = value;
     else throw new Error(`unknown flag ${flag}`);
   }

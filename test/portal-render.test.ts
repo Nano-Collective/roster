@@ -107,10 +107,13 @@ function harness(hash = "") {
               items: [
                 { repo: "acme/product", role: "product", kind: "pr", number: 7, title: "An older pull request",
                   labels: ["build"], assignees: [], author: "bot", updatedAt: "2026-01-01T00:00:00Z",
-                  url: "https://example.invalid/7", checks: "passing" },
+                  url: "https://example.invalid/7", checks: "passing", state: "OPEN",
+                  createdAt: "2026-01-01T00:00:00Z", body: "PR body", comments: [] },
                 { repo: "acme/brain", role: "brain", kind: "issue", number: 3, title: "Needs a ruling",
                   labels: ["decision"], assignees: [String(ORG.human.github)], author: "bot",
-                  updatedAt: "2026-06-01T00:00:00Z", url: "https://example.invalid/3" },
+                  updatedAt: "2026-06-01T00:00:00Z", url: "https://example.invalid/3", state: "OPEN",
+                  createdAt: "2026-05-01T00:00:00Z", body: "| | ask |\n|---|---|\n| a | b |",
+                  comments: [{ author: "cmo", createdAt: "2026-05-02T00:00:00Z", body: "a reply" }] },
               ],
             }
           : String(u).startsWith("/api/thread")
@@ -263,6 +266,23 @@ test("the inbox renders newest first", async () => {
   assert.ok(first.includes("Needs a ruling"), "the newer item must come first");
   assert.ok(second.includes("An older pull request"));
   assert.ok(first.includes("brain"), "each row should name its project");
+});
+
+test("a thread opens from data already loaded, with no extra request", async () => {
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  let calls = 0;
+  s.fetch = async () => { calls++; return { ok: true, json: async () => ({}), text: async () => "" }; };
+
+  // Rendering the whole view is what a click does; the point is that it costs no fetch.
+  s.view = "inbox";
+  s.inboxOpen = { repo: "acme/brain", number: 3, kind: "issue" };
+  s.render();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(calls, 0, "opening a thread must not hit the network");
+
+  const html = JSON.stringify(s._byId.main);
+  assert.ok(html.includes("a reply"), "the comment should already be there");
 });
 
 test("refreshAll re-fetches and re-renders, so a run that lands is visible", async () => {
