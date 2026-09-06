@@ -51,7 +51,9 @@ textarea:focus{border-color:var(--accent-dim)}
 .ghbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
 .ghbtn.primary:hover{filter:brightness(1.08);background:var(--accent)}
 .ghbtn:disabled{opacity:.5;cursor:default}
-button.ghbtn{cursor:pointer;font-family:var(--sans)}
+button.ghbtn{cursor:pointer;font-family:var(--sans);background:transparent;
+      -webkit-appearance:none;appearance:none;font-size:12px;line-height:1.4}
+button.ghbtn:hover{background:var(--panel-2)}
 .notice{background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid
       color-mix(in srgb,var(--warn) 40%,transparent);color:var(--ink-dim);border-radius:8px;
       padding:10px 13px;margin-bottom:16px;font-size:12.5px;line-height:1.6}
@@ -64,6 +66,17 @@ button.ghbtn{cursor:pointer;font-family:var(--sans)}
 .refreshall.spin .sync{animation:spin .9s linear infinite}
 .sect{padding:14px 20px 6px;font:600 10.5px var(--sans);letter-spacing:.09em;
       text-transform:uppercase;color:var(--ink-faint)}
+.nav.top{margin-bottom:2px}
+.nav .ic{color:var(--ink-faint);margin-right:4px}
+.seg{display:flex;gap:4px;margin:2px 20px 0;padding:3px;background:var(--panel-2);
+     border:1px solid var(--line);border-radius:8px}
+.segbtn{flex:1;background:none;border:0;color:var(--ink-faint);font:600 11.5px var(--mono);
+     letter-spacing:.04em;padding:6px 0;border-radius:6px;cursor:pointer}
+.segbtn:hover{color:var(--ink)}
+.segbtn[aria-current="true"]{background:var(--panel);color:var(--ink);
+     box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.viewsfor{padding:14px 20px 6px;font:11.5px var(--sans);color:var(--ink-faint)}
+.viewsfor span{color:var(--ink-dim)}
 .nav{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink-dim);
      font:14px var(--sans);padding:7px 20px;cursor:pointer;border-left:2px solid transparent}
 .nav:hover{color:var(--ink);background:var(--panel-2)}
@@ -117,7 +130,10 @@ input[type=search]:focus,select:focus{border-color:var(--accent-dim)}
        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tfile:hover{background:var(--panel-2);color:var(--ink)}
 .tfile[aria-current="true"]{background:var(--panel-2);color:var(--accent)}
-.tfile i{float:right;color:var(--ink-faint);font-style:normal;font-size:10.5px}
+.tfile{display:flex;align-items:baseline;gap:10px}
+.tfile span.t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tfile i{color:var(--ink-faint);font-style:normal;font-size:10.5px;flex:none;
+      font-variant-numeric:tabular-nums}
 .viewer{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:20px 22px;
         min-height:340px;max-height:74vh;overflow:auto}
 .viewer pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12.5px/1.65 var(--mono);color:var(--ink-dim)}
@@ -239,11 +255,15 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
     <button class="refreshall" id="refreshall" title="Reload everything from disk (r)">
       <span class="sync">&#10227;</span><span id="loaded">data now</span>
     </button>
-    <div class="sect">Org</div>
-    <button class="nav" id="inboxnav" data-view="inbox">Inbox</button>
-    <div class="sect">Staff</div>
-    <div id="stafflist"></div>
-    <div class="sect">View</div>
+
+    <button class="nav top" id="inboxnav" data-view="inbox">
+      <span class="ic">&#9993;</span> Inbox
+      <span class="n" id="inboxcount"></span>
+    </button>
+
+    <div class="sect">Whose brain</div>
+    <div class="seg" id="stafflist"></div>
+    <div class="viewsfor"><span id="viewsfor"></span></div>
     <div id="viewlist"></div>
     <div class="sect">Appearance</div>
     <button class="nav" id="theme">Theme</button>
@@ -393,11 +413,10 @@ async function boot() {
   $("#orgname").textContent = DATA.name + " · " + DATA.staff.length + " staff";
 
   $("#stafflist").replaceChildren(...DATA.staff.map((s) => {
-    const b = el("button", { className: "nav", onclick: () => { staffHandle = s.handle; openFile = null; render(); } });
+    const b = el("button", { className: "segbtn", onclick: () => { staffHandle = s.handle; openFile = null; render(); } });
     b.dataset.staff = s.handle;
     b.title = s.name + " · " + s.dir;
     b.append(s.handle.toUpperCase());
-    b.append(el("span", { className: "n", textContent: s.facts.length }));
     return b;
   }));
   $("#viewlist").replaceChildren(...VIEWS.map(([id, label]) => {
@@ -438,10 +457,15 @@ async function boot() {
 }
 
 function render() {
-  for (const b of document.querySelectorAll(".nav")) {
+  for (const b of document.querySelectorAll(".nav, .segbtn")) {
     if (b.dataset.staff) b.setAttribute("aria-current", String(b.dataset.staff === staffHandle));
     if (b.dataset.view) b.setAttribute("aria-current", String(b.dataset.view === view));
   }
+  // Say whose views these are, so the two-step choice is not something you have to infer.
+  const who = $("#viewsfor");
+  if (who && staff()) who.textContent = staff().name;
+  const ic = $("#inboxcount");
+  if (ic) ic.textContent = INBOX ? String(INBOX.items.length) : "";
   writeHash(true);
   stampLoaded();
   const m = $("#main");
@@ -1331,7 +1355,7 @@ function viewBrain(m) {
     }
     for (const f of files.slice(0, 400)) {
       const b = el("button", { className: "tfile", title: f.path });
-      b.append(f.path.replace(surface.path, ""));
+      b.append(el("span", { className: "t", textContent: f.path.replace(surface.path, "") }));
       b.append(el("i", { textContent: kb(f.bytes) }));
       b.setAttribute("aria-current", String(openFile === f.path));
       b.onclick = () => { openFile = f.path; writeHash(false); show(viewer, s, f); for (const o of tree.querySelectorAll(".tfile")) o.setAttribute("aria-current", "false"); b.setAttribute("aria-current", "true"); };
@@ -1433,8 +1457,9 @@ function viewChanged(m) {
         list.append(el("div", { className: "tdir", textContent: day }));
         for (const c of items) {
           const b = el("button", { className: "tfile" });
-          b.innerHTML = '<span class="' + (c.change === "added" ? "ok" : "err") + '">' +
-            (c.change === "added" ? "+" : "−") + "</span> " + esc(c.slug) + "<i>" + esc(c.sha) + "</i>";
+          b.innerHTML = '<span class="' + (c.change === "added" ? "ok" : "err") + '" style="flex:none">' +
+            (c.change === "added" ? "+" : "−") + '</span><span class="t">' + esc(c.slug) + "</span>" +
+            "<i>" + esc(c.sha.slice(0, 7)) + "</i>";
           b.onclick = () => { markCurrent(list, b); showDiff(viewer, s, c.sha, "memory/INDEX.md", c.slug); };
           list.append(b);
         }
@@ -1446,8 +1471,8 @@ function viewChanged(m) {
       list.append(el("div", { className: "tdir", textContent: "commits" }));
       for (const c of commits.slice(0, 25)) {
         const b = el("button", { className: "tfile", title: c.subject });
-        b.append(c.subject.slice(0, 44));
-        b.append(el("i", { textContent: c.sha }));
+        b.append(el("span", { className: "t", textContent: c.subject }));
+        b.append(el("i", { textContent: c.sha.slice(0, 7) }));
         b.onclick = () => { markCurrent(list, b); showDiff(viewer, s, c.sha, "", null); };
         list.append(b);
       }
