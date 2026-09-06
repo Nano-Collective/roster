@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { planAll, apply, type FilePlan } from "../src/commands/upgrade.js";
+import { planAll, apply, planBrains, type FilePlan } from "../src/commands/upgrade.js";
+import { findWorkspace, loadComposer } from "../src/lib/workspace.js";
 import { classify } from "../src/lib/templates.js";
 import { merge3 } from "../src/lib/merge.js";
 
@@ -244,3 +245,162 @@ test("the same edit to a seeded file is nobody's business", () => {
     assert.equal(s.plans()[0]!.verdict, "local");
   } finally { s.cleanup(); }
 });
+
+/* ------------------------------ brain repos ------------------------------ */
+
+function brainWorkspace() {
+  const root = mkdtempSync(join(tmpdir(), "roster-brain-"));
+  const ops = join(root, "roster-ops");
+  mkdirSync(ops, { recursive: true });
+  copyFileSync(join(import.meta.dirname, "..", "templates", "ops", "compose.mjs"), join(ops, "compose.mjs"));
+  writeFileSync(join(ops, "org.yaml"), [
+    "org: acme", "name: Acme",
+    "human:", "  github: someone", "  marker: boss",
+    "staff:", "  - { handle: cto, dir: technology, name: Chief Technology Officer }",
+    "repos:", "  - { name: product, visibility: public, role: product }",
+  ].join("\n") + "\n");
+  return { root, ops };
+}
+
+function writeManifest(root: string, extra: string[] = []) {
+  mkdirSync(join(root, "technology"), { recursive: true });
+  writeFileSync(join(root, "technology", "staff.yaml"), [
+    "handle: cto", "name: Chief Technology Officer", "mention: \"@cto\"",
+    "brain: acme/technology", "status_issue: 15",
+    'schedule: "0 7 * * 1-5"', "model: claude-opus-5", "timeout_minutes: 60",
+    "public_token_env: PRODUCT_TOKEN",
+    "identities:",
+    "  - { app: acme-cto, secret_prefix: CTO, scope: private }",
+    "  - { app: acme-robot, secret_prefix: BOT, scope: public }",
+    "works_in:", "  - { repo: acme/product, role: contributor, checkout: true }",
+    "peers: []",
+    "surfaces:", "  - { path: memory/, render: memory }",
+    ...extra,
+  ].join("\n") + "\n");
+}
+
+test("a caller that matches the template is left alone", async () => {
+  const { root, ops } = brainWorkspace();
+  try {
+    writeManifest(root);
+    const ws = findWorkspace(ops);
+    const { parseYaml } = await loadComposer(ops);
+    const [brain] = planBrains(ws, parseYaml);
+
+    // Write exactly what the plan says the callers should be, then re-plan.
+    for (const f of brain!.files) {
+      if (f.next === undefined) continue;
+      const dest = join(brain!.root, f.rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, f.next);
+    }
+    const [again] = planBrains(ws, parseYaml);
+    assert.deepEqual(again!.files.filter((f) => f.verdict !== "same").map((f) => f.rel), [],
+      "a freshly generated brain must be idempotent under upgrade");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("a value that lives in the manifest is never mistaken for drift", async () => {
+  /* The trap this was written to avoid. The CTO's daily ceiling is 90 while the org default is
+     60, so a renderer reading org.yaml would report a deliberate change as something to
+     revert — and `upgrade --apply` would quietly put the timeouts back. */
+  const { root, ops } = brainWorkspace();
+  try {
+    writeManifest(root);
+    const ws = findWorkspace(ops);
+    const { parseYaml } = await loadComposer(ops);
+    for (const f of planBrains(ws, parseYaml)[0]!.files) {
+      if (f.next === undefined) continue;
+      const dest = join(brainRoot(root), f.rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, f.next);
+    }
+
+    // Raise the ceiling the way a human would: in the manifest and the caller together.
+    const mf = join(root, "technology", "staff.yaml");
+    writeFileSync(mf, readFileSync(mf, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"));
+    const daily = join(brainRoot(root), ".github", "workflows", "cto-daily.yaml");
+    writeFileSync(daily, readFileSync(daily, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"));
+
+    const [after] = planBrains(ws, parseYaml);
+    const dailyPlan = after!.files.find((f) => f.rel.endsWith("cto-daily.yaml"))!;
+    assert.equal(dailyPlan.verdict, "same",
+      "a manifest value must render into both sides and cancel, not read as drift");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("raising the daily ceiling does not drag the PR-amendment ceiling with it", async () => {
+  // They shared %%TIMEOUT%% and had only ever coincided at 60, which hid the coupling.
+  const { root, ops } = brainWorkspace();
+  try {
+    writeManifest(root);
+    const mf = join(root, "technology", "staff.yaml");
+    writeFileSync(mf, readFileSync(mf, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"));
+    const ws = findWorkspace(ops);
+    const { parseYaml } = await loadComposer(ops);
+    const files = planBrains(ws, parseYaml)[0]!.files;
+
+    const text = (name: string) => files.find((f) => f.rel.endsWith(name))!.next!;
+    assert.match(text("cto-daily.yaml"), /timeout_minutes: 90/);
+    assert.match(text("cto-pr-mention.yaml"), /timeout_minutes: 60/, "a PR amendment is not a session");
+    assert.match(text("cto-mention.yaml"), /timeout_minutes: 30/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("the files a staff member owns are never rewritten", async () => {
+  const { root, ops } = brainWorkspace();
+  try {
+    writeManifest(root);
+    const brainDir = brainRoot(root);
+    mkdirSync(join(brainDir, "memory"), { recursive: true });
+    // What a working agent's memory index looks like: nothing like the template.
+    writeFileSync(join(brainDir, "memory", "INDEX.md"), "# Memory index\n\n- **`a-fact`** · it is so. **So:** it matters.\n");
+    writeFileSync(join(brainDir, "CHARTER.md"), "# Charter\n\nEntirely rewritten by hand.\n");
+
+    const ws = findWorkspace(ops);
+    const { parseYaml } = await loadComposer(ops);
+    const files = planBrains(ws, parseYaml)[0]!.files;
+
+    for (const owned of ["memory/INDEX.md", "CHARTER.md"]) {
+      assert.equal(files.find((f) => f.rel === owned), undefined,
+        `${owned} belongs to the staff member and must not appear in a plan at all`);
+    }
+    assert.ok(files.some((f) => f.rel.endsWith("cto-daily.yaml")), "the callers still do");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("a template change to a caller shows up, with the diff", async () => {
+  const { root, ops } = brainWorkspace();
+  try {
+    writeManifest(root);
+    const ws = findWorkspace(ops);
+    const { parseYaml } = await loadComposer(ops);
+    for (const f of planBrains(ws, parseYaml)[0]!.files) {
+      if (f.next === undefined) continue;
+      const dest = join(brainRoot(root), f.rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, f.next);
+    }
+    // Someone edits a generated caller by hand, which is the thing that must not go quietly.
+    const daily = join(brainRoot(root), ".github", "workflows", "cto-daily.yaml");
+    writeFileSync(daily, readFileSync(daily, "utf8").replace("workflow_dispatch:", "workflow_dispatch: # tweaked"));
+
+    const plan = planBrains(ws, parseYaml)[0]!.files.find((f) => f.rel.endsWith("cto-daily.yaml"))!;
+    assert.equal(plan.verdict, "regenerate");
+    assert.ok(plan.diff && plan.diff.includes("tweaked"), "the diff must show what would be lost");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("a staff member with no manifest is reported, not skipped or crashed on", async () => {
+  const { root, ops } = brainWorkspace();
+  try {
+    const [brain] = planBrains(findWorkspace(ops), (await loadComposer(ops)).parseYaml);
+    assert.match(brain!.problem ?? "", /not checked out|no staff.yaml/);
+    assert.deepEqual(brain!.files, []);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+/** The brain repo inside a scratch workspace. */
+function brainRoot(root: string): string {
+  return join(root, "technology");
+}

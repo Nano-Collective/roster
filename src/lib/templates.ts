@@ -21,6 +21,22 @@ export function classify(rel: string): TemplateClass {
 }
 
 /**
+ * A brain repo's templates split differently, and more sharply.
+ *
+ * `generated`  the three caller workflows. Fully derived from the manifest and the template,
+ *              nobody should hand-edit one, and this is the pair that fell out of step when a
+ *              fix was applied to the tenant instead of the framework.
+ * `scaffold`   everything else `hire` writes: the charter, the memory index, the decisions log,
+ *              the manifest itself. Seeded once and then *owned by the staff member*. The live
+ *              CHARTER.md and memory/INDEX.md differ from the template by hundreds of lines,
+ *              because that is what a working agent does to them. Upgrading these would be
+ *              vandalism, so upgrade only ever reports one that has gone missing.
+ */
+export function classifyBrain(rel: string): "generated" | "scaffold" {
+  return rel.startsWith(".github/workflows/") ? "generated" : "scaffold";
+}
+
+/**
  * The framework's own templates, resolved at run time: the bundled entry point lives in
  * dist/ while the templates sit beside it in the published package.
  */

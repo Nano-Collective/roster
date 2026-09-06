@@ -1,9 +1,12 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { findWorkspace } from "../lib/workspace.js";
+import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 import { merge3 } from "../lib/merge.js";
-import { classify, opsTemplateDir, templateFiles, type TemplateClass } from "../lib/templates.js";
+import { classify, classifyBrain, opsTemplateDir, templateFiles, type TemplateClass } from "../lib/templates.js";
+import { brainTemplateDir, renderTree, specFromManifest, tokensFor, type OrgSpec } from "../lib/render.js";
 
 export const upgradeHelp = `
 roster upgrade [--apply] [--check] [--baseline <git-ref>]
@@ -26,8 +29,15 @@ roster upgrade [--apply] [--check] [--baseline <git-ref>]
   --baseline <git-ref>  one-time: record the base from the framework at this ref
   --ops <dir>           ops repo directory (default: found by walking up)
 
-  Scope: the ops repo only. The brain-repo templates carry %%TOKENS%% that nothing fills
-  until \`roster hire\` exists, so they are not compared here.
+  Brain repos are covered too, but only their caller workflows. Everything else \`hire\` writes
+  — the charter, the memory index, the decisions log, the manifest — belongs to the staff
+  member from the moment it is created, and a working agent rewrites it beyond recognition.
+  Those are reported if they go missing and otherwise left alone.
+
+  A caller is regenerated wholesale rather than merged. It is derived entirely from the
+  manifest and the template, so there is no third version to reconcile: what looks like a
+  local edit is either a template change that has not arrived, or something that should have
+  been a manifest change. The diff is printed either way, so nothing goes quietly.
 `;
 
 type Verdict =
@@ -55,6 +65,7 @@ export interface FilePlan {
 export async function upgradeCommand(argv: string[]): Promise<number> {
   const opts = parseFlags(argv);
   const ws = findWorkspace(opts.ops);
+  const { parseYaml } = await loadComposer(ws.opsDir);
   const tplDir = opsTemplateDir();
   const seedDir = join(ws.opsDir, ".roster", "seed");
 
@@ -63,25 +74,31 @@ export async function upgradeCommand(argv: string[]): Promise<number> {
   }
 
   const plans = planAll(tplDir, seedDir, ws.opsDir);
+  const brains = planBrains(ws, parseYaml);
 
   report(ws, plans, opts);
+  reportBrains(brains, opts);
 
   const blocked = plans.filter(
     (p) => p.verdict === "conflict" || p.verdict === "no-base" || p.verdict === "edited-managed",
   );
   const pending = plans.filter((p) => p.next !== undefined);
 
+  const brainWork = brains.flatMap((b) => b.files.filter((f) => f.verdict !== "same"));
+
   if (opts.check) {
-    return pending.length || blocked.length ? 1 : 0;
+    return pending.length || blocked.length || brainWork.length ? 1 : 0;
   }
   if (!opts.apply) {
-    if (pending.length || blocked.length) {
+    if (pending.length || blocked.length || brainWork.length) {
       process.stdout.write("  Nothing was written. Re-run with --apply.\n\n");
     }
     return 0;
   }
 
-  return apply(ws.opsDir, seedDir, tplDir, plans);
+  const code = apply(ws.opsDir, seedDir, tplDir, plans);
+  applyBrains(brains);
+  return code;
 }
 
 /** What an upgrade would do to every generated file, without doing any of it. */
@@ -288,4 +305,153 @@ function parseFlags(argv: string[]): Flags {
   }
   if (out.apply && out.check) throw new Error("--apply and --check do different jobs; pick one");
   return out;
+}
+
+
+/* ------------------------------ brain repos ------------------------------ */
+
+export interface BrainFile {
+  rel: string;
+  kind: "generated" | "scaffold";
+  verdict: "same" | "regenerate" | "missing";
+  /** What --apply would write. Absent for a scaffold file, which is never rewritten. */
+  next?: string;
+  diff?: string;
+}
+
+export interface BrainPlan {
+  handle: string;
+  dir: string;
+  root: string;
+  files: BrainFile[];
+  problem?: string;
+}
+
+type ParseYaml = (t: string, f?: string) => Record<string, unknown>;
+
+/**
+ * What every staff member's generated files should look like today.
+ *
+ * The spec comes from each staff member's own manifest, never from org.yaml's defaults. That
+ * is the whole trick: the tenant's values appear identically in what is on disk and in what is
+ * rendered, so they cancel, and only a template change shows up. Read the defaults instead and
+ * the CTO's deliberate 90-minute ceiling would read as drift to be reverted.
+ */
+export function planBrains(ws: Workspace, parseYaml: ParseYaml): BrainPlan[] {
+  const org = readOrg(ws.opsDir, parseYaml) as any;
+  const orgSpec: OrgSpec = {
+    org: org.org,
+    name: org.name,
+    opsRepo: `${org.org}/${ws.opsName}`,
+    opsDirName: ws.opsName,
+    human: org.human?.github ?? "",
+    humanMarker: org.human?.marker ?? "human",
+  };
+
+  const out: BrainPlan[] = [];
+  for (const entry of org.staff ?? []) {
+    const dir = entry.dir ?? entry.handle;
+    const root = join(ws.root, dir);
+    const base: BrainPlan = { handle: entry.handle, dir, root, files: [] };
+
+    const manifestPath = join(root, "staff.yaml");
+    if (!existsSync(manifestPath)) {
+      out.push({ ...base, problem: existsSync(root) ? "no staff.yaml" : "not checked out here" });
+      continue;
+    }
+
+    let want: Map<string, string>;
+    try {
+      const spec = specFromManifest(parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any, dir);
+      want = renderTree(brainTemplateDir(), tokensFor(orgSpec, spec));
+    } catch (err) {
+      out.push({ ...base, problem: `cannot render: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}` });
+      continue;
+    }
+
+    for (const [rel, text] of want) {
+      const kind = classifyBrain(rel);
+      const live = join(root, rel);
+      if (!existsSync(live)) {
+        /* Written, whichever class it is. A file the framework has and the tenant does not is
+           almost always one the framework has just introduced — the /charter command reaching
+           staff hired before it existed. Adding it back cannot destroy anything, and the
+           alternative is that no scaffold improvement ever reaches an existing staff member.
+           The cost is that deleting one is not permanent, which for a README is a papercut. */
+        base.files.push({ rel, kind, verdict: "missing", next: text });
+        continue;
+      }
+      if (kind === "scaffold") continue; // theirs from the moment it was written
+      const have = readFileSync(live, "utf8");
+      base.files.push(have === text
+        ? { rel, kind, verdict: "same" }
+        : { rel, kind, verdict: "regenerate", next: text, diff: unified(have, text) });
+    }
+    out.push(base);
+  }
+  return out;
+}
+
+/** A short unified diff, so a regeneration is never a silent overwrite. */
+function unified(before: string, after: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "roster-diff-"));
+  try {
+    writeFileSync(join(dir, "a"), before);
+    writeFileSync(join(dir, "b"), after);
+    try {
+      execFileSync("diff", ["-u", "--label", "yours", "--label", "generated", join(dir, "a"), join(dir, "b")],
+        { encoding: "utf8" });
+      return "";
+    } catch (err) {
+      const out = String((err as { stdout?: string }).stdout ?? "");
+      return out.split("\n").slice(2).join("\n").trimEnd();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function reportBrains(brains: BrainPlan[], opts: Flags) {
+  for (const b of brains) {
+    const interesting = b.files.filter((f) => f.verdict !== "same");
+    if (!interesting.length && !b.problem && !opts.verbose) continue;
+
+    process.stdout.write(`  ${b.handle} — ${b.dir}\n`);
+    if (b.problem) {
+      process.stdout.write(`    ? ${b.problem}\n\n`);
+      continue;
+    }
+    for (const f of b.files) {
+      if (f.verdict === "same") {
+        if (opts.verbose) process.stdout.write(`    ✓ ${f.rel}  up to date\n`);
+        continue;
+      }
+      if (f.verdict === "missing") {
+        process.stdout.write(`    + ${f.rel}  new in the framework\n`);
+        continue;
+      }
+      process.stdout.write(`    ↑ ${f.rel}  differs from the template\n`);
+      if (f.diff) {
+        for (const line of f.diff.split("\n")) process.stdout.write(`        ${line}\n`);
+      }
+    }
+    process.stdout.write("\n");
+  }
+}
+
+function applyBrains(brains: BrainPlan[]) {
+  let wrote = 0;
+  for (const b of brains) {
+    for (const f of b.files) {
+      if (f.next === undefined) continue;
+      const dest = join(b.root, f.rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, f.next);
+      wrote++;
+    }
+  }
+  if (wrote) {
+    process.stdout.write(`  regenerated ${wrote} caller workflow${wrote === 1 ? "" : "s"}\n`);
+    process.stdout.write(`  (in the brain repos — commit and push them; App tokens cannot)\n\n`);
+  }
 }

@@ -17,7 +17,7 @@ import { join } from "node:path";
 const ROOT = join(import.meta.dirname, "..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 
-const MENTION = read("templates/brain/.github/workflows/mention.yaml");
+const MENTION = read("templates/brain/.github/workflows/%%STAFF%%-mention.yaml");
 const SESSION = read("templates/ops/.github/workflows/session.yaml");
 
 /** Strip comments: every behaviour here must hold in the workflow itself, not in its prose. */
