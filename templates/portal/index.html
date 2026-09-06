@@ -44,6 +44,14 @@ a{color:inherit}
 .brand{padding:0 20px 18px;font:600 15px var(--sans);letter-spacing:-.01em}
 .brand small{display:block;color:var(--ink-faint);font-weight:400;font-size:11.5px;
              letter-spacing:.02em;margin-top:2px}
+.reply{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+      border-radius:8px;padding:10px 12px;font:13px/1.55 var(--sans);outline:none;resize:vertical}
+textarea:focus{border-color:var(--accent-dim)}
+.ghbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+.ghbtn.primary:hover{filter:brightness(1.08);background:var(--accent)}
+.ghbtn:disabled{opacity:.5;cursor:default}
+button.ghbtn{cursor:pointer;font-family:var(--sans)}
 .notice{background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid
       color-mix(in srgb,var(--warn) 40%,transparent);color:var(--ink-dim);border-radius:8px;
       padding:10px 13px;margin-bottom:16px;font-size:12.5px;line-height:1.6}
@@ -464,7 +472,9 @@ function viewInbox(m) {
   scope.value = inboxFilter;
   const refresh = el("button", { className: "iconbtn", title: "Refresh from GitHub" });
   refresh.innerHTML = '<span class="sync">\u27F3</span>';
-  m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [search, scope, refresh]));
+  const newBtn = el("button", { className: "ghbtn", textContent: "New issue" });
+  newBtn.onclick = () => newIssueForm(viewer);
+  m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [search, scope, refresh, newBtn]));
 
   const split = el("div", { className: "split" });
   const list = el("div", { className: "tree" });
@@ -546,40 +556,94 @@ function viewInbox(m) {
     }
   }
 
-  async function openThread(ref) {
-    viewer.replaceChildren(el("p", { className: "empty", textContent: "Loading…" }));
+  /* Everything is already loaded, so opening a thread is a render, not a request. */
+  function openThread(ref) {
     const item = (INBOX?.items ?? []).find((i) => i.repo === ref.repo && i.number === ref.number);
-    let t;
-    try {
-      const res = await fetch("/api/thread?repo=" + encodeURIComponent(ref.repo) +
-        "&number=" + ref.number + "&kind=" + ref.kind);
-      t = await res.json();
-      if (t.error) throw new Error(t.error);
-    } catch (e) {
-      viewer.replaceChildren(el("p", { className: "empty err", textContent: "Could not load: " + e.message }));
+    if (!item) {
+      viewer.replaceChildren(el("p", { className: "empty", textContent: "That one is no longer open. Refresh." }));
       return;
     }
 
     const head = el("div", { className: "thead" });
     head.innerHTML =
       '<div class="trow">' +
-        '<div class="meta">' + esc(ref.repo) + " · " + (ref.kind === "pr" ? "PR " : "") + "#" + ref.number +
-          ' · <span class="' + (t.state === "OPEN" ? "ok" : "") + '">' + esc(t.state ?? "") + "</span></div>" +
-        '<a class="ghbtn" href="' + esc(t.url) + '" target="_blank" rel="noopener">Open in GitHub</a>' +
+        '<div class="meta">' + esc(item.repo) + " · " + (item.kind === "pr" ? "PR " : "") + "#" + item.number +
+          ' · <span class="' + (item.state === "OPEN" ? "ok" : "") + '">' + esc(item.state) + "</span>" +
+          " · " + esc(item.author) + " · " + ago(item.updatedAt) + "</div>" +
+        '<a class="ghbtn" href="' + esc(item.url) + '" target="_blank" rel="noopener">Open in GitHub</a>' +
       "</div>" +
-      "<h3>" + esc(t.title) + "</h3>" +
-      (item && item.labels.length
+      "<h3>" + esc(item.title) + "</h3>" +
+      (item.labels.length
         ? '<div class="row" style="margin-top:8px">' +
           item.labels.map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>").join("") +
           "</div>"
         : "");
     viewer.replaceChildren(head);
 
-    viewer.append(comment(t.author, t.createdAt, t.body, true));
-    for (const c of t.comments) viewer.append(comment(c.author, c.createdAt, c.body, false));
-    if (!t.comments.length) {
-      viewer.append(el("p", { className: "meta", style: "margin-top:14px", textContent: "No replies yet." }));
-    }
+    viewer.append(comment(item.author, item.createdAt, item.body, true));
+    for (const c of item.comments) viewer.append(comment(c.author, c.createdAt, c.body, false));
+
+    viewer.append(replyBox(item));
+  }
+
+  /* Replies and closes go out as the human, through their own gh. This is where a person
+     answers their agents, so it should be the same as typing it on the site. */
+  function replyBox(item) {
+    const box = el("div", { className: "reply" });
+    const ta = el("textarea", { placeholder: "Reply as " + (DATA.human.github ?? "you") + "…", rows: 3 });
+    const status = el("span", { className: "meta" });
+
+    const send = el("button", { className: "ghbtn primary", textContent: "Comment" });
+    const closeBtn = el("button", { className: "ghbtn", textContent: item.state === "OPEN" ? "Close" : "Reopen" });
+
+    const busy = (on, msg) => {
+      send.disabled = closeBtn.disabled = on;
+      status.textContent = msg ?? "";
+      status.className = "meta";
+    };
+    const failed = (e) => { status.textContent = e.message; status.className = "meta err"; };
+
+    send.onclick = async () => {
+      if (!ta.value.trim()) { ta.focus(); return; }
+      busy(true, "posting…");
+      try {
+        await post({ action: "comment", repo: item.repo, number: item.number, body: ta.value });
+        ta.value = "";
+        await reloadThread(item);
+      } catch (e) { failed(e); busy(false); }
+    };
+
+    closeBtn.onclick = async () => {
+      const closing = item.state === "OPEN";
+      // Closing is the one thing here that is awkward to undo from a phone later.
+      if (closing && !confirm("Close " + item.repo + " #" + item.number + "?")) return;
+      busy(true, closing ? "closing…" : "reopening…");
+      try {
+        await post({
+          action: closing ? "close" : "reopen",
+          repo: item.repo, number: item.number,
+          body: closing ? ta.value : undefined,
+        });
+        await refreshAll(false);
+      } catch (e) { failed(e); busy(false); }
+    };
+
+    box.append(ta, el("div", { className: "row", style: "margin-top:9px" }, [send, closeBtn, status]));
+    return box;
+  }
+
+  async function reloadThread(item) {
+    // Re-read just this one, so a reply appears without paying for the whole org again.
+    try {
+      const fresh = await (await fetch("/api/thread?repo=" + encodeURIComponent(item.repo) +
+        "&number=" + item.number + "&kind=" + item.kind, { cache: "no-store" })).json();
+      if (fresh && !fresh.error) {
+        const at = INBOX.items.findIndex((i) => i.repo === item.repo && i.number === item.number);
+        if (at >= 0) INBOX.items[at] = { ...INBOX.items[at], ...fresh };
+      }
+    } catch { /* the comment posted; a stale pane is not worth an error */ }
+    paint();
+    openThread({ repo: item.repo, number: item.number, kind: item.kind });
   }
 }
 
@@ -592,6 +656,55 @@ function ago(iso) {
   if (s < 5400) return Math.round(s / 60) + "m ago";
   if (s < 172800) return Math.round(s / 3600) + "h ago";
   return Math.round(s / 86400) + "d ago";
+}
+
+/* Writes need a POST with a custom header, which is what stops a random page in the
+   browser from reaching this server. */
+async function post(payload) {
+  const res = await fetch("/api/act", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-roster": "1" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) throw new Error(data.error || ("failed with " + res.status));
+  return data;
+}
+
+function newIssueForm(viewer) {
+  const repos = (INBOX?.repos ?? []).map((r) => r.owner + "/" + r.name);
+  const box = el("div");
+  const repo = el("select");
+  for (const r of repos) repo.append(el("option", { value: r, textContent: r }));
+  const title = el("input", { type: "search", placeholder: "Title", style: "flex:1;min-width:240px" });
+  const body = el("textarea", { placeholder: "Body (markdown)", rows: 8 });
+  const labels = el("input", { type: "search", placeholder: "Labels, comma separated" });
+  const status = el("span", { className: "meta" });
+  const create = el("button", { className: "ghbtn primary", textContent: "Create issue" });
+
+  create.onclick = async () => {
+    if (!title.value.trim()) { title.focus(); return; }
+    create.disabled = true; status.textContent = "creating…"; status.className = "meta";
+    try {
+      const r = await post({
+        action: "create", repo: repo.value, title: title.value, body: body.value,
+        labels: labels.value.split(",").map((s) => s.trim()).filter(Boolean),
+      });
+      status.innerHTML = 'created · <a href="' + esc(r.url ?? "") + '" target="_blank" rel="noopener">open it</a>';
+      await refreshAll(true);
+    } catch (e) {
+      status.textContent = e.message; status.className = "meta err";
+    }
+    create.disabled = false;
+  };
+
+  box.append(
+    el("h3", { style: "margin:0 0 12px;font:600 16px var(--sans)", textContent: "New issue" }),
+    el("div", { className: "row", style: "margin-bottom:9px" }, [repo, title]),
+    body, labels,
+    el("div", { className: "row", style: "margin-top:10px" }, [create, status]),
+  );
+  viewer.replaceChildren(box);
 }
 
 function checkGlyph(state) {

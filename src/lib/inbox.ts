@@ -3,6 +3,12 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 
+export interface Comment {
+  author: string;
+  createdAt: string;
+  body: string;
+}
+
 export interface InboxItem {
   repo: string;
   /** brain | product | ops — which part of the org this work belongs to. */
@@ -10,110 +16,139 @@ export interface InboxItem {
   kind: "issue" | "pr";
   number: number;
   title: string;
+  body: string;
   labels: string[];
   assignees: string[];
   author: string;
+  createdAt: string;
   updatedAt: string;
   url: string;
+  state: string;
   draft?: boolean;
   checks?: "passing" | "failing" | "pending" | "none";
-}
-
-export interface Thread {
-  title: string;
-  body: string;
-  author: string;
-  createdAt: string;
-  url: string;
-  state: string;
-  comments: Array<{ author: string; createdAt: string; body: string }>;
+  comments: Comment[];
 }
 
 /**
- * Everything open across the org, from the local `gh`.
+ * One GraphQL call per repo, bodies and comments included.
  *
- * The portal runs on the human's own machine, so it borrows the CLI they are already
- * signed in as rather than asking for a token. That also means the inbox shows exactly
- * what they would see on github.com, including private repos.
+ * The obvious shape — list, then fetch each thread when it is clicked — is one `gh`
+ * invocation per issue, about a second each. Forty-two of those is a portal that feels
+ * broken. This is four requests for the whole org, and opening a thread is then instant
+ * because it is already in memory.
+ *
+ * It runs through the human's own `gh`, so it shows exactly what they would see signed
+ * in, private repos included, without the portal holding a token.
  */
-export async function fetchInbox(repos: Array<{ name: string; owner: string; role: string }>): Promise<{
-  items: InboxItem[];
-  errors: string[];
-}> {
+const QUERY = `
+query($owner:String!, $name:String!) {
+  repository(owner:$owner, name:$name) {
+    issues(states:OPEN, first:60, orderBy:{field:UPDATED_AT, direction:DESC}) {
+      nodes {
+        number title body url state createdAt updatedAt
+        author { login }
+        labels(first:12) { nodes { name } }
+        assignees(first:8) { nodes { login } }
+        comments(last:40) { nodes { author { login } createdAt body } }
+      }
+    }
+    pullRequests(states:OPEN, first:60, orderBy:{field:UPDATED_AT, direction:DESC}) {
+      nodes {
+        number title body url state createdAt updatedAt isDraft
+        author { login }
+        labels(first:12) { nodes { name } }
+        assignees(first:8) { nodes { login } }
+        comments(last:40) { nodes { author { login } createdAt body } }
+        commits(last:1) { nodes { commit { statusCheckRollup { state } } } }
+      }
+    }
+  }
+}`;
+
+export async function fetchInbox(
+  repos: Array<{ name: string; owner: string; role: string }>,
+): Promise<{ items: InboxItem[]; errors: string[] }> {
   const items: InboxItem[] = [];
   const errors: string[] = [];
 
-  const jobs = repos.flatMap((r) => {
-    const full = `${r.owner}/${r.name}`;
-    return [
-      gh(["issue", "list", "--repo", full, "--state", "open", "--limit", "60",
-          "--json", "number,title,labels,assignees,author,updatedAt,url"])
-        .then((rows) => {
-          for (const i of rows) {
-            items.push({
-              repo: full, role: r.role, kind: "issue", number: i.number, title: i.title,
-              labels: (i.labels ?? []).map((l: any) => l.name),
-              assignees: (i.assignees ?? []).map((a: any) => a.login),
-              author: i.author?.login ?? "", updatedAt: i.updatedAt, url: i.url,
-            });
-          }
-        })
-        .catch((e) => errors.push(`${full} issues: ${short(e)}`)),
+  await Promise.all(
+    repos.map(async (r) => {
+      const full = `${r.owner}/${r.name}`;
+      try {
+        const { stdout } = await run(
+          "gh",
+          ["api", "graphql", "-f", `query=${QUERY}`, "-F", `owner=${r.owner}`, "-F", `name=${r.name}`],
+          { maxBuffer: 48 * 1024 * 1024 },
+        );
+        const repo = JSON.parse(stdout)?.data?.repository;
+        if (!repo) return;
 
-      gh(["pr", "list", "--repo", full, "--state", "open", "--limit", "60",
-          "--json", "number,title,labels,author,updatedAt,url,isDraft,statusCheckRollup"])
-        .then((rows) => {
-          for (const p of rows) {
-            items.push({
-              repo: full, role: r.role, kind: "pr", number: p.number, title: p.title,
-              labels: (p.labels ?? []).map((l: any) => l.name),
-              assignees: [], author: p.author?.login ?? "", updatedAt: p.updatedAt,
-              url: p.url, draft: p.isDraft, checks: rollup(p.statusCheckRollup),
-            });
-          }
-        })
-        .catch((e) => errors.push(`${full} PRs: ${short(e)}`)),
-    ];
-  });
+        for (const n of repo.issues?.nodes ?? []) items.push(shape(n, full, r.role, "issue"));
+        for (const n of repo.pullRequests?.nodes ?? []) {
+          const item = shape(n, full, r.role, "pr");
+          item.draft = n.isDraft;
+          item.checks = rollup(n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state);
+          items.push(item);
+        }
+      } catch (e) {
+        errors.push(`${full}: ${short(e)}`);
+      }
+    }),
+  );
 
-  await Promise.all(jobs);
   // Newest first. Must return 0 for a tie: a comparator that never does claims both
   // orders for equal keys, and the sort result becomes arbitrary.
   items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return { items, errors };
 }
 
-export async function fetchThread(repo: string, number: number, kind: "issue" | "pr"): Promise<Thread> {
-  const [main] = await Promise.all([
-    gh([kind, "view", String(number), "--repo", repo, "--json", "title,body,author,createdAt,url,state"], false),
-  ]);
-  // `gh issue view --comments` renders text rather than JSON, so the API is the reliable route.
-  const comments = await gh(["api", `repos/${repo}/issues/${number}/comments`,
-                             "--jq", '[.[] | {author: .user.login, createdAt: .created_at, body: .body}]'])
-    .catch(() => []);
+function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxItem {
   return {
-    title: main.title, body: main.body ?? "", author: main.author?.login ?? "",
-    createdAt: main.createdAt, url: main.url, state: main.state,
-    comments: Array.isArray(comments) ? comments : [],
+    repo,
+    role,
+    kind,
+    number: n.number,
+    title: n.title ?? "",
+    body: n.body ?? "",
+    labels: (n.labels?.nodes ?? []).map((l: any) => l.name),
+    assignees: (n.assignees?.nodes ?? []).map((a: any) => a.login),
+    author: n.author?.login ?? "",
+    createdAt: n.createdAt,
+    updatedAt: n.updatedAt,
+    url: n.url,
+    state: n.state ?? "OPEN",
+    comments: (n.comments?.nodes ?? []).map((c: any) => ({
+      author: c.author?.login ?? "",
+      createdAt: c.createdAt,
+      body: c.body ?? "",
+    })),
   };
 }
 
-async function gh(args: string[], array = true): Promise<any> {
-  const { stdout } = await run("gh", args, { maxBuffer: 12 * 1024 * 1024 });
-  const parsed = JSON.parse(stdout || (array ? "[]" : "{}"));
-  return parsed;
+/** Re-read one thread, for after posting a comment. */
+export async function fetchThread(repo: string, number: number, kind: "issue" | "pr") {
+  const [owner, name] = repo.split("/");
+  const { stdout } = await run(
+    "gh",
+    ["api", "graphql", "-f", `query=${QUERY}`, "-F", `owner=${owner}`, "-F", `name=${name}`],
+    { maxBuffer: 48 * 1024 * 1024 },
+  );
+  const data = JSON.parse(stdout)?.data?.repository;
+  const nodes = kind === "pr" ? data?.pullRequests?.nodes : data?.issues?.nodes;
+  const found = (nodes ?? []).find((n: any) => n.number === number);
+  if (!found) throw new Error(`${repo}#${number} is not open`);
+  return shape(found, repo, "", kind);
 }
 
-function rollup(checks: any[]): InboxItem["checks"] {
-  if (!checks?.length) return "none";
-  const states = checks.map((c) => c.conclusion || c.state || "").map(String);
-  if (states.some((s) => /FAIL|ERROR|TIMED_OUT/i.test(s))) return "failing";
-  if (states.some((s) => /PENDING|IN_PROGRESS|QUEUED/i.test(s) || s === "")) return "pending";
-  return "passing";
+function rollup(state?: string): InboxItem["checks"] {
+  if (!state) return "none";
+  if (/SUCCESS/i.test(state)) return "passing";
+  if (/FAILURE|ERROR/i.test(state)) return "failing";
+  return "pending";
 }
 
 function short(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
-  const line = msg.split("\n").find((l) => l.trim()) ?? msg;
-  return line.length > 160 ? line.slice(0, 159) + "…" : line;
+  const line = msg.split("\n").find((l) => l.trim() && !/^\s*$/.test(l)) ?? msg;
+  return line.length > 200 ? line.slice(0, 199) + "…" : line;
 }
