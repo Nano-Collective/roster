@@ -18,10 +18,13 @@ roster is the thing that sets that up and keeps it consistent.
 | [Concepts](concepts.md) | What a charter, a manifest, a surface and the ops repo are. |
 | [Choosing a coding agent](agents.md) | Claude, Codex, Nanocoder, or anything with a command line. |
 | [Writing a charter](writing-a-charter.md) | The one file nothing can generate for you. |
+| [Extending it](extending.md) | The four seams, and which one to reach for. |
 | [Memory](memory.md) | The grammar, and why deleting is the maintenance. |
 | [Commands](commands.md) | Every CLI command and flag. |
 | [Upgrading](upgrading.md) | How framework changes reach a tenant without eating your edits. |
 | [Troubleshooting](troubleshooting.md) | Every trap we have actually hit, and what it looks like. |
+| [doctor codes](doctor-codes.md) | Every finding, what it means, what to do. |
+| [Hosting the portal](hosting.md) | Local is the default, and why. |
 | [Cost](cost.md) | What this spends, and on what. |
 
 ## The shape of it

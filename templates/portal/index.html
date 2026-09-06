@@ -332,6 +332,9 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
       <span class="ic">&#9993;</span> Inbox
       <span class="n" id="inboxcount"></span>
     </button>
+    <button class="nav" id="docsnav" data-view="docs">
+      <span class="ic">&#9776;</span> Docs
+    </button>
 
     <div class="sect">Whose brain</div>
     <div class="whobox" id="stafflist"></div>
@@ -368,6 +371,8 @@ var openFile = null;
 var fileQuery = "";
 var changedQuery = "";
 var changedFilter = "";
+var DOCS = null;
+var openDoc = null;
 
 /* The URL is the state, so a refresh lands where you were and a link is shareable.
    Changing staff or view pushes; typing in a filter replaces, so a search does not
@@ -386,7 +391,8 @@ function readHash() {
 }
 
 function writeHash(push) {
-  if (applyingHash || !staffHandle) return;
+  if (applyingHash) return;
+  if (!staffHandle && view !== "docs") return;
   const params = new URLSearchParams();
   const q = view === "brain" ? fileQuery : view === "changed" ? changedQuery : query;
   if (q) params.set("q", q);
@@ -397,7 +403,8 @@ function writeHash(push) {
     if (inboxOpen) params.set("t", inboxOpen.repo + "#" + inboxOpen.number + ":" + inboxOpen.kind);
   }
   const qs = params.toString();
-  const next = "#/" + staffHandle + "/" + view + (qs ? "?" + qs : "");
+  if (view === "docs" && openDoc) params.set("p", openDoc);
+  const next = "#/" + (staffHandle ?? "-") + "/" + view + (qs ? "?" + qs : "");
   if (location.hash === next) return;
   if (history.pushState) history[push ? "pushState" : "replaceState"](null, "", next);
   else location.hash = next;
@@ -409,10 +416,13 @@ function applyHash() {
   const known = DATA.staff.some((s) => s.handle === h.handle);
   if (known) staffHandle = h.handle;
   const asked = VIEW_ALIAS[h.view] ?? h.view;
-  if (asked === "inbox" || VIEWS.some(([id]) => id === asked)) view = asked;
+  if (asked === "inbox" || asked === "docs" || VIEWS.some(([id]) => id === asked)) view = asked;
   if (view === "brain") { fileQuery = h.q; openFile = h.f; }
   else if (view === "changed") changedQuery = h.q;
   else query = h.q;
+  if (view === "docs") {
+    openDoc = new URLSearchParams((location.hash.split("?")[1]) || "").get("p") || null;
+  }
   if (view === "inbox") {
     inboxFilter = new URLSearchParams((location.hash.split("?")[1]) || "").get("s") || "";
     inboxStaff = new URLSearchParams((location.hash.split("?")[1]) || "").get("w") || "";
@@ -507,6 +517,7 @@ async function boot() {
     return b;
   }));
   $("#inboxnav").onclick = () => { view = "inbox"; render(); };
+  $("#docsnav").onclick = () => { view = "docs"; render(); };
   $("#refreshall").onclick = () => refreshAll(false);
   // Coming back to the tab after a run should show the run.
   addEventListener("focus", () => { if (LOADED && Date.now() - LOADED > 30000) refreshAll(false); });
@@ -546,7 +557,8 @@ function render() {
   m.replaceChildren();
   const notice = syncNotice();
   if (notice) m.append(notice);
-  ({ inbox: viewInbox, memory: viewBrain, graph: viewGraph, brain: viewBrain, changed: viewChanged, health: viewHealth }[view] ?? viewBrain)(m);
+  ({ inbox: viewInbox, docs: viewDocs, memory: viewBrain, graph: viewGraph, brain: viewBrain,
+     changed: viewChanged, health: viewHealth }[view] ?? viewBrain)(m);
 }
 
 /* -------------------------------- inbox ------------------------------- */
@@ -1002,6 +1014,13 @@ function mdLink(href, text, opts) {
   if (/^https?:\/\//.test(href)) {
     return '<a href="' + href + '" target="_blank" rel="noopener">' + text + "</a>";
   }
+  if (opts.docs) {
+    // A link between doc pages stays inside the portal.
+    if (/^[\w.-]*\.md(#.*)?$/.test(href) || href.startsWith("#")) {
+      return '<a href="#" data-doc="' + href + '">' + text + "</a>";
+    }
+    return text;
+  }
   if (href.startsWith("#")) return text;
   // A relative link inside a brain opens the file here rather than going nowhere.
   const path = mdPath(href, opts);
@@ -1050,6 +1069,84 @@ function mdRefs(html, opts) {
         (repo ? repo : "") + "#" + n + "</a>";
     });
   }).join("");
+}
+
+/* --------------------------------- docs -------------------------------- */
+/* The framework's own documentation, read where you already are. Same renderer as a brain
+   file, so a link between pages behaves like a link between files rather than a dead end. */
+function viewDocs(m) {
+  m.append(el("h1", { textContent: "Docs" }));
+  m.append(el("p", { className: "sub", textContent:
+    "How roster works, what it will not do for you, and every trap worth knowing about." }));
+
+  const split = el("div", { className: "split" });
+  const list = el("div", { className: "tree" });
+  const viewer = el("div", { className: "viewer" });
+  split.append(list, viewer);
+  m.append(split);
+
+  if (DOCS) paint();
+  else {
+    list.append(el("p", { className: "empty", textContent: "Loading…" }));
+    fetch("/api/docs", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { DOCS = d; paint(); })
+      .catch((e) => list.replaceChildren(el("p", { className: "empty err", textContent: e.message })));
+  }
+
+  function paint() {
+    list.replaceChildren();
+    for (const d of DOCS) {
+      const b = el("button", { className: "tfile tmem", title: d.file });
+      b.dataset.key = d.file;
+      b.append(el("span", { className: "t", textContent: d.title }));
+      b.setAttribute("aria-current", String((openDoc ?? DOCS[0].file) === d.file));
+      b.onclick = () => open(d.file);
+      list.append(b);
+    }
+    show(openDoc ?? DOCS[0].file);
+  }
+
+  function open(file) {
+    openDoc = file;
+    writeHash(false);
+    for (const o of list.querySelectorAll(".tfile")) {
+      o.setAttribute("aria-current", String(o.dataset.key === file));
+    }
+    show(file);
+  }
+
+  async function show(file) {
+    viewer.replaceChildren(el("p", { className: "empty", textContent: "Loading…" }));
+    let text;
+    try {
+      text = await (await fetch("/api/doc?page=" + encodeURIComponent(file), { cache: "no-store" })).text();
+    } catch (e) {
+      viewer.replaceChildren(el("p", { className: "empty err", textContent: e.message }));
+      return;
+    }
+    const doc = el("div", { className: "md doc" });
+    doc.innerHTML = mdlite(text, { docs: true });
+    doc.addEventListener("click", (e) => {
+      const link = e.target.closest?.("[data-doc]");
+      if (!link) return;
+      e.preventDefault();
+      const [page, anchor] = link.dataset.doc.split("#");
+      if (page && DOCS.some((d) => d.file === page)) open(page);
+      if (anchor) {
+        const to = [...viewer.querySelectorAll("h1,h2,h3,h4")]
+          .find((h) => slug(h.textContent) === anchor);
+        if (to && to.scrollIntoView) to.scrollIntoView({ block: "start" });
+      }
+    });
+    viewer.replaceChildren(doc);
+    viewer.scrollTop = 0;
+  }
+}
+
+/** GitHub's heading slug, for in-page anchors. */
+function slug(text) {
+  return String(text).toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-");
 }
 
 /* -------------------------------- graph ------------------------------- */
