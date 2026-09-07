@@ -115,7 +115,7 @@ function paintSidebar() {
     const views = el("div", { className: "staffviews" });
     views.hidden = !open;
     for (const [id, label] of VIEWS) {
-      const b = el("button", { className: "nav sub", textContent: label });
+      const b = el("button", { className: "nav subnav", textContent: label });
       b.dataset.view = id;
       b.dataset.staff = s.handle;
       b.onclick = () => {

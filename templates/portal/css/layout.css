@@ -35,8 +35,10 @@
 .staffrow .hh{font:10.5px var(--mono);color:var(--ink-faint);flex:none}
 .staffrow[aria-selected="true"]{color:var(--ink)}
 .staffviews{padding-bottom:4px}
-.nav.sub{padding:5px 20px 5px 40px;font-size:13px}
-.nav.sub .n{font-size:10px}
+/* `subnav`, not `sub`: `.sub` is the page subtitle and carries a 24px bottom margin, which
+   these rows inherited as a gap you could park a car in. */
+.nav.subnav{padding:5px 20px 5px 40px;font-size:13px}
+.nav.subnav .n{font-size:10px}
 .sidefoot{margin-top:auto;padding-top:14px}
 .sidefoot .nav{font-size:12.5px;color:var(--ink-faint)}
 .sidefoot .nav:hover{color:var(--ink-dim)}

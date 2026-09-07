@@ -371,6 +371,13 @@ test("boot renders without throwing and populates the sidebar", async () => {
     views.children.map((b: any) => b.dataset.view).join(" "),
     "brain graph changed health",
   );
+  // `sub` is the page-subtitle class and carries a 24px bottom margin. Naming the nested nav
+  // rows "nav sub" inherited it as a gap four times the row height. The shim has no CSS, so
+  // what is pinned here is the class name, which is what collided.
+  assert.ok(
+    views.children.every((b: any) => !String(b.className).split(/\s+/).includes("sub")),
+    "a nav row must not borrow the page-subtitle class",
+  );
   assert.equal(head.getAttribute("aria-expanded"), "true", "the selected staff member unfolds");
   assert.equal(s._byId.stafflist.children[3].hidden, true, "and everyone else stays folded away");
   assert.match(s._byId.orgname.textContent, /staff/);
