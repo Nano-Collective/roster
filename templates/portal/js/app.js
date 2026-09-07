@@ -12,12 +12,14 @@ import { viewDocs } from "./views/docs.js";
 import { viewGraph } from "./views/graph.js";
 import { viewHealth } from "./views/health.js";
 import { viewInbox } from "./views/inbox.js";
+import { viewPrompt } from "./views/prompt.js";
 
 const SCREEN = {
   inbox: viewInbox,
   docs: viewDocs,
   brain: viewBrain,
   memory: viewBrain,
+  prompt: viewPrompt,
   graph: viewGraph,
   changed: viewChanged,
   health: viewHealth,

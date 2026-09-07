@@ -173,6 +173,62 @@ const INBOX_FIXTURE = {
   ],
 };
 
+/** A composed prompt and the layers behind it, as /api/prompt shapes them. */
+const PROMPT_FIXTURE = {
+  staff: "cto",
+  kind: "daily",
+  composed: "# You are the CTO\n\nDo a day's work, then hand off.\n",
+  layers: [
+    {
+      rel: "prompts/daily.md",
+      path: "roster-ops/prompts/daily.md",
+      repo: "roster-ops",
+      bytes: 4598,
+      optional: false,
+      missing: false,
+      editable: true,
+    },
+    {
+      rel: "org/voice.md",
+      path: "roster-ops/org/voice.md",
+      repo: "roster-ops",
+      bytes: 3170,
+      optional: false,
+      missing: false,
+      editable: true,
+    },
+    {
+      rel: "staff:prompts/boot.md",
+      path: "technology/prompts/boot.md",
+      repo: "technology",
+      bytes: 0,
+      optional: true,
+      missing: true,
+      editable: false,
+    },
+  ],
+  runtime: [
+    {
+      rel: "CHARTER.md",
+      path: "technology/CHARTER.md",
+      repo: "technology",
+      bytes: 5802,
+      optional: false,
+      missing: false,
+      editable: true,
+    },
+    {
+      rel: "memory/INDEX.md",
+      path: "technology/memory/INDEX.md",
+      repo: "technology",
+      bytes: 35148,
+      optional: false,
+      missing: false,
+      editable: false,
+    },
+  ],
+};
+
 /** Whatever the URL asks for, out of fixtures. Overridable per test via `s.fetch`. */
 function fixtureFetch(u: string) {
   const url = String(u);
@@ -186,11 +242,13 @@ function fixtureFetch(u: string) {
               { file: "README.md", title: "Overview" },
               { file: "agents.md", title: "Choosing a coding agent" },
             ]
-          : url.startsWith("/api/thread")
-            ? INBOX_FIXTURE.items[1]
-            : url.startsWith("/api/sync")
-              ? { results: [] }
-              : ORG,
+          : url.startsWith("/api/prompt")
+            ? PROMPT_FIXTURE
+            : url.startsWith("/api/thread")
+              ? INBOX_FIXTURE.items[1]
+              : url.startsWith("/api/sync")
+                ? { results: [] }
+                : ORG,
     text: async () =>
       url.startsWith("/api/doc?")
         ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
@@ -366,10 +424,10 @@ test("boot renders without throwing and populates the sidebar", async () => {
   );
   const [head, views] = s._byId.stafflist.children;
   assert.ok(String(head.className).includes("staffrow"));
-  assert.equal(views.children.length, 4, "Brain, Graph, What changed, Health");
+  assert.equal(views.children.length, 5, "Brain, Prompt, Graph, What changed, Health");
   assert.equal(
     views.children.map((b: any) => b.dataset.view).join(" "),
-    "brain graph changed health",
+    "brain prompt graph changed health",
   );
   // `sub` is the page-subtitle class and carries a 24px bottom margin. Naming the nested nav
   // rows "nav sub" inherited it as a gap four times the row height. The shim has no CSS, so
@@ -385,7 +443,7 @@ test("boot renders without throwing and populates the sidebar", async () => {
 
 test("every view renders and produces content", async () => {
   const s = await renderAll();
-  for (const view of ["brain", "graph", "changed", "health", "roster"]) {
+  for (const view of ["brain", "prompt", "graph", "changed", "health", "roster"]) {
     s.view = view;
     assert.doesNotThrow(() => s.render(), `${view} threw`);
     assert.equal(s.view, view, "the harness must actually be driving the page's state");
@@ -397,7 +455,7 @@ test("every view renders for every staff member", async () => {
   const s = await renderAll();
   for (const staff of ORG.staff) {
     s.staffHandle = staff.handle;
-    for (const view of ["brain", "graph", "changed", "health"]) {
+    for (const view of ["brain", "prompt", "graph", "changed", "health"]) {
       s.view = view;
       assert.doesNotThrow(() => s.render(), `${staff.handle}/${view} threw`);
     }
@@ -1225,7 +1283,11 @@ test("the brain navigator separates what is known from what is held", async () =
   const heads = nodes
     .filter((n) => String(n.className ?? "") === "ghead")
     .map((n) => String(n._text ?? ""));
-  assert.deepEqual(heads, ["Memory", "Files"], "two boxes, named: " + heads);
+  assert.deepEqual(
+    heads,
+    ["Memory", "Identity", "Files"],
+    "three named boxes: what it knows, who it is, what it holds. Got: " + heads,
+  );
 
   const keys = nodes.filter((n) => n.dataset?.key).map((n) => n.dataset.key);
   assert.ok(keys.includes("mem:*"), "memory leads");
@@ -1253,7 +1315,7 @@ test("a note and the raw index live under memory, not among the files", async ()
       .filter((n) => n.dataset?.key)
       .map((n) => n.dataset.key);
 
-  const [memory, files] = groups;
+  const [memory, , files] = groups;
   assert.ok(keysIn(memory).includes("memory/INDEX.md"), "the raw index is offered under memory");
   assert.ok(!keysIn(files ?? { children: [] }).includes("memory/INDEX.md"), "and only there");
   if (who.notes.length) {
@@ -1348,4 +1410,70 @@ test("a ?t= in the URL opens that thread, which it never used to", async () => {
     text.includes("Needs a ruling"),
     "the linked thread should be open: " + text.slice(0, 200),
   );
+});
+
+/* --------------------------- the prompt screen --------------------------- */
+
+test("the prompt screen shows the text, the layers, and which repo each came from", async () => {
+  const s = await renderAll("#/cto/prompt");
+  assert.equal(s.view, "prompt");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const nodes = walkNodes(s._byId.main);
+  const heads = nodes
+    .filter((n) => String(n.className ?? "") === "ghead")
+    .map((n) => String(n._text ?? ""));
+  assert.deepEqual(heads, ["The prompt", "Inlined, in order", "Named, not inlined"], String(heads));
+
+  const keys = nodes.filter((n) => n.dataset?.key).map((n) => n.dataset.key);
+  assert.ok(keys.includes("composed"), "the composed text is the first thing offered");
+  assert.ok(keys.includes("roster-ops/org/voice.md"), "and every layer behind it");
+  assert.ok(
+    keys.includes("technology/CHARTER.md"),
+    "including the files it names rather than contains",
+  );
+
+  // The repo is on the row because it is the difference between editing one agent and all
+  // of them, and that is worth knowing before you click Edit.
+  const repos = nodes
+    .filter((n) => String(n.className ?? "") === "lrepo")
+    .map((n) => n.textContent);
+  assert.ok(repos.includes("roster-ops") && repos.includes("technology"), String(repos));
+});
+
+test("a missing optional layer is shown as absent rather than hidden", async () => {
+  // `{{>? staff:prompts/boot.md}}` renders empty when the file is not there. Hiding the row
+  // would leave you wondering whether the fragment exists at all.
+  const s = await renderAll("#/cto/prompt");
+  await new Promise((r) => setTimeout(r, 30));
+  const row = walkNodes(s._byId.main).find((n) => n.dataset?.key === "technology/prompts/boot.md");
+  assert.ok(row, "an absent optional layer still gets a row");
+  assert.ok(String(row.className).includes("dim"));
+  assert.match(row.textContent, /absent/);
+});
+
+test("the composed prompt is not a summary of itself", async () => {
+  const s = await renderAll("#/cto/prompt");
+  await new Promise((r) => setTimeout(r, 30));
+  const html = walkNodes(s._byId.main)
+    .map((n) => String(n.innerHTML ?? ""))
+    .join("");
+  assert.ok(html.includes("You are the CTO"), "the actual text belongs on the page");
+});
+
+test("a prompt that will not compose says so instead of rendering nothing", async () => {
+  const s = await renderAll();
+  s.fetch = async () => ({
+    ok: true,
+    json: async () => ({ staff: "cto", kind: "daily", error: 'unknown staff handle "cto"' }),
+    text: async () => "",
+  });
+  s.view = "prompt";
+  s.render();
+  await new Promise((r) => setTimeout(r, 30));
+  const text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(text, /does not compose/);
+  assert.match(text, /unknown staff handle/, "and says what compose.mjs actually said");
 });

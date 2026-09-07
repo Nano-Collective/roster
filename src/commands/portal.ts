@@ -6,6 +6,7 @@ import { type ActRequest, act } from "../lib/act.js";
 import { docPages, docsDir } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
+import { isWritable, KINDS, promptView, saveFile } from "../lib/prompt.js";
 import { syncRepos } from "../lib/sync.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { portalAsset, portalIndex } from "../portal/assets.js";
@@ -51,7 +52,7 @@ const MIME: Record<string, string> = {
 export async function portalCommand(argv: string[]): Promise<number> {
   const opts = parseFlags(argv);
   const ws = findWorkspace(opts.ops);
-  const { parseYaml } = await loadComposer(ws.opsDir);
+  const { compose, parseYaml } = await loadComposer(ws.opsDir);
   const port = opts.port ?? 4300;
   const host = opts.host ?? "127.0.0.1";
 
@@ -147,6 +148,76 @@ export async function portalCommand(argv: string[]): Promise<number> {
           "cache-control": "no-store",
         });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      /* What a staff member is actually sent, and the files it was made of. Composed by the
+         tenant's own compose.mjs, so there is no second implementation to drift. */
+      if (url.pathname === "/api/prompt") {
+        const handle = url.searchParams.get("staff") ?? "";
+        const kind = url.searchParams.get("kind") ?? "daily";
+        const org = readOrg(ws.opsDir, parseYaml);
+        const entry = (org.staff ?? []).find((s) => s.handle === handle);
+        if (!entry || !(KINDS as readonly string[]).includes(kind)) {
+          res.writeHead(400).end("bad request");
+          return;
+        }
+        const brainDir = join(ws.root, entry.dir ?? entry.handle);
+        try {
+          const view = promptView(ws, compose, handle, brainDir, kind);
+          res.writeHead(200, {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+          });
+          res.end(JSON.stringify(view));
+        } catch (err) {
+          // A prompt that will not compose is the most useful thing this screen can show,
+          // so the error is the response rather than a 500 with nothing in it.
+          res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ staff: handle, kind, error: String((err as Error).message) }));
+        }
+        return;
+      }
+
+      /* Editing a prompt layer or a charter, committed and pushed as the human. The
+         allowlist is in lib/prompt.ts: this writes to repos the agents run from. */
+      if (url.pathname === "/api/save") {
+        if (!writeAllowed(req)) {
+          res.writeHead(403, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
+          return;
+        }
+        body(req)
+          .then((raw) => {
+            const payload = JSON.parse(raw || "{}") as {
+              path?: string;
+              text?: string;
+              message?: string;
+            };
+            const org = readOrg(ws.opsDir, parseYaml);
+            const brainDirs = (org.staff ?? []).map((s) => s.dir ?? s.handle);
+            if (!payload.path || typeof payload.text !== "string") {
+              throw new Error("path and text are required");
+            }
+            if (!isWritable(ws, payload.path, brainDirs)) {
+              throw new Error(`${payload.path} is not a file the portal may write`);
+            }
+            const result = saveFile(
+              ws,
+              payload.path,
+              payload.text,
+              payload.message || `portal: edit ${payload.path.split("/").slice(1).join("/")}`,
+            );
+            res.writeHead(200, {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            });
+            res.end(JSON.stringify(result));
+          })
+          .catch((err) => {
+            res.writeHead(400, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+          });
         return;
       }
 

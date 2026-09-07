@@ -24,8 +24,8 @@ export const diffUrl = (dir, sha, path) =>
 
 /* Writes need a POST with a custom header, which is what stops a random page in the
    browser from reaching this server. */
-export async function post(payload) {
-  const res = await fetch("/api/act", {
+export async function post(payload, url = "/api/act") {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", "x-roster": "1" },
     body: JSON.stringify(payload),

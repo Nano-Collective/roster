@@ -163,17 +163,32 @@ export function viewBrain(m) {
       }
     }
     if (noteHits.length) {
+      /* Labelled, because "notes" beside a list of memory sections reads as a mystery
+         drawer. A note is the argument behind one fact, read only when that fact is in
+         play, which is what keeps the index cheap enough to read at every boot. */
       folder(
         mem,
         "notes",
-        "notes/",
+        "notes/ — why a fact holds",
         noteHits.map((f) => row(f.path, base(f.path), kb(f.bytes))),
+        String(noteHits.length),
       );
     }
     if (!q && allFiles.some((f) => isIndex(f.path))) {
       mem.append(row("memory/INDEX.md", "INDEX.md — the raw index", "", "tmem"));
     }
     tree.append(mem);
+
+    /* ---- who they are ----
+       CHARTER.md and staff.yaml sit at the brain root and are in no declared surface, so
+       the portal could not show either of them. They are the two files that decide what
+       this staff member is, which made that a strange gap. */
+    if (!q) {
+      const id = group("Identity", "");
+      id.append(row("CHARTER.md", "CHARTER.md — the personality", "", "tmem"));
+      id.append(row("staff.yaml", "staff.yaml — the manifest", "", "tmem"));
+      tree.append(id);
+    }
 
     /* ---- files ---- */
     if (fileHits.length) {
@@ -215,7 +230,7 @@ export function viewBrain(m) {
       showMemory(viewer, s, key || "mem:*", pick);
       return;
     }
-    const f = allFiles.find((x) => x.path === key);
+    const f = allFiles.find((x) => x.path === key) ?? rootFile(key);
     if (!f) {
       viewer.replaceChildren(
         el("p", { className: "empty", textContent: "That file is not in this brain." }),
@@ -227,6 +242,14 @@ export function viewBrain(m) {
 }
 
 const base = (path) => path.split("/").pop();
+
+/* A file at the brain root, which no surface declares. `bytes` and `modified` are only used
+   for the header line, and the renderer reads the file itself. */
+const ROOT_FILES = new Set(["CHARTER.md", "staff.yaml", "README.md"]);
+function rootFile(key) {
+  if (!ROOT_FILES.has(key)) return null;
+  return { path: key, ext: key.split(".").pop().toLowerCase(), bytes: 0, modified: new Date().toISOString() };
+}
 
 export function matchesFact(f, q) {
   if (!q) return true;

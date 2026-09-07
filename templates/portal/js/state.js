@@ -10,6 +10,7 @@
 
 export const VIEWS = [
   ["brain", "Brain"],
+  ["prompt", "Prompt"],
   ["graph", "Graph"],
   ["changed", "What changed"],
   ["health", "Health"],
@@ -45,6 +46,10 @@ export const S = {
 
   openDoc: null,
 
+  /** Which kind of run the Prompt screen is showing, and which layer of it is open. */
+  promptKind: "daily",
+  promptOpen: null,
+
   inboxFilter: "",
   inboxStaff: "",
   inboxOpen: null,
@@ -65,6 +70,7 @@ export function readHash() {
     view,
     q: p.get("q") || "",
     f: p.get("f") || null,
+    k: p.get("k") || "",
     s: p.get("s") || "",
     w: p.get("w") || "",
     t: p.get("t") || null,
@@ -80,6 +86,10 @@ export function writeHash(push) {
   if (q) params.set("q", q);
   if (S.view === "brain" && S.openFile) params.set("f", S.openFile);
   if (S.view === "docs" && S.openDoc) params.set("p", S.openDoc);
+  if (S.view === "prompt") {
+    if (S.promptKind !== "daily") params.set("k", S.promptKind);
+    if (S.promptOpen) params.set("f", S.promptOpen);
+  }
   if (S.view === "inbox") {
     if (S.inboxFilter) params.set("s", S.inboxFilter);
     if (S.inboxStaff) params.set("w", S.inboxStaff);
@@ -112,6 +122,11 @@ export function applyHash() {
   }
 
   if (S.view === "docs") S.openDoc = h.p;
+
+  if (S.view === "prompt") {
+    S.promptKind = h.k || "daily";
+    S.promptOpen = h.f;
+  }
 
   if (S.view === "inbox") {
     S.inboxFilter = h.s;

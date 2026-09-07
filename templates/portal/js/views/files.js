@@ -9,9 +9,13 @@ const IMG = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico"];
 export async function showFile(viewer, s, f, pick) {
   viewer.replaceChildren(el("p", { className: "empty", textContent: "Loading…" }));
   const path = s.dir + "/" + f.path;
-  const head = el("div", { className: "meta", style: "margin-bottom:12px" }, [
-    f.path + " · " + kb(f.bytes) + " · " + new Date(f.modified).toLocaleDateString(),
-  ]);
+  const head = el("div", { className: "meta", style: "margin-bottom:12px" });
+  /* A file the export did not walk (the charter, the manifest) has no size on it, so the
+     header says what it knows and fills the rest in once the text arrives. */
+  const stamp = (bytes) =>
+    f.path + (bytes ? " · " + kb(bytes) : "") +
+    (f.bytes ? " · " + new Date(f.modified).toLocaleDateString() : "");
+  head.textContent = stamp(f.bytes);
 
   if (IMG.includes(f.ext)) {
     viewer.replaceChildren(head, el("img", { src: fileUrl(path), alt: f.path }));
@@ -19,6 +23,7 @@ export async function showFile(viewer, s, f, pick) {
   }
 
   const text = await getFile(path);
+  head.textContent = stamp(f.bytes || text.length);
   if (f.ext === "csv") {
     viewer.replaceChildren(head, csvTable(text));
     return;
