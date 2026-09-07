@@ -97,7 +97,7 @@ See [prompts](docs/prompts.md).
 pnpm install
 pnpm test             # 148 tests, node:test through tsx
 pnpm test:all         # the full gate
-pnpm dev -- doctor --offline
+pnpm dev doctor --offline
 ```
 
 Run it from a workspace root: a directory holding the ops repo and every brain repo side by
