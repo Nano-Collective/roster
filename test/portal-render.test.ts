@@ -311,6 +311,7 @@ function fixtureFetch(u: string) {
 
 /** Put a DOM under the modules. Returns the handles the assertions poke at. */
 function install(hash: string) {
+  const asked: string[] = [];
   const saved: Array<[string, string]> = [];
   const pushes: string[] = [];
   const replaces: string[] = [];
@@ -335,6 +336,12 @@ function install(hash: string) {
   g.fetch = async (u: string) => fixtureFetch(u);
   g.requestAnimationFrame = () => 0;
   g.confirm = () => true;
+  /* No <dialog> in the shim, so askText falls back to prompt(). Recording what it was asked
+     is how the pre-filled value gets checked. */
+  g.prompt = (_title: string, value: string) => {
+    asked.push(value ?? "");
+    return "make it shorter";
+  };
   g.open = () => null;
   g.addEventListener = () => {};
   // boot() starts a clock to keep the "data 4m ago" stamp honest. Left real, it holds the
@@ -354,7 +361,7 @@ function install(hash: string) {
       replaces.push(url);
     },
   };
-  return { document, byId, saved, pushes, replaces };
+  return { document, byId, saved, pushes, replaces, asked };
 }
 
 /* The old harness put every top-level `var` on one sandbox object. The state now lives in
@@ -449,6 +456,7 @@ async function renderAll(hash = "") {
     _state: m.state.S,
     _byId: shim.byId,
     _saved: shim.saved,
+    _asked: shim.asked,
     _pushes: shim.pushes,
     _replaces: shim.replaces,
   };
@@ -1752,4 +1760,35 @@ test("a prompt with nothing wrong shows no Problems box at all", async () => {
     .filter((n) => String(n.className ?? "") === "ghead")
     .map((n) => String(n._text ?? ""));
   assert.ok(!heads.includes("Problems"), "an empty findings list is not a section: " + heads);
+});
+
+test("asking for a change pre-fills what the finding already worked out", async () => {
+  /* A finding carries the sentence that describes the fix. Skipping straight to the clipboard
+     would be fewer clicks and worse: "and keep it in operating.md" is exactly the sort of
+     thing you want to add before sending it. */
+  const s = await renderAll("#/cto/prompt");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const card = walkNodes(s._byId.main).find((n) => String(n.className ?? "").startsWith("prob "));
+  const fix = walkNodes(card).find((n) => String(n.textContent) === "Copy a prompt to fix this");
+  fix.onclick();
+  await new Promise((r) => setTimeout(r, 20));
+
+  assert.equal(s._asked.length, 1, "it should ask before copying");
+  assert.match(
+    s._asked[0],
+    /business\.md.*scaffold/,
+    "pre-filled with the finding's own wording: " + s._asked[0],
+  );
+});
+
+test("the general ask starts empty rather than guessing", async () => {
+  const s = await renderAll("#/cto/prompt");
+  await new Promise((r) => setTimeout(r, 30));
+  const btn = walkNodes(s._byId.main).find(
+    (n) => String(n.textContent) === "Copy a brief for changing this",
+  );
+  btn.onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(s._asked, [""], "nothing to pre-fill when nothing found it");
 });

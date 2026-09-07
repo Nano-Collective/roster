@@ -115,11 +115,13 @@ can be sure about, because a linter you stop believing is worse than no linter.
 **Every finding carries the fix.** "Copy a prompt to fix this" builds a brief containing the
 finding, the composed prompt, and every layer, and puts it on your clipboard. Paste it into
 whatever agent you use. Knowing there is a problem is the hard part; writing the paragraph is
-not.
+not. The box comes pre-filled with what the finding worked out, so you can add to it rather
+than retype it.
 
 ### Getting help changing it
 
-**Copy a brief for changing this** asks what you want changed and copies the same thing: a
+**Copy a brief for changing this** asks what you want changed, in a box big enough to say it
+in, and copies the same thing: a
 self-contained prompt carrying the composed text, every layer with its path and blast radius,
 and what may and may not be edited. `roster brief amend <handle> --want "…"` prints the same
 from the terminal.

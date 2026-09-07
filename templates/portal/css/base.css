@@ -90,3 +90,15 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
       color-mix(in srgb,var(--warn) 40%,transparent);color:var(--ink-dim);border-radius:8px;
       padding:10px 13px;margin-bottom:16px;font-size:12.5px;line-height:1.6}
 .notice b{color:var(--ink)}
+
+/* ---------- a dialog that asks for more than a line ----------
+   Native <dialog>, so the backdrop, the focus trap and Escape are the browser's job. */
+dialog.ask{border:1px solid var(--line);border-radius:11px;background:var(--panel);
+      color:var(--ink);padding:20px 22px;width:min(560px,92vw);
+      box-shadow:0 24px 60px rgba(0,0,0,.34)}
+dialog.ask::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
+dialog.ask h3{margin:0;font:600 15.5px var(--sans);letter-spacing:-.012em}
+dialog.ask .askhint{margin:6px 0 12px;font:12.5px/1.55 var(--sans);color:var(--ink-faint)}
+dialog.ask textarea{font:13.5px/1.6 var(--sans);min-height:96px;max-height:44vh}
+dialog.ask .askrow{margin-top:12px;justify-content:flex-end}
+dialog.ask .askrow .meta{margin-right:auto}

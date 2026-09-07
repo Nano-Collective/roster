@@ -10,6 +10,7 @@
  */
 
 import { getFile, post } from "../api.js";
+import { askText } from "../dialog.js";
 import { el, esc, grow, kb, toClipboard } from "../dom.js";
 import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
@@ -53,12 +54,22 @@ export function viewPrompt(m) {
   const note = el("span", { className: "meta" });
   m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [kind, help, copy, note]));
 
-  /** Build the paste-ready brief on the server, where compose.mjs lives, and copy it. */
+  /* Build the paste-ready brief on the server, where compose.mjs lives, and copy it.
+     A finding pre-fills the box rather than skipping it: what it wrote is a starting point,
+     and "and keep it in operating.md" is exactly the sort of thing you want to add. */
   async function copyAmend(want, btn) {
     const target = btn ?? help;
     const label = target.textContent;
-    const asked = want || prompt("What do you want changed about this prompt?") || "";
-    if (!asked && !want) return;
+    const asked = await askText({
+      title: "What do you want changed?",
+      hint:
+        "This goes at the top of a brief carrying the whole prompt and every file it is " +
+        "made of. Say it the way you would say it to a person.",
+      value: want,
+      placeholder: "stop opening decision issues for anything reversible",
+      confirm: "Copy the brief",
+    });
+    if (!asked) return;
     target.disabled = true;
     target.textContent = "building…";
     try {
