@@ -35,9 +35,11 @@ later fails with "workflow not found", which reads like a typo and is not one.
 Open `roster-ops/org/business.md`. It ships as questions. Answer them, or:
 
 ```bash
-cd roster-ops && claude
-/discover
+roster brief discover        # paste into whatever agent you use
 ```
+
+Or, in Claude Code, `cd roster-ops && claude` then `/discover`. Both print the same brief:
+`roster init` generates the slash command from it.
 
 Do this before hiring anyone. It is composed into the top of every prompt, and an agent that
 cannot answer these questions writes plausible work about a business that does not exist.
@@ -76,9 +78,10 @@ member writes to. This is the step that most often looks done and is not. See
 ## 5. Write the charter
 
 ```bash
-cd technology && claude
-/charter
+roster brief charter cto     # paste into whatever agent you use
 ```
+
+Or, in Claude Code, `cd technology && claude` then `/charter`. Same brief either way.
 
 This is the file that decides everything else. [Writing a charter](writing-a-charter.md).
 

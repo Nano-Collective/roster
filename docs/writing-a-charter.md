@@ -16,16 +16,20 @@ particular, which takes longer to notice than no work at all.
 ## Write it with your own AI
 
 ```bash
-cd <staff-dir> && claude
-/charter
+roster brief charter <handle>
 ```
 
-The `/charter` command ships in the scaffold. It reads `org/business.md`, the shared operating
+That prints a self-contained brief. Paste it into whatever agent you use, or pipe it:
+`roster brief charter cto | pbcopy`. In Claude Code, `cd <staff-dir> && claude` then
+`/charter` runs the same text, because `roster hire` generates the slash command from it.
+
+The brief tells the agent to read `org/business.md`, the shared operating
 layer, and every peer's charter, then interviews you and drafts from your answers. It also tells
 you what it cut and why.
 
-For an agent other than Claude Code, `.claude/commands/charter.md` is a plain markdown brief.
-Paste it into whatever you use.
+There is nothing agent-specific in it. Claude Code gets a slash command because it is the
+reference runner and the shape happens to fit; everything else gets the same words from
+`roster brief`.
 
 ## What goes in it, and what does not
 

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { templateFiles, templatesRoot } from "./templates.js";
 
@@ -64,7 +64,8 @@ export interface OrgSpec {
 const NOTE = "%%TOKENS%%";
 const TOKEN = /%%([A-Z_]+)%%/g;
 
-export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
+/** The half of the token set that does not need a staff member: briefs about the org layer. */
+export function orgTokens(org: OrgSpec): Record<string, string> {
   return {
     ORG: org.org,
     ORG_NAME: org.name,
@@ -72,6 +73,12 @@ export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
     OPS_REPO_DIR: org.opsDirName,
     HUMAN: org.human,
     HUMAN_MARKER: org.humanMarker,
+  };
+}
+
+export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
+  return {
+    ...orgTokens(org),
     STAFF: s.handle,
     STAFF_UPPER: s.handle.toUpperCase(),
     NAME: s.name,
@@ -151,6 +158,40 @@ export function renderTree(dir: string, tokens: Record<string, string>): Map<str
 
 export function brainTemplateDir(): string {
   return join(templatesRoot(), "brain");
+}
+
+/**
+ * The authoring briefs.
+ *
+ * One source, two surfaces: `roster brief` prints them for any agent, and `init` and `hire`
+ * render them into `.claude/commands/` so Claude Code users get `/discover`, `/voice` and
+ * `/charter`. Nothing in them is specific to any agent, which is the point.
+ */
+export function briefTemplateDir(): string {
+  return join(templatesRoot(), "briefs");
+}
+
+/**
+ * The briefs, rendered as Claude Code slash commands.
+ *
+ * Claude Code is the reference runner, so it gets the one-word path; every other agent gets
+ * the same text from `roster brief`. Generated from the briefs rather than kept beside them,
+ * because two copies of an interview script diverge and only one of them is ever updated.
+ */
+export function briefCommands(
+  which: string[],
+  tokens: Record<string, string>,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const kind of which) {
+    const path = join(briefTemplateDir(), `${kind}.md`);
+    if (!existsSync(path)) throw new Error(`no brief template at ${path}`);
+    out.set(
+      `.claude/commands/${kind}.md`,
+      render(readFileSync(path, "utf8"), tokens, `briefs/${kind}.md`),
+    );
+  }
+  return out;
 }
 
 /**

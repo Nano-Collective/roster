@@ -96,7 +96,7 @@ checkouts have already happened.
 ## 5. Write `org/business.md`
 
 **Do:** answer the questions `roster init` leaves in it. With your own AI if you like:
-`claude` then `/discover`.
+`roster brief discover`, then paste it into your agent.
 
 **Why not automated:** an agent that does not know the business writes work that is plausible
 and generic. That is worse than no work, because it takes longer to notice. This file is
@@ -109,7 +109,7 @@ a business that does not exist.
 
 ## 6. Write each staff member's `CHARTER.md`
 
-**Do:** `cd <staff-dir> && claude`, then `/charter`. Or write it by hand;
+**Do:** `roster brief charter <handle>`, and paste it into your agent. Or write it by hand;
 [writing a charter](writing-a-charter.md) has the shape.
 
 **Why not automated:** same reason, one level down. The charter is what makes a staff member

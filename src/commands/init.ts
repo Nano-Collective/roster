@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { api, ghReady } from "../lib/gh.js";
+import { briefCommands } from "../lib/render.js";
 import { opsTemplateDir, templateFiles } from "../lib/templates.js";
 
 export const initHelp = `
@@ -69,7 +70,8 @@ export async function initCommand(argv: string[]): Promise<number> {
       `    1. Settings → Actions → General on ${opsName}: allow access from repositories in\n` +
       `       this organisation. Callers cannot see the reusable workflow until you do, and the\n` +
       `       failure reads as "workflow not found" rather than as a permission.\n` +
-      `    2. Put CLAUDE_CODE_OAUTH_TOKEN on each brain repo as you create it.\n` +
+      `    2. Put your agent's credential on each brain repo as you create it. Which secret\n` +
+      `       that is depends on the runner: roster help agents, or docs/agents.md.\n` +
       `    3. Write org/business.md. Everything the agents say is downstream of it.\n` +
       `    4. roster hire <handle>   then   roster app <handle>\n\n`,
   );
@@ -141,6 +143,18 @@ export function initFiles(o: {
   }
   files.set("org.yaml", orgYaml({ ...o, agent: o.agent ?? "claude-code-action" }));
   files.set("org/business.md", businessStub(o.name, o.org));
+  /* The org-level briefs, as slash commands. `/discover` was named in this command's own
+     output and in the docs for a while before it existed anywhere. */
+  for (const [rel, text] of briefCommands(["discover", "voice"], {
+    ORG: o.org,
+    ORG_NAME: o.name,
+    OPS_REPO: `${o.org}/${o.opsName}`,
+    OPS_REPO_DIR: o.opsName,
+    HUMAN: o.human,
+    HUMAN_MARKER: o.marker,
+  })) {
+    files.set(rel, text);
+  }
   files.set(".roster-version", stamp() + "\n");
   return files;
 }

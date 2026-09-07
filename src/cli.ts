@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { appCommand, appHelp } from "./commands/app.js";
+import { briefCommand, briefHelp } from "./commands/brief.js";
 import { doctorCommand, doctorHelp } from "./commands/doctor.js";
 import { exportCommand, exportHelp } from "./commands/export.js";
 import { hireCommand, hireHelp } from "./commands/hire.js";
@@ -13,6 +14,7 @@ const HELP = `
 roster — an agent-run org, powered by GitHub
 
   roster init --org <org>   stand up a new tenant
+  roster brief <kind>       a brief for authoring a charter, business.md or the voice
   roster prompt <handle>    compose the runtime prompt for a staff member
   roster lint [handle]      check memory against the grammar
   roster doctor [handle]    check the org is actually wired up
@@ -27,6 +29,7 @@ roster — an agent-run org, powered by GitHub
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   init: initCommand,
+  brief: briefCommand,
   prompt: promptCommand,
   lint: lintCommand,
   upgrade: upgradeCommand,
@@ -39,6 +42,7 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
 
 const HELPS: Record<string, string> = {
   init: initHelp,
+  brief: briefHelp,
   prompt: promptHelp,
   lint: lintHelp,
   upgrade: upgradeHelp,

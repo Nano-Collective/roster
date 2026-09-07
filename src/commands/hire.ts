@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { api, ghJson, ghReady } from "../lib/gh.js";
 import {
   brainTemplateDir,
+  briefCommands,
   nextSlot,
   type OrgSpec,
   render,
@@ -193,7 +194,11 @@ function buildPlan(
   if (!orgSpec.human)
     warnings.push("org.yaml has no human.github, so the mention gate will never match");
 
-  const files = renderTree(brainTemplateDir(), tokensFor(orgSpec, staff));
+  const tokens = tokensFor(orgSpec, staff);
+  const files = renderTree(brainTemplateDir(), tokens);
+  // /charter is generated from templates/briefs/charter.md, the same text `roster brief`
+  // prints for any other agent.
+  for (const [rel, text] of briefCommands(["charter"], tokens)) files.set(rel, text);
 
   const peers = siblings.map((s) => ({
     handle: s.entry.handle,

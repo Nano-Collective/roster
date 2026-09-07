@@ -81,7 +81,13 @@ test("doctor runs offline against the real workspace and finds it healthy", asyn
   assert.equal(r.online, false);
 
   const ids = new Set(r.findings.map((f) => f.id));
-  assert.ok(ids.has("upgrade"), "the drift check must run offline");
+  /* The id carries the outcome — `upgrade` when in sync, `upgrade.stale` when behind — so
+     asserting one of them asserts the state of the tenant rather than that the check ran.
+     This broke the first time a template changed, which is the ordinary case. */
+  assert.ok(
+    [...ids].some((id) => id === "upgrade" || id.startsWith("upgrade.")),
+    "the drift check must run offline, whatever it concludes",
+  );
   assert.ok(
     ids.has("compose"),
     "mention prompts need trigger context; composing them without it proves only that they are strict",

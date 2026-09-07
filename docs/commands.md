@@ -87,6 +87,39 @@ Check memory against the grammar. See [memory](memory.md).
 --quiet   print only problems
 ```
 
+## `roster brief <kind> [handle]`
+
+Print a self-contained brief for authoring one of the files the agents run on. Paste it into
+whatever agent you use, or pipe it.
+
+```
+discover        write org/business.md, which every prompt is composed on top of
+charter <who>   write a staff member's CHARTER.md
+voice           revise org/voice.md, the house style every surface inherits
+```
+
+```
+--ops <dir>
+```
+
+```bash
+roster brief discover
+roster brief charter cto | pbcopy
+roster brief voice > /tmp/brief.md
+```
+
+These are the only files anybody writes by hand. `org/operating.md`, `org/voice.md` and
+`org/guardrails.md` ship written; a charter and `org/business.md` cannot, because they are the
+half that is about you.
+
+Nothing in a brief is specific to any agent. Claude Code gets `/discover`, `/voice` and
+`/charter` as well, generated from these same files by `roster init` and `roster hire`. To add
+them to a tenant that predates this, redirect the brief into the file:
+
+```bash
+roster brief discover > roster-ops/.claude/commands/discover.md
+```
+
 ## `roster prompt <handle>`
 
 Compose and print what a staff member is actually sent.
