@@ -23,10 +23,38 @@ src/commands/          one file per command
 src/lib/               shared: workspace, memory, render, merge, gh, templates, docs
 templates/ops/         what a tenant's ops repo is generated from
 templates/brain/       what a staff member's repo is generated from
-templates/portal/      the portal, one HTML file
+templates/portal/      the portal: a shell, css/, and js/ as ES modules
 docs/                  these pages
 test/                  one file per area
 ```
+
+## The portal has no build step, on purpose
+
+`templates/portal/` is a plain `index.html`, one stylesheet per area under `css/`, and one ES
+module per screen under `js/views/`. `roster portal` serves them from `/assets`, reading each
+file per request. Editing a stylesheet and reloading the page is the whole edit loop.
+
+It was one 2,100-line HTML file until the CSS and the seven screens grew past the point where
+any of them could be found in it. Splitting it needed no bundler, because the browser resolves
+the module graph itself, and a bundler would have been a build step in a tool whose selling
+point is that it does not have one.
+
+```
+templates/portal/
+  index.html           the shell: <link>s, the sidebar's bones, one <script type="module">
+  css/base.css         tokens, reset, buttons, inputs, chips
+  css/layout.css       the frame: sidebar, main, tree-beside-viewer
+  css/<area>.css       markdown, brain, inbox, graph, diff, health
+  js/state.js          every screen's state in one object, and the URL that mirrors it
+  js/router.js         one indirection so a view can repaint without importing the shell
+  js/dom.js  api.js  md.js  refresh.js
+  js/app.js            boot, the sidebar, dispatching a view into <main>
+  js/views/*.js        one per screen
+```
+
+Two rules keep the module graph a tree rather than a ring: **state lives in `state.js`**, and
+**a view never imports `app.js`**. It calls `render()` from `router.js`, which the shell
+registers into at boot.
 
 ## The rule that matters
 
@@ -70,8 +98,9 @@ marker, or the leftover line is stranded.
 Three habits, each of which came from a test that was passing vacuously.
 
 **Test the harness, not just the code.** The portal tests set a property on a dead object for
-several rounds because a top-level `let` in a classic script is not reachable as a global.
-State is `var` for that reason.
+several rounds, because the state they were driving was a top-level `let` in a classic script
+and not reachable as a global. The state is now an exported object, so the tests import the
+real modules under a DOM shim and there is nothing to get wrong.
 
 **Run it against reality.** The portal and doctor tests build from the live workspace rather
 than a fixture, so they break when real data grows a shape the code cannot handle. That is how

@@ -1,0 +1,25 @@
+/* A unified diff, on the "what changed" screen. */
+
+.dblock{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.dblock:last-child{margin-bottom:0}
+.diff{margin:0;font:12px/1.6 var(--mono);background:var(--panel-2);overflow-x:auto}
+.dline{display:grid;grid-template-columns:42px 42px 1fr;white-space:pre;min-width:max-content}
+.dline .ln{color:var(--ink-faint);text-align:right;padding:0 7px 0 5px;font-size:11px;
+      user-select:none;background:color-mix(in srgb,var(--line) 34%,transparent)}
+.dline .tx{padding:0 14px 0 9px}
+.dadd{background:color-mix(in srgb,var(--accent) 15%,transparent)}
+.dadd .tx{color:var(--ink)}
+.dadd .ln{background:color-mix(in srgb,var(--accent) 24%,transparent);color:var(--accent)}
+.ddel{background:color-mix(in srgb,var(--err) 13%,transparent)}
+.ddel .tx{color:var(--ink-dim)}
+.ddel .ln{background:color-mix(in srgb,var(--err) 22%,transparent);color:var(--err)}
+.dhunk{background:color-mix(in srgb,var(--will) 13%,transparent);
+      border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.dhunk .tx{color:var(--will);font-size:11.5px}
+.dmeta .tx{color:var(--ink-faint);font-size:11.5px}
+.dfocus{box-shadow:inset 3px 0 0 var(--warn)}
+.dfile{font:11.5px var(--mono);color:var(--ink-dim);background:var(--panel);padding:8px 12px;
+      border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline}
+.dfile b{color:var(--ink);font-weight:600}
+.dfile .p{color:var(--accent)} .dfile .m{color:var(--err)}
+.dempty{padding:20px;color:var(--ink-faint);font-size:12.5px}

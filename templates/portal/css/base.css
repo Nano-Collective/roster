@@ -1,0 +1,84 @@
+/* Tokens, reset, and the primitives every screen uses: buttons, inputs, chips, meta text. */
+
+:root{
+  --bg:#0e1013; --panel:#15181d; --panel-2:#1b1f26; --line:#252a33;
+  --ink:#e6e9ef; --ink-dim:#9aa3b2; --ink-faint:#6b7484;
+  --accent:#7cc7a4; --accent-dim:#3d6b56;
+  --warn:#d8a657; --err:#e07b7b;
+  --will:#7aa2f7; --measured:#7cc7a4; --derived:#c99bd6;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+}
+/* System preference wins unless the toggle has stamped data-theme on the root. */
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --bg:#fbfbfa; --panel:#fff; --panel-2:#f4f5f7; --line:#e3e5ea;
+    --ink:#1b1f26; --ink-dim:#5b6472; --ink-faint:#8b95a5;
+    --accent:#2f7d5b; --accent-dim:#a8d5bf;
+    --warn:#a5701d; --err:#b34a4a;
+    --will:#3b5fa8; --measured:#2f7d5b; --derived:#8a52a8;
+  }
+}
+:root[data-theme="light"]{
+    --bg:#fbfbfa; --panel:#fff; --panel-2:#f4f5f7; --line:#e3e5ea;
+    --ink:#1b1f26; --ink-dim:#5b6472; --ink-faint:#8b95a5;
+    --accent:#2f7d5b; --accent-dim:#a8d5bf;
+    --warn:#a5701d; --err:#b34a4a;
+    --will:#3b5fa8; --measured:#2f7d5b; --derived:#8a52a8;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans);
+     -webkit-font-smoothing:antialiased}
+a{color:inherit}
+
+h1{font:600 21px var(--sans);margin:0 0 4px;letter-spacing:-.015em}
+.sub{color:var(--ink-dim);margin:0 0 24px;font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.meta{color:var(--ink-faint);font:11.5px var(--mono)}
+.empty{color:var(--ink-faint);padding:26px 0;text-align:center;font-size:13px}
+.err{color:var(--err)} .warn{color:var(--warn)} .ok{color:var(--accent)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:15px 17px;margin-bottom:11px}
+.card h3{margin:0 0 3px;font:600 14px var(--sans)}
+.grid{display:grid;gap:11px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+
+/* ---------- controls ---------- */
+input[type=search],select{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+  border-radius:7px;padding:7px 11px;font:13px var(--sans);outline:none}
+input[type=search]{width:280px}
+input[type=search]:focus,select:focus{border-color:var(--accent-dim)}
+textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+      border-radius:8px;padding:10px 12px;font:13px/1.55 var(--sans);outline:none;resize:vertical}
+textarea:focus{border-color:var(--accent-dim)}
+
+.ghbtn{display:inline-block;padding:5px 11px;border:1px solid var(--line);border-radius:7px;
+       font:12px var(--sans);color:var(--ink-dim);text-decoration:none;white-space:nowrap}
+.ghbtn:hover{color:var(--ink);border-color:var(--accent-dim);background:var(--panel-2)}
+button.ghbtn{cursor:pointer;font-family:var(--sans);background:transparent;
+      -webkit-appearance:none;appearance:none;font-size:12px;line-height:1.4}
+button.ghbtn:hover{background:var(--panel-2)}
+.ghbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+.ghbtn.primary:hover{filter:brightness(1.08);background:var(--accent)}
+.ghbtn:disabled{opacity:.5;cursor:default}
+.iconbtn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);
+       border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:15px;line-height:1}
+.iconbtn:hover{color:var(--ink);border-color:var(--accent-dim)}
+.iconbtn .sync{display:inline-block}
+.iconbtn.spin .sync{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.chip{font:10px var(--sans);letter-spacing:.02em;padding:1.5px 7px;border-radius:20px;
+      border:1px solid var(--line);color:var(--ink-faint);white-space:nowrap}
+.chip.hot{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}
+.chip.warm{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.chip.cool{color:var(--will);border-color:color-mix(in srgb,var(--will) 40%,transparent)}
+.pill{font:11px var(--mono);color:var(--ink-faint);border:1px solid var(--line);
+      border-radius:20px;padding:2px 9px}
+kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+    padding:1px 5px;color:var(--ink-dim)}
+
+.notice{background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid
+      color-mix(in srgb,var(--warn) 40%,transparent);color:var(--ink-dim);border-radius:8px;
+      padding:10px 13px;margin-bottom:16px;font-size:12.5px;line-height:1.6}
+.notice b{color:var(--ink)}

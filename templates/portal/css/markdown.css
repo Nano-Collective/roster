@@ -1,0 +1,53 @@
+/* One renderer, two sizes: .cbody is a comment in a thread, .doc is a file being read.
+   Everything shared lives on .md so a fix reaches both. */
+
+.md{line-height:1.65}
+.md>:first-child{margin-top:0}
+.md p{margin:0 0 10px}
+.md h1,.md h2,.md h3,.md h4,.md h5,.md h6{color:var(--ink);font-weight:600;line-height:1.3;
+      margin:22px 0 8px;letter-spacing:-.012em}
+.md h1{font-size:20px} .md h2{font-size:17px} .md h3{font-size:15px}
+.md h4,.md h5,.md h6{font-size:13.5px;color:var(--ink-dim)}
+.md h1,.md h2{padding-bottom:6px;border-bottom:1px solid var(--line)}
+.md ul,.md ol{margin:0 0 10px;padding-left:20px}
+.md li{margin:3px 0}
+.md li>ul,.md li>ol{margin:4px 0 0}
+.md ul.tasks{list-style:none;padding-left:1px}
+.md .box{color:var(--ink-faint);margin-right:5px}
+.md code{font:12px var(--mono);color:var(--accent);background:var(--panel-2);
+      padding:1px 4px;border-radius:4px;word-break:break-word}
+.md pre{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;
+      padding:11px 13px;font:12px/1.62 var(--mono);margin:10px 0;color:var(--ink-dim);
+      overflow-x:auto;white-space:pre}
+.md pre code{background:none;padding:0;color:inherit;font-size:inherit}
+.md a{color:var(--will)}
+.md blockquote{margin:10px 0;padding:2px 0 2px 12px;border-left:2px solid var(--line);color:var(--ink-dim)}
+.md hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+.md img{max-width:100%;border-radius:6px;background:var(--panel-2)}
+.md .ctable{overflow-x:auto;margin:10px 0;max-width:100%}
+.md table{border-collapse:collapse;font-size:12.5px;width:100%}
+.md th,.md td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+.md th{background:var(--panel-2);color:var(--ink);font-weight:600;white-space:nowrap}
+.md td{color:var(--ink-dim)}
+.md td b,.md td strong{color:var(--ink)}
+.cbody{margin-top:8px;font-size:13.5px;max-width:74ch}
+.cbody h1{font-size:17px} .cbody h2{font-size:15.5px} .cbody h3{font-size:14px}
+.doc{font-size:14px;max-width:80ch}
+
+/* A reference to another issue or PR, as a chip rather than a raw link: half of a status
+   issue is #113, and a wall of blue URLs is the thing that makes them unreadable. */
+.ref{display:inline-block;font:11.5px var(--mono);color:var(--will);background:var(--panel-2);
+     border:1px solid var(--line);border-radius:20px;padding:0 7px;text-decoration:none;
+     white-space:nowrap;line-height:1.65}
+.ref:hover{border-color:var(--will);background:color-mix(in srgb,var(--will) 14%,transparent)}
+.ref.pr{color:var(--measured)}
+.ref.pr:hover{border-color:var(--measured);background:color-mix(in srgb,var(--measured) 14%,transparent)}
+
+/* @cto and @will-lamerton are how work is handed between people here, so they are marked
+   rather than left as prose. `.you` is anyone on this org's roster; a stranger stays plain. */
+.at{display:inline-block;font:11.5px var(--mono);color:var(--ink-dim);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:20px;padding:0 7px;text-decoration:none;
+    white-space:nowrap;line-height:1.65}
+.at:hover{color:var(--ink);border-color:var(--ink-faint)}
+.at.you{color:var(--derived);border-color:color-mix(in srgb,var(--derived) 40%,transparent)}
+.at.you:hover{background:color-mix(in srgb,var(--derived) 14%,transparent);border-color:var(--derived)}

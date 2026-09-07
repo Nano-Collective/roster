@@ -8,7 +8,7 @@ import { buildExport } from "../lib/export.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { syncRepos } from "../lib/sync.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
-import { PORTAL_HTML } from "../portal/html.js";
+import { portalAsset, portalIndex } from "../portal/assets.js";
 
 export const portalHelp = `
 roster portal
@@ -100,7 +100,20 @@ export async function portalCommand(argv: string[]): Promise<number> {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "no-store",
         });
-        res.end(PORTAL_HTML);
+        res.end(portalIndex());
+        return;
+      }
+
+      /* The UI's own stylesheets and modules. Separate from /api/file, which serves the
+         workspace: these come from the framework, that comes from the tenant. */
+      if (url.pathname.startsWith("/assets/")) {
+        const asset = portalAsset(decodeURIComponent(url.pathname.slice("/assets/".length)));
+        if (!asset) {
+          res.writeHead(404).end("not found");
+          return;
+        }
+        res.writeHead(200, { "content-type": asset.type, "cache-control": "no-store" });
+        res.end(asset.body);
         return;
       }
 

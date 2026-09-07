@@ -1,0 +1,69 @@
+/* The inbox list, and the thread beside it. */
+
+.irow{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
+      padding:9px 10px;border-radius:7px;color:var(--ink-dim)}
+.irow:hover{background:var(--panel-2)}
+.irow:focus{outline:none}
+.irow:focus-visible{outline:2px solid var(--accent-dim);outline-offset:-2px}
+.irow[aria-current="true"]{background:var(--panel-2);box-shadow:inset 2px 0 0 var(--accent)}
+.ititle{font:13.5px/1.4 var(--sans);color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;
+        -webkit-box-orient:vertical;overflow:hidden}
+.irow[aria-current="true"] .ititle{color:var(--accent)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);
+     margin-right:6px;vertical-align:2px}
+.imeta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px}
+.imeta .repo{font:10px var(--sans);letter-spacing:.03em;text-transform:uppercase;
+      color:var(--ink-faint);border-right:1px solid var(--line);padding-right:7px}
+.imeta .num{font:10.5px var(--mono);color:var(--ink-faint)}
+.imeta .when{font:10.5px var(--sans);color:var(--ink-faint);margin-left:auto}
+.ck{font:10.5px var(--mono)}
+.ck.passing{color:var(--accent)} .ck.failing{color:var(--err)} .ck.pending{color:var(--warn)}
+
+/* ---------- thread ---------- */
+.thead{border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:4px}
+.trow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.thead h3{margin:8px 0 0;font:600 17px/1.35 var(--sans);letter-spacing:-.012em;color:var(--ink)}
+.cmt{border-top:1px solid var(--line);padding:16px 0}
+.cmt.first{border-top:0}
+.reply{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+
+/* ---------- timeline events ----------
+   Not comments, so not comment-shaped: a marker, a line of prose, and whatever it points at.
+   These carry the half of a thread that is agents referring to each other's work. */
+.tev{display:flex;gap:10px;align-items:flex-start;padding:9px 0 9px 2px;
+     font:12.5px/1.5 var(--sans);color:var(--ink-dim)}
+.tev .tico{flex:none;width:16px;text-align:center;color:var(--ink-faint);font:12px var(--mono);
+     line-height:1.5}
+.tev .tbody{flex:1;min-width:0}
+.tev b{color:var(--ink);font-weight:600}
+.tev .tsub{display:block;margin-top:4px}
+.tev .tcommit{font:11.5px var(--mono);color:var(--ink-dim);background:var(--panel-2);
+     border:1px solid var(--line);border-radius:6px;padding:4px 9px;display:inline-block;
+     max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.tev .twhen{color:var(--ink-faint);font-size:11px;white-space:nowrap}
+.tev.closed .tico{color:var(--err)}
+.tev.reopened .tico,.tev.merged .tico{color:var(--accent)}
+.tev.cross-referenced .tico{color:var(--will)}
+
+/* An item this thread points at, as a row you can open here rather than a link that throws
+   you out to GitHub. Open and closed read at a glance, which is the whole reason to show it. */
+.xref{display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;background:none;
+      border:1px solid var(--line);border-radius:7px;padding:6px 10px;margin-top:5px;
+      cursor:pointer;color:var(--ink-dim);font:12.5px var(--sans)}
+.xref:hover{border-color:var(--accent-dim);background:var(--panel-2);color:var(--ink)}
+.xref .st{flex:none;font:11px var(--mono)}
+.xref .st.open{color:var(--accent)} .xref .st.closed{color:var(--derived)}
+.xref .st.merged{color:var(--derived)} .xref .st.draft{color:var(--ink-faint)}
+.xref .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xref .n{flex:none;font:11px var(--mono);color:var(--ink-faint)}
+
+/* The bookkeeping — labels, assignees, renames — folded away by default. It is real history
+   and worth being able to see, but it is not what you opened the thread to read. */
+.tevmore{display:flex;align-items:center;gap:7px;background:none;border:0;cursor:pointer;
+      color:var(--ink-faint);font:11.5px var(--sans);padding:8px 2px}
+.tevmore:hover{color:var(--ink-dim)}
+.tevmore .caret{font-size:11px;width:11px;text-align:center;transition:transform .12s ease;
+      display:inline-block}
+.tevmore[aria-expanded="true"] .caret{transform:rotate(90deg)}
+.tevquiet{border-left:1px solid var(--line);margin-left:9px;padding-left:14px}
+.tevquiet .tev{padding:5px 0;font-size:12px}

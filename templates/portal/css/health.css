@@ -1,0 +1,12 @@
+/* The health screen's fact strip and lint cards. */
+
+.kv{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+.kv .k{font:10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.kv .v{margin-top:5px;font:14px var(--sans);color:var(--ink);line-height:1.45}
+.kv .v small{display:block;color:var(--ink-faint);font-size:11.5px;margin-top:2px}
+.kv.bad{border-color:color-mix(in srgb,var(--err) 45%,transparent)}
+.kv.bad .v{color:var(--err)}
+.card .fix{margin-top:10px}
+.card .fixed{color:var(--accent);font:11.5px var(--mono)}
+.hsect{font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;
+      color:var(--ink-faint);margin:24px 0 10px}
