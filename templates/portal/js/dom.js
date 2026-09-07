@@ -64,3 +64,43 @@ export function grow(ta) {
   const border = (ta.offsetHeight || 0) - (ta.clientHeight || 0);
   ta.style.height = (ta.scrollHeight || 0) + border + "px";
 }
+
+/**
+ * Put text on the clipboard and say so on the button that asked.
+ *
+ * `navigator.clipboard` needs a secure context, and http://localhost counts, but a portal
+ * bound to a LAN address does not. The textarea fallback is what makes the button work there
+ * rather than failing silently, which for a copy button is the worst outcome: you paste the
+ * last thing you copied and never notice.
+ */
+export async function toClipboard(text, btn, label) {
+  const said = (msg) => {
+    if (!btn) return;
+    btn.textContent = msg;
+    setTimeout(() => {
+      btn.textContent = label;
+    }, 2200);
+  };
+  try {
+    await navigator.clipboard.writeText(text);
+    said("copied · " + Math.round(text.length / 1000) + "k");
+    return true;
+  } catch {
+    /* fall through */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    said(ok ? "copied" : "could not copy");
+    return ok;
+  } catch {
+    said("could not copy");
+    return false;
+  }
+}

@@ -96,19 +96,27 @@ whatever agent you use, or pipe it.
 discover        write org/business.md, which every prompt is composed on top of
 charter <who>   write a staff member's CHARTER.md
 voice           revise org/voice.md, the house style every surface inherits
+amend <who>     change what a staff member is told, with the whole prompt attached
 ```
 
 ```
+--kind <k>      for amend: daily | mention | pr-mention  (default: daily)
+--want <text>   for amend: what you want changed
 --ops <dir>
 ```
 
 ```bash
+roster brief amend cto --want "stop opening decision issues for anything reversible"
 roster brief discover
 roster brief charter cto | pbcopy
 roster brief voice > /tmp/brief.md
 ```
 
-These are the only files anybody writes by hand. `org/operating.md`, `org/voice.md` and
+`amend` is the different one. It carries the composed prompt and every file it is assembled
+from, so the agent you paste it into does not have to ask for any of them. The portal's Prompt
+screen builds the same thing, and offers it per audit finding.
+
+The other three are the only files anybody writes by hand. `org/operating.md`, `org/voice.md` and
 `org/guardrails.md` ship written; a charter and `org/business.md` cannot, because they are the
 half that is about you.
 

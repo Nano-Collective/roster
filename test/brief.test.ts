@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { available } from "../src/commands/brief.js";
+import { available, NEEDS_STAFF } from "../src/commands/brief.js";
 import { briefCommands, briefTemplateDir, orgTokens, tokensFor } from "../src/lib/render.js";
 
 /**
@@ -41,10 +41,11 @@ const STAFF = {
   agentSecret: "AGENT_TOKEN",
 };
 
-test("there is a brief for each file a person actually writes", () => {
+test("there is a brief for each file a person actually writes, and one for changing them", () => {
   /* `org/operating.md`, `voice.md` and `guardrails.md` ship written. A charter and
-     `org/business.md` cannot, because they are the half that is about you. */
-  assert.deepEqual(available(), ["charter", "discover", "voice"]);
+     `org/business.md` cannot, because they are the half that is about you. `amend` is the
+     fourth kind: not writing a file, but changing what an agent is already told. */
+  assert.deepEqual(available(), ["amend", "charter", "discover", "voice"]);
 });
 
 test("every brief renders with the tokens the command can supply", () => {
@@ -53,8 +54,11 @@ test("every brief renders with the tokens the command can supply", () => {
   const staff = tokensFor(ORG, STAFF);
   for (const kind of available()) {
     const text = readFileSync(join(briefTemplateDir(), `${kind}.md`), "utf8");
-    const tokens = kind === "charter" ? staff : org;
-    const out = text.replace(/%%([A-Z_]+)%%/g, (m, name: string) => tokens[name] ?? m);
+    const tokens = NEEDS_STAFF.has(kind) ? staff : org;
+    // `amend` fills %%WANT%% from what the person typed, not from the org.
+    const out = text
+      .replace(/%%WANT%%/g, "make it shorter")
+      .replace(/%%([A-Z_]+)%%/g, (m, name: string) => tokens[name] ?? m);
     assert.ok(
       !/%%[A-Z_]+%%/.test(out),
       `${kind}.md has a token nothing fills: ${out.match(/%%[A-Z_]+%%/g)}`,
@@ -76,10 +80,24 @@ test("no brief names an agent", () => {
   }
 });
 
-test("a brief tells the agent what to do when it cannot read the repo", () => {
-  // Pasted into a web chat, it has no filesystem. Every brief has to survive that.
+test("a brief survives being pasted somewhere with no filesystem", () => {
+  /* The authoring briefs ask for what they need. `amend` does the opposite and carries it,
+     because working out which of eight files to open is the difficulty being solved: a brief
+     that says "read your layers first" has handed that straight back. */
   for (const kind of available()) {
     const text = readFileSync(join(briefTemplateDir(), `${kind}.md`), "utf8");
+    if (kind === "amend") {
+      assert.match(
+        text,
+        /Everything you need is in this message/,
+        "amend.md must say it carries the state",
+      );
+      assert.ok(
+        !/cannot read files/.test(text),
+        "amend.md must not ask for files it already includes",
+      );
+      continue;
+    }
     assert.match(text, /cannot read files/, `briefs/${kind}.md assumes a checkout`);
   }
 });

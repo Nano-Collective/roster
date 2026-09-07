@@ -86,3 +86,19 @@
    for a short file. */
 .editor{font:12.5px/1.7 var(--mono);min-height:340px;overflow:hidden;resize:none}
 .editnote{margin:8px 0 0;font:11.5px var(--sans);color:var(--ink-faint)}
+
+/* A prompt audit finding. Not a tree row: it carries an explanation and two buttons, and
+   squeezing that into the navigator's row shape is how it would get ignored. */
+.prob{border:1px solid var(--line);border-radius:7px;padding:9px 10px;margin:0 3px 6px}
+.prob .ptitle{font:600 12.5px var(--sans);color:var(--ink)}
+.prob .pdetail{margin-top:3px;font:11.5px/1.5 var(--sans);color:var(--ink-faint)}
+.prob.error{border-color:color-mix(in srgb,var(--err) 45%,transparent)}
+.prob.error .ptitle{color:var(--err)}
+.prob.warning{border-color:color-mix(in srgb,var(--warn) 38%,transparent)}
+.prob.warning .ptitle{color:var(--warn)}
+.prob .ghbtn{font-size:11px;padding:3px 8px}
+
+/* What an edit did to the composed prompt, which is the question you were actually asking. */
+.effect{border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
+      background:color-mix(in srgb,var(--accent) 7%,transparent);
+      border-radius:8px;padding:10px 12px;margin-bottom:14px}

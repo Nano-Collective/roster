@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import type { AuditFinding } from "./audit.js";
 import type { Workspace } from "./workspace.js";
 
 export const KINDS = ["daily", "mention", "pr-mention"] as const;
@@ -27,6 +28,8 @@ export interface PromptView {
   layers: Layer[];
   /** Files the prompt tells the agent to go and read. Not inlined; named. */
   runtime: Layer[];
+  /** What is mechanically wrong with it. Each one carries the fix to hand to an AI. */
+  problems?: AuditFinding[];
 }
 
 /**

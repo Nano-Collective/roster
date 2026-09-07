@@ -3,10 +3,13 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { type ActRequest, act } from "../lib/act.js";
+import { amendBrief } from "../lib/amend.js";
+import { auditPrompt } from "../lib/audit.js";
 import { docPages, docsDir } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { isWritable, KINDS, promptView, saveFile } from "../lib/prompt.js";
+import { orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
 import { syncRepos } from "../lib/sync.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { portalAsset, portalIndex } from "../portal/assets.js";
@@ -165,6 +168,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
         const brainDir = join(ws.root, entry.dir ?? entry.handle);
         try {
           const view = promptView(ws, compose, handle, brainDir, kind);
+          view.problems = auditPrompt(ws, view, workspaceRoots(org as any));
           res.writeHead(200, {
             "content-type": "application/json; charset=utf-8",
             "cache-control": "no-store",
@@ -176,6 +180,39 @@ export async function portalCommand(argv: string[]): Promise<number> {
           res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
           res.end(JSON.stringify({ staff: handle, kind, error: String((err as Error).message) }));
         }
+        return;
+      }
+
+      /* A prompt you paste into your own AI to change what this agent is told. It carries
+         the composed text and every layer, because knowing which of eight files to open is
+         the hard part and a brief that asks for them has handed that back. */
+      if (url.pathname === "/api/amend") {
+        const handle = url.searchParams.get("staff") ?? "";
+        const kind = url.searchParams.get("kind") ?? "daily";
+        const want = url.searchParams.get("want") ?? "";
+        const org = readOrg(ws.opsDir, parseYaml);
+        const entry = (org.staff ?? []).find((s) => s.handle === handle);
+        if (!entry || !(KINDS as readonly string[]).includes(kind)) {
+          res.writeHead(400).end("bad request");
+          return;
+        }
+        const dir = entry.dir ?? entry.handle;
+        const view = promptView(ws, compose, handle, join(ws.root, dir), kind);
+        const manifestPath = join(ws.root, dir, "staff.yaml");
+        const tokens = existsSync(manifestPath)
+          ? tokensFor(
+              orgSpec(org as any, ws),
+              specFromManifest(
+                parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any,
+                dir,
+              ),
+            )
+          : orgTokens(orgSpec(org as any, ws));
+        res.writeHead(200, {
+          "content-type": "text/plain; charset=utf-8",
+          "cache-control": "no-store",
+        });
+        res.end(amendBrief(ws, view, tokens, want));
         return;
       }
 
@@ -396,6 +433,35 @@ export async function portalCommand(argv: string[]): Promise<number> {
       );
     });
   });
+}
+
+/** The org half of the token set, for a brief that names the org and the human. */
+function orgSpec(
+  org: { org: string; name: string; human?: Record<string, string> },
+  w: {
+    opsName: string;
+  },
+) {
+  const human = org.human ?? {};
+  return {
+    org: org.org,
+    name: org.name,
+    opsRepo: `${org.org}/${w.opsName}`,
+    opsDirName: w.opsName,
+    human: human.name ?? human.github ?? "the human",
+    humanMarker: human.marker ?? human.github ?? "human",
+  };
+}
+
+/** Every directory a prompt might write a path relative to. */
+function workspaceRoots(org: {
+  staff?: Array<{ handle: string; dir?: string }>;
+  repos?: Array<{ name: string }>;
+}): string[] {
+  return [
+    ...(org.staff ?? []).map((s) => s.dir ?? s.handle),
+    ...(org.repos ?? []).map((r) => r.name),
+  ];
 }
 
 function parseFlags(argv: string[]) {

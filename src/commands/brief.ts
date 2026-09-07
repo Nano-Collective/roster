@@ -1,5 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { amendBrief } from "../lib/amend.js";
+import { promptView } from "../lib/prompt.js";
 import { briefTemplateDir, orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
@@ -16,8 +18,14 @@ roster brief <kind> [handle]
     discover        write org/business.md, which every prompt is composed on top of
     charter <who>   write a staff member's CHARTER.md
     voice           revise org/voice.md, the house style every surface inherits
+    amend <who>     change what a staff member is told, with the whole prompt attached
+
+  \`amend\` is the long one. It carries the composed prompt and every file it is assembled
+  from, so the agent you paste it into does not have to ask for any of them. Say what you
+  want with --want, or fill in the placeholder at the top before you send it.
 
   Examples:
+    roster brief amend cto --want "stop opening decision issues for anything reversible"
     roster brief discover
     roster brief charter cto
     roster brief charter cto | pbcopy
@@ -27,11 +35,13 @@ roster brief <kind> [handle]
   these briefs by \`roster init\` and \`roster hire\`. There is nothing in them that is
   specific to any agent.
 
+  --kind <k>      for amend: daily | mention | pr-mention  (default: daily)
+  --want <text>   for amend: what you want changed
   --ops <dir>     ops repo directory (default: found by walking up)
 `;
 
 /** A brief about one staff member needs to know which. The org-level ones do not. */
-const NEEDS_STAFF = new Set(["charter"]);
+export const NEEDS_STAFF = new Set(["charter", "amend"]);
 
 export async function briefCommand(argv: string[]): Promise<number> {
   const kind = argv[0];
@@ -62,6 +72,23 @@ export async function briefCommand(argv: string[]): Promise<number> {
   }
 
   const tokens = handle ? staffTokens(ws, org, handle, parseYaml) : orgTokens(spec(org, ws));
+
+  /* `amend` is the one brief that carries state. Someone changing a prompt does not know
+     which of eight files to open, which is the whole difficulty, so the brief brings them. */
+  if (kind === "amend") {
+    const { compose } = await loadComposer(ws.opsDir);
+    const entry = (org.staff ?? []).find((s) => s.handle === handle)!;
+    const view = promptView(
+      ws,
+      compose,
+      handle!,
+      join(ws.root, entry.dir ?? entry.handle),
+      opts.kind ?? "daily",
+    );
+    process.stdout.write(amendBrief(ws, view, tokens, opts.want ?? ""));
+    return 0;
+  }
+
   const text = readFileSync(join(briefTemplateDir(), `${kind}.md`), "utf8");
   process.stdout.write(renderBrief(text, tokens, `briefs/${kind}.md`));
   return 0;
@@ -130,12 +157,14 @@ export function available(): string[] {
 }
 
 function parseFlags(argv: string[]) {
-  const out: { ops?: string } = {};
+  const out: { ops?: string; kind?: string; want?: string } = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     const value = argv[++i];
     if (value === undefined) throw new Error(`${flag} needs a value`);
     if (flag === "--ops") out.ops = value;
+    else if (flag === "--kind") out.kind = value;
+    else if (flag === "--want") out.want = value;
     else throw new Error(`unknown flag ${flag}`);
   }
   return out;

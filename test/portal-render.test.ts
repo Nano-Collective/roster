@@ -261,6 +261,25 @@ const PROMPT_FIXTURE = {
       editable: false,
     },
   ],
+  /* An empty list here is how a ReferenceError in the problem renderer shipped: the code path
+     never ran, so every view test passed and the screen was blank in a browser. */
+  problems: [
+    {
+      id: "stub",
+      level: "error",
+      title: "business.md is still the scaffold",
+      detail: "Every run is composed on top of it.",
+      path: "roster-ops/org/business.md",
+      want: "`roster-ops/org/business.md` is still the scaffold. Interview me and write it.",
+    },
+    {
+      id: "echo",
+      level: "warning",
+      title: "2 lines said in more than one layer",
+      detail: "The same rule is stated twice on every run.",
+      want: "These lines appear in more than one layer. Decide where each belongs.",
+    },
+  ],
 };
 
 /** Whatever the URL asks for, out of fixtures. Overridable per test via `s.fetch`. */
@@ -1469,7 +1488,11 @@ test("the prompt screen shows the text, the layers, and which repo each came fro
   const heads = nodes
     .filter((n) => String(n.className ?? "") === "ghead")
     .map((n) => String(n._text ?? ""));
-  assert.deepEqual(heads, ["The prompt", "Inlined, in order", "Named, not inlined"], String(heads));
+  assert.deepEqual(
+    heads,
+    ["The prompt", "Inlined, in order", "Problems", "Named, not inlined"],
+    String(heads),
+  );
 
   const keys = nodes.filter((n) => n.dataset?.key).map((n) => n.dataset.key);
   assert.ok(keys.includes("composed"), "the composed text is the first thing offered");
@@ -1694,4 +1717,39 @@ test("inline HTML in a comment is reduced, and code spans are left alone", async
     out.includes("&lt;div&gt;a fenced block keeps its tags&lt;/div&gt;"),
     "and so is a fence: " + out,
   );
+});
+
+test("a prompt problem is rendered with the fix you can hand to an AI", async () => {
+  /* Knowing there is a problem is the hard part. Every finding carries the sentence that goes
+     into the amend brief, so the button beside it is the point of the finding. */
+  const s = await renderAll("#/cto/prompt");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const cards = walkNodes(s._byId.main).filter((n) =>
+    String(n.className ?? "").startsWith("prob "),
+  );
+  assert.equal(cards.length, 2, "one card per finding");
+  assert.ok(String(cards[0].className).includes("error"), "the worst one first");
+  assert.match(cards[0].textContent, /business\.md is still the scaffold/);
+  assert.match(cards[0].textContent, /Copy a prompt to fix this/, "with the fix beside it");
+
+  // A finding that names a file offers to open it; one about the whole prompt does not.
+  assert.match(cards[0].textContent, /Open the file/);
+  assert.ok(!/Open the file/.test(cards[1].textContent), "nothing to open for a whole-prompt one");
+});
+
+test("a prompt with nothing wrong shows no Problems box at all", async () => {
+  const s = await renderAll();
+  s.fetch = async () => ({
+    ok: true,
+    json: async () => ({ ...PROMPT_FIXTURE, problems: [] }),
+    text: async () => "",
+  });
+  s.view = "prompt";
+  s.render();
+  await new Promise((r) => setTimeout(r, 30));
+  const heads = walkNodes(s._byId.main)
+    .filter((n) => String(n.className ?? "") === "ghead")
+    .map((n) => String(n._text ?? ""));
+  assert.ok(!heads.includes("Problems"), "an empty findings list is not a section: " + heads);
 });

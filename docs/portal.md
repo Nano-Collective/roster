@@ -98,6 +98,36 @@ tells the agent to open these; it does not contain them. Editing a charter chang
 agent does without changing a byte of the composed prompt, and that distinction is easy to
 miss.
 
+### Problems
+
+The audit, beside the layers. Nothing here judges prose: every check is something a machine
+can be sure about, because a linter you stop believing is worse than no linter.
+
+| Check | Why it matters |
+|---|---|
+| a file is still the scaffold | `org/business.md` is composed into every run. Leaving it as questions is invisible: the run works and the output is just generic |
+| a placeholder never resolved | `{{staff.product.repo}}` is null for a staff member who contributes to no other repo, and the agent reads the braces literally |
+| the same line in two layers | the layers are inherited, so a rule a charter repeats from `org/` is duplication nobody reading either file can see |
+| the prompt is long | it is read in full on every run, forever |
+| it names a file that is not there | an instruction to read something absent is a quiet no-op inside a run nobody watches |
+| an included layer is empty | it contributes nothing and costs a line of includes |
+
+**Every finding carries the fix.** "Copy a prompt to fix this" builds a brief containing the
+finding, the composed prompt, and every layer, and puts it on your clipboard. Paste it into
+whatever agent you use. Knowing there is a problem is the hard part; writing the paragraph is
+not.
+
+### Getting help changing it
+
+**Copy a brief for changing this** asks what you want changed and copies the same thing: a
+self-contained prompt carrying the composed text, every layer with its path and blast radius,
+and what may and may not be edited. `roster brief amend <handle> --want "…"` prints the same
+from the terminal.
+
+It carries the state rather than asking for it, because working out which of eight files to
+open is the difficulty being solved. A brief that says "read your layers first" has handed
+that straight back.
+
 ### Editing
 
 Layers are editable in place. Saving writes the file, commits **only that file**, and pushes,
@@ -120,6 +150,10 @@ to rewrite. All four are readable, none is writable.
 An unrelated edit sitting in the working tree is left alone. A push that fails is reported with
 the commit it did make, rather than as a failure, because the edit is committed and that is the
 part that is awkward to redo.
+
+**Saving shows what the edit did to the composed prompt**, not to the file. Those are not the
+same thing: a line added to one fragment can land three times or not at all, and the file diff
+answers a question you did not ask.
 
 ## Graph
 
