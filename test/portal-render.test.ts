@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import vm from "node:vm";
 import { buildExport } from "../src/lib/export.js";
 import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
 
@@ -10,14 +8,18 @@ import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
  * The portal has no build step and no browser in CI, so a runtime error in a render
  * function would ship silently: the server still answers 200 and the page is blank.
  *
- * This runs the page's own script against the real export, in a DOM shim thin enough to
+ * This runs the page's own modules against the real export, in a DOM shim thin enough to
  * be honest about what it proves — that every view renders without throwing, and produces
  * elements. It is not a substitute for looking at it.
+ *
+ * The UI used to be one HTML file, and this used to extract its `<script>` with a regex and
+ * run it in a `vm` context. It is now a shell plus a dozen ES modules, so the shim is
+ * installed on `globalThis` and the modules are imported for real. `sandbox` keeps the
+ * property names the old harness used — `s.view`, `s.DATA`, `s.INBOX` — mapped onto the
+ * state object the modules share, so what these tests assert did not have to move with it.
  */
 
 const ROOT = join(import.meta.dirname, "..");
-const HTML = readFileSync(join(ROOT, "templates", "portal", "index.html"), "utf8");
-const SCRIPT = /<script>([\s\S]*)<\/script>/.exec(HTML)![1]!;
 // Built from the live workspace rather than a fixture, so the test breaks when the real
 // data grows a shape the portal cannot render — which is the failure worth catching.
 const ws = findWorkspace(join(ROOT, ".."));
@@ -28,10 +30,11 @@ const ORG = JSON.parse(
 
 function makeNode(tag: string): any {
   const node: any = {
-    tagName: tag,
+    tagName: tag.toUpperCase(),
     children: [] as any[],
     style: {},
     dataset: {},
+    hidden: false,
     // Real enough to be worth asserting on: classList.add used to be a no-op, so a test
     // could not tell a highlighted diff row from an ordinary one.
     classList: {
@@ -94,16 +97,113 @@ function makeNode(tag: string): any {
     getContext: () => new Proxy({}, { get: () => () => ({}) }),
     focus() {},
     remove() {},
+    isConnected: true,
   };
   return node;
 }
 
-function harness(hash = "") {
+/** The fixture inbox. Threads are timelines now, not just comments. */
+const INBOX_FIXTURE = {
+  repos: [{ name: "product", owner: "acme", role: "product" }],
+  fetchedAt: new Date().toISOString(),
+  errors: [],
+  items: [
+    {
+      repo: "acme/product",
+      role: "product",
+      kind: "pr",
+      number: 7,
+      title: "An older pull request",
+      labels: ["build"],
+      assignees: [],
+      author: "bot",
+      updatedAt: "2026-01-01T00:00:00Z",
+      url: "https://example.invalid/7",
+      checks: "passing",
+      state: "OPEN",
+      createdAt: "2026-01-01T00:00:00Z",
+      body: "PR body",
+      comments: [],
+      events: [],
+    },
+    {
+      repo: "acme/brain",
+      role: "brain",
+      kind: "issue",
+      number: 3,
+      title: "Needs a ruling",
+      labels: ["decision"],
+      assignees: [],
+      author: "bot",
+      updatedAt: "2026-06-01T00:00:00Z",
+      url: "https://example.invalid/3",
+      state: "OPEN",
+      createdAt: "2026-05-01T00:00:00Z",
+      body: "| | ask |\n|---|---|\n| a | b |",
+      comments: [{ author: "cmo", createdAt: "2026-05-02T00:00:00Z", body: "a reply" }],
+      events: [
+        { type: "labeled", actor: "cmo", createdAt: "2026-05-02T00:00:00Z", label: "decision" },
+        { type: "assigned", actor: "cmo", createdAt: "2026-05-02T00:00:00Z", assignee: "will" },
+        { type: "comment", actor: "cmo", createdAt: "2026-05-02T00:00:00Z", body: "a reply" },
+        {
+          type: "referenced",
+          actor: "cto",
+          createdAt: "2026-05-03T00:00:00Z",
+          commit: {
+            sha: "ac2f197",
+            subject: "ruling: it is a mode, not a kind",
+            url: "https://example.invalid/c",
+          },
+        },
+        {
+          type: "cross-referenced",
+          actor: "cto",
+          createdAt: "2026-05-04T00:00:00Z",
+          source: {
+            repo: "acme/product",
+            number: 7,
+            title: "An older pull request",
+            url: "https://example.invalid/7",
+            state: "OPEN",
+            kind: "pr",
+          },
+        },
+      ],
+    },
+  ],
+};
+
+/** Whatever the URL asks for, out of fixtures. Overridable per test via `s.fetch`. */
+function fixtureFetch(u: string) {
+  const url = String(u);
+  return {
+    ok: true,
+    json: async () =>
+      url.startsWith("/api/inbox")
+        ? INBOX_FIXTURE
+        : url.startsWith("/api/docs")
+          ? [
+              { file: "README.md", title: "Overview" },
+              { file: "agents.md", title: "Choosing a coding agent" },
+            ]
+          : url.startsWith("/api/thread")
+            ? INBOX_FIXTURE.items[1]
+            : url.startsWith("/api/sync")
+              ? { results: [] }
+              : ORG,
+    text: async () =>
+      url.startsWith("/api/doc?")
+        ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
+        : "sample",
+  };
+}
+
+/** Put a DOM under the modules. Returns the handles the assertions poke at. */
+function install(hash: string) {
   const saved: Array<[string, string]> = [];
   const pushes: string[] = [];
   const replaces: string[] = [];
   const byId: Record<string, any> = {};
-  for (const id of ["orgname", "stafflist", "viewlist", "main"]) byId[id] = makeNode("div");
   const navs: any[] = [];
 
   const document: any = {
@@ -119,130 +219,160 @@ function harness(hash = "") {
     addEventListener() {},
   };
 
-  const sandbox: any = {
-    document,
-    fetch: async (u: string) => ({
-      ok: true,
-      json: async () =>
-        String(u).startsWith("/api/inbox")
-          ? {
-              repos: [{ name: "product", owner: "acme", role: "product" }],
-              fetchedAt: new Date().toISOString(),
-              errors: [],
-              items: [
-                {
-                  repo: "acme/product",
-                  role: "product",
-                  kind: "pr",
-                  number: 7,
-                  title: "An older pull request",
-                  labels: ["build"],
-                  assignees: [],
-                  author: "bot",
-                  updatedAt: "2026-01-01T00:00:00Z",
-                  url: "https://example.invalid/7",
-                  checks: "passing",
-                  state: "OPEN",
-                  createdAt: "2026-01-01T00:00:00Z",
-                  body: "PR body",
-                  comments: [],
-                },
-                {
-                  repo: "acme/brain",
-                  role: "brain",
-                  kind: "issue",
-                  number: 3,
-                  title: "Needs a ruling",
-                  labels: ["decision"],
-                  assignees: [String(ORG.human.github)],
-                  author: "bot",
-                  updatedAt: "2026-06-01T00:00:00Z",
-                  url: "https://example.invalid/3",
-                  state: "OPEN",
-                  createdAt: "2026-05-01T00:00:00Z",
-                  body: "| | ask |\n|---|---|\n| a | b |",
-                  comments: [{ author: "cmo", createdAt: "2026-05-02T00:00:00Z", body: "a reply" }],
-                },
-              ],
-            }
-          : String(u).startsWith("/api/docs")
-            ? [
-                { file: "README.md", title: "Overview" },
-                { file: "agents.md", title: "Choosing a coding agent" },
-              ]
-            : String(u).startsWith("/api/thread")
-              ? {
-                  title: "Needs a ruling",
-                  body: "# Head\n\n- a point\n\n`code` and **bold**",
-                  author: "bot",
-                  createdAt: new Date().toISOString(),
-                  url: "https://example.invalid/3",
-                  state: "OPEN",
-                  comments: [{ author: "will", createdAt: new Date().toISOString(), body: "ok" }],
-                }
-              : ORG,
-      text: async () =>
-        String(u).startsWith("/api/doc?")
-          ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
-          : "sample",
-    }),
-    requestAnimationFrame: () => 0,
-    confirm: () => true,
-    addEventListener() {},
-    setInterval: () => 0,
-    devicePixelRatio: 1,
-    getComputedStyle: () => ({ getPropertyValue: () => "#000" }),
-    localStorage: { getItem: () => null, setItem: (k: string, v: string) => saved.push([k, v]) },
-    location: { hash },
-    history: {
-      pushState(_a: unknown, _b: unknown, url: string) {
-        sandbox.location.hash = url;
-        pushes.push(url);
-      },
-      replaceState(_a: unknown, _b: unknown, url: string) {
-        sandbox.location.hash = url;
-        replaces.push(url);
-      },
+  const g = globalThis as any;
+  g.document = document;
+  g.fetch = async (u: string) => fixtureFetch(u);
+  g.requestAnimationFrame = () => 0;
+  g.confirm = () => true;
+  g.open = () => null;
+  g.addEventListener = () => {};
+  // boot() starts a clock to keep the "data 4m ago" stamp honest. Left real, it holds the
+  // event loop open and the test run never exits.
+  g.setInterval = () => 0;
+  g.devicePixelRatio = 1;
+  g.getComputedStyle = () => ({ getPropertyValue: () => "#000" });
+  g.localStorage = { getItem: () => null, setItem: (k: string, v: string) => saved.push([k, v]) };
+  g.location = { hash };
+  g.history = {
+    pushState(_a: unknown, _b: unknown, url: string) {
+      g.location.hash = url;
+      pushes.push(url);
     },
-    URLSearchParams,
-    Math,
-    Date,
-    JSON,
-    console,
-    encodeURIComponent,
-    setTimeout,
-    _byId: byId,
-    _saved: saved,
-    _pushes: pushes,
-    _replaces: replaces,
+    replaceState(_a: unknown, _b: unknown, url: string) {
+      g.location.hash = url;
+      replaces.push(url);
+    },
   };
-  sandbox.window = sandbox;
-  sandbox.globalThis = sandbox;
-  return sandbox;
+  return { document, byId, saved, pushes, replaces };
 }
 
+/* The old harness put every top-level `var` on one sandbox object. The state now lives in
+   `S`, and these are the names 900 lines of assertions already use for it. */
+const ALIAS: Record<string, string> = {
+  DATA: "data",
+  INBOX: "inbox",
+  DOCS: "docs",
+  view: "view",
+  staffHandle: "staffHandle",
+  openFile: "openFile",
+  fileQuery: "fileQuery",
+  changedQuery: "changedQuery",
+  changedFilter: "changedFilter",
+  inboxOpen: "inboxOpen",
+  inboxFilter: "inboxFilter",
+  inboxStaff: "inboxStaff",
+  query: "query",
+};
+
+let mods: any = null;
+
+async function load() {
+  if (mods) return mods;
+  const dir = "../templates/portal/js/";
+  const [app, state, dom, md, inbox, changed, health, files, brain, refresh] = await Promise.all([
+    import(dir + "app.js"),
+    import(dir + "state.js"),
+    import(dir + "dom.js"),
+    import(dir + "md.js"),
+    import(dir + "views/inbox.js"),
+    import(dir + "views/changed.js"),
+    import(dir + "views/health.js"),
+    import(dir + "views/files.js"),
+    import(dir + "views/brain.js"),
+    import(dir + "refresh.js"),
+  ]);
+  mods = { app, state, dom, md, inbox, changed, health, files, brain, refresh };
+  return mods;
+}
+
+/** Put every state field back to its declared default, so one test cannot leak into another. */
+const DEFAULTS = {
+  data: null,
+  docs: null,
+  inbox: null,
+  sync: null,
+  loadedAt: null,
+  staffHandle: null,
+  view: "brain",
+  query: "",
+  openFile: null,
+  fileQuery: "",
+  openSurfaces: null,
+  changedQuery: "",
+  changedFilter: "",
+  openDoc: null,
+  inboxFilter: "",
+  inboxStaff: "",
+  inboxOpen: null,
+  applyingHash: false,
+};
+
 async function renderAll(hash = "") {
-  const sandbox = harness(hash);
-  vm.createContext(sandbox);
-  vm.runInContext(SCRIPT, sandbox, { filename: "portal.js" });
-  // boot() is async and kicked off at load; wait for the fetch microtasks to settle.
+  const shim = install(hash);
+  const m = await load();
+  Object.assign(m.state.S, DEFAULTS);
+  await m.app.boot();
+  // boot() finishes synchronously after its one await, but a view may still have a fetch
+  // in flight — the docs and the inbox both load themselves.
   await new Promise((r) => setTimeout(r, 30));
-  return sandbox;
+
+  const target: any = {
+    render: m.app.render,
+    refreshAll: m.refresh.refreshAll,
+    mdlite: m.md.mdlite,
+    inline: m.md.inline,
+    markCurrent: m.dom.markCurrent,
+    belongsTo: m.inbox.belongsTo,
+    renderDiff: m.changed.renderDiff,
+    cronText: m.health.cronText,
+    askToFix: m.health.askToFix,
+    show: m.files.showFile,
+    document: shim.document,
+    _byId: shim.byId,
+    _saved: shim.saved,
+    _pushes: shim.pushes,
+    _replaces: shim.replaces,
+  };
+
+  return new Proxy(target, {
+    get(t, k: string) {
+      if (k === "location" || k === "fetch") return (globalThis as any)[k];
+      if (k in ALIAS) return m.state.S[ALIAS[k]!];
+      return t[k];
+    },
+    set(t, k: string, v) {
+      if (k === "fetch") {
+        (globalThis as any).fetch = v;
+        return true;
+      }
+      if (k in ALIAS) {
+        m.state.S[ALIAS[k]!] = v;
+        return true;
+      }
+      t[k] = v;
+      return true;
+    },
+  });
 }
 
 test("boot renders without throwing and populates the sidebar", async () => {
   const s = await renderAll();
+  // Two rows per staff member: the name, and the box of their four views under it. The old
+  // shape was one <select> plus a separate view list you had to connect for yourself.
   assert.equal(
     s._byId.stafflist.children.length,
-    1,
-    "the staff picker is one select, not a tab per staff member",
+    ORG.staff.length * 2,
+    "a row and a view box per staff member",
   );
+  const [head, views] = s._byId.stafflist.children;
+  assert.ok(String(head.className).includes("staffrow"));
+  assert.equal(views.children.length, 4, "Brain, Graph, What changed, Health");
   assert.equal(
-    s._byId.stafflist.children[0].children.length,
-    ORG.staff.length,
-    "one option per staff member",
+    views.children.map((b: any) => b.dataset.view).join(" "),
+    "brain graph changed health",
   );
-  assert.ok(s._byId.viewlist.children.length >= 4, "expected the view switcher");
+  assert.equal(head.getAttribute("aria-expanded"), "true", "the selected staff member unfolds");
+  assert.equal(s._byId.stafflist.children[3].hidden, true, "and everyone else stays folded away");
   assert.match(s._byId.orgname.textContent, /staff/);
 });
 
@@ -313,7 +443,7 @@ test("an unknown handle in the hash does not strand the page", async () => {
   assert.ok(s._byId.main.children.length > 0, "and still render");
 });
 
-test("the inbox renders, groups by repo and counts what is on the human", async () => {
+test("the inbox renders and holds every open item", async () => {
   const s = await renderAll("#/x/inbox");
   assert.equal(s.view, "inbox");
   await new Promise((r) => setTimeout(r, 20));
@@ -983,4 +1113,232 @@ test("a doc page's frontmatter is metadata, not content", async () => {
   assert.ok(html.includes("<h1>Real heading</h1>"), html.slice(0, 200));
   assert.ok(!html.includes("sidebar_order"), "frontmatter must not reach the page");
   assert.ok(!html.includes("<hr>"), "and it must not leave the rule behind");
+});
+
+/* ------------------------------------------------------------------------- *
+ * The three amendments: a thread that shows its whole timeline, a brain
+ * navigator that separates memory from files, and a focused fact you can let
+ * go of again.
+ * ------------------------------------------------------------------------- */
+
+function openInbox(s: any) {
+  s.view = "inbox";
+  s.inboxOpen = { repo: "acme/brain", number: 3, kind: "issue" };
+  s.render();
+  return walkNodes(s._byId.main);
+}
+
+test("a thread shows references and commits, not just comments", async () => {
+  /* The complaint: GitHub's own timeline carries "added a commit that references this" and
+     "mentioned this in #55", and the portal showed neither, so a conversation read as if it
+     had skipped a step. */
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  const nodes = openInbox(s);
+
+  const cls = (c: string) =>
+    nodes.filter((n) =>
+      String(n.className ?? "")
+        .split(/\s+/)
+        .includes(c),
+    );
+  const text = nodes.map((n) => String(n.innerHTML ?? "") + String(n._text ?? "")).join(" ");
+
+  assert.equal(cls("referenced").length, 1, "the referencing commit should be on the timeline");
+  assert.equal(cls("cross-referenced").length, 1, "and so should the cross-reference");
+  assert.ok(text.includes("added a commit that references this"));
+  assert.ok(text.includes("ruling: it is a mode, not a kind"), "with the commit subject");
+  assert.ok(text.includes("mentioned this in"));
+  assert.equal(cls("xref").length, 1, "what it points at is a row you can open");
+  assert.ok(text.includes("An older pull request"), "named by its title, not just its number");
+});
+
+test("bookkeeping folds away, and the events that matter do not", async () => {
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  const nodes = openInbox(s);
+
+  const more = nodes.find((n) => String(n.className ?? "").includes("tevmore"));
+  assert.ok(more, "a run of label/assign events should collapse behind a disclosure");
+  assert.match(more.textContent, /2 more events/);
+  assert.equal(more.getAttribute("aria-expanded"), "false", "and start closed");
+
+  const quiet = nodes.find((n) => String(n.className ?? "").includes("tevquiet"));
+  assert.equal(quiet.hidden, true, "the folded events are present but hidden");
+  more.onclick();
+  assert.equal(quiet.hidden, false, "and the disclosure opens them");
+  assert.equal(more.getAttribute("aria-expanded"), "true");
+});
+
+test("the thread keeps GitHub's order: body, then events, then the reply box", async () => {
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  openInbox(s);
+
+  const viewer = walkNodes(s._byId.main).find((n) => String(n.className ?? "") === "viewer");
+  const kinds = viewer.children.map((c: any) => String(c.className ?? "").split(" ")[0]);
+  assert.equal(kinds[0], "thead", "the title block first");
+  assert.equal(kinds[1], "cmt", "then the opening post");
+  assert.equal(kinds[kinds.length - 1], "reply", "and the reply box last");
+  assert.ok(kinds.includes("tev"), "with timeline events in between");
+});
+
+test("@cto in a comment points at the CTO rather than at github.com/cto", async () => {
+  const s = await renderAll();
+  const handle = ORG.staff[0].handle;
+  const out = s.mdlite("Go with your recommendation @" + handle + " and cc @a-stranger");
+  assert.ok(out.includes('class="at you"'), "someone on this roster is marked: " + out);
+  assert.ok(out.includes('href="#/' + handle + '/brain"'), "and links into the portal");
+  assert.ok(
+    out.includes('<a class="at" href="https://github.com/a-stranger"'),
+    "anyone else is still a link, just to GitHub",
+  );
+});
+
+test("a mention inside a link does not become a link inside a link", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("[ask @" + ORG.staff[0].handle + "](https://example.invalid/1)");
+  assert.equal((out.match(/<a\s/g) ?? []).length, 1, out);
+});
+
+test("an email address is not four people being mentioned", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("write to will@example.com about it");
+  assert.ok(!out.includes('class="at'), "a bare @ after a word is not a mention: " + out);
+});
+
+test("the brain navigator separates what is known from what is held", async () => {
+  const s = await renderAll();
+  s.view = "brain";
+  s.openFile = null;
+  s.fileQuery = "";
+  s.render();
+
+  const nodes = walkNodes(s._byId.main);
+  const heads = nodes
+    .filter((n) => String(n.className ?? "") === "ghead")
+    .map((n) => String(n._text ?? ""));
+  assert.deepEqual(heads, ["Memory", "Files"], "two boxes, named: " + heads);
+
+  const keys = nodes.filter((n) => n.dataset?.key).map((n) => n.dataset.key);
+  assert.ok(keys.includes("mem:*"), "memory leads");
+  assert.ok(
+    keys.some((k: string) => k.startsWith("mem:") && k !== "mem:*"),
+    "one row per section",
+  );
+});
+
+test("a note and the raw index live under memory, not among the files", async () => {
+  // They used to appear in both places: INDEX.md is literally what "All facts" renders, and
+  // a note is the argument behind a fact. Two entries for one thing was most of the confusion.
+  const s = await renderAll();
+  const who = ORG.staff.find((x: any) => x.notes.length) ?? ORG.staff[0];
+  s.staffHandle = who.handle;
+  s.view = "brain";
+  s.openFile = "mem:*";
+  s.fileQuery = "";
+  s.render();
+
+  const nodes = walkNodes(s._byId.main);
+  const groups = nodes.filter((n) => String(n.className ?? "") === "navgroup");
+  const keysIn = (g: any) =>
+    walkNodes(g)
+      .filter((n) => n.dataset?.key)
+      .map((n) => n.dataset.key);
+
+  const [memory, files] = groups;
+  assert.ok(keysIn(memory).includes("memory/INDEX.md"), "the raw index is offered under memory");
+  assert.ok(!keysIn(files ?? { children: [] }).includes("memory/INDEX.md"), "and only there");
+  if (who.notes.length) {
+    assert.ok(
+      keysIn(memory).some((k: string) => k.startsWith("memory/notes/")),
+      "notes belong to memory",
+    );
+    assert.ok(
+      !keysIn(files ?? { children: [] }).some((k: string) => k.startsWith("memory/notes/")),
+      "and not to files",
+    );
+  }
+});
+
+test("a surface folds, and a placeholder file is not offered as a file", async () => {
+  const s = await renderAll();
+  s.view = "brain";
+  s.openFile = "mem:*";
+  s.fileQuery = "";
+  s.render();
+
+  const nodes = walkNodes(s._byId.main);
+  const folders = nodes.filter((n) => String(n.className ?? "").includes("tsurface"));
+  assert.ok(folders.length, "surfaces are folders now");
+  assert.ok(
+    folders.every((f: any) => ["true", "false"].includes(String(f.getAttribute("aria-expanded")))),
+    "each says whether it is open",
+  );
+
+  const keys = nodes.filter((n) => n.dataset?.key).map((n) => n.dataset.key);
+  assert.ok(
+    !keys.some((k: string) => k.endsWith(".gitkeep")),
+    "a file that only holds a directory open is noise",
+  );
+});
+
+test("a focused fact says where you are and offers a way out", async () => {
+  /* Clicking a fact's name narrowed 111 cards to a dozen and lit one, with nothing saying so
+     and no way back. That was the complaint. */
+  const s = await renderAll();
+  const who = ORG.staff.find((x: any) => x.facts.length) ?? ORG.staff[0];
+  const fact = who.facts[0];
+  s.staffHandle = who.handle;
+  s.view = "brain";
+  s.fileQuery = "";
+  s.openFile = "fact:" + fact.slug;
+  s.render();
+
+  const nodes = walkNodes(s._byId.main);
+  const bar = nodes.find((n) => String(n.className ?? "") === "focusbar");
+  assert.ok(bar, "a focused fact needs a crumb saying so");
+  assert.ok(bar.textContent.includes(fact.slug), "naming the fact");
+  assert.ok(bar.textContent.includes(fact.section), "and the section it came from");
+
+  const out = walkNodes(bar).find((n) => String(n.className ?? "") === "x");
+  assert.ok(out, "and a way out");
+  out.onclick();
+  assert.equal(s.openFile, "mem:" + fact.section, "which widens to the whole section");
+
+  // And from there, back to everything.
+  s.render();
+  const crumb = walkNodes(s._byId.main).filter((n) => String(n.className ?? "") === "crumb")[0];
+  crumb.onclick();
+  assert.equal(s.openFile, "mem:*");
+});
+
+test("the section holding a focused fact stays lit in the navigator", async () => {
+  const s = await renderAll();
+  const who = ORG.staff.find((x: any) => x.facts.length) ?? ORG.staff[0];
+  const fact = who.facts[0];
+  s.staffHandle = who.handle;
+  s.view = "brain";
+  s.fileQuery = "";
+  s.openFile = "fact:" + fact.slug;
+  s.render();
+
+  const rows = walkNodes(s._byId.main).filter((n) => n.dataset?.key);
+  const section = rows.find((n) => n.dataset.key === "mem:" + fact.section);
+  assert.ok(section, "the section row should still be in the tree");
+  assert.equal(section.dataset.within, "true", "and marked, so you do not lose your place");
+});
+
+test("a ?t= in the URL opens that thread, which it never used to", async () => {
+  // The state was read out of the hash and then never acted on, because only the
+  // already-loaded branch opened a thread and a cold load never is.
+  const s = await renderAll("#/x/inbox?t=acme/brain%233:issue");
+  await new Promise((r) => setTimeout(r, 30));
+  const text = walkNodes(s._byId.main)
+    .map((n) => String(n.innerHTML ?? "") + String(n._text ?? ""))
+    .join(" ");
+  assert.ok(
+    text.includes("Needs a ruling"),
+    "the linked thread should be open: " + text.slice(0, 200),
+  );
 });
