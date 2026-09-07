@@ -73,11 +73,15 @@ export async function boot() {
 }
 
 /* Who `@cto` and `@you` are, so a mention in a thread can point somewhere useful
-   instead of at github.com/cto, which is nobody. */
+   instead of at github.com/cto, which is nobody.
+   A staff mention goes to their repo on GitHub. It used to open their Brain screen here, which
+   read as the page hijacking a click: you are in the middle of a thread, and a mention is
+   about the work, not about their memory. */
 function learnPeople() {
   const people = new Map();
   for (const s of S.data.staff) {
-    const to = { href: "#/" + s.handle + "/brain", title: s.name + " — open their brain" };
+    if (!s.brain) continue;
+    const to = { href: "https://github.com/" + s.brain, title: s.name + " · " + s.brain };
     people.set(String(s.handle).toLowerCase(), to);
     if (s.mention) people.set(String(s.mention).replace(/^@/, "").toLowerCase(), to);
     for (const b of s.bots ?? []) people.set(String(b).toLowerCase(), to);

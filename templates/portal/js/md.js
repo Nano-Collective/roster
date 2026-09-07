@@ -32,13 +32,111 @@ export function inline(s) {
 
 const LIST_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 
+/* ---------------------------- HTML tables ----------------------------------
+ * Some comments are raw HTML rather than markdown. The Cloudflare Pages bot posts its deploy
+ * status as a `<table>`, and GitHub renders it; this escaped it and showed you the tags.
+ *
+ * Nothing here relaxes the escaping, which is the one thing standing between a comment on a
+ * public repo and this page. The table is taken apart, each cell is reduced to the handful of
+ * markdown forms a cell actually uses, and the result goes back through the same escape-first
+ * pipeline as everything else. No attacker-controlled markup reaches innerHTML.
+ */
+const TABLE_RE = /<table[^>]*>[\s\S]*?<\/table>/gi;
+const ROW_RE = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+const CELL_RE = /<(t[hd])[^>]*>([\s\S]*?)<\/\1>/gi;
+
+const ENTITIES = {
+  "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"',
+  "&#39;": "'", "&apos;": "'", "&mdash;": "—", "&ndash;": "–",
+};
+
+/**
+ * The handful of inline HTML forms a comment actually uses, as the markdown they stand in for.
+ * Everything else is dropped to its text, which is what GitHub does with it too.
+ *
+ * `<img>` is resolved before `<a>` on purpose: a linked icon is `<a><img alt="x"></a>`, and
+ * taking the anchor first leaves an empty label and a bare URL on the page.
+ */
+function htmlToMarkdown(html, breakAs, stripUnknown) {
+  return html
+    .replace(/<br\s*\/?>/gi, breakAs)
+    .replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _t, x) => "**" + x.trim() + "**")
+    .replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _t, x) => "*" + x.trim() + "*")
+    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_m, x) => "`" + x.trim() + "`")
+    .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, "$1")
+    .replace(/<img[^>]*>/gi, "")
+    // Only http(s). A `javascript:` href would be escaped downstream anyway, but a link that
+    // cannot go anywhere useful is better dropped than rendered.
+    .replace(
+      /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      (_m, href, text) => {
+        const label = text.replace(/<[^>]+>/g, "").trim();
+        return label ? "[" + label + "](" + href + ")" : href;
+      },
+    )
+    /* Only inside a cell. Out in the prose, a tag nobody asked about stays escaped and
+       visible: a brain document that mentions `<script>` or <div> without backticks should
+       still say so, and silently deleting a word is worse than printing an angle bracket. */
+    .replace(stripUnknown ? /<[^>]+>/g : /(?!)/g, "")
+    .replace(/&[a-z#0-9]+;/gi, (e) => ENTITIES[e.toLowerCase()] ?? e);
+}
+
+/** One `<td>`, on one line. */
+function cellToMarkdown(html) {
+  return htmlToMarkdown(html, " ", true).replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Pull every `<table>` out of the source, leaving a marker line where each one was.
+ *
+ * The markers are substituted back inside the main loop, so the table renders in place and
+ * everything around it is still ordinary markdown. A literal `%%HTMLTABLE0%%` typed by a
+ * person only collides if the same comment also contains a real HTML table.
+ */
+/* A fence or a code span is content, not markup. Splitting on them first is what keeps a
+   comment discussing `<meta name="robots">` from having its example quietly deleted. */
+const CODE_RE = /(```[\s\S]*?```|`[^`\n]*`)/;
+
+function liftTables(src) {
+  const tables = [];
+  const text = String(src ?? "")
+    .split(CODE_RE)
+    .map((part, i) => (i % 2 ? part : htmlToMarkdown(liftTablesIn(part, tables), "\n", false)))
+    .join("");
+  return { text, tables };
+}
+
+function liftTablesIn(src, tables) {
+  return src.replace(TABLE_RE, (block) => {
+    const rows = [];
+    let head = null;
+    for (const [, inner] of block.matchAll(ROW_RE)) {
+      const cells = [];
+      let isHead = true;
+      for (const [, tag, body] of inner.matchAll(CELL_RE)) {
+        if (tag.toLowerCase() !== "th") isHead = false;
+        cells.push(cellToMarkdown(body));
+      }
+      if (!cells.length) continue;
+      if (isHead && !rows.length && !head) head = cells;
+      else rows.push(cells);
+    }
+    if (!head && !rows.length) return block;
+    tables.push({ head, rows });
+    return "\n\n%%HTMLTABLE" + (tables.length - 1) + "%%\n\n";
+  });
+}
+
+const MARKER_RE = /^%%HTMLTABLE(\d+)%%$/;
+
 /**
  * opts.repo   resolves a bare #123 to that repository
  * opts.file   { dir, staffDir } resolves relative images and links inside a brain
  * opts.docs   links between doc pages stay inside the portal
  */
 export function mdlite(src, opts = {}) {
-  const lines = esc(src).replace(/\r/g, "").split("\n");
+  const lifted = liftTables(String(src ?? ""));
+  const lines = esc(lifted.text).replace(/\r/g, "").split("\n");
   const out = [];
   let i = 0;
 
@@ -71,6 +169,22 @@ export function mdlite(src, opts = {}) {
 
   while (i < lines.length) {
     const line = lines[i];
+
+    const lifted_at = MARKER_RE.exec(line.trim());
+    if (lifted_at && lifted.tables[Number(lifted_at[1])]) {
+      const t = lifted.tables[Number(lifted_at[1])];
+      const th = (t.head ?? []).map((h) => "<th>" + inlineFmt(esc(h)) + "</th>").join("");
+      const tr = t.rows
+        .map((r) => "<tr>" + r.map((c) => "<td>" + inlineFmt(esc(c)) + "</td>").join("") + "</tr>")
+        .join("");
+      out.push(
+        '<div class="ctable"><table>' +
+          (t.head ? "<thead><tr>" + th + "</tr></thead>" : "") +
+          "<tbody>" + tr + "</tbody></table></div>",
+      );
+      i++;
+      continue;
+    }
 
     if (line.trim().startsWith("```")) {
       const buf = [];
@@ -263,9 +377,9 @@ export function chips(html, opts = {}) {
             return pre + '<a class="at" href="https://github.com/' + name +
               '" target="_blank" rel="noopener">@' + name + "</a>";
           }
-          // A mention of someone on this roster goes to them here, not to GitHub.
-          return pre + '<a class="at you" href="' + who.href + '" title="' + esc(who.title) +
-            '">@' + name + "</a>";
+          // A mention of someone on this roster is marked, and goes to their repo.
+          return pre + '<a class="at you" href="' + who.href + '" target="_blank" rel="noopener"' +
+            ' title="' + esc(who.title) + '">@' + name + "</a>";
         });
     })
     .join("");

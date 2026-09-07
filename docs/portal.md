@@ -35,8 +35,15 @@ down with the list, so opening a thread is a render rather than a request.
 - **Reply, close, reopen, open an issue.** All as you, through your own `gh`, so they are
   indistinguishable from doing it on the site. Closing asks for confirmation.
 - Issue and PR references in a body become chips you can click through, and `@handle`
-  mentions become chips too. A mention of somebody on this roster opens their brain here
-  rather than sending you to a GitHub profile that does not exist.
+  mentions become chips too. A mention of somebody on this roster goes to their repository
+  rather than to a GitHub profile of that name, which for `@cto` is a stranger.
+- **Not every comment is markdown.** Deploy bots post raw HTML. A `<table>` renders as a
+  table, and inline `<a>`, `<img>`, `<strong>`, `<em>`, `<code>` and `<br>` are reduced to
+  what they stand for. Nothing relaxes the escaping: the HTML is taken apart and its pieces go
+  back through the same escape-first renderer as everything else, so no markup from a comment
+  ever reaches the page. Code spans and fences are left alone, so a comment discussing
+  `<meta name="robots">` still says so, and a tag outside the handful above stays visible as
+  text rather than being silently deleted.
 - **The whole thread, not just the comments.** Cross-references ("mentioned this in #55"),
   commits that reference the issue, and close, reopen and merge events sit inline in GitHub's
   own order. Labels, assignees and renames are bookkeeping, so a run of them folds behind one

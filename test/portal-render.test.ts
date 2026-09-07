@@ -1295,12 +1295,11 @@ test("the thread keeps GitHub's order: body, then events, then the reply box", a
   assert.ok(kinds.includes("tev"), "with timeline events in between");
 });
 
-test("@cto in a comment points at the CTO rather than at github.com/cto", async () => {
+test("@cto in a comment is told apart from @a-stranger", async () => {
   const s = await renderAll();
   const handle = ORG.staff[0].handle;
   const out = s.mdlite("Go with your recommendation @" + handle + " and cc @a-stranger");
   assert.ok(out.includes('class="at you"'), "someone on this roster is marked: " + out);
-  assert.ok(out.includes('href="#/' + handle + '/brain"'), "and links into the portal");
   assert.ok(
     out.includes('<a class="at" href="https://github.com/a-stranger"'),
     "anyone else is still a link, just to GitHub",
@@ -1605,5 +1604,94 @@ test("every state field is reachable through the harness", async () => {
     missing,
     [],
     "these state fields cannot be driven from a test: " + missing.join(", "),
+  );
+});
+
+/* ------------------- HTML in a comment, and where a mention goes ------------------ */
+
+test("an HTML table in a comment renders as a table", async () => {
+  /* Not every comment is markdown. The Cloudflare Pages bot posts its deploy status as raw
+     `<table>` HTML, GitHub renders it, and this used to show you the tags. */
+  const s = await renderAll();
+  const out = s.mdlite(
+    "Deploying\n\n<table><tr><td><strong>Status:</strong></td><td>&nbsp;Deploy successful!" +
+      "</td></tr><tr><td><strong>URL:</strong></td><td><a href='https://x.pages.dev'>" +
+      "https://x.pages.dev</a></td></tr></table>\n\n[View logs](https://example.invalid/l)",
+  );
+  assert.ok(out.includes("<table>"), "no table produced: " + out);
+  assert.equal((out.match(/<tr>/g) ?? []).length, 2);
+  assert.ok(out.includes("<b>Status:</b>"), "a cell keeps its emphasis");
+  assert.ok(out.includes('href="https://x.pages.dev"'), "and its link");
+  assert.ok(!out.includes("&lt;table"), "and no tags are left on the page");
+  assert.ok(out.includes("Deploy successful!"), "&nbsp; is a space, not four characters");
+  assert.ok(out.includes("<p>Deploying</p>"), "the markdown around it still renders");
+  assert.ok(out.includes('href="https://example.invalid/l"'), "including after it");
+});
+
+test("a th row becomes a header, and a td-only table does not grow a blank one", async () => {
+  const s = await renderAll();
+  const withHead = s.mdlite(
+    "<table><tr><th>Name</th><th>Value</th></tr><tr><td>a</td><td>b</td></tr></table>",
+  );
+  assert.ok(withHead.includes("<thead>") && withHead.includes("<th>Name</th>"));
+  const without = s.mdlite("<table><tr><td>a</td><td>b</td></tr></table>");
+  assert.ok(!without.includes("<thead>"), "a leading blank strip is worse than no header");
+});
+
+test("nothing in an HTML table escapes the escaping", async () => {
+  /* acme-web is public, so an issue body is attacker-controlled. This path takes raw HTML
+     apart rather than passing any of it through, and these are the ways that could go wrong. */
+  const s = await renderAll();
+  const attacks = [
+    "<table><tr><td><script>alert(1)</script></td></tr></table>",
+    "<table><tr><td><img src=x onerror=alert(1)></td></tr></table>",
+    '<table><tr><td><a href="javascript:alert(1)">click</a></td></tr></table>',
+    '<table><tr><td onmouseover="alert(1)">hover</td></tr></table>',
+    "<table><tr><td><a href='https://ok.example' onclick='alert(1)'>x</a></td></tr></table>",
+    '<table><tr><td><iframe src="https://evil.example"></iframe></td></tr></table>',
+  ];
+  for (const attack of attacks) {
+    const out = s.mdlite(attack);
+    assert.ok(!/<script/i.test(out), "script survived: " + out);
+    assert.ok(!/<img/i.test(out), "img survived: " + out);
+    assert.ok(!/<iframe/i.test(out), "iframe survived: " + out);
+    assert.ok(!/\son\w+\s*=/i.test(out), "an event handler survived: " + out);
+    assert.ok(!/href=["']javascript:/i.test(out), "a javascript: href survived: " + out);
+  }
+});
+
+test("a mention of a staff member goes to their repo on GitHub", async () => {
+  const s = await renderAll();
+  const who = ORG.staff.find((x: any) => x.brain) ?? ORG.staff[0];
+  const out = s.mdlite("Please look @" + who.handle);
+  assert.ok(out.includes('class="at you"'), "someone on this roster is marked: " + out);
+  assert.ok(
+    out.includes('href="https://github.com/' + who.brain + '"'),
+    "and goes to their repo, not to a screen in here: " + out,
+  );
+  assert.ok(out.includes('target="_blank"'), "in a new tab, so the thread you are reading stays");
+});
+
+test("inline HTML in a comment is reduced, and code spans are left alone", async () => {
+  const s = await renderAll();
+  const out = s.mdlite(
+    '# Deploying with &nbsp;<a href="https://pages.dev"><img alt="Cloudflare" src="x.png"></a>\n\n' +
+      'Both emit `<meta name="robots" content="noindex"/>` and nothing else.\n\n' +
+      "```\n<div>a fenced block keeps its tags</div>\n```",
+  );
+  // A linked icon: the image resolves to its alt text first, so the anchor gets a label
+  // rather than an empty one and a bare URL.
+  assert.ok(out.includes('<a href="https://pages.dev"'), out);
+  assert.ok(out.includes(">Cloudflare</a>"), "the alt text is the link label: " + out);
+  assert.ok(!out.includes("&lt;img"), "no tags left on the page");
+
+  // The thing this must not break.
+  assert.ok(
+    out.includes("<code>&lt;meta name=&quot;robots&quot; content=&quot;noindex&quot;/&gt;</code>"),
+    "a code span is content, not markup: " + out,
+  );
+  assert.ok(
+    out.includes("&lt;div&gt;a fenced block keeps its tags&lt;/div&gt;"),
+    "and so is a fence: " + out,
   );
 });
