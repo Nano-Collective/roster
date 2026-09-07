@@ -52,10 +52,18 @@ export const S = {
 
   inboxFilter: "",
   inboxStaff: "",
+  /** "" is open only, which is what an inbox is for. `closed` and `all` widen it. */
+  inboxState: "",
   inboxOpen: null,
 
   applyingHash: false,
 };
+
+/* The sidebar badge counts open items, not everything loaded. Once the inbox could show
+   closed work the two stopped being the same number, and a badge that says 135 when 34 things
+   need you is worse than no badge. */
+export const openCount = () =>
+  (S.inbox?.items ?? []).filter((i) => i.state === "OPEN").length;
 
 export const staff = () => S.data.staff.find((s) => s.handle === S.staffHandle) ?? S.data.staff[0];
 
@@ -71,6 +79,7 @@ export function readHash() {
     q: p.get("q") || "",
     f: p.get("f") || null,
     k: p.get("k") || "",
+    x: p.get("x") || "",
     s: p.get("s") || "",
     w: p.get("w") || "",
     t: p.get("t") || null,
@@ -93,6 +102,7 @@ export function writeHash(push) {
   if (S.view === "inbox") {
     if (S.inboxFilter) params.set("s", S.inboxFilter);
     if (S.inboxStaff) params.set("w", S.inboxStaff);
+    if (S.inboxState) params.set("x", S.inboxState);
     if (S.inboxOpen) {
       params.set("t", S.inboxOpen.repo + "#" + S.inboxOpen.number + ":" + S.inboxOpen.kind);
     }
@@ -131,6 +141,7 @@ export function applyHash() {
   if (S.view === "inbox") {
     S.inboxFilter = h.s;
     S.inboxStaff = h.w;
+    S.inboxState = h.x;
     if (h.t) {
       const [repoNum, kind] = h.t.split(":");
       const [repo, number] = repoNum.split("#");

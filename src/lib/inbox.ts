@@ -128,6 +128,14 @@ const TIMELINE_PR = `
   }
 `;
 
+/* Closed work is fetched with a shorter timeline than open work. It is there to be found and
+   read, not triaged, and the whole org's history at full depth is a payload nobody asked for
+   on a screen that refreshes every forty-five seconds. */
+const CLOSED_FIRST = 30;
+const CLOSED_TIMELINE = 40;
+/** How far back "recently closed" reaches. Older than this and you want GitHub's search. */
+const CLOSED_DAYS = 45;
+
 const ISSUE_TYPES = `[ISSUE_COMMENT, CROSS_REFERENCED_EVENT, REFERENCED_EVENT, CLOSED_EVENT,
   REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT,
   RENAMED_TITLE_EVENT]`;
@@ -172,6 +180,32 @@ query($owner:String!, $name:String!) {
         }
       }
     }
+    closedIssues: issues(
+      states:CLOSED, first:${CLOSED_FIRST}, orderBy:{field:UPDATED_AT, direction:DESC}
+    ) {
+      nodes {
+        number title body url state createdAt updatedAt
+        author { login }
+        labels(first:12) { nodes { name } }
+        assignees(first:8) { nodes { login } }
+        timelineItems(last:${CLOSED_TIMELINE}, itemTypes:${ISSUE_TYPES}) {
+          nodes { ${TIMELINE_COMMON} }
+        }
+      }
+    }
+    closedPullRequests: pullRequests(
+      states:[CLOSED, MERGED], first:${CLOSED_FIRST}, orderBy:{field:UPDATED_AT, direction:DESC}
+    ) {
+      nodes {
+        number title body url state createdAt updatedAt isDraft
+        author { login }
+        labels(first:12) { nodes { name } }
+        assignees(first:8) { nodes { login } }
+        timelineItems(last:${CLOSED_TIMELINE}, itemTypes:${PR_TYPES}) {
+          nodes { ${TIMELINE_COMMON} ${TIMELINE_PR} }
+        }
+      }
+    }
   }
 }`;
 
@@ -193,6 +227,17 @@ export async function fetchInbox(
           const item = shape(n, full, r.role, "pr");
           item.draft = n.isDraft;
           item.checks = rollup(n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state);
+          items.push(item);
+        }
+
+        const cutoff = Date.now() - CLOSED_DAYS * 86_400_000;
+        const recent = (n: any) => new Date(n.updatedAt).getTime() >= cutoff;
+        for (const n of (repo.closedIssues?.nodes ?? []).filter(recent)) {
+          items.push(shape(n, full, r.role, "issue"));
+        }
+        for (const n of (repo.closedPullRequests?.nodes ?? []).filter(recent)) {
+          const item = shape(n, full, r.role, "pr");
+          item.draft = n.isDraft;
           items.push(item);
         }
       } catch (e) {
@@ -354,14 +399,20 @@ function event(e: any): TimelineEvent | null {
   }
 }
 
-/** Re-read one thread, for after posting a comment. */
+/** Re-read one thread, for after posting a comment. Looks in the closed lists too, because
+    closing something from the portal is exactly when it stops being in the open one. */
 export async function fetchThread(repo: string, number: number, kind: "issue" | "pr") {
   const [owner, name] = repo.split("/");
   const data = await query(owner!, name!);
-  const nodes = kind === "pr" ? data?.pullRequests?.nodes : data?.issues?.nodes;
-  const found = (nodes ?? []).find((n: any) => n.number === number);
-  if (!found) throw new Error(`${repo}#${number} is not open`);
-  return shape(found, repo, "", kind);
+  const lists =
+    kind === "pr"
+      ? [data?.pullRequests?.nodes, data?.closedPullRequests?.nodes]
+      : [data?.issues?.nodes, data?.closedIssues?.nodes];
+  for (const nodes of lists) {
+    const found = (nodes ?? []).find((n: any) => n.number === number);
+    if (found) return shape(found, repo, "", kind);
+  }
+  throw new Error(`${repo}#${number} was not found in ${repo}`);
 }
 
 function rollup(state?: string): InboxItem["checks"] {

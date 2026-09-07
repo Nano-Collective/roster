@@ -17,6 +17,12 @@
 .imeta .num{font:10.5px var(--mono);color:var(--ink-faint)}
 .imeta .when{font:10.5px var(--sans);color:var(--ink-faint);margin-left:auto}
 .ck{display:inline-flex;--ic:13px}
+/* Closed work reads as finished at a glance, so it can share a list with open work without
+   competing with it. */
+.irow.shut .ititle{color:var(--ink-dim)}
+.irow.shut[aria-current="true"] .ititle{color:var(--accent)}
+.ist{display:inline-flex;--ic:12px}
+.ist.closed{color:var(--derived)} .ist.merged{color:var(--derived)}
 .ck.passing{color:var(--accent)} .ck.failing{color:var(--err)} .ck.pending{color:var(--warn)}
 
 /* ---------- thread ---------- */

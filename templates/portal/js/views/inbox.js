@@ -5,7 +5,7 @@ import { ago, el, esc, markCurrent } from "../dom.js";
 import { icon, iconHTML } from "../icons.js";
 import { mdlite } from "../md.js";
 import { refreshAll } from "../refresh.js";
-import { S, writeHash } from "../state.js";
+import { S, openCount, writeHash } from "../state.js";
 
 const LABEL_TONE = {
   decision: "hot", blocked: "hot", will: "hot", review: "warm", submit: "warm",
@@ -56,6 +56,16 @@ export function viewInbox(m) {
   );
   scope.value = S.inboxFilter;
 
+  /* Open only by default. An inbox is what is waiting on somebody, and burying that under
+     five months of finished work would be answering a different question. */
+  const state = el("select", { title: "Which items to list" });
+  state.append(
+    el("option", { value: "", textContent: "Open" }),
+    el("option", { value: "closed", textContent: "Recently closed" }),
+    el("option", { value: "all", textContent: "Open and closed" }),
+  );
+  state.value = S.inboxState;
+
   const whose = el("select", {
     title: "Whose work: their brain repo, anything their bot wrote, and anything addressed to them",
   });
@@ -71,7 +81,7 @@ export function viewInbox(m) {
   newBtn.onclick = () => newIssueForm(viewer);
   m.append(
     el("div", { className: "row", style: "margin-bottom:16px" }, [
-      search, whose, scope, refresh, newBtn,
+      search, whose, state, scope, refresh, newBtn,
     ]),
   );
 
@@ -84,6 +94,7 @@ export function viewInbox(m) {
   search.oninput = () => { S.query = search.value; writeHash(false); paint(); };
   scope.onchange = () => { S.inboxFilter = scope.value; writeHash(false); paint(); };
   whose.onchange = () => { S.inboxStaff = whose.value; writeHash(false); paint(); };
+  state.onchange = () => { S.inboxState = state.value; writeHash(false); paint(); };
   refresh.onclick = () => { refresh.classList.add("spin"); load(true); };
 
   if (S.inbox) { stampCount(); paint(); restore(); } else load(false);
@@ -115,7 +126,7 @@ export function viewInbox(m) {
      GitHub anything. Without this it stays empty until something else causes a render. */
   function stampCount() {
     const badge = document.querySelector("#inboxcount");
-    if (badge) badge.textContent = S.inbox ? String(S.inbox.items.length) : "";
+    if (badge) badge.textContent = S.inbox ? String(openCount()) : "";
   }
 
   function paint() {
@@ -124,7 +135,11 @@ export function viewInbox(m) {
     const human = S.data.human.github;
 
     const whoseStaff = S.inboxStaff ? S.data.staff.find((s) => s.handle === S.inboxStaff) : null;
-    const scoped = S.inbox.items.filter((i) => belongsTo(i, whoseStaff));
+    const mine = S.inbox.items.filter((i) => belongsTo(i, whoseStaff));
+    const isOpen = (i) => i.state === "OPEN";
+    const scoped = mine.filter(
+      S.inboxState === "closed" ? (i) => !isOpen(i) : S.inboxState === "all" ? () => true : isOpen,
+    );
 
     let items = scoped.filter(
       (i) => !q || (i.title + " " + i.repo + " " + i.labels.join(" ") + " #" + i.number)
@@ -134,14 +149,19 @@ export function viewInbox(m) {
     else if (S.inboxFilter === "decision") items = items.filter((i) => i.labels.includes("decision"));
     else if (S.inboxFilter === "pr") items = items.filter((i) => i.kind === "pr");
 
-    const onYou = scoped.filter((i) => i.assignees.includes(human)).length;
-    const prs = scoped.filter((i) => i.kind === "pr").length;
+    const open = mine.filter(isOpen);
+    const onYou = open.filter((i) => i.assignees.includes(human)).length;
+    const prs = open.filter((i) => i.kind === "pr").length;
+    const shut = mine.length - open.length;
+    const where = whoseStaff
+      ? " for <b>" + esc(whoseStaff.name) + "</b>"
+      : " across " + (S.inbox.repos ?? []).length + " repos";
     sub.innerHTML =
-      scoped.length + " open" +
-      (whoseStaff
-        ? " for <b>" + esc(whoseStaff.name) + "</b>"
-        : " across " + (S.inbox.repos ?? []).length + " repos") + " · " +
-      "<b>" + onYou + " on " + esc(S.data.human.name ?? "you") + "</b> · " + prs + " open PRs" +
+      (S.inboxState === "closed"
+        ? shut + " closed in the last 45 days" + where
+        : open.length + " open" + where + " · <b>" + onYou + " on " +
+          esc(S.data.human.name ?? "you") + "</b> · " + prs + " open PRs" +
+          (S.inboxState === "all" ? " · " + shut + " closed" : "")) +
       (S.inbox.fetchedAt ? ' <span class="meta">· checked ' + ago(S.inbox.fetchedAt) + "</span>" : "");
 
     list.replaceChildren();
@@ -158,17 +178,22 @@ export function viewInbox(m) {
     }
 
     for (const i of items) {
-      const b = el("button", { className: "irow" });
-      const mine = i.assignees.includes(human);
+      const shutState = i.state === "MERGED" ? "merged" : i.state === "OPEN" ? "" : "closed";
+      const b = el("button", { className: "irow" + (shutState ? " shut" : "") });
+      const yours = i.assignees.includes(human);
       const chips = i.labels
         .slice(0, 3)
         .map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>")
         .join("");
       b.innerHTML =
-        '<div class="ititle">' + (mine ? '<span class="dot" title="assigned to you"></span>' : "") +
+        '<div class="ititle">' + (yours ? '<span class="dot" title="assigned to you"></span>' : "") +
           esc(i.title) + "</div>" +
         '<div class="imeta">' +
           '<span class="repo">' + esc(i.repo.split("/")[1]) + "</span>" +
+          (shutState
+            ? '<span class="ist ' + shutState + '" title="' + esc(i.state) + '">' +
+              iconHTML(shutState === "merged" ? "merged" : "issue-closed") + "</span>"
+            : "") +
           '<span class="num">' + (i.kind === "pr" ? "PR " : "") + "#" + i.number + "</span>" +
           (i.checks && i.checks !== "none"
             ? '<span class="ck ' + i.checks + '">' + checkGlyph(i.checks) + "</span>" : "") +

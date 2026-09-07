@@ -6,7 +6,7 @@ import { icon, iconHTML } from "./icons.js";
 import { setPeople } from "./md.js";
 import { refreshAll, stampLoaded, syncNotice } from "./refresh.js";
 import { onRender } from "./router.js";
-import { S, VIEWS, applyHash, writeHash } from "./state.js";
+import { S, VIEWS, applyHash, openCount, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
 import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
@@ -176,7 +176,7 @@ function render() {
   if (roster !== paintedRoster) paintSidebar();
   markSidebar();
   const ic = $("#inboxcount");
-  if (ic) ic.textContent = S.inbox ? String(S.inbox.items.length) : "";
+  if (ic) ic.textContent = S.inbox ? String(openCount()) : "";
   writeHash(true);
   stampLoaded();
 

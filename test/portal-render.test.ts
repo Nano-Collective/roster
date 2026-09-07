@@ -170,6 +170,40 @@ const INBOX_FIXTURE = {
         },
       ],
     },
+    {
+      repo: "acme/brain",
+      role: "brain",
+      kind: "issue",
+      number: 2,
+      title: "Something already settled",
+      labels: [],
+      assignees: [],
+      author: "bot",
+      updatedAt: "2026-05-20T00:00:00Z",
+      url: "https://example.invalid/2",
+      state: "CLOSED",
+      createdAt: "2026-04-01T00:00:00Z",
+      body: "done",
+      comments: [],
+      events: [],
+    },
+    {
+      repo: "acme/product",
+      role: "product",
+      kind: "pr",
+      number: 6,
+      title: "A pull request that landed",
+      labels: [],
+      assignees: [],
+      author: "bot",
+      updatedAt: "2026-05-19T00:00:00Z",
+      url: "https://example.invalid/6",
+      state: "MERGED",
+      createdAt: "2026-04-01T00:00:00Z",
+      body: "shipped",
+      comments: [],
+      events: [],
+    },
   ],
 };
 
@@ -319,7 +353,14 @@ const ALIAS: Record<string, string> = {
   inboxOpen: "inboxOpen",
   inboxFilter: "inboxFilter",
   inboxStaff: "inboxStaff",
+  inboxState: "inboxState",
   query: "query",
+  openDoc: "openDoc",
+  openSurfaces: "openSurfaces",
+  promptKind: "promptKind",
+  promptOpen: "promptOpen",
+  sync: "sync",
+  loadedAt: "loadedAt",
 };
 
 let mods: any = null;
@@ -386,6 +427,7 @@ async function renderAll(hash = "") {
     askToFix: m.health.askToFix,
     show: m.files.showFile,
     document: shim.document,
+    _state: m.state.S,
     _byId: shim.byId,
     _saved: shim.saved,
     _pushes: shim.pushes,
@@ -513,7 +555,7 @@ test("the inbox renders and holds every open item", async () => {
   assert.equal(s.view, "inbox");
   await new Promise((r) => setTimeout(r, 20));
   assert.ok(s._byId.main.children.length > 0, "inbox rendered nothing");
-  assert.equal(s.INBOX.items.length, 2);
+  assert.equal(s.INBOX.items.length, 4, "two open, one closed, one merged");
 });
 
 test("selecting a row deselects the previous one", async () => {
@@ -1481,4 +1523,87 @@ test("a prompt that will not compose says so instead of rendering nothing", asyn
     .join(" ");
   assert.match(text, /does not compose/);
   assert.match(text, /unknown staff handle/, "and says what compose.mjs actually said");
+});
+
+/* ----------------------- open, closed, and the badge ---------------------- */
+
+function inboxTitles(s: any): string[] {
+  return walkNodes(s._byId.main)
+    .filter((n) => String(n.innerHTML ?? "").includes('class="ititle"'))
+    .map((n) => String(n.innerHTML));
+}
+
+test("the inbox lists open work by default, and closed only when asked", async () => {
+  /* An inbox is what is waiting on somebody. Five months of finished work mixed into that is
+     answering a different question, so closed items are fetched but not listed until you
+     pick them. */
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 30));
+
+  let titles = inboxTitles(s).join(" ");
+  assert.ok(titles.includes("Needs a ruling"), "open work is listed");
+  assert.ok(!titles.includes("Something already settled"), "a closed issue is not");
+  assert.ok(!titles.includes("A pull request that landed"), "nor a merged PR");
+
+  s.inboxState = "closed";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  titles = inboxTitles(s).join(" ");
+  assert.ok(titles.includes("Something already settled"), "closed shows the closed issue");
+  assert.ok(titles.includes("A pull request that landed"), "and the merged PR");
+  assert.ok(!titles.includes("Needs a ruling"), "and nothing that is still open");
+
+  s.inboxState = "all";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  titles = inboxTitles(s).join(" ");
+  for (const want of [
+    "Needs a ruling",
+    "Something already settled",
+    "A pull request that landed",
+  ]) {
+    assert.ok(titles.includes(want), want + " should be listed under open and closed");
+  }
+});
+
+test("a closed row is marked as closed rather than looking open", async () => {
+  const s = await renderAll("#/x/inbox?x=all");
+  await new Promise((r) => setTimeout(r, 30));
+  const rows = walkNodes(s._byId.main).filter((n) =>
+    String(n.className ?? "")
+      .split(/\s+/)
+      .includes("irow"),
+  );
+  const shut = rows.filter((r) => String(r.className).includes("shut"));
+  assert.equal(shut.length, 2, "the closed issue and the merged PR");
+  assert.match(shut[0].innerHTML, /class="ist /, "with a state marker on the row");
+  assert.equal(
+    rows.filter((r) => !String(r.className).includes("shut")).length,
+    2,
+    "and the open ones are not marked",
+  );
+});
+
+test("the sidebar badge counts what is open, not what is loaded", async () => {
+  // 135 in a badge when 34 things need you is worse than no badge.
+  const s = await renderAll("#/x/inbox?x=all");
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(s.INBOX.items.length, 4, "the fixture holds open and closed");
+  assert.equal(s._byId.inboxcount.textContent, "2", "but the badge counts the open ones");
+});
+
+test("every state field is reachable through the harness", async () => {
+  /* `inboxState` was added to the page and not to ALIAS, so a test that set it wrote to a
+     dead object and passed for the wrong reason. That is the exact trap this suite has fallen
+     into before, so it is checked rather than remembered. */
+  const s = await renderAll();
+  // ALIAS is keyed by the name the tests use and valued by the name the page uses, so it is
+  // the values that say what is reachable.
+  const reachable = new Set(Object.values(ALIAS));
+  const missing = Object.keys(s._state).filter((k) => !reachable.has(k) && k !== "applyingHash");
+  assert.deepEqual(
+    missing,
+    [],
+    "these state fields cannot be driven from a test: " + missing.join(", "),
+  );
 });

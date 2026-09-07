@@ -27,6 +27,11 @@ down with the list, so opening a thread is a render rather than a request.
   for anyone who works in that repo. Items authored by humans belong to nobody, which is
   correct.
 - **Scope** to everything, what is assigned to you, decisions, or open PRs.
+- **Open, recently closed, or both.** Open by default: an inbox is what is waiting on
+  somebody, and months of finished work mixed into that answers a different question. Closed
+  work reaches back 45 days, up to 30 issues and 30 pull requests per repository, and carries
+  a shorter timeline than open work because it is there to be read rather than triaged. A
+  closed row is dimmed and marked; the sidebar badge keeps counting only what is open.
 - **Reply, close, reopen, open an issue.** All as you, through your own `gh`, so they are
   indistinguishable from doing it on the site. Closing asks for confirmation.
 - Issue and PR references in a body become chips you can click through, and `@handle`
