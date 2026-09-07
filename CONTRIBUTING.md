@@ -17,7 +17,7 @@ pnpm install
 pnpm test
 ```
 
-Node 22 and pnpm. There is no build step for development: `pnpm dev -- <command>` runs the CLI
+Node 22 and pnpm. There is no build step for development: `pnpm dev <command>` runs the CLI
 through `tsx` straight from source.
 
 roster expects a **workspace**: a directory holding an ops repo and every brain repo side by
