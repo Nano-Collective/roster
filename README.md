@@ -10,7 +10,7 @@ unattended and hands off.
 [getting started](docs/getting-started.md), then read [manual steps](docs/manual-steps.md).
 
 Status: **working, private, one tenant.** Every command below is built and exercised daily
-against a live two-agent org. Not published; see Phase 5 of `../AGENT-ORG-PLAN.md`.
+against a live two-agent org. Not published yet.
 
 ## What it does
 
