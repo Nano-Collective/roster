@@ -11,6 +11,7 @@
  */
 
 import { el, kb } from "../dom.js";
+import { icon } from "../icons.js";
 import { S, staff, writeHash } from "../state.js";
 import { showFile, showGallery } from "./files.js";
 import { showMemory } from "./memory.js";
@@ -123,7 +124,7 @@ export function viewBrain(m) {
     const head = el("button", { className: "tsurface", title: label });
     head.setAttribute("aria-expanded", String(open));
     head.append(
-      el("span", { className: "caret", textContent: "▾" }),
+      icon("chevron", "caret"),
       el("span", { className: "t", textContent: label }),
       el("i", { textContent: right ?? String(kids.length) }),
     );

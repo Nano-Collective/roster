@@ -10,7 +10,7 @@
  */
 
 import { getFile, post } from "../api.js";
-import { el, esc, kb } from "../dom.js";
+import { el, esc, grow, kb } from "../dom.js";
 import { mdlite } from "../md.js";
 import { S, staff, writeHash } from "../state.js";
 
@@ -239,8 +239,10 @@ export function viewPrompt(m) {
       ]),
     );
 
-    const ta = el("textarea", { rows: 24, value: text, className: "editor" });
+    const ta = el("textarea", { value: text, className: "editor" });
     viewer.append(ta);
+    grow(ta);
+    ta.addEventListener("input", () => grow(ta));
 
     const status = el("span", { className: "meta" });
     const save = el("button", { className: "ghbtn primary", textContent: "Save and commit" });

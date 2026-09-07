@@ -2,6 +2,7 @@
 
 import { diffUrl } from "../api.js";
 import { el, esc, markCurrent } from "../dom.js";
+import { iconHTML } from "../icons.js";
 import { S, staff, writeHash } from "../state.js";
 
 export function viewChanged(m) {
@@ -48,9 +49,9 @@ export function viewChanged(m) {
         list.append(el("div", { className: "tdir", textContent: day }));
         for (const c of items) {
           const b = el("button", { className: "tfile" });
-          b.innerHTML = '<span class="' + (c.change === "added" ? "ok" : "err") + '" style="flex:none">' +
-            (c.change === "added" ? "+" : "−") + '</span><span class="t">' + esc(c.slug) + "</span>" +
-            "<i>" + esc(c.sha.slice(0, 7)) + "</i>";
+          b.innerHTML = '<span class="chg ' + (c.change === "added" ? "ok" : "err") + '">' +
+            iconHTML(c.change === "added" ? "check" : "dash") + '</span><span class="t">' +
+            esc(c.slug) + "</span><i>" + esc(c.sha.slice(0, 7)) + "</i>";
           b.onclick = () => { markCurrent(list, b); showDiff(viewer, s, c.sha, "memory/INDEX.md", c.slug); };
           list.append(b);
         }

@@ -13,7 +13,8 @@
 .md li{margin:3px 0}
 .md li>ul,.md li>ol{margin:4px 0 0}
 .md ul.tasks{list-style:none;padding-left:1px}
-.md .box{color:var(--ink-faint);margin-right:5px}
+.md .box{color:var(--ink-faint);margin-right:6px;display:inline-flex;--ic:14px;
+      vertical-align:-3px}
 .md code{font:12px var(--mono);color:var(--accent);background:var(--panel-2);
       padding:1px 4px;border-radius:4px;word-break:break-word}
 .md pre{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;

@@ -654,7 +654,12 @@ test("mdlite handles the rest of an issue body without leaking pipes or markers"
   );
   assert.ok(out.includes("<h2>Heading</h2>"));
   assert.ok(out.includes("<blockquote>"));
-  assert.ok(out.includes("☐") && out.includes("☑"));
+  // The boxes are icons now, not characters, so what is asserted is that a ticked and an
+  // unticked item render differently at all.
+  assert.ok(out.includes('class="box"'), "task items get a box");
+  assert.equal((out.match(/class="box"/g) ?? []).length, 2);
+  const [unticked, ticked] = out.split('class="box"').slice(1, 3);
+  assert.notEqual(unticked.slice(0, 200), ticked.slice(0, 200), "ticked must not look unticked");
   assert.ok(out.includes("<hr>"));
   assert.ok(out.includes("code | with | pipes"), "pipes inside a fence are content, not a table");
   assert.ok(out.includes("a paragraph that wraps over two source lines"), "hard wraps should join");

@@ -64,9 +64,17 @@ button.ghbtn:hover{background:var(--panel-2)}
 .iconbtn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);
        border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:15px;line-height:1}
 .iconbtn:hover{color:var(--ink);border-color:var(--accent-dim)}
-.iconbtn .sync{display:inline-block}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center}
+.iconbtn .sync{display:inline-flex;--ic:15px}
 .iconbtn.spin .sync{animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- icons ----------
+   Lucide, vendored in js/icons.js. They take colour from `currentColor` and size from the
+   `--ic` custom property, so a component sets both in CSS and never touches the SVG. */
+svg.ic{width:var(--ic,15px);height:var(--ic,15px);display:block;flex:none}
+/* A slot that holds one, centred, wherever a text glyph used to sit on a baseline. */
+.icslot{display:inline-flex;align-items:center;justify-content:center;flex:none}
 
 .chip{font:10px var(--sans);letter-spacing:.02em;padding:1.5px 7px;border-radius:20px;
       border:1px solid var(--line);color:var(--ink-faint);white-space:nowrap}

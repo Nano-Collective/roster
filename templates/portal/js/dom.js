@@ -51,3 +51,16 @@ export function slug(text) {
     .trim()
     .replace(/\s+/g, "-");
 }
+
+/**
+ * Size a textarea to its content, so the card it sits in is the only thing that scrolls.
+ *
+ * The border has to be added back: everything here is `border-box`, so `height` sets the
+ * outer box while `scrollHeight` counts the padding and not the border. Two pixels short is
+ * enough to clip the last line.
+ */
+export function grow(ta) {
+  ta.style.height = "auto";
+  const border = (ta.offsetHeight || 0) - (ta.clientHeight || 0);
+  ta.style.height = (ta.scrollHeight || 0) + border + "px";
+}

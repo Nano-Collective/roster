@@ -23,3 +23,6 @@
 .dfile b{color:var(--ink);font-weight:600}
 .dfile .p{color:var(--accent)} .dfile .m{color:var(--err)}
 .dempty{padding:20px;color:var(--ink-faint);font-size:12.5px}
+
+/* The learned/forgotten marker on a "what changed" row. */
+.chg{display:inline-flex;flex:none;--ic:13px;position:relative;top:2px}

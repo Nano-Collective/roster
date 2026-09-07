@@ -11,7 +11,7 @@
       background:var(--panel-2);border:1px solid var(--line);color:var(--ink-faint);
       border-radius:7px;padding:7px 10px;cursor:pointer;font:11px var(--sans);text-align:left}
 .refreshall:hover{color:var(--ink);border-color:var(--accent-dim)}
-.refreshall .sync{font-size:13px;line-height:1}
+.refreshall .sync{display:inline-flex;--ic:13px;flex:none}
 .refreshall.spin .sync{animation:spin .9s linear infinite}
 
 .sect{padding:14px 20px 6px;font:600 10.5px var(--sans);letter-spacing:.09em;
@@ -20,7 +20,9 @@
      font:14px var(--sans);padding:7px 20px;cursor:pointer;border-left:2px solid transparent}
 .nav:hover{color:var(--ink);background:var(--panel-2)}
 .nav[aria-current="true"]{color:var(--ink);border-left-color:var(--accent);background:var(--panel-2)}
-.nav .ic{color:var(--ink-faint);margin-right:4px}
+.nav .ic{color:var(--ink-faint);margin-right:7px;--ic:15px;display:inline-flex;
+     vertical-align:-3px}
+.nav.top,.nav#docsnav{display:flex;align-items:center}
 .nav .n{float:right;color:var(--ink-faint);font:11px var(--mono)}
 .nav.top{margin-bottom:2px}
 
@@ -28,8 +30,7 @@
    have to connect for yourself. The nesting is the hierarchy, said out loud. */
 .staffrow{display:flex;align-items:center;gap:7px;font:13.5px var(--sans);color:var(--ink);
       padding-right:14px}
-.staffrow .caret{color:var(--ink-faint);font-size:11px;width:11px;flex:none;line-height:1;text-align:center;
-      transition:transform .12s ease}
+.staffrow .caret{color:var(--ink-faint);--ic:12px;flex:none;transition:transform .12s ease}
 .staffrow[aria-expanded="false"] .caret{transform:rotate(-90deg)}
 .staffrow .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .staffrow .hh{font:10.5px var(--mono);color:var(--ink-faint);flex:none}

@@ -2,6 +2,7 @@
 
 import { getInbox, getThread, post } from "../api.js";
 import { ago, el, esc, markCurrent } from "../dom.js";
+import { icon, iconHTML } from "../icons.js";
 import { mdlite } from "../md.js";
 import { refreshAll } from "../refresh.js";
 import { S, writeHash } from "../state.js";
@@ -65,7 +66,7 @@ export function viewInbox(m) {
   whose.value = S.inboxStaff;
 
   const refresh = el("button", { className: "iconbtn", title: "Refresh from GitHub" });
-  refresh.innerHTML = '<span class="sync">⟳</span>';
+  refresh.innerHTML = '<span class="sync">' + iconHTML("refresh") + "</span>";
   const newBtn = el("button", { className: "ghbtn", textContent: "New issue" });
   newBtn.onclick = () => newIssueForm(viewer);
   m.append(
@@ -328,7 +329,7 @@ function folded(events, item, openThread) {
   const btn = el("button", { className: "tevmore" });
   btn.setAttribute("aria-expanded", "false");
   btn.append(
-    el("span", { className: "caret", textContent: "▸" }),
+    icon("chevron", "caret"),
     el("span", { textContent: events.length + " more events" }),
   );
   const body = el("div", { className: "tevquiet" }, events.map((e) => eventLine(e, item, openThread)));
@@ -341,10 +342,15 @@ function folded(events, item, openThread) {
   return box;
 }
 
+/* One icon per kind of thing that can happen to a thread. Labels and people repeat on
+   purpose: "added the build label" and "removed" are the same kind of event, and the verb
+   next to it is what tells them apart. */
 const GLYPH = {
-  "cross-referenced": "↗", referenced: "○", closed: "✕", reopened: "↻", merged: "⏣",
-  review: "◎", "review-requested": "◎", "ready-for-review": "◎",
-  labeled: "◆", unlabeled: "◇", assigned: "◑", unassigned: "◐", renamed: "✎",
+  "cross-referenced": "crossref", referenced: "commit", closed: "closed",
+  reopened: "reopened", merged: "merged",
+  review: "review", "review-requested": "review", "ready-for-review": "review",
+  labeled: "label", unlabeled: "label", assigned: "person", unassigned: "person",
+  renamed: "rename",
 };
 
 function reviewWord(state) {
@@ -355,7 +361,9 @@ function reviewWord(state) {
 /** One event as a line: a marker, what happened, and whatever it points at. */
 function eventLine(e, item, openThread) {
   const d = el("div", { className: "tev " + e.type });
-  d.append(el("span", { className: "tico", textContent: GLYPH[e.type] ?? "·" }));
+  const mark = el("span", { className: "tico" });
+  mark.innerHTML = iconHTML(GLYPH[e.type] ?? "dot");
+  d.append(mark);
   const body = el("div", { className: "tbody" });
   d.append(body);
 
@@ -415,9 +423,14 @@ function eventLine(e, item, openThread) {
 function xref(source, item, openThread) {
   const state = String(source.state ?? "OPEN").toLowerCase();
   const b = el("button", { className: "xref" });
-  const glyph = state === "merged" ? "⏣" : state === "closed" ? "✕" : state === "draft" ? "◌" : "⊙";
+  const glyph =
+    state === "merged" ? "merged" :
+    state === "closed" ? "issue-closed" :
+    state === "draft" ? "draft" : "issue-open";
+  const st = el("span", { className: "st " + state, title: state });
+  st.innerHTML = iconHTML(glyph);
   b.append(
-    el("span", { className: "st " + state, textContent: glyph, title: state }),
+    st,
     el("span", { className: "t", textContent: source.title || "#" + source.number }),
     el("span", {
       className: "n",
@@ -453,7 +466,7 @@ function comment(author, when, body, isBody, repo, badge) {
 }
 
 function checkGlyph(state) {
-  return state === "passing" ? "✓" : state === "failing" ? "✕" : "•";
+  return iconHTML(state === "passing" ? "check" : state === "failing" ? "close" : "dot");
 }
 
 /* --------------------------------- new issue -------------------------------- */

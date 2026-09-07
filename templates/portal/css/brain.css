@@ -26,8 +26,7 @@
       border:0;color:var(--ink-dim);font:11.5px var(--mono);padding:5px 8px;border-radius:5px;
       cursor:pointer}
 .tsurface:hover{background:var(--panel-2);color:var(--ink)}
-.tsurface .caret{color:var(--ink-faint);font-size:11px;width:11px;flex:none;line-height:1;text-align:center;
-      transition:transform .12s ease}
+.tsurface .caret{color:var(--ink-faint);--ic:12px;flex:none;transition:transform .12s ease}
 .tsurface[aria-expanded="false"] .caret{transform:rotate(-90deg)}
 .tsurface .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tsurface i{font-style:normal;font-size:10.5px;color:var(--ink-faint);flex:none;
@@ -81,5 +80,9 @@
 .tfile.tlayer.dim{opacity:.5}
 .treenote{margin:0 8px 6px;font:11px/1.45 var(--sans);color:var(--ink-faint)}
 
-.editor{font:12.5px/1.7 var(--mono);min-height:420px}
+/* The card already scrolls. A textarea that scrolls too gives you two scrollbars for one
+   document and neither of them is the one you want, so this one grows to fit its content
+   and never scrolls itself. Height is set in JS from scrollHeight; min-height is the floor
+   for a short file. */
+.editor{font:12.5px/1.7 var(--mono);min-height:340px;overflow:hidden;resize:none}
 .editnote{margin:8px 0 0;font:11.5px var(--sans);color:var(--ink-faint)}

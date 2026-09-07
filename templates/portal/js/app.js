@@ -2,6 +2,7 @@
 
 import { getOrg } from "./api.js";
 import { $, el, store } from "./dom.js";
+import { icon, iconHTML } from "./icons.js";
 import { setPeople } from "./md.js";
 import { refreshAll, stampLoaded, syncNotice } from "./refresh.js";
 import { onRender } from "./router.js";
@@ -33,6 +34,11 @@ export async function boot() {
   $("#orgname").textContent = S.data.name + " · " + S.data.staff.length + " staff";
 
   learnPeople();
+  // The shell's own icons are markup, so they are filled in once the module is running
+  // rather than pasted into index.html as inline SVG nobody would ever read.
+  for (const slot of document.querySelectorAll("[data-icon]")) {
+    slot.innerHTML = iconHTML(slot.dataset.icon);
+  }
   onRender(render);
   applyHash();
   paintSidebar();
@@ -109,7 +115,7 @@ function paintSidebar() {
     head.dataset.staff = s.handle;
     head.setAttribute("aria-expanded", String(open));
     head.append(
-      el("span", { className: "caret", textContent: "▾" }),
+      icon("chevron", "caret"),
       el("span", { className: "t", textContent: s.name }),
       el("span", { className: "hh", textContent: s.handle }),
     );
@@ -191,7 +197,13 @@ function applyTheme(name) {
   if (name === "system") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", name);
   const b = $("#theme");
-  if (b) b.replaceChildren("Theme", el("span", { className: "n", textContent: name }));
+  if (b) {
+    b.replaceChildren(
+      icon(name === "light" ? "sun" : name === "dark" ? "moon" : "monitor", "ic"),
+      "Theme",
+      el("span", { className: "n", textContent: name }),
+    );
+  }
 }
 
 function initTheme() {

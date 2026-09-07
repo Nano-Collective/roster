@@ -21,8 +21,9 @@
 .sheet{position:absolute;right:0;top:0;bottom:0;width:370px;max-width:100%;
        background:var(--panel);border-left:1px solid var(--line);padding:20px 22px;
        overflow:auto;box-shadow:-14px 0 34px rgba(0,0,0,.16)}
-.sheet .x{position:absolute;right:14px;top:14px;background:none;border:0;color:var(--ink-faint);
-       cursor:pointer;font:14px var(--mono)}
+.sheet .x{position:absolute;right:12px;top:12px;background:none;border:0;color:var(--ink-faint);
+       cursor:pointer;display:inline-flex;padding:4px;border-radius:6px;--ic:16px}
+.sheet .x:hover{color:var(--ink);background:var(--panel-2)}
 .sheet .skind{font:10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
 .sheet h4{margin:0 0 10px;font:600 15px var(--mono);word-break:break-word;padding-right:22px;letter-spacing:-.01em}
 .sheet p{margin:8px 0 0;font-size:13.5px;line-height:1.6}

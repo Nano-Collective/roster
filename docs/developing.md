@@ -47,10 +47,16 @@ templates/portal/
   css/<area>.css       markdown, brain, inbox, graph, diff, health
   js/state.js          every screen's state in one object, and the URL that mirrors it
   js/router.js         one indirection so a view can repaint without importing the shell
-  js/dom.js  api.js  md.js  refresh.js
+  js/dom.js  api.js  md.js  refresh.js  icons.js
   js/app.js            boot, the sidebar, dispatching a view into <main>
   js/views/*.js        one per screen
 ```
+
+`js/icons.js` holds two dozen [Lucide](https://lucide.dev) glyphs as inlined path data, ISC
+licensed. Vendored rather than fetched, because the portal is offline-first and an icon that
+needs the network is an icon that is sometimes a blank square. They take colour from
+`currentColor` and size from a `--ic` custom property, so a component styles them in CSS and
+never touches the SVG. Nothing in the UI should draw with a text character.
 
 Two rules keep the module graph a tree rather than a ring: **state lives in `state.js`**, and
 **a view never imports `app.js`**. It calls `render()` from `router.js`, which the shell

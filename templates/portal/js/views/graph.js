@@ -1,6 +1,7 @@
 /* The link graph: one node per memory section, fanning out into its facts. */
 
 import { el, esc } from "../dom.js";
+import { icon } from "../icons.js";
 import { inline } from "../md.js";
 import { render } from "../router.js";
 import { S, staff } from "../state.js";
@@ -194,8 +195,10 @@ function drawGraph(canvas, wrap, s) {
     const n = selected;
     const f = factBySlug.get(n.id);
     sheet = el("aside", { className: "sheet" });
-    sheet.append(el("button", { className: "x", textContent: "✕",
-      onclick: () => { selected = null; paintSheet(); } }));
+    const shut = el("button", { className: "x", title: "Close",
+      onclick: () => { selected = null; paintSheet(); } });
+    shut.append(icon("close"));
+    sheet.append(shut);
     sheet.insertAdjacentHTML("beforeend",
       '<div class="skind" style="color:' + colour.get(n.group) + '">' + esc(n.group) + "</div>" +
       "<h4>" + esc(n.id) + "</h4>" +

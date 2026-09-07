@@ -5,6 +5,7 @@
  */
 
 import { esc } from "./dom.js";
+import { iconHTML } from "./icons.js";
 
 /* Who this org is, so `@cto` can be told from `@some-stranger`. Registered once at boot
    rather than threaded through every call site, because every call site would pass the
@@ -172,7 +173,8 @@ function mdList(items, from, depth, fmt) {
     const task = /^\[( |x|X)\]\s+(.*)$/.exec(items[i].text);
     if (task) {
       tasks++;
-      html += '<li><span class="box">' + (task[1] === " " ? "☐" : "☑") + "</span>" + fmt(task[2]) + "</li>";
+      html += '<li><span class="box">' + iconHTML(task[1] === " " ? "square" : "task-done") +
+        "</span>" + fmt(task[2]) + "</li>";
     } else {
       html += "<li>" + fmt(items[i].text) + "</li>";
     }

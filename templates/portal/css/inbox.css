@@ -16,7 +16,7 @@
       color:var(--ink-faint);border-right:1px solid var(--line);padding-right:7px}
 .imeta .num{font:10.5px var(--mono);color:var(--ink-faint)}
 .imeta .when{font:10.5px var(--sans);color:var(--ink-faint);margin-left:auto}
-.ck{font:10.5px var(--mono)}
+.ck{display:inline-flex;--ic:13px}
 .ck.passing{color:var(--accent)} .ck.failing{color:var(--err)} .ck.pending{color:var(--warn)}
 
 /* ---------- thread ---------- */
@@ -32,14 +32,16 @@
    These carry the half of a thread that is agents referring to each other's work. */
 .tev{display:flex;gap:10px;align-items:flex-start;padding:9px 0 9px 2px;
      font:12.5px/1.5 var(--sans);color:var(--ink-dim)}
-.tev .tico{flex:none;width:16px;text-align:center;color:var(--ink-faint);font:12px var(--mono);
-     line-height:1.5}
+.tev .tico{flex:none;display:inline-flex;align-items:center;justify-content:center;
+     width:16px;height:19px;color:var(--ink-faint);--ic:14px}
 .tev .tbody{flex:1;min-width:0}
 .tev b{color:var(--ink);font-weight:600}
 .tev .tsub{display:block;margin-top:4px}
 .tev .tcommit{font:11.5px var(--mono);color:var(--ink-dim);background:var(--panel-2);
+     text-decoration:none;
      border:1px solid var(--line);border-radius:6px;padding:4px 9px;display:inline-block;
      max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.tev .tcommit:hover{color:var(--ink);border-color:var(--ink-faint)}
 .tev .twhen{color:var(--ink-faint);font-size:11px;white-space:nowrap}
 .tev.closed .tico{color:var(--err)}
 .tev.reopened .tico,.tev.merged .tico{color:var(--accent)}
@@ -51,7 +53,7 @@
       border:1px solid var(--line);border-radius:7px;padding:6px 10px;margin-top:5px;
       cursor:pointer;color:var(--ink-dim);font:12.5px var(--sans)}
 .xref:hover{border-color:var(--accent-dim);background:var(--panel-2);color:var(--ink)}
-.xref .st{flex:none;font:11px var(--mono)}
+.xref .st{flex:none;display:inline-flex;--ic:14px;position:relative;top:2px}
 .xref .st.open{color:var(--accent)} .xref .st.closed{color:var(--derived)}
 .xref .st.merged{color:var(--derived)} .xref .st.draft{color:var(--ink-faint)}
 .xref .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -62,8 +64,10 @@
 .tevmore{display:flex;align-items:center;gap:7px;background:none;border:0;cursor:pointer;
       color:var(--ink-faint);font:11.5px var(--sans);padding:8px 2px}
 .tevmore:hover{color:var(--ink-dim)}
-.tevmore .caret{font-size:11px;width:11px;text-align:center;transition:transform .12s ease;
-      display:inline-block}
-.tevmore[aria-expanded="true"] .caret{transform:rotate(90deg)}
+/* The chevron points down when open and right when closed, which is the other way round
+   from the "▸" character this used to be. */
+.tevmore .caret{--ic:12px;display:inline-flex;transition:transform .12s ease;
+      transform:rotate(-90deg)}
+.tevmore[aria-expanded="true"] .caret{transform:none}
 .tevquiet{border-left:1px solid var(--line);margin-left:9px;padding-left:14px}
 .tevquiet .tev{padding:5px 0;font-size:12px}
