@@ -86,7 +86,7 @@ export function viewInbox(m) {
   whose.onchange = () => { S.inboxStaff = whose.value; writeHash(false); paint(); };
   refresh.onclick = () => { refresh.classList.add("spin"); load(true); };
 
-  if (S.inbox) { paint(); restore(); } else load(false);
+  if (S.inbox) { stampCount(); paint(); restore(); } else load(false);
 
   /** A `?t=` in the URL names a thread. It used to be read into the state and then never
       acted on, because only the already-loaded branch opened one. */
@@ -106,8 +106,16 @@ export function viewInbox(m) {
       return;
     }
     refresh.classList.remove("spin");
+    stampCount();
     paint();
     restore();
+  }
+
+  /* The sidebar badge is painted by the shell, which runs before this screen has asked
+     GitHub anything. Without this it stays empty until something else causes a render. */
+  function stampCount() {
+    const badge = document.querySelector("#inboxcount");
+    if (badge) badge.textContent = S.inbox ? String(S.inbox.items.length) : "";
   }
 
   function paint() {

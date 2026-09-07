@@ -16,14 +16,16 @@
 
 .sect{padding:14px 20px 6px;font:600 10.5px var(--sans);letter-spacing:.09em;
       text-transform:uppercase;color:var(--ink-faint)}
-.nav{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink-dim);
-     font:14px var(--sans);padding:7px 20px;cursor:pointer;border-left:2px solid transparent}
+/* Flex, not block with a float. The icons are block-level SVGs and the trailing count has to
+   sit hard right; `float` does neither of those inside a flex row, and did neither of them
+   outside one once the icons arrived. */
+.nav{display:flex;align-items:center;width:100%;text-align:left;background:none;border:0;
+     color:var(--ink-dim);font:14px var(--sans);padding:7px 20px;cursor:pointer;
+     border-left:2px solid transparent}
 .nav:hover{color:var(--ink);background:var(--panel-2)}
 .nav[aria-current="true"]{color:var(--ink);border-left-color:var(--accent);background:var(--panel-2)}
-.nav .ic{color:var(--ink-faint);margin-right:7px;--ic:15px;display:inline-flex;
-     vertical-align:-3px}
-.nav.top,.nav#docsnav{display:flex;align-items:center}
-.nav .n{float:right;color:var(--ink-faint);font:11px var(--mono)}
+.nav .ic{color:var(--ink-faint);margin-right:9px;--ic:15px;flex:none}
+.nav .n{margin-left:auto;padding-left:10px;color:var(--ink-faint);font:11px var(--mono)}
 .nav.top{margin-bottom:2px}
 
 /* Staff are rows that unfold into their own views, rather than a dropdown plus a list you
