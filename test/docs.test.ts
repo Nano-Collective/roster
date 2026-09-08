@@ -244,3 +244,29 @@ test("the export reference matches the shape the exporter actually produces", as
     assert.ok(documented(key), `rig has "${key}" and export.md does not mention it`);
   }
 });
+
+test("portal.md names every screen the router can show", () => {
+  /* `portal.md` is titled "every view and every action" and spent this whole build describing
+     a portal that no longer existed, with the docs gate passing throughout. That gate checks
+     command names, flags and doctor ids; nothing checked prose. This is the cheapest thing
+     that would have caught it. */
+  const app = readFileSync(join(ROOT, "templates", "portal", "js", "app.js"), "utf8");
+  const screens = [...app.matchAll(/^\s{2}(\w+): view\w+,$/gm)].map((m) => m[1]!);
+  assert.ok(
+    screens.length >= 8,
+    `expected the router to register screens, found ${screens.length}`,
+  );
+
+  /* A screen id is code and its heading is prose, so the two are allowed to differ. Where
+     they do, say so here rather than renaming a heading to satisfy a test. */
+  const HEADING: Record<string, string> = { changed: "what changed", memory: "brain" };
+  const page = read("portal.md").toLowerCase();
+  const missing = screens
+    .map((s) => HEADING[s] ?? s)
+    .filter((h, i, all) => all.indexOf(h) === i)
+    .filter((h) => !new RegExp(`^## ${h}\\b`, "m").test(page));
+  assert.deepEqual(missing, [], `portal.md documents no section for: ${missing.join(", ")}`);
+
+  // Setup is not in the router — it replaces the whole shell — so it is checked by name.
+  assert.match(read("portal.md"), /^## Setup$/m, "portal.md must cover the setup screen");
+});
