@@ -7,7 +7,7 @@ sidebar_order: 17
 # The portal
 
 ```bash
-roster portal          # http://localhost:4300
+roster                 # or `roster portal`, or `npx @nanocollective/roster`
 ```
 
 A local web UI over the checked-out repositories. Reads them from disk, so it needs no
@@ -15,6 +15,35 @@ authentication and no API quota, and works offline. It can write to GitHub throu
 `gh`. See [hosting](hosting.md) for why it stays local.
 
 Keep the repos checked out beside each other, in the same shape the runner uses.
+
+## Setup
+
+**With no tenant where you started it, the portal is the setup screen instead.** That is not an
+error state: it is the first thing anybody sees, and the page becomes the thing that fixes it.
+
+The server starts without a workspace, borrows the framework's own `compose.mjs` until a tenant
+has vendored its copy, and mounts only the setup routes. Everything else answers `409` with
+`mode: setup` rather than dereferencing a workspace that was never found. The moment `org.yaml`
+lands on disk it re-resolves, switches to the tenant's composer, and the rest of the portal
+appears **without a restart**.
+
+It asks GitHub which of two things this is:
+
+- **The organisation already runs roster.** Then nothing needs creating; it needs checking out.
+  The button becomes *Check it out here*, and it clones the ops repo and every brain side by
+  side, which is the shape the CI runner uses. This is how a second person joins an org somebody
+  else set up. *Create* is hidden, because offering both is how an org ends up with two ops repos.
+- **It does not.** Then the plan is shown first, listing every file and the repo it would create, and
+  nothing is written until you apply. Same `initFiles` the CLI runs, so the browser and the
+  terminal cannot disagree about what a new tenant contains.
+
+Then: the Actions setting, deep-linked to the exact page with the failure it causes if skipped;
+which repos the staff work in, as a picker over what your `gh` can see minus what `org.yaml`
+already has; and a prompt for writing `org/business.md`.
+
+Nothing here stores which step you are on. Setup takes days rather than minutes: an App has to be
+installed, a credential set, a first run finished. So the page derives its state from `roster
+doctor` every time it is drawn. A stored step counter would disagree with the world within an hour.
 
 ## Inbox
 
@@ -64,13 +93,30 @@ entry.
 
 ## Staff
 
-Everyone on the roster, and the two things you could previously only do from a terminal.
+Everyone on the roster, and the four things you could previously only do from a terminal.
 
 **Hiring** runs the same `buildPlan` and `applyPlan` that `roster hire` does, on the server.
 Only the handle is required; everything else is copied from whoever is already here. You see
 the plan first, listing every file, every label, the schedule it chose and why, and the manual
 steps it cannot do for you. Nothing happens until you apply. What the terminal would have
 printed is shown when it finishes.
+
+**Writing the charter** is the copy-a-prompt loop below, aimed at `CHARTER.md`. `hire`
+deliberately does not write it, because a generated charter produces exactly the generic agent
+this whole arrangement exists to avoid. So this is the route that was previously `roster brief
+charter <handle>` and a terminal.
+
+**The GitHub App** is `roster app`, on this server rather than a second one. There is no API that
+creates an App: the only route is the manifest flow, where you post a manifest to a settings page,
+a human confirms, and GitHub hands back a one-time code. `roster app` stands up its own listener on
+4310 to catch that; in the portal it runs on the port you are already on, so it is one browser and
+one origin. The private key is still held in memory and written straight to a repo secret.
+
+GitHub redirects the tab *it* opened, not the one you clicked from, so the original polls for the
+result. What it cannot do is install the App: that is a grant of access to specific repositories
+and GitHub asks a human to choose them, which is correct and should not be worked around. The panel
+says so loudly, and says to grant every tracker the staff member writes to rather than only their
+own.
 
 **Retiring** is `roster retire`, and it is deliberately not deletion. A brain repo is that
 agent's entire memory and there is no undo, so retiring disables the workflows, unwires them
@@ -185,6 +231,45 @@ part that is awkward to redo.
 same thing: a line added to one fragment can land three times or not at all, and the file diff
 answers a question you did not ask.
 
+## Copy a prompt, paste the answer back
+
+`org/business.md` and every `CHARTER.md` are the two files nothing can generate. roster holds no
+model credential and is agent-agnostic on purpose, so the portal cannot write them for you and
+should not pretend to.
+
+What it does instead is both halves of a round trip.
+
+**Copy the prompt** builds a brief that carries its own state: every file it refers to is inlined,
+so a chat window with no filesystem is as useful here as an agent standing in the repo. A charter
+brief carries the org layer, `business.md` and **the peers' charters**, because without those the
+model writes a second copy of whoever it was shown. It runs about 19,000 characters, on purpose:
+one paste into a large-context model beats six rounds of it asking for files it will never get.
+
+**Paste the answer back** turns a chat reply into a file. The brief asks for the finished file
+inside sentinels:
+
+```
+<<<ROSTER FILE roster-ops/org/business.md>>>
+...the whole file...
+<<<ROSTER END>>>
+```
+
+Sentinels rather than code fences, because fences cannot survive the content: a charter and a
+`business.md` both legitimately contain fenced examples. Text outside the block is ignored, because
+the model will chat; one wrapping fence is stripped, because it will fence things anyway.
+
+**Nothing is saved automatically.** You get a diff, then a button. And the failures come back as
+next steps rather than errors, each with a line you can copy straight back:
+
+| | |
+|---|---|
+| no envelope | *"Your AI answered in prose"*, plus the re-prompt |
+| a file the brief did not ask for | refused and named; never offered as a save |
+| the template handed straight back | caught; some models restate a long prompt before working |
+| four lines | *"a failed answer, not a short one"* |
+
+`roster brief <kind>` prints the same brief in a terminal.
+
 ## Graph
 
 Two levels. Memory sections are big nodes on a fixed ring; clicking one fans its facts outwards
@@ -199,9 +284,25 @@ opening the diff that did it: one block per file, coloured, with line numbers.
 
 ## Health
 
-Two halves.
+Three parts.
 
-**Memory problems**, the same checks `roster lint` runs. Each one has a button that opens an
+**The org, from `roster doctor`.** Every finding that is not `ok`, with what to do about it, and
+a button that turns the lot into one brief for a coding agent. That is `roster fix`: `doctor`,
+the prompt audit and `lint` each already carry the sentence that fixes their own finding, and
+this collects them.
+
+Two piles come out, and the split matters. What an agent editing files here can do, and what only
+a person can: an org permission on a settings page, an App a human has to install, a credential
+roster cannot obtain. The second pile is listed but explicitly not asked for, because an agent
+handed one of those does not fail cleanly: it invents a workaround, and every workaround is worse
+than the finding. The brief also names the framework-owned files **before** any of the work, since
+an agent that has started editing has stopped reading.
+
+Paste it into whatever edits files here, then press *Check again*. The ids should be gone.
+
+**Memory problems**, and **the rig**.
+
+Memory problems are the same checks `roster lint` runs. Each one has a button that opens an
 issue in that staff member's own repo asking them to fix it, which is usually right, because
 they wrote it.
 
@@ -237,4 +338,5 @@ is shareable.
 --port <n>    default 4300
 --host <a>    default 127.0.0.1. Anything else exposes write actions to the network.
 --ops <dir>   ops repo directory
+--dir <path>  where a tenant would be created or checked out (default: here)
 ```

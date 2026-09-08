@@ -20,7 +20,8 @@ what to do about it.
 
 **Is:** the ops repo's Actions access is not set to organisation-wide.
 
-Settings -> Actions -> General on `roster-ops`. `roster doctor` checks this explicitly.
+Settings -> Actions -> General on `roster-ops`. `roster doctor` checks this explicitly, and the
+portal's setup screen links straight to the page.
 
 ---
 
@@ -122,6 +123,48 @@ seconds. If it does not:
   public repo instead, so that it gets one reaction rather than two.
 - On the `issues` route (a mention typed into a new issue body) the eyes go on the issue, not
   on a comment, because that payload has no comment.
+
+---
+
+## The portal opened on a setup screen and I already have an org
+
+**Looks like:** roster forgot your organisation.
+
+**Is:** you started it somewhere else. The portal walks up from where it was run looking for a
+directory containing `org.yaml`; from an unrelated folder it finds nothing, which is a setup, not
+an error.
+
+`cd` to your workspace, or pass `--ops <dir>`. If the workspace is on another machine or was never
+cloned here, the setup screen's own answer is right: pick the org, and it will say it already runs
+roster and offer to check it out.
+
+---
+
+## My AI wrote the charter and the portal will not save it
+
+**Looks like:** the paste box rejecting good work.
+
+**Is:** almost always one of four things, and the page says which, with a line to send back:
+
+- the reply had no `<<<ROSTER FILE …>>>` block, because the model answered in prose
+- it wrote a path the brief did not ask for, which is never offered as a save
+- it handed the template back, which some models do after a long prompt
+- it is a few lines long
+
+The file itself is never the problem: text outside the block is ignored and one wrapping fence is
+stripped, so chat and ```` ```markdown ```` are both fine.
+
+---
+
+## The App was created and the portal tab never noticed
+
+**Looks like:** the page stuck on "Confirm it in the tab that just opened".
+
+**Is:** GitHub redirects the tab *it* opened, not the one you clicked from, so the original polls
+for the result. It gives up after five minutes and tells you to reload.
+
+**The App was probably created.** Check the org's App settings before trying again; a second
+attempt fails on the name, which is the safe failure.
 
 ---
 

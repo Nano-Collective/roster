@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { parseMemory } from "../lib/memory.js";
+import { looksUnwritten } from "../lib/stub.js";
 import { opsTemplateDir } from "../lib/templates.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 import { planAll } from "./upgrade.js";
@@ -64,6 +65,7 @@ export async function collect(opts: Flags & { only?: string }): Promise<Report |
   const online = !opts.offline && (await gate(findings));
 
   findings.push(...checkWorkspace(ws, org));
+  findings.push(...checkBusiness(ws));
   if (online) findings.push(...(await checkOrgOnline(ws, org)));
 
   // Staff members are independent, so they are checked at the same time rather than in turn.
@@ -199,6 +201,34 @@ function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
   return out;
 }
 
+/** The one file nothing can generate, and the one whose absence never errors. */
+function checkBusiness(ws: Workspace): Finding[] {
+  const path = join(ws.opsDir, "org", "business.md");
+  if (!existsSync(path)) {
+    return [
+      {
+        scope: "workspace",
+        level: "fail",
+        id: "business",
+        title: "no org/business.md",
+        fix: "Every prompt is composed on top of it. roster brief discover.",
+      },
+    ];
+  }
+  if (looksUnwritten(readFileSync(path, "utf8"))) {
+    return [
+      {
+        scope: "workspace",
+        level: "warn",
+        id: "business.stub",
+        title: "org/business.md is still the questions it shipped with",
+        fix: "roster brief discover, or the setup screen in the portal. Every prompt sits on top of this.",
+      },
+    ];
+  }
+  return [{ scope: "workspace", level: "ok", id: "business", title: "org/business.md is written" }];
+}
+
 interface Manifest {
   handle?: string;
   name?: string;
@@ -277,8 +307,9 @@ async function checkStaff(
     }
   }
 
+  const charterPath = join(root, "CHARTER.md");
   out.push(
-    existsSync(join(root, "CHARTER.md"))
+    existsSync(charterPath)
       ? { scope, level: "ok", id: "charter", title: "CHARTER.md present" }
       : {
           scope,
@@ -288,6 +319,19 @@ async function checkStaff(
           fix: "The charter is the personality; nothing else supplies it.",
         },
   );
+
+  /* `charter` above checks the file exists, which a stub does. This checks somebody answered
+     it. Nothing errors when they have not: the run works and the output is generic, which is
+     worse than a failure because it takes longer to notice. */
+  if (existsSync(charterPath) && looksUnwritten(readFileSync(charterPath, "utf8"))) {
+    out.push({
+      scope,
+      level: "warn",
+      id: "charter.stub",
+      title: "CHARTER.md is still the scaffold",
+      fix: `roster brief charter ${entry.handle}, or "Write the charter" on the portal's Staff screen`,
+    });
+  }
 
   // Memory
   const memDir = join(root, "memory");

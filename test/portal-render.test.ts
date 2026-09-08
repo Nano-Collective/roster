@@ -351,13 +351,46 @@ function fixtureFetch(u: string) {
                 ? INBOX_FIXTURE.items[1]
                 : url.startsWith("/api/sync")
                   ? { results: [] }
-                  : ORG,
+                  : url.startsWith("/api/setup/repos")
+                    ? {
+                        repos: [{ name: "acme-web", visibility: "PUBLIC", description: "the site" }],
+                      }
+                    : url.startsWith("/api/setup/status")
+                      ? SETUP_FIXTURE
+                      : url.startsWith("/api/brief")
+                        ? {
+                            kind: "discover",
+                            text: BRIEF_TEXT,
+                            targets: ["roster-ops/org/business.md"],
+                          }
+                        : (orgOverride ?? ORG),
     text: async () =>
       url.startsWith("/api/doc?")
         ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
         : "sample",
   };
 }
+
+/* What `/api/org` answers with. Overridden by the setup tests, which need the one shape
+   the live workspace never has: no tenant at all. */
+let orgOverride: Record<string, unknown> | null = null;
+
+/** What `/api/setup/status` answers with before there is a tenant. */
+const SETUP_FIXTURE = {
+  tenant: { found: false, repos: [] as string[] },
+  gh: { ok: true, login: "someone" },
+  orgs: ["acme", "other-co"],
+  agents: [
+    {
+      id: "claude-code-action",
+      label: "Claude Code (GitHub Action)",
+      tokenEnv: "CLAUDE_CODE_OAUTH_TOKEN",
+      note: "the reference",
+    },
+    { id: "codex", label: "Codex", tokenEnv: "CODEX_API_KEY", note: "OpenAI's" },
+  ],
+};
+const BRIEF_TEXT = "Write org/business.md.\n\n<<<ROSTER FILE roster-ops/org/business.md>>>";
 
 /** Put a DOM under the modules. Returns the handles the assertions poke at. */
 function install(hash: string) {
@@ -378,6 +411,7 @@ function install(hash: string) {
     },
     querySelectorAll: (sel: string) => (sel === ".nav" ? navs : []),
     documentElement: makeNode("html"),
+    body: makeNode("body"),
     addEventListener() {},
   };
 
@@ -483,7 +517,8 @@ const DEFAULTS = {
   applyingHash: false,
 };
 
-async function renderAll(hash = "") {
+async function renderAll(hash = "", org: Record<string, unknown> | null = null) {
+  orgOverride = org;
   const shim = install(hash);
   const m = await load();
   Object.assign(m.state.S, DEFAULTS);
@@ -491,6 +526,7 @@ async function renderAll(hash = "") {
   // boot() finishes synchronously after its one await, but a view may still have a fetch
   // in flight — the docs and the inbox both load themselves.
   await new Promise((r) => setTimeout(r, 30));
+  orgOverride = null;
 
   const target: any = {
     render: m.app.render,
@@ -1945,4 +1981,67 @@ test("a portal left running across an upgrade says so instead of rendering undef
   assert.match(text, /newer than the portal serving it/, "it has to say what is wrong");
   assert.match(text, /start it again/, "and what to do");
   assert.match(text, /opsName/, "and which field is missing");
+});
+
+/* ----------------------------------- setup mode ----------------------------------- */
+
+test("with no tenant the page becomes the thing that creates one", async () => {
+  /* The portal can now start in an empty directory, which means boot has a second path that a
+     browser is the only other way to exercise. A throw here used to be a blank page. */
+  const s = await renderAll("", { mode: "setup" });
+  await new Promise((r) => setTimeout(r, 30));
+
+  assert.equal(s.document.body.dataset.setup, "1", "setup mode should mark the page");
+  assert.match(s._byId.orgname.textContent, /no org/i);
+
+  const text = s._byId.main.textContent;
+  assert.match(text, /Set up your org/);
+  assert.match(text, /organisation/i, "it should ask which org");
+  assert.match(text, /Which coding agent/, "and which agent runs a session");
+  assert.match(text, /Show me the plan/, "and it should plan before it creates");
+
+  // The orgs gh can see are offered rather than typed from memory.
+  const options = walkNodes(s._byId.main).filter((n) => n.tagName === "OPTION");
+  assert.ok(
+    options.some((o: any) => o.value === "acme"),
+    "the orgs from /api/setup/status should be pickable",
+  );
+});
+
+test("a setup page with no gh stops at gh, and says how to fix it", async () => {
+  const saved = SETUP_FIXTURE.gh;
+  (SETUP_FIXTURE as any).gh = { ok: false, error: "gh is not authenticated" };
+  try {
+    const s = await renderAll("", { mode: "setup" });
+    await new Promise((r) => setTimeout(r, 30));
+    const text = s._byId.main.textContent;
+    assert.match(text, /gh auth login/, "it should print the command");
+    assert.ok(!/Which coding agent/.test(text), "nothing past gh is answerable yet");
+  } finally {
+    (SETUP_FIXTURE as any).gh = saved;
+  }
+});
+
+test("a staff card offers both things hire deliberately does not do", async () => {
+  /* `hire` writes the scaffold and stops: the charter is the personality and the App cannot be
+     created without a human in a browser. Both used to be CLI-only, and neither was reachable
+     from the screen that lists the person they belong to. */
+  const s = await renderAll("#/cto/staff");
+  const text = s._byId.main.textContent;
+  assert.match(text, /Write the charter/);
+  assert.match(text, /GitHub App/);
+});
+
+test("the repo picker offers what org.yaml does not already list", async () => {
+  const saved = SETUP_FIXTURE.tenant;
+  (SETUP_FIXTURE as any).tenant = { found: true, org: "acme", opsDir: "/x", repos: ["roster-ops"] };
+  try {
+    const s = await renderAll("", { mode: "setup" });
+    await new Promise((r) => setTimeout(r, 40));
+    const text = s._byId.main.textContent;
+    assert.match(text, /Which repos the staff work in/);
+    assert.match(text, /acme-web/, "a repo gh can see and org.yaml lacks should be offered");
+  } finally {
+    (SETUP_FIXTURE as any).tenant = saved;
+  }
 });

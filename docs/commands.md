@@ -9,6 +9,26 @@ sidebar_order: 8
 Every command prints a plan and changes nothing unless you pass `--apply`, except `lint`,
 `prompt`, `export` and `portal`, which never change anything at all.
 
+## `roster fix`
+
+Every scanner's findings, as one brief you paste into a coding agent working in this workspace.
+
+```
+--json      the findings as data, rather than as a brief
+--offline   skip everything needing the network
+--ops <dir> ops repo directory
+```
+
+`doctor`, the prompt audit and `lint` each already carry the sentence that fixes their own
+finding; this collects them. Two piles come out: what an agent editing files here can do, and
+what only a person can: an org permission, an App install, a credential. The second is listed
+but marked not to attempt, because an agent handed one of those invents a workaround.
+
+The brief states which files belong to the framework before it states any of the work. A fix
+applied to a vendored file is reverted by the next `roster upgrade`, and that has happened.
+
+The portal's Health screen has the same text behind a copy button.
+
 ## `roster init --org <org>`
 
 Stand up a new tenant: the ops repo, the org layer, and the recorded merge base.
@@ -170,15 +190,23 @@ ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","pr_number":"1","repo":"o/r
 
 ## `roster portal`
 
-Serve a local UI over the checked-out repositories.
+Serve a local UI over the checked-out repositories. **`roster` with no arguments does the same**,
+which is the shortest way in.
 
 ```
---port <n>   default 4300
---host <a>   default 127.0.0.1. Anything else exposes write actions to the network.
+--port <n>    default 4300
+--host <a>    default 127.0.0.1. Anything else exposes write actions to the network.
+--dir <path>  where a tenant would be created or checked out. Default: here.
 ```
 
-Views: Inbox, and per staff member Brain, Graph, What changed, Health. It can reply, close,
-reopen and open issues, acting as you through your own `gh`.
+**With no tenant where you started it, this is the setup screen**: it stands up a new org, or
+checks out one that already runs roster. Local only. See [the portal](portal.md).
+
+Views: Inbox, Org, Staff, Docs, and per staff member Brain, Prompt, Graph, What changed, Health.
+
+It can act as you through your own `gh`: reply, close, reopen and open issues; hire and retire;
+edit and commit the org layer, prompt fragments and charters; create a staff member's GitHub App;
+and copy a prompt for authoring the two files nothing can generate.
 
 ## `roster export`
 

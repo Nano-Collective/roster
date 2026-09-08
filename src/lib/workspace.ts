@@ -38,6 +38,21 @@ export function findWorkspace(start = process.cwd()): Workspace {
   );
 }
 
+/**
+ * The same walk, but a missing workspace is an answer rather than an error.
+ *
+ * `roster portal` used to be unable to start without a tenant, which made the surface that
+ * should run your setup depend on the output of your setup. Everything else still uses
+ * `findWorkspace`: not finding a workspace is a real error for every command that needs one.
+ */
+export function tryWorkspace(start = process.cwd()): Workspace | null {
+  try {
+    return findWorkspace(start);
+  } catch {
+    return null;
+  }
+}
+
 function opsInside(dir: string): string | null {
   for (const name of ["roster-ops", "ops", ".roster"]) {
     if (existsSync(join(dir, name, "org.yaml"))) return name;

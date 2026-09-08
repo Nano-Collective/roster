@@ -1,6 +1,6 @@
 {
   "name": "@nanocollective/roster",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "An agent-run org, powered by GitHub. Scaffold AI staff members whose brain is a repo.",
   "type": "module",
   "bin": {
@@ -30,7 +30,8 @@
     "test:audit": "pnpm audit --audit-level=high",
     "test:security": "semgrep scan --config auto --error",
     "typecheck": "tsc --noEmit",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "prepublishOnly": "pnpm test:all && pnpm build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
@@ -42,7 +43,6 @@
     "typescript": "^5.7.2"
   },
   "license": "MIT",
-  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Nano-Collective/roster.git"
@@ -52,5 +52,9 @@
     "url": "https://github.com/Nano-Collective/roster/issues"
   },
   "author": "Nano Collective",
-  "packageManager": "pnpm@11.0.9"
+  "packageManager": "pnpm@11.0.9",
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  }
 }

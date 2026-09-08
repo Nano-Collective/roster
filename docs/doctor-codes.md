@@ -25,6 +25,8 @@ ran at all.
 | `human` | **fail.** `org.yaml` has no `human.github`. The mention callers gate on that login, so nothing can wake an agent. |
 | `repo` | Every repo in `org.yaml` is reachable. A failure means it does not exist or your `gh` cannot see it. |
 | `repo.visibility` | A repo's real visibility disagrees with what `org.yaml` records. Cosmetic, but the posture it records is then fiction. |
+| `business` | **fail** if `org/business.md` is missing. Every prompt is composed on top of it. |
+| `business.stub` | `org/business.md` is still the questions it shipped with. Nothing errors; the agents just write competent work about a business that does not exist. |
 | `actions-access` | **fail** unless the ops repo is callable from the whole organisation. This is the "workflow not found" trap. See [manual steps](manual-steps.md#1-allow-the-ops-repos-workflow-to-be-called). |
 | `upgrade` | The tenant is in sync with the framework. |
 | `upgrade.stale` | Generated files are behind. `roster upgrade --apply`. |
@@ -40,6 +42,7 @@ ran at all.
 | `manifest.handle` | **fail.** `staff.yaml` and `org.yaml` disagree about the handle. The composer looks them up by the `org.yaml` one. |
 | `manifest.brain` | **fail.** No brain repo declared, so no secrets, labels or runs can be checked. |
 | `charter` | **fail** if `CHARTER.md` is absent. Note that a stub counts as present: this checks the file exists, not that it says anything. |
+| `charter.stub` | `CHARTER.md` exists but is still the scaffold. `charter` above only checks the file is there, which a stub is. |
 | `memory` | `memory/INDEX.md` parses, and how many facts and notes it holds. |
 | `compose` | All three prompts compose. A failure names the kind and the placeholder. |
 | `callers` | Three caller workflows exist. |

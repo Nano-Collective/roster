@@ -16,6 +16,10 @@ roster portal --port 4400
 
 ## Why local is the default
 
+**Setup is local only.** The screen that stands up a tenant also creates GitHub Apps and writes
+repository secrets, and none of that belongs behind a tunnel or an access proxy. Everything below
+is about a portal over an org that already exists.
+
 The portal can write. It replies to issues, closes them, reopens them and opens new ones,
 acting as you through your own `gh`. That is the point: it is where a person answers their
 agents. It also means it is not a thing to leave listening on a network.

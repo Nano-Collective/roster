@@ -6,10 +6,29 @@ sidebar_order: 1
 
 # Getting started
 
-You need `gh` authenticated against a GitHub organisation you can create repositories in, and
-a credential for whichever [coding agent](agents.md) you want to run.
+```bash
+npx @nanocollective/roster
+```
 
-Nothing below writes anything without `--apply`.
+Run that in an empty directory. It opens a portal in your browser and walks the whole setup:
+it checks `gh`, lists the organisations you can see, and asks which one.
+
+**Two answers, and it works out which you need.** An organisation that does not run roster yet
+gets one stood up. One that already does gets checked out here instead, ops repo and every
+staff repo side by side, which is the shape the CI runner uses. That is how a second person on
+a team joins an org somebody else set up.
+
+From there the page carries the rest: the Actions setting that has to be clicked, the repos
+your staff work in, hiring, each GitHub App, and a prompt you paste into your own AI to write
+`org/business.md` and the charters.
+
+You need `gh` authenticated, and a credential for whichever [coding agent](agents.md) you want
+to run.
+
+---
+
+The rest of this page is the same setup from a terminal. Everything the portal does, these do;
+nothing writes without `--apply`.
 
 ## 1. Stand up the org
 

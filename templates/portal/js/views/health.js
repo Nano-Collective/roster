@@ -5,6 +5,7 @@ import { ago, el, esc, kb } from "../dom.js";
 import { inline } from "../md.js";
 import { render } from "../router.js";
 import { S, staff } from "../state.js";
+import { checklist } from "./checklist.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -25,6 +26,15 @@ export function viewHealth(m) {
   const s = staff();
   const rig = s.rig ?? {};
   m.append(el("h1", { textContent: s.name + " · health" }));
+
+  /* `roster doctor` runs over the whole org, so it is drawn once at the top rather than
+     pretended to be per-staff. The comment this replaced said doctor "does not exist yet". */
+  const org = el("div", { className: "card", style: "margin-bottom:16px" });
+  org.append(el("h3", { textContent: "The org, from roster doctor" }));
+  const rows = el("div");
+  org.append(rows);
+  m.append(org);
+  checklist(rows, {});
   const errs = s.problems.filter((p) => p.level === "error");
   const warns = s.problems.filter((p) => p.level === "warning");
   m.append(el("p", { className: "sub", innerHTML:

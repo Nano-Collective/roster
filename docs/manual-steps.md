@@ -9,6 +9,11 @@ sidebar_order: 2
 Everything a human has to do, why it cannot be automated, and what it looks like when you skip
 it. This page exists because every item on it has cost somebody real time.
 
+**The portal walks you through most of this now.** `roster` with no arguments opens a setup screen
+that deep-links item 1, runs items 2 and 3 for you as far as GitHub allows, and hands you a prompt
+for items 5 and 6. This page is still the *why*: it is what to read when one of them bites, and
+what to check when the page says something is not done.
+
 `roster doctor` checks most of these. Run it after each one.
 
 ---
@@ -16,7 +21,7 @@ it. This page exists because every item on it has cost somebody real time.
 ## 1. Allow the ops repo's workflow to be called
 
 **Do:** `<org>/roster-ops` -> Settings -> Actions -> General -> *Access* -> **Accessible from
-repositories in the organisation**.
+repositories in the organisation**. The setup screen links straight to that page.
 
 **Why not automated:** it is an organisation permission on a repository, and the API for it
 needs admin rights that a token created for a different purpose should not have. roster reads
@@ -32,8 +37,9 @@ them, it is this.
 
 ## 2. Create the GitHub App
 
-**Do:** `roster app <handle>`. It opens a browser, GitHub asks you to confirm, and you come
-back. Credentials go straight into the repository's secrets.
+**Do:** the **GitHub App** button on a staff card in the portal, or `roster app <handle>` in a
+terminal. Either opens a browser, GitHub asks you to confirm, and you come back. Credentials go
+straight into the repository's secrets.
 
 **Why not fully automated:** there is no API that creates a GitHub App. The only route is the
 App Manifest flow: POST a manifest to a settings page, a human confirms, GitHub returns a
@@ -51,14 +57,14 @@ page and set the secret by hand. roster tells you this if it happens.
 
 ## 3. Install the App, and grant it the right repositories
 
-**Do:** open the URL `roster app` prints. Choose repositories.
+**Do:** open the URL the portal shows, or that `roster app` prints. Choose repositories.
 
 **Why not automated:** installing is a grant of access to specific repositories, and GitHub
 requires a human to choose them. This is the correct behaviour and should not be worked around.
 
 **Grant it on every tracker the staff member writes to**, not just their own. The token is
-minted organisation-wide, and a peer's board is where a brief lands. `roster app` prints the
-full list.
+minted organisation-wide, and a peer's board is where a brief lands. Both the portal and
+`roster app` say so.
 
 **If you skip it, or under-grant it:** this is the trap that costs the most time, because of
 how it fails.
@@ -95,8 +101,11 @@ checkouts have already happened.
 
 ## 5. Write `org/business.md`
 
-**Do:** answer the questions `roster init` leaves in it. With your own AI if you like:
-`roster brief discover`, then paste it into your agent.
+**Do:** answer the questions `roster init` leaves in it. The setup screen has a **Copy the
+prompt** button that carries every file it refers to, and a box to paste the answer back into;
+`roster brief discover` prints the same brief for a terminal.
+
+`roster doctor` reports `business.stub` while it is still the questions.
 
 **Why not automated:** an agent that does not know the business writes work that is plausible
 and generic. That is worse than no work, because it takes longer to notice. This file is
@@ -109,14 +118,16 @@ a business that does not exist.
 
 ## 6. Write each staff member's `CHARTER.md`
 
-**Do:** `roster brief charter <handle>`, and paste it into your agent. Or write it by hand;
+**Do:** **Write the charter** on that staff member's card in the portal, or
+`roster brief charter <handle>` and paste it into your agent. Or write it by hand;
 [writing a charter](writing-a-charter.md) has the shape.
 
 **Why not automated:** same reason, one level down. The charter is what makes a staff member
 different from the others.
 
-**If you skip it:** `roster doctor` reports the charter as present (the stub is a file) but the
-agent has no personality and will produce whatever the shared layer implies.
+**If you skip it:** `charter` reports it as present, because the stub is a file. `charter.stub`
+is the finding that says nobody has answered it. The agent has no personality and produces
+whatever the shared layer implies.
 
 ---
 
@@ -137,6 +148,8 @@ as still pending next time, which is the intended behaviour.
 ## Order
 
 For a new organisation:
+
+In the portal, this order is the screen you are looking at. From a terminal:
 
 ```
 roster init --org <org> --apply          # 1 applies here

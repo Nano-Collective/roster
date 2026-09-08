@@ -23,6 +23,11 @@ That prints a self-contained brief. Paste it into whatever agent you use, or pip
 `roster brief charter cto | pbcopy`. In Claude Code, `cd <staff-dir> && claude` then
 `/charter` runs the same text, because `roster hire` generates the slash command from it.
 
+**Or do the whole round trip in the portal.** *Write the charter* on that staff member's card
+copies the same brief with every file it refers to already inside it, including the peers'
+charters, so a chat window with no filesystem can do it. Paste the reply back and you get a diff
+and a save. See [the portal](portal.md).
+
 The brief tells the agent to read `org/business.md`, the shared operating
 layer, and every peer's charter, then interviews you and drafts from your answers. It also tells
 you what it cut and why.

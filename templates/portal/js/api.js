@@ -34,3 +34,41 @@ export async function post(payload, url = "/api/act") {
   if (!res.ok || data.error) throw new Error(data.error || "failed with " + res.status);
   return data;
 }
+
+/* ------------------------------- setup and authoring ------------------------------- */
+
+export const getSetup = () => json("/api/setup/status");
+
+export const planTenant = (params) =>
+  json("/api/setup/plan?" + new URLSearchParams(params).toString());
+
+export const createTenant = (params) => post(params, "/api/setup/apply");
+
+/** The copyable prompt, with every file it refers to carried inside it. */
+export const getBrief = (kind, staff) =>
+  json("/api/brief?kind=" + encodeURIComponent(kind) + (staff ? "&staff=" + encodeURIComponent(staff) : ""));
+
+/** Parse what came back from the model. Reads only: saving is a second, deliberate step. */
+export const parsePaste = (kind, staff, answer) =>
+  fetch("/api/paste", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind, staff, answer }),
+  }).then((r) => r.json());
+
+export const saveFile = (path, text, message) => post({ path, text, message }, "/api/save");
+
+/** The scan every checklist is derived from. */
+export const getDoctor = (offline) => json("/api/doctor" + (offline ? "?offline=1" : ""));
+
+/** Those findings as one brief for a coding agent, plus the split into who can do what. */
+export const getFix = (offline) => json("/api/fix" + (offline ? "?offline=1" : ""));
+
+export const listRepos = (org) => json("/api/setup/repos?org=" + encodeURIComponent(org));
+export const addRepo = (name, role) => post({ name, role }, "/api/setup/add-repo");
+export const startApp = (staff, scope) => post({ staff, scope }, "/api/setup/app");
+export const appResult = (state) => json("/api/setup/app-result?state=" + encodeURIComponent(state));
+
+/** Does this org already run roster. "Create" and "join" are different answers. */
+export const checkOrg = (org) => json("/api/setup/check-org?org=" + encodeURIComponent(org));
+export const joinOrg = (org) => post({ org }, "/api/setup/join");

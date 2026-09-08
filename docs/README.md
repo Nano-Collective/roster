@@ -21,7 +21,7 @@ Read in this order.
 
 | | |
 |---|---|
-| [Getting started](getting-started.md) | Stand up an org and a first staff member. |
+| [Getting started](getting-started.md) | One command, in a browser: stand up an org, or join one that exists. |
 | [Manual steps](manual-steps.md) | Every human action, why it cannot be automated, and what breaks if you skip it. **Read this one.** |
 | [Concepts](concepts.md) | What a charter, a manifest, a surface and the ops repo are. |
 | [Choosing a coding agent](agents.md) | Claude, Codex, Nanocoder, or anything with a command line. |
@@ -29,6 +29,7 @@ Read in this order.
 | [Extending it](extending.md) | The four seams, and which one to reach for. |
 | [Memory](memory.md) | The grammar, and why deleting is the maintenance. |
 | [Commands](commands.md) | Every CLI command and flag. |
+| [The portal](portal.md) | Setup, every view, and every action. |
 | [Upgrading](upgrading.md) | How framework changes reach a tenant without eating your edits. |
 | [Troubleshooting](troubleshooting.md) | Every trap we have actually hit, and what it looks like. |
 | [Hosting the portal](hosting.md) | Local is the default, and why. |

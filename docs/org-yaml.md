@@ -18,7 +18,7 @@ outgrown being a manifest**, and the parser refuses to guess rather than mispars
 
 ```yaml
 org: acme
-name: Pip
+name: Acme Robotics
 ops_dir: roster-ops
 
 human:

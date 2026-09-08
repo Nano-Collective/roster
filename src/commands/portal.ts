@@ -1,19 +1,34 @@
 import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { type ActRequest, act } from "../lib/act.js";
 import { amendBrief } from "../lib/amend.js";
+import {
+  type AppSpec,
+  buildManifest,
+  exchange,
+  handoffPage,
+  setSecret,
+} from "../lib/appmanifest.js";
 import { auditPrompt } from "../lib/audit.js";
 import { docPages, docsDir } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
+import { api, ghJson } from "../lib/gh.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
+import { parsePaste } from "../lib/paste.js";
+import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
 import { isWritable, KINDS, promptView, saveFile, validateOrgYaml } from "../lib/prompt.js";
 import { orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
+import { joinTenant, loadFrameworkComposer, orgHasTenant, setupStatus } from "../lib/setup.js";
 import { syncRepos } from "../lib/sync.js";
-import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
+import { loadComposer, readOrg, tryWorkspace, type Workspace } from "../lib/workspace.js";
 import { portalAsset, portalIndex } from "../portal/assets.js";
-import { applyPlan, buildPlan, type Flags, type OrgYaml } from "./hire.js";
+import { collect } from "./doctor.js";
+import { fixBrief, gather } from "./fix.js";
+import { applyPlan, buildPlan, type Flags, insertUnder, type OrgYaml } from "./hire.js";
+import { initCommand, initFiles } from "./init.js";
 import { applyRetirePlan, buildRetirePlan } from "./retire.js";
 
 export const portalHelp = `
@@ -24,12 +39,16 @@ roster portal
 
   Reads the checked-out repos from disk. No auth, no API rate limits, works offline.
 
+  With no tenant where you started it, this is the setup screen instead: it stands up a new
+  org, or checks out one that already runs roster. \`roster\` with no arguments does the same.
+
   It can also act on GitHub as you: reply, close, reopen and open issues. Those go
   through your own gh, so they are indistinguishable from doing it on the site.
 
   --port <n>     default 4300
   --host <addr>  default 127.0.0.1. Anything else exposes write actions to the network.
   --ops <dir>    ops repo directory (default: found by walking up)
+  --dir <path>   where a tenant would be created or checked out (default: here)
 `;
 
 const MIME: Record<string, string> = {
@@ -54,20 +73,58 @@ const MIME: Record<string, string> = {
   ".pdf": "application/pdf",
 };
 
+/**
+ * Hand-offs in flight, keyed by the state GitHub echoes back.
+ *
+ * In memory and never persisted: a manifest code is good for an hour, and a restarted portal
+ * has no business resuming somebody else's App creation.
+ */
+const pendingApps = new Map<
+  string,
+  { spec: AppSpec; brain: string; prefix: string; org: string }
+>();
+const appResults = new Map<string, Record<string, unknown>>();
+
 export async function portalCommand(argv: string[]): Promise<number> {
   const opts = parseFlags(argv);
-  const ws = findWorkspace(opts.ops);
-  const { compose, parseYaml } = await loadComposer(ws.opsDir);
   const port = opts.port ?? 4300;
   const host = opts.host ?? "127.0.0.1";
+  const startedIn = resolve(opts.ops ?? opts.dir ?? process.cwd());
+
+  /* The portal used to refuse to start without a tenant, which made the surface that should
+     run your setup depend on the output of your setup. Now a missing workspace is a mode: the
+     server comes up, mounts the setup routes, and re-resolves itself the moment `org.yaml`
+     lands on disk. Everything below is `let` for that one reason. */
+  let ws = tryWorkspace(startedIn);
+  let composer = ws ? await loadComposer(ws.opsDir) : await loadFrameworkComposer();
+  const compose = (...args: Parameters<typeof composer.compose>) => composer.compose(...args);
+  const parseYaml = (text: string, file?: string) => composer.parseYaml(text, file);
+
+  /**
+   * Pick up a tenant that did not exist when the server started.
+   *
+   * Switching to the tenant's own vendored `compose.mjs` is the point: the framework's copy is
+   * only ever a stand-in for the minutes before `init` has run, and two composers in play is
+   * exactly the drift `loadComposer` exists to prevent.
+   */
+  const adopt = async () => {
+    const found = tryWorkspace(startedIn);
+    if (!found) return false;
+    ws = found;
+    composer = await loadComposer(found.opsDir);
+    return true;
+  };
 
   // gh calls take about a second each and the inbox hits every repo, so a short cache keeps
   // switching views instant. The refresh button bypasses it.
   let cache: { at: number; body: string } | null = null;
   const TTL = 45_000;
 
+  const brainDirs = () =>
+    (readOrg(ws!.opsDir, parseYaml).staff ?? []).map((s) => s.dir ?? s.handle);
+
   const knownRepos = () => {
-    const org = readOrg(ws.opsDir, parseYaml) as any;
+    const org = readOrg(ws!.opsDir, parseYaml) as any;
     return (org.repos ?? []).map((r: any) => ({
       name: r.name,
       owner: org.org,
@@ -84,6 +141,250 @@ export async function portalCommand(argv: string[]): Promise<number> {
     const origin = req.headers.origin;
     if (origin && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return false;
     return true;
+  };
+
+  /**
+   * The setup routes, which are the only ones that run before a tenant exists.
+   *
+   * `plan` and `apply` are the same `initFiles` the CLI uses, so the browser and the terminal
+   * cannot disagree about what a new tenant contains. Plan-then-apply survives the port: the
+   * plan writes nothing, and applying is a separate, guarded POST.
+   */
+  const handleSetup = async (
+    url: URL,
+    req: import("node:http").IncomingMessage,
+    res: import("node:http").ServerResponse,
+  ) => {
+    const route = url.pathname.slice("/api/setup/".length);
+
+    if (route === "status") {
+      json(res, { ...(await setupStatus(startedIn)), startedIn });
+      return;
+    }
+
+    /* Creating a staff member's GitHub App, on this server rather than on a second one.
+       `roster app` spins up its own listener on 4310 for the manifest hand-off; in the portal
+       that is one browser, two origins and two ports to explain. Same flow, same one-time code,
+       same private key that never touches disk — just served from the page you are already on. */
+    if (route === "app") {
+      if (!writeAllowed(req) || !ws) {
+        refuseWrite(res);
+        return;
+      }
+      const payload = JSON.parse((await body(req)) || "{}") as {
+        staff?: string;
+        scope?: string;
+      };
+      const org = readOrg(ws.opsDir, parseYaml) as any;
+      const entry = (org.staff ?? []).find((x: any) => x.handle === payload.staff);
+      if (!entry) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: `no staff member "${payload.staff}"` }));
+        return;
+      }
+      const dir = entry.dir ?? entry.handle;
+      const spec = specFromManifest(
+        parseYaml(readFileSync(join(ws.root, dir, "staff.yaml"), "utf8"), "staff.yaml") as any,
+        dir,
+      );
+      const isPublic = payload.scope === "public";
+      const name = isPublic ? spec.publicApp : spec.app;
+      const prefix = isPublic ? spec.publicSecretPrefix : spec.secretPrefix;
+      if (!name) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: `staff.yaml declares no ${payload.scope} app` }));
+        return;
+      }
+
+      // An App name is unique across GitHub, so the clash is worth catching before a browser
+      // is opened rather than after a form is submitted.
+      const existing = await api<{ slug: string }>(`/apps/${name}`);
+      if (existing.ok) {
+        res.writeHead(409, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: `An App called "${name}" already exists. If it is yours it only needs installing.`,
+            install: `https://github.com/organizations/${org.org}/settings/apps/${name}/installations`,
+          }),
+        );
+        return;
+      }
+
+      const state = randomBytes(16).toString("hex");
+      pendingApps.set(state, {
+        spec: {
+          name,
+          org: org.org,
+          scope: isPublic ? "public" : "private",
+          description: isPublic
+            ? `Shared public identity for ${org.name}'s staff, managed by roster.`
+            : `${spec.name} at ${org.name}. An agent-run staff member, managed by roster.`,
+        },
+        brain: spec.brain,
+        prefix,
+        org: org.org,
+      });
+      json(res, { state, start: `/setup/app/start?state=${state}` });
+      return;
+    }
+
+    /* Does this org already run roster. Asked before anything is offered, because "create"
+       and "join" are different answers and the wrong one leaves a second ops repo behind. */
+    if (route === "check-org") {
+      const org = url.searchParams.get("org") ?? "";
+      if (!/^[A-Za-z0-9][\w.-]*$/.test(org)) {
+        res.writeHead(400).end("bad request");
+        return;
+      }
+      json(res, await orgHasTenant(org));
+      return;
+    }
+
+    /* Joining one that exists: clone the ops repo, read its staff list, clone each brain
+       beside it. That layout is not a preference — it is the shape the CI runner checks out,
+       so what you see locally is what runs. */
+    if (route === "join") {
+      if (!writeAllowed(req)) {
+        refuseWrite(res);
+        return;
+      }
+      const payload = JSON.parse((await body(req)) || "{}") as { org?: string };
+      const org = String(payload.org ?? "");
+      if (!/^[A-Za-z0-9][\w.-]*$/.test(org)) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "an organisation name is needed" }));
+        return;
+      }
+      const said = capture();
+      try {
+        const cloned = await joinTenant(startedIn, org);
+        const adopted = await adopt();
+        json(res, { ok: true, adopted, cloned, output: said.text() });
+      } catch (err) {
+        json(res, { ok: false, error: String((err as Error).message), output: said.text() });
+      } finally {
+        said.stop();
+      }
+      return;
+    }
+
+    /* The repos the staff operate in. A picker over what your gh can already see beats
+       hand-editing a YAML list you have to spell exactly right. */
+    if (route === "repos") {
+      const org = url.searchParams.get("org") ?? "";
+      if (!/^[A-Za-z0-9][\w.-]*$/.test(org)) {
+        res.writeHead(400).end("bad request");
+        return;
+      }
+      const list = await ghJson<Array<{ name: string; visibility: string; description: string }>>([
+        "repo",
+        "list",
+        org,
+        "--limit",
+        "200",
+        "--json",
+        "name,visibility,description",
+      ]);
+      json(res, {
+        repos: list.ok ? (list.data ?? []) : [],
+        error: list.ok ? undefined : list.error,
+      });
+      return;
+    }
+
+    /* Adding one to org.yaml, textually, the same way `hire` appends a staff member: a round
+       trip through a generic YAML emitter would reformat the file and lose every comment. */
+    if (route === "add-repo") {
+      if (!writeAllowed(req) || !ws) {
+        refuseWrite(res);
+        return;
+      }
+      const payload = JSON.parse((await body(req)) || "{}") as { name?: string; role?: string };
+      const name = String(payload.name ?? "");
+      const role = String(payload.role ?? "product");
+      if (!/^[\w.-]+$/.test(name) || !/^(product|brain|ops|repo)$/.test(role)) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "a repo name and a known role are needed" }));
+        return;
+      }
+      const path = join(ws.opsDir, "org.yaml");
+      const text = readFileSync(path, "utf8");
+      if (new RegExp(`name: ${name}[,\\s}]`).test(text)) {
+        json(res, { ok: true, note: "already there" });
+        return;
+      }
+      const result = saveFile(
+        ws,
+        `${ws.opsName}/org.yaml`,
+        insertUnder(text, "repos", `  - { name: ${name}, visibility: private, role: ${role} }`),
+        `portal: org.yaml lists ${name}`,
+      );
+      json(res, { ok: true, ...result });
+      return;
+    }
+
+    if (route === "plan" || route === "apply") {
+      const params =
+        route === "apply"
+          ? (JSON.parse((await body(req)) || "{}") as Record<string, string>)
+          : Object.fromEntries(url.searchParams);
+
+      const org = String(params.org ?? "").trim();
+      if (!/^[A-Za-z0-9][\w.-]*$/.test(org)) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "an organisation name is needed" }));
+        return;
+      }
+      const argv = [
+        "--org",
+        org,
+        "--name",
+        String(params.name ?? org),
+        "--dir",
+        startedIn,
+        "--agent",
+        String(params.agent ?? "claude-code-action"),
+      ];
+      if (params.human) argv.push("--human", String(params.human));
+      if (params.marker) argv.push("--marker", String(params.marker));
+
+      if (route === "plan") {
+        json(res, {
+          org,
+          dir: join(startedIn, "roster-ops"),
+          files: [
+            ...initFiles({
+              org,
+              name: String(params.name ?? org),
+              human: String(params.human ?? ""),
+              marker: String(params.marker ?? "human"),
+              opsName: "roster-ops",
+              agent: String(params.agent ?? "claude-code-action"),
+            }).keys(),
+          ].sort(),
+        });
+        return;
+      }
+
+      if (!writeAllowed(req)) {
+        refuseWrite(res);
+        return;
+      }
+      const said = capture();
+      let code: number;
+      try {
+        code = await initCommand([...argv, "--apply"]);
+      } finally {
+        said.stop();
+      }
+      // The whole point of the flip: the tenant that did not exist a second ago is now the one
+      // this server serves, without anybody restarting anything.
+      const adopted = code === 0 ? await adopt() : false;
+      json(res, { ok: code === 0, code, adopted, output: said.text() });
+      return;
+    }
+
+    res.writeHead(404).end("not found");
   };
 
   const body = (req: import("node:http").IncomingMessage) =>
@@ -143,11 +444,110 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* The manifest hand-off, and GitHub's redirect back. Plain pages rather than JSON:
+         a browser is the client for both, and the second one is a redirect we do not control. */
+      if (url.pathname === "/setup/app/start") {
+        const pending = pendingApps.get(url.searchParams.get("state") ?? "");
+        if (!pending) {
+          res.writeHead(400, { "content-type": "text/html" }).end("<p>Unknown hand-off.</p>");
+          return;
+        }
+        const redirect = `http://localhost:${port}/setup/app/callback`;
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(
+          handoffPage(
+            pending.spec,
+            buildManifest(pending.spec, redirect),
+            url.searchParams.get("state") ?? "",
+          ),
+        );
+        return;
+      }
+
+      if (url.pathname === "/setup/app/callback") {
+        const state = url.searchParams.get("state") ?? "";
+        const pending = pendingApps.get(state);
+        const code = url.searchParams.get("code") ?? "";
+        if (!pending || !code) {
+          res
+            .writeHead(400, { "content-type": "text/html" })
+            .end(
+              "<p>That did not come from a hand-off this portal started. Nothing was created.</p>",
+            );
+          return;
+        }
+        pendingApps.delete(state);
+        exchange(code)
+          .then(async (app) => {
+            /* The key exists only in memory here. If the secret write fails it is gone, and
+               saying so is the difference between a puzzling failure and a known one. */
+            await setSecret(pending.brain, `${pending.prefix}_APP_ID`, String(app.id));
+            await setSecret(pending.brain, `${pending.prefix}_APP_PRIVATE_KEY`, app.pem);
+            appResults.set(state, {
+              ok: true,
+              slug: app.slug,
+              install: `https://github.com/organizations/${pending.org}/settings/apps/${app.slug}/installations`,
+            });
+            res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+            res.end(
+              `<body style="font:15px/1.6 system-ui;max-width:34rem;margin:14vh auto;padding:0 1.4rem">` +
+                `<h1 style="font-size:1.3rem">${app.slug} created</h1>` +
+                `<p>Its id and private key went straight into ${pending.brain}'s secrets. The key was never written to disk.</p>` +
+                `<p><b>It still has to be installed</b>, and granted every tracker this staff member writes to — not just their own.</p>` +
+                `<p>Close this tab; the portal has the link.</p></body>`,
+            );
+          })
+          .catch((err: Error) => {
+            appResults.set(state, { ok: false, error: err.message });
+            res
+              .writeHead(502, { "content-type": "text/html; charset=utf-8" })
+              .end(
+                `<body style="font:15px/1.6 system-ui;padding:2rem"><h1>That did not work</h1><p>${err.message}</p></body>`,
+              );
+          });
+        return;
+      }
+
+      if (url.pathname === "/api/setup/app-result") {
+        json(res, appResults.get(url.searchParams.get("state") ?? "") ?? { pending: true });
+        return;
+      }
+
+      /* The scan every checklist is derived from. Above the guard because setup polls it the
+         moment a tenant appears, and `collect` finds its own workspace anyway. */
+      if (url.pathname === "/api/doctor") {
+        collect({ ops: ws?.opsDir, offline: url.searchParams.get("offline") === "1" })
+          .then((report) => json(res, report ?? { findings: [], online: false, empty: true }))
+          .catch((err) => {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ findings: [], error: String(err?.message ?? err) }));
+          });
+        return;
+      }
+
+      /* Setup runs before there is a tenant, so its routes sit above the guard. */
+      if (url.pathname.startsWith("/api/setup/")) {
+        handleSetup(url, req, res).catch((err) => {
+          res.writeHead(500, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+        });
+        return;
+      }
+
+      /* Everything past here reads a tenant. Without one the honest answer is which mode the
+         server is in, not a 500 from dereferencing a workspace that was never found. */
+      if (!ws) {
+        res.writeHead(409, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ mode: "setup", error: "there is no tenant here yet" }));
+        return;
+      }
+      const w: Workspace = ws;
+
       if (url.pathname === "/api/org") {
         // Rebuilt per request so a browser refresh shows what is on disk right now,
         // including whatever an agent pushed thirty seconds ago.
-        const org = readOrg(ws.opsDir, parseYaml);
-        const data = buildExport(ws, org as any, parseYaml);
+        const org = readOrg(w.opsDir, parseYaml);
+        const data = buildExport(w, org as any, parseYaml);
         res.writeHead(200, {
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-store",
@@ -161,16 +561,16 @@ export async function portalCommand(argv: string[]): Promise<number> {
       if (url.pathname === "/api/prompt") {
         const handle = url.searchParams.get("staff") ?? "";
         const kind = url.searchParams.get("kind") ?? "daily";
-        const org = readOrg(ws.opsDir, parseYaml);
+        const org = readOrg(w.opsDir, parseYaml);
         const entry = (org.staff ?? []).find((s) => s.handle === handle);
         if (!entry || !(KINDS as readonly string[]).includes(kind)) {
           res.writeHead(400).end("bad request");
           return;
         }
-        const brainDir = join(ws.root, entry.dir ?? entry.handle);
+        const brainDir = join(w.root, entry.dir ?? entry.handle);
         try {
-          const view = promptView(ws, compose, handle, brainDir, kind);
-          view.problems = auditPrompt(ws, view, workspaceRoots(org as any));
+          const view = promptView(w, compose, handle, brainDir, kind);
+          view.problems = auditPrompt(w, view, workspaceRoots(org as any));
           res.writeHead(200, {
             "content-type": "application/json; charset=utf-8",
             "cache-control": "no-store",
@@ -191,13 +591,13 @@ export async function portalCommand(argv: string[]): Promise<number> {
       if (url.pathname === "/api/staff/plan") {
         const handle = url.searchParams.get("handle") ?? "";
         const action = url.searchParams.get("action") === "retire" ? "retire" : "hire";
-        const org = readOrg(ws.opsDir, parseYaml);
+        const org = readOrg(w.opsDir, parseYaml);
         try {
           if (action === "retire") {
             if (!(org.staff ?? []).some((s) => s.handle === handle)) {
               throw new Error(`"${handle}" is not in org.yaml`);
             }
-            const plan = buildRetirePlan(ws, org, handle, parseYaml);
+            const plan = buildRetirePlan(w, org, handle, parseYaml);
             json(res, { action, plan });
             return;
           }
@@ -208,7 +608,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
             throw new Error(`"${handle}" is already in org.yaml`);
           }
           const flags = hireFlags(url.searchParams);
-          const plan = buildPlan(ws, org as OrgYaml, handle, flags, parseYaml);
+          const plan = buildPlan(w, org as OrgYaml, handle, flags, parseYaml);
           // The file bodies are megabytes of scaffold nobody reads in a plan. Names only.
           json(res, {
             action,
@@ -223,8 +623,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
       if (url.pathname === "/api/staff/apply") {
         if (!writeAllowed(req)) {
-          res.writeHead(403, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
+          refuseWrite(res);
           return;
         }
         body(req)
@@ -235,7 +634,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
               flags?: Record<string, string>;
             };
             const handle = payload.handle ?? "";
-            const org = readOrg(ws.opsDir, parseYaml);
+            const org = readOrg(w.opsDir, parseYaml);
             /* Both of these write to GitHub and to disk, and both print as they go. The
                output is captured and returned, because a person who just created a repo
                wants the same account of it the terminal gives. */
@@ -243,11 +642,11 @@ export async function portalCommand(argv: string[]): Promise<number> {
             let code: number;
             try {
               if (payload.action === "retire") {
-                code = await applyRetirePlan(ws, buildRetirePlan(ws, org, handle, parseYaml));
+                code = await applyRetirePlan(w, buildRetirePlan(w, org, handle, parseYaml));
               } else {
                 const flags = hireFlags(new URLSearchParams(payload.flags ?? {}));
-                const plan = buildPlan(ws, org as OrgYaml, handle, flags, parseYaml);
-                code = await applyPlan(ws, plan, { ...flags, apply: true });
+                const plan = buildPlan(w, org as OrgYaml, handle, flags, parseYaml);
+                code = await applyPlan(w, plan, { ...flags, apply: true });
               }
             } finally {
               said.stop();
@@ -264,33 +663,94 @@ export async function portalCommand(argv: string[]): Promise<number> {
       /* A prompt you paste into your own AI to change what this agent is told. It carries
          the composed text and every layer, because knowing which of eight files to open is
          the hard part and a brief that asks for them has handed that back. */
+      /* Every scanner's findings as one brief for a coding agent. The Health screen's
+         "copy all instructions" button, and `roster fix` in the terminal, are the same text. */
+      if (url.pathname === "/api/fix") {
+        gather(w, url.searchParams.get("offline") === "1")
+          .then((items) => json(res, { items, text: fixBrief(w, items) }))
+          .catch((err) => {
+            res.writeHead(200, { "content-type": "application/json" });
+            res.end(JSON.stringify({ items: [], error: String(err?.message ?? err) }));
+          });
+        return;
+      }
+
+      /* The copy-a-prompt half of authoring. `mode=paste` carries every file the brief refers
+         to and asks for the answer in an envelope, so a chat window with no filesystem is as
+         useful here as an agent standing in the repo. */
+      if (url.pathname === "/api/brief") {
+        const kind = url.searchParams.get("kind") ?? "";
+        const handle = url.searchParams.get("staff") ?? "";
+        try {
+          const brief = buildPasteBrief(w, parseYaml, kind, handle);
+          json(res, { kind, text: brief.text, targets: brief.targets.map((t) => t.path) });
+        } catch (err) {
+          res.writeHead(400, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: String((err as Error).message) }));
+        }
+        return;
+      }
+
+      /* The paste-back half. Parses, never writes: what comes out is a diff and a list of
+         things that went wrong, and saving is a second, deliberate click through /api/save. */
+      if (url.pathname === "/api/paste") {
+        if (req.method !== "POST") {
+          res.writeHead(405).end("POST only");
+          return;
+        }
+        body(req)
+          .then((raw) => {
+            const payload = JSON.parse(raw || "{}") as {
+              kind?: string;
+              staff?: string;
+              answer?: string;
+            };
+            const brief = buildPasteBrief(w, parseYaml, payload.kind ?? "", payload.staff ?? "");
+            const result = parsePaste(payload.answer ?? "", brief.targets);
+            const before = new Map(brief.targets.map((t) => [t.path, t.before]));
+            json(res, {
+              ...result,
+              files: result.files.map((f) => ({
+                ...f,
+                before: before.get(f.path) ?? "",
+                writable: isWritable(w, f.path, brainDirs()),
+              })),
+            });
+          })
+          .catch((err) => {
+            res.writeHead(400, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+          });
+        return;
+      }
+
       if (url.pathname === "/api/amend") {
         const handle = url.searchParams.get("staff") ?? "";
         const kind = url.searchParams.get("kind") ?? "daily";
         const want = url.searchParams.get("want") ?? "";
-        const org = readOrg(ws.opsDir, parseYaml);
+        const org = readOrg(w.opsDir, parseYaml);
         const entry = (org.staff ?? []).find((s) => s.handle === handle);
         if (!entry || !(KINDS as readonly string[]).includes(kind)) {
           res.writeHead(400).end("bad request");
           return;
         }
         const dir = entry.dir ?? entry.handle;
-        const view = promptView(ws, compose, handle, join(ws.root, dir), kind);
-        const manifestPath = join(ws.root, dir, "staff.yaml");
+        const view = promptView(w, compose, handle, join(w.root, dir), kind);
+        const manifestPath = join(w.root, dir, "staff.yaml");
         const tokens = existsSync(manifestPath)
           ? tokensFor(
-              orgSpec(org as any, ws),
+              orgSpec(org as any, w),
               specFromManifest(
                 parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any,
                 dir,
               ),
             )
-          : orgTokens(orgSpec(org as any, ws));
+          : orgTokens(orgSpec(org as any, w));
         res.writeHead(200, {
           "content-type": "text/plain; charset=utf-8",
           "cache-control": "no-store",
         });
-        res.end(amendBrief(ws, view, tokens, want));
+        res.end(amendBrief(w, view, tokens, want));
         return;
       }
 
@@ -298,8 +758,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
          allowlist is in lib/prompt.ts: this writes to repos the agents run from. */
       if (url.pathname === "/api/save") {
         if (!writeAllowed(req)) {
-          res.writeHead(403, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
+          refuseWrite(res);
           return;
         }
         body(req)
@@ -309,12 +768,12 @@ export async function portalCommand(argv: string[]): Promise<number> {
               text?: string;
               message?: string;
             };
-            const org = readOrg(ws.opsDir, parseYaml);
+            const org = readOrg(w.opsDir, parseYaml);
             const brainDirs = (org.staff ?? []).map((s) => s.dir ?? s.handle);
             if (!payload.path || typeof payload.text !== "string") {
               throw new Error("path and text are required");
             }
-            if (!isWritable(ws, payload.path, brainDirs)) {
+            if (!isWritable(w, payload.path, brainDirs)) {
               throw new Error(`${payload.path} is not a file the portal may write`);
             }
             if (payload.path.endsWith("org.yaml")) {
@@ -322,7 +781,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
               if (wrong) throw new Error(wrong);
             }
             const result = saveFile(
-              ws,
+              w,
               payload.path,
               payload.text,
               payload.message || `portal: edit ${payload.path.split("/").slice(1).join("/")}`,
@@ -342,14 +801,13 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
       if (url.pathname === "/api/act") {
         if (!writeAllowed(req)) {
-          res.writeHead(403, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
+          refuseWrite(res);
           return;
         }
         body(req)
           .then(async (raw) => {
             const payload = JSON.parse(raw || "{}") as ActRequest;
-            const org = readOrg(ws.opsDir, parseYaml) as any;
+            const org = readOrg(w.opsDir, parseYaml) as any;
             const known = (org.repos ?? []).map((r: any) => `${org.org}/${r.name}`);
             if (!known.includes(payload.repo))
               throw new Error(`${payload.repo} is not a repo in org.yaml`);
@@ -369,9 +827,9 @@ export async function portalCommand(argv: string[]): Promise<number> {
       }
 
       if (url.pathname === "/api/sync") {
-        const org = readOrg(ws.opsDir, parseYaml) as any;
-        const dirs = [ws.opsName, ...(org.staff ?? []).map((s: any) => s.dir ?? s.handle)];
-        syncRepos(ws.root, dirs)
+        const org = readOrg(w.opsDir, parseYaml) as any;
+        const dirs = [w.opsName, ...(org.staff ?? []).map((s: any) => s.dir ?? s.handle)];
+        syncRepos(w.root, dirs)
           .then((results) => {
             cache = null; // anything pulled invalidates the inbox too
             res.writeHead(200, {
@@ -448,7 +906,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
         const path = url.searchParams.get("path") ?? "memory/INDEX.md";
         // Both are attacker-controlled and both reach a command line, so neither is trusted:
         // the directory must be a known staff repo and the sha must look like a sha.
-        const org = readOrg(ws.opsDir, parseYaml);
+        const org = readOrg(w.opsDir, parseYaml);
         const known = (org.staff ?? []).map((s) => s.dir ?? s.handle);
         if (!known.includes(dir) || !/^[0-9a-f]{7,40}$/i.test(sha)) {
           res.writeHead(400).end("bad request");
@@ -456,7 +914,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
         }
         const out = execFileSync(
           "git",
-          ["-C", join(ws.root, dir), "show", "--format=%an%x1f%aI%x1f%s", sha, "--", path],
+          ["-C", join(w.root, dir), "show", "--format=%an%x1f%aI%x1f%s", sha, "--", path],
           {
             encoding: "utf8",
             maxBuffer: 8 * 1024 * 1024,
@@ -469,11 +927,11 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
       if (url.pathname === "/api/file") {
         const rel = url.searchParams.get("path") ?? "";
-        const full = resolve(ws.root, rel);
+        const full = resolve(w.root, rel);
         // Everything the portal serves must live under the workspace. Without this a crafted
         // path walks straight out of it, and this server is trivially reachable on a LAN.
         if (
-          !full.startsWith(resolve(ws.root) + "/") ||
+          !full.startsWith(resolve(w.root) + "/") ||
           !existsSync(full) ||
           statSync(full).isDirectory()
         ) {
@@ -510,11 +968,69 @@ export async function portalCommand(argv: string[]): Promise<number> {
         host === "127.0.0.1"
           ? ""
           : `\n  ⚠ bound to ${host}: write actions are reachable from the network.\n`;
+      // Without a tenant this is the setup screen, and saying so is the difference between
+      // "it is ready" and "it did not find my org".
+      const where = ws
+        ? `workspace: ${ws.root}`
+        : `no tenant in ${startedIn} yet — the page will set one up`;
       process.stdout.write(
-        `\n  roster portal\n  http://localhost:${port}\n${warn}\n  workspace: ${ws.root}\n  Ctrl-C to stop.\n\n`,
+        `\n  roster portal\n  http://localhost:${port}\n${warn}\n  ${where}\n  Ctrl-C to stop.\n\n`,
       );
     });
   });
+}
+
+/**
+ * The paste-mode brief for a kind, built once and used by both halves of the loop.
+ *
+ * `/api/paste` needs the exact same targets `/api/brief` promised, or a paste could name a file
+ * the brief never offered. Building it from the same function is what makes that true rather
+ * than merely intended.
+ */
+function buildPasteBrief(
+  ws: import("../lib/workspace.js").Workspace,
+  parseYaml: (t: string, f?: string) => Record<string, unknown>,
+  kind: string,
+  handle: string,
+) {
+  if (!pasteable(kind)) throw new Error(`there is no paste-mode brief for "${kind}"`);
+  const org = readOrg(ws.opsDir, parseYaml);
+  const staff = org.staff ?? [];
+
+  let dir = "";
+  let tokens: Record<string, string>;
+  if (kind === "charter") {
+    const entry = staff.find((s) => s.handle === handle);
+    if (!entry) {
+      const known = staff.map((s) => s.handle).join(", ") || "nobody yet";
+      throw new Error(`unknown staff handle "${handle}". org.yaml knows: ${known}`);
+    }
+    dir = entry.dir ?? entry.handle;
+    const manifestPath = join(ws.root, dir, "staff.yaml");
+    tokens = tokensFor(
+      orgSpec(org as any, ws),
+      specFromManifest(parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any, dir),
+    );
+  } else {
+    tokens = orgTokens(orgSpec(org as any, ws));
+  }
+
+  const peers = staff.map((s) => s.dir ?? s.handle).filter((d) => d !== dir);
+  return pasteBrief(ws, kind, renderBrief(briefTemplate(kind), tokens), { dir, peers });
+}
+
+/**
+ * A brief is prose handed to a model, so an unfilled token is a wrong instruction rather than a
+ * broken file. `render` throws on those, which is right for a workflow and too strict here.
+ */
+function renderBrief(text: string, tokens: Record<string, string>): string {
+  return text.replace(/%%([A-Z_]+)%%/g, (m, name: string) => tokens[name] ?? m);
+}
+
+/** Why a write was refused. */
+function refuseWrite(res: import("node:http").ServerResponse) {
+  res.writeHead(403, { "content-type": "application/json" });
+  res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
 }
 
 function json(res: import("node:http").ServerResponse, data: unknown) {
@@ -599,7 +1115,7 @@ function workspaceRoots(org: {
 }
 
 function parseFlags(argv: string[]) {
-  const out: { port?: number; ops?: string; host?: string } = {};
+  const out: { port?: number; ops?: string; host?: string; dir?: string } = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     const value = argv[++i];
@@ -607,6 +1123,7 @@ function parseFlags(argv: string[]) {
     if (flag === "--port") out.port = Number(value);
     else if (flag === "--host") out.host = value;
     else if (flag === "--ops") out.ops = value;
+    else if (flag === "--dir") out.dir = value;
     else throw new Error(`unknown flag ${flag}`);
   }
   return out;

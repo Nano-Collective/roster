@@ -14,6 +14,8 @@ import { ago, el, esc } from "../dom.js";
 import { icon } from "../icons.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
+import { appPanel } from "./app.js";
+import { paste } from "./paste.js";
 
 export function viewStaff(m) {
   m.append(el("h1", { textContent: "Staff" }));
@@ -52,7 +54,40 @@ export function viewStaff(m) {
     const status = el("span", { className: "meta" });
     const go = el("button", { className: "ghbtn", textContent: "Retire" });
     go.onclick = () => retireForm(pane, s, status);
-    d.append(el("div", { className: "row", style: "margin-top:10px" }, [go, status]));
+
+    /* The charter is the one file `hire` deliberately does not write, and until now the only
+       route to it was a CLI command printing a brief. This is the same brief, with every file
+       it refers to already inside it and somewhere to put the answer. */
+    const write = el("button", { className: "ghbtn", textContent: "Write the charter" });
+    write.onclick = () => {
+      pane.replaceChildren(
+        el("div", { className: "card" }, [
+          paste({
+            kind: "charter",
+            staff: s.handle,
+            title: "Write " + s.name + "'s charter with your own AI",
+            onSaved: () => refreshAll(false),
+          }),
+        ]),
+      );
+      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    };
+
+    /* The step `hire` has always had to hand back: there is no API that creates a GitHub App,
+       so it is a browser hand-off either way. It may as well be this browser. */
+    const app = el("button", { className: "ghbtn", textContent: "GitHub App" });
+    app.onclick = () => {
+      pane.replaceChildren(
+        el("div", { className: "card" }, [
+          el("h3", { textContent: s.name + "'s identity" }),
+          appPanel({ staff: s.handle, name: s.name, scope: "private" }),
+          appPanel({ staff: s.handle, name: s.name, scope: "public" }),
+        ]),
+      );
+      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    };
+
+    d.append(el("div", { className: "row", style: "margin-top:10px" }, [write, app, go, status]));
     return d;
   }
 

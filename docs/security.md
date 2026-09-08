@@ -59,6 +59,19 @@ what an App asked for, which says nothing about what any installation gave it.
 
 Never verify an installation by reading the API. The only proof is a run that finished.
 
+## Setting up from the portal
+
+The setup screen creates repositories, creates GitHub Apps and writes repository secrets. It is
+the most privileged surface roster has, and it is **local only**: bound to `127.0.0.1`, behind the
+same write guard as everything else, and never something to put behind a tunnel. There is no
+hosted setup and there should not be.
+
+The App manifest hand-off runs on the portal's own port rather than a second one, which changes
+where the callback lands and nothing else: the one-time code is still exchanged server-side, and
+the private key is still held in memory and written straight to a repo secret without touching
+disk. A hand-off is keyed by a random state that GitHub echoes back, held in memory only, and a
+callback whose state is unknown is refused.
+
 ## The portal
 
 It can write to GitHub, so it is worth being precise.

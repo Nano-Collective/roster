@@ -15,6 +15,7 @@ import { viewHealth } from "./views/health.js";
 import { viewInbox } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
+import { viewSetup } from "./views/setup.js";
 import { viewStaff } from "./views/staff.js";
 
 const SCREEN = {
@@ -42,7 +43,22 @@ const NEEDS = ["org", "name", "opsName", "staff"];
 
 export async function boot() {
   initTheme();
-  S.data = await getOrg();
+
+  /* Before there is a tenant the server answers every data route with `mode: setup`. That is
+     not an error state: it is the first thing a new user ever sees, and the whole page becomes
+     the thing that fixes it. */
+  const first = await getOrg();
+  if (first && first.mode === "setup") {
+    document.body.dataset.setup = "1";
+    $("#orgname").textContent = "no org yet";
+    for (const slot of document.querySelectorAll("[data-icon]")) {
+      slot.innerHTML = iconHTML(slot.dataset.icon);
+    }
+    await viewSetup($("#main"));
+    return;
+  }
+
+  S.data = first;
   S.loadedAt = new Date();
   S.staffHandle = S.data.staff[0]?.handle ?? null;
   $("#orgname").textContent = S.data.name + " · " + S.data.staff.length + " staff";

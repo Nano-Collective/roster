@@ -15,7 +15,8 @@ against a live two-agent org. Not published yet.
 ## What it does
 
 ```bash
-roster init --org acme          # stand up a tenant: ops repo, org layer, merge base
+npx @nanocollective/roster      # set up, or join, an org — in a browser
+roster init --org acme          # or from a terminal: ops repo, org layer, merge base
 roster hire cto                 # scaffold a staff member: repo, workflows, labels, peers
 roster app cto                  # create their GitHub App, write its secrets
 roster doctor                   # is any of this actually wired up
