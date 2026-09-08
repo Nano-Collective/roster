@@ -55,10 +55,20 @@ export const PRESETS = {
   nanocoder: {
     kind: "cli",
     install: "npm install -g @nanocollective/nanocoder",
-    // `run` is its non-interactive mode; --trust-directory skips the first-run prompt that
-    // would otherwise hang a runner, and --plain avoids the TUI. The prompt is an argument
-    // here rather than stdin, so it is read out of the file.
-    run: 'nanocoder --model "$AGENT_MODEL" --mode yolo --trust-directory --plain run "$(cat "$AGENT_PROMPT_FILE")"',
+    /* `run` is its non-interactive mode; --trust-directory skips the first-run prompt that
+       would otherwise hang a runner, and --plain avoids the TUI. The prompt is an argument
+       here rather than stdin, so it is read out of the file.
+
+       NANOCODER_PROVIDERS_FILE is the part that makes it work unattended. Nanocoder is a
+       client, not a model: it reads its providers from `agents.config.json` found in the
+       working directory. In a session that directory is the workspace root — the place the
+       repos are checked out *into* — which belongs to no repo, so a committed config would
+       never be found. Pointing at the ops repo's copy gives every staff member the same
+       providers from a file that is version controlled. A missing file is ignored, so this is
+       safe when somebody has configured it another way. */
+    run:
+      'NANOCODER_PROVIDERS_FILE="${NANOCODER_PROVIDERS_FILE:-roster-ops/agents.config.json}" ' +
+      'nanocoder --model "$AGENT_MODEL" --mode yolo --trust-directory --plain run "$(cat "$AGENT_PROMPT_FILE")"',
     token_env: "NANOCODER_API_KEY",
     model: "",
   },

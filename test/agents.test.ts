@@ -46,7 +46,7 @@ test("the presets name packages that exist, with the binaries they actually inst
   assert.match(PRESETS.codex.install, /@openai\/codex/);
   assert.match(PRESETS.codex.run, /^codex exec/);
   assert.match(PRESETS.nanocoder.install, /@nanocollective\/nanocoder/);
-  assert.match(PRESETS.nanocoder.run, /^nanocoder .* run /);
+  assert.match(PRESETS.nanocoder.run, /\bnanocoder .* run /);
 });
 
 test("each preset carries the flags that make it survive a runner", () => {
@@ -63,6 +63,12 @@ test("each preset carries the flags that make it survive a runner", () => {
     "without it the first-run trust prompt hangs an unattended runner",
   );
   assert.match(PRESETS.nanocoder.run, /--plain/, "the TUI has nothing to draw to in CI");
+  assert.match(
+    PRESETS.nanocoder.run,
+    /NANOCODER_PROVIDERS_FILE=.*roster-ops\/agents\.config\.json/,
+    "nanocoder is a client, not a model: without a providers file it has nothing to call, " +
+      "and the working directory in a session belongs to no repo",
+  );
 });
 
 test("an org can pick an agent by name", () => {

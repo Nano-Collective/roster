@@ -97,7 +97,8 @@ produces a run that succeeds having done nothing. If you would rather keep it na
 
 ```
 install:   npm install -g @nanocollective/nanocoder
-run:       nanocoder --model "$AGENT_MODEL" --mode yolo --trust-directory --plain run "$(cat "$AGENT_PROMPT_FILE")"
+run:       NANOCODER_PROVIDERS_FILE="${NANOCODER_PROVIDERS_FILE:-roster-ops/agents.config.json}" \
+             nanocoder --model "$AGENT_MODEL" --mode yolo --trust-directory --plain run "$(cat "$AGENT_PROMPT_FILE")"
 token_env: NANOCODER_API_KEY
 ```
 
@@ -105,8 +106,227 @@ Three flags matter for unattended use. `run` is its non-interactive mode. `--tru
 skips the first-run directory trust prompt, which would otherwise hang the runner until it
 times out. `--plain` avoids the TUI, which has nothing to draw to in CI.
 
-Nanocoder resolves a provider from `agents.config.json` in the working directory, so you will
-want that file in the brain repo, and the provider's own key in `token_env`.
+**Nanocoder needs one thing the other two do not: a provider.** It is a client rather than a
+model, so `NANOCODER_API_KEY` on its own tells it nothing about where to send anything. That is
+what the config file is for, and it is the part of this that catches people out. It has its own
+section: [wiring up nanocoder](#wiring-up-nanocoder).
+
+## Setting one up, end to end
+
+The preset only says how to invoke the agent. Three more things have to be true before a run
+works, and `roster doctor` checks all three.
+
+### 1. The credential exists, and you have it
+
+| Agent | Where the credential comes from |
+|---|---|
+| `claude-code-action`, `claude` | `claude setup-token` in a terminal where Claude Code is signed in. It prints a long-lived OAuth token. A plain Anthropic API key also works if you would rather bill that way. |
+| `codex` | an API key from the OpenAI platform console. `codex login` is for interactive use and does not produce something a runner can hold. |
+| `nanocoder` | whatever the provider you point it at wants. Nanocoder is a client, not a model: the key belongs to the provider in `agents.config.json`. |
+
+### 2. It is a secret on every brain repo, under the right name
+
+Each staff member's caller workflow reads the secret **from their own repo**, so the credential
+goes on each brain, not on the ops repo:
+
+```bash
+gh secret set CODEX_API_KEY --repo playpip/technology --body "$KEY"
+gh secret set CODEX_API_KEY --repo playpip/marketing  --body "$KEY"
+```
+
+The name is the preset's `token_env`, and it is the same name the caller references. If you
+override `token_env`, the callers have to be regenerated so they reference the new name:
+`roster upgrade --apply`.
+
+Inside the run it arrives twice: as `AGENT_TOKEN`, which is what the caller passes, and under
+the agent's own `token_env`, which is what the agent reads. That indirection is why a preset
+change does not require touching `session.yaml`.
+
+### 3. The agent's own config, if it has one
+
+`claude` and `codex` need none: they are a model and a client in one thing, and the model comes
+from `$AGENT_MODEL`. `nanocoder` needs a providers file, below.
+
+### Then prove it
+
+```bash
+roster doctor                    # secrets present, callers reachable, prompts compose
+gh workflow run cto-daily.yaml --repo playpip/technology
+```
+
+Read the log of that first run rather than waiting for the schedule. What goes wrong is
+specific to the agent and obvious in the log: an unknown flag, a sandbox that refuses to write,
+a model id the provider does not recognise, a first-run prompt waiting for a keypress that will
+never come.
+
+## Three worked examples
+
+An org called `acme` with two staff members, `cto` in `acme/technology` and `cmo` in
+`acme/marketing`. Every file each one touches, in full.
+
+### Claude, through the Action
+
+```yaml
+# roster-ops/org.yaml
+org: acme
+agent: claude-code-action     # the default; you can leave this line out entirely
+
+defaults:
+  model: claude-opus-5
+```
+
+```bash
+claude setup-token            # prints a long-lived token
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo acme/technology --body "$TOKEN"
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo acme/marketing  --body "$TOKEN"
+```
+
+Nothing else. No file in the brain repos, no per-staff config.
+
+### Codex
+
+```yaml
+# roster-ops/org.yaml
+agent: codex
+
+defaults:
+  model: gpt-5-codex          # what $AGENT_MODEL becomes
+```
+
+```bash
+gh secret set CODEX_API_KEY --repo acme/technology --body "$OPENAI_KEY"
+gh secret set CODEX_API_KEY --repo acme/marketing  --body "$OPENAI_KEY"
+roster upgrade --apply        # repoints the callers at the new secret name
+```
+
+Commit and push the regenerated callers. The secret name changed from
+`CLAUDE_CODE_OAUTH_TOKEN` to `CODEX_API_KEY`, and that name is written into each caller.
+
+### Nanocoder
+
+Two files rather than one, because a provider has to be named.
+
+```yaml
+# roster-ops/org.yaml
+agent: nanocoder
+
+defaults:
+  model: qwen/qwen3-coder     # must be one of the models listed below
+```
+
+```json
+// roster-ops/agents.config.json
+{
+  "nanocoder": {
+    "providers": [
+      {
+        "name": "openrouter",
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "apiKey": "${NANOCODER_API_KEY}",
+        "models": ["qwen/qwen3-coder"]
+      }
+    ]
+  }
+}
+```
+
+```bash
+gh secret set NANOCODER_API_KEY --repo acme/technology --body "$OPENROUTER_KEY"
+gh secret set NANOCODER_API_KEY --repo acme/marketing  --body "$OPENROUTER_KEY"
+roster upgrade --apply
+```
+
+Commit `agents.config.json` and the regenerated callers. **The key is not in the file.**
+`${NANOCODER_API_KEY}` is expanded from the environment when nanocoder reads it, and the
+environment is where roster puts the secret.
+
+## Wiring up nanocoder
+
+The other two presets are one thing. Nanocoder is a harness you point at a model, so it needs
+to be told which model, from whom, at what URL, with which key. That is `agents.config.json`.
+
+### Where it looks
+
+In order, and the first hit wins:
+
+1. `$NANOCODER_PROVIDERS`: the JSON itself, in an environment variable.
+2. `$NANOCODER_PROVIDERS_FILE`: a path to the JSON. Ignored if the file is not there.
+3. `agents.config.json` in the **working directory**.
+4. `agents.config.json` in the user config directory (`~/.config/nanocoder/` on Linux,
+   `~/Library/Preferences/nanocoder/` on macOS).
+
+Options 3 and 4 are what you use at your own desk, and neither of them works in a session. The
+working directory of a run is the **workspace root**: the directory the repos are checked out
+*into*, one level above `technology/` and `roster-ops/`. It belongs to no repository, so there
+is nothing there to commit a config into. And the user config directory on a fresh GitHub
+runner is empty.
+
+That is why roster's preset sets option 2 for you:
+
+```
+NANOCODER_PROVIDERS_FILE="${NANOCODER_PROVIDERS_FILE:-roster-ops/agents.config.json}"
+```
+
+The ops repo is checked out at a known path on every run, and it is the one repo every staff
+member has. So the org's providers live in one version-controlled file, and each staff member
+picks a model from it with `model:` in their own `staff.yaml`.
+
+### The shape
+
+Either of these; the wrapper is what nanocoder writes itself, the bare form is accepted too.
+
+```json
+{ "nanocoder": { "providers": [ … ] } }
+{ "providers": [ … ] }
+```
+
+A provider is:
+
+| Field | |
+|---|---|
+| `name` | what `--provider` and the model list refer to. Any string. |
+| `baseUrl` | the OpenAI-compatible endpoint. Omit for a provider the SDK already knows. |
+| `apiKey` | the credential. Use `${VAR}`, never a literal, in a file you are committing. |
+| `models` | the models this provider offers. **If it is non-empty, `$AGENT_MODEL` must be one of them**, or the run fails with "Model not available for provider". |
+| `sdkProvider` | `openai-compatible` (default), `anthropic`, `google`, `chatgpt-codex`, `github-copilot`. |
+
+`${VAR}` and `$VAR` are both expanded, anywhere in the file, with `${VAR:-fallback}` for a
+default. That is what lets a committed config carry no secrets.
+
+### A local model
+
+Nothing says the provider has to be remote. Ollama on a self-hosted runner needs no key at all:
+
+```json
+{
+  "providers": [
+    {
+      "name": "ollama",
+      "baseUrl": "http://localhost:11434/v1",
+      "models": ["qwen2.5-coder:32b"]
+    }
+  ]
+}
+```
+
+`token_env` still has to name a variable, because the session refuses to start an agent with no
+credential at all. Point it at something harmless and set it to any non-empty string:
+
+```yaml
+agent:
+  id: nanocoder
+  token_env: NANOCODER_API_KEY   # set it to "unused" on the brain repos
+```
+
+### When it goes wrong
+
+| In the log | What it means |
+|---|---|
+| `No agents.config.json found` | the file is not where nanocoder looked. Check it is committed to the ops repo at `agents.config.json`, and that `roster upgrade --apply` has been run so the caller carries the current preset. |
+| `No providers configured` | the file is there but `providers` is empty, or spelled as an object instead of an array. |
+| `Provider 'x' not found` | `--provider` names something the file does not define. |
+| `Model 'y' not available for provider` | `model:` in `org.yaml` or `staff.yaml` is not in that provider's `models` list. This is the common one: the roster default is a Claude model, and nanocoder is strict about the list. |
+| a run that hangs and then times out | a first-run prompt. The preset passes `--trust-directory` and `--plain` to avoid both known ones. |
 
 ## Writing your own
 
@@ -120,6 +340,19 @@ agent:
   token_env: MY_AGENT_TOKEN
 ```
 
+Five questions decide the `run` command, and they are the same five for every tool:
+
+1. **What is its non-interactive mode?** Most have one, and it is rarely the default:
+   `-p` for Claude, `exec` for Codex, `run` for nanocoder.
+2. **How does it take a long prompt?** Stdin (`< "$AGENT_PROMPT_FILE"`) if it accepts it, an
+   argument (`"$(cat "$AGENT_PROMPT_FILE")"`) if it does not. Never a literal.
+3. **What does it do with no TTY?** Anything that draws a full-screen interface needs the flag
+   that turns it off, or CI gets a run full of escape codes and no work.
+4. **Does it ask anything on first run?** Trust prompts, telemetry consent, a config wizard.
+   Each one hangs an unattended run until the job times out. Find the flag that skips it.
+5. **Is it allowed to write?** A sandbox that forbids edits produces a run that reports success
+   having done nothing, which is the worst failure this arrangement has.
+
 You can also override a single field of a preset, which is the common case when a flag changes:
 
 ```yaml
@@ -129,6 +362,27 @@ agent:
 ```
 
 The rest of the preset still applies.
+
+### Per staff member
+
+Anything the org sets, a staff member can override in their own `staff.yaml`. Roles that differ
+in kind are worth splitting: a research role on a long-context model, an engineering role on a
+coding one.
+
+```yaml
+# marketing/staff.yaml
+agent: nanocoder
+model: qwen/qwen3-coder
+```
+
+```yaml
+# technology/staff.yaml
+model: claude-opus-5    # keeps the org's agent, changes only the model
+```
+
+Two staff members on two different agents need both credentials present, each on its own brain
+repo, under each agent's own `token_env`. `roster doctor` reads the callers and tells you which
+secret each repo is missing.
 
 ## What the runner gets
 
@@ -154,9 +408,14 @@ that only edits files and cannot run commands will produce a run that changes no
 ## Changing agent on a live org
 
 1. Set `agent:` in `org.yaml`.
-2. Put the new credential on each brain repo, named as `token_env`.
-3. `roster upgrade --apply`, then commit and push the regenerated callers.
+2. Put the new credential on each brain repo, named as `token_env`
+   (`gh secret set CODEX_API_KEY --repo <org>/<brain> --body "$KEY"`).
+3. `roster upgrade --apply`, then commit and push the regenerated callers. This is what
+   repoints them at the new secret name; skipping it leaves every run reaching for the old one.
 4. Trigger one run by hand and read the log before trusting the schedule.
+
+The old secret can stay where it is until the new agent has had a clean run. Nothing reads it
+once the callers have been regenerated, and it is the fastest way back if the first run is bad.
 
 Step 4 is not optional. Prompts are written against a model's habits as much as its
 capabilities, and the first run on a new agent is where you find out which parts of your
