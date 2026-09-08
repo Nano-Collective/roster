@@ -51,6 +51,12 @@ export async function boot() {
   if (first && first.mode === "setup") {
     document.body.dataset.setup = "1";
     $("#orgname").textContent = "no org yet";
+    /* Every one of these reads a tenant, so during setup they answer 409 and the sidebar is a
+       row of four dead ends beside an empty Staff heading. There is one thing to do on this
+       screen; the navigation comes back with the org. */
+    for (const el of document.querySelectorAll("#inboxnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
+      el.hidden = true;
+    }
     for (const slot of document.querySelectorAll("[data-icon]")) {
       slot.innerHTML = iconHTML(slot.dataset.icon);
     }

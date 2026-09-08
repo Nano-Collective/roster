@@ -19,6 +19,11 @@ export async function viewSetup(main) {
 }
 
 function render(main) {
+  /* The sidebar is written by boot() before any of this is known. Once a tenant has been
+     adopted, leaving it on "no org yet" contradicts the card directly below it. */
+  const brand = $("#orgname");
+  if (brand) brand.textContent = S.tenant.found ? (S.tenant.org ?? "set up") : "no org yet";
+
   main.replaceChildren();
   main.append(el("h1", { textContent: "Set up your org" }));
   main.append(
@@ -156,10 +161,11 @@ function stepOrg(main) {
   const human = field("human", "Your GitHub login", S.gh.login ?? "", "The person the agents answer to.");
 
   card.append(form);
+  const agentHead = el("h3", { textContent: "Which coding agent runs a session" });
 
   /* The agent. Its id decides the secret name later, so setup can name it exactly rather than
      saying "it depends on the runner". */
-  card.append(el("h3", { textContent: "Which coding agent runs a session" }));
+  card.append(agentHead);
   const agents = el("div", { className: "choices" });
   S.agents.forEach((a, i) => {
     const opt = el("label", { className: "choice" });
@@ -170,14 +176,13 @@ function stepOrg(main) {
     agents.append(opt);
   });
   card.append(agents);
-  card.append(
-    el("p", {
-      className: "sub",
-      textContent:
-        "Anything else works too: a runner is an install command, a run command and the name of " +
-        "the secret holding its credential. Write those three into org.yaml afterwards.",
-    }),
-  );
+  const agentNote = el("p", {
+    className: "sub",
+    textContent:
+      "Anything else works too: a runner is an install command, a run command and the name of " +
+      "the secret holding its credential. Write those three into org.yaml afterwards.",
+  });
+  card.append(agentNote);
 
   const params = () => ({
     org: org.value === "__other" ? other.input.value.trim() : org.value,
@@ -200,11 +205,29 @@ function stepOrg(main) {
     join.hidden = !joining;
     plan.hidden = joining;
     if (joining) go.hidden = true;
+
+    /* An org that already runs roster has answered all of these: its own org.yaml names the
+       business, the human and the agent. Leaving them on screen asks for values that will be
+       thrown away, and implies the checkout is going to use them. */
+    for (const bit of [name.wrap, human.wrap, agentHead, agents, agentNote]) bit.hidden = joining;
   }
 
   join.onclick = async () => {
     join.disabled = true;
-    out.replaceChildren(el("p", { className: "sub", textContent: "Cloning…" }));
+    /* Cloning an ops repo and every brain took 38 seconds against a real org, behind a word
+       that never changed. A static "Cloning…" for that long reads as hung, so this says what
+       it is doing and keeps a clock running to show it is alive. */
+    const clock = el("p", { className: "sub" });
+    out.replaceChildren(clock);
+    const started = Date.now();
+    const tick = () => {
+      const s = Math.round((Date.now() - started) / 1000);
+      clock.textContent =
+        `Cloning ${existing}: the ops repo and one for each staff member. ${s}s. ` +
+        "A first checkout usually takes under a minute.";
+    };
+    tick();
+    const ticking = setInterval(tick, 1000);
     try {
       const result = await joinOrg(existing);
       if (!result.ok) throw new Error(result.error);
@@ -219,6 +242,7 @@ function stepOrg(main) {
     } catch (err) {
       out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) }));
     } finally {
+      clearInterval(ticking);
       join.disabled = false;
     }
   };
@@ -279,12 +303,12 @@ function stepOrg(main) {
 /* ------------------------- 5 · the two GitHub insists on ------------------------- */
 
 function afterCreate() {
-  const card = step(3, "Two things only you can do", false);
+  const card = step(3, "What is left", false);
   card.append(
     el("p", {
       textContent:
-        "Neither can be automated, and the first one fails in a way that wastes an afternoon if " +
-        "you skip it.",
+        "None of these can be done for you, and the first fails in a way that wastes an " +
+        "afternoon if you skip it.",
     }),
   );
 

@@ -28,6 +28,12 @@
 }
 
 *{box-sizing:border-box}
+/* `hidden` loses to any author rule that sets `display`, which is most of them: a hidden
+   `.field` is still `display:grid` and a hidden `.btn` is still `display:block`. Every element
+   the page hides would otherwise need its own `[hidden]` rule, and the ones nobody remembered
+   just stayed on screen. Said once, here. */
+[hidden]{display:none!important}
+
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans);
      -webkit-font-smoothing:antialiased}
 a{color:inherit}
