@@ -8,6 +8,7 @@ import { initCommand, initHelp } from "./commands/init.js";
 import { lintCommand, lintHelp } from "./commands/lint.js";
 import { portalCommand, portalHelp } from "./commands/portal.js";
 import { promptCommand, promptHelp } from "./commands/prompt.js";
+import { retireCommand, retireHelp } from "./commands/retire.js";
 import { upgradeCommand, upgradeHelp } from "./commands/upgrade.js";
 
 const HELP = `
@@ -20,6 +21,7 @@ roster — an agent-run org, powered by GitHub
   roster doctor [handle]    check the org is actually wired up
   roster hire <handle>      scaffold a new staff member
   roster app <handle>       create their GitHub App and set its secrets
+  roster retire <handle>    stop a staff member, keeping their repo and their memory
   roster upgrade            carry framework changes into this tenant
   roster portal             browse every brain, locally
   roster export             the whole org as one JSON
@@ -36,6 +38,7 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   doctor: doctorCommand,
   hire: hireCommand,
   app: appCommand,
+  retire: retireCommand,
   portal: portalCommand,
   export: exportCommand,
 };
@@ -49,6 +52,7 @@ const HELPS: Record<string, string> = {
   doctor: doctorHelp,
   hire: hireHelp,
   app: appHelp,
+  retire: retireHelp,
   portal: portalHelp,
   export: exportHelp,
 };

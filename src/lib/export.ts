@@ -87,6 +87,8 @@ export interface FactChange {
 export interface OrgExport {
   org: string;
   name: string;
+  /** The ops directory name, so the portal can address org.yaml and org/*.md by path. */
+  opsName: string;
   human: Record<string, unknown>;
   generatedAt: string;
   staff: StaffExport[];
@@ -156,6 +158,7 @@ export function buildExport(
   return {
     org: org.org,
     name: org.name,
+    opsName: ws.opsName,
     human: org.human ?? {},
     generatedAt: new Date().toISOString(),
     staff,

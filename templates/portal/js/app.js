@@ -6,17 +6,21 @@ import { icon, iconHTML } from "./icons.js";
 import { setPeople } from "./md.js";
 import { refreshAll, stampLoaded, syncNotice } from "./refresh.js";
 import { onRender } from "./router.js";
-import { S, VIEWS, applyHash, openCount, writeHash } from "./state.js";
+import { ORG_WIDE, S, VIEWS, applyHash, openCount, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
 import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
 import { viewGraph } from "./views/graph.js";
 import { viewHealth } from "./views/health.js";
 import { viewInbox } from "./views/inbox.js";
+import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
+import { viewStaff } from "./views/staff.js";
 
 const SCREEN = {
   inbox: viewInbox,
+  org: viewOrg,
+  staff: viewStaff,
   docs: viewDocs,
   brain: viewBrain,
   memory: viewBrain,
@@ -44,6 +48,8 @@ export async function boot() {
   paintSidebar();
 
   $("#inboxnav").onclick = () => { S.view = "inbox"; render(); };
+  $("#staffnav").onclick = () => { S.view = "staff"; render(); };
+  $("#orgnav").onclick = () => { S.view = "org"; render(); };
   $("#docsnav").onclick = () => { S.view = "docs"; render(); };
   $("#refreshall").onclick = () => refreshAll(false);
 
@@ -149,7 +155,7 @@ function paintSidebar() {
       }
       S.staffHandle = s.handle;
       S.openFile = null;
-      if (S.view === "inbox" || S.view === "docs") S.view = "brain";
+      if (ORG_WIDE.has(S.view)) S.view = "brain";
       render();
     };
 
@@ -165,7 +171,7 @@ function markSidebar() {
     b.setAttribute("aria-current", String(mine && b.dataset.view === S.view));
   }
   for (const head of document.querySelectorAll(".staffrow")) {
-    const open = head.dataset.staff === S.staffHandle && S.view !== "inbox" && S.view !== "docs";
+    const open = head.dataset.staff === S.staffHandle && !ORG_WIDE.has(S.view);
     head.setAttribute("aria-expanded", String(open));
     head.setAttribute("aria-selected", String(head.dataset.staff === S.staffHandle));
     if (head.nextElementSibling) head.nextElementSibling.hidden = !open;

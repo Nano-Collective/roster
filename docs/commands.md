@@ -57,6 +57,30 @@ Create the GitHub App and put its credentials in the brain repo's secrets.
 
 Cannot install the App. See [manual steps](manual-steps.md).
 
+## `roster retire <handle>`
+
+Stop a staff member without destroying anything.
+
+```
+--apply
+--ops <dir>
+```
+
+Their brain repo is their entire memory and there is no undo for deleting one, so this does
+not touch it. It disables their three workflows through the API, removes them from `org.yaml`,
+removes them from every peer's `staff.yaml`, and deletes the `from-<handle>` labels their peers
+carried for them. Everything they ever knew stays where it is, readable in the portal and on
+GitHub.
+
+Disabling rather than deleting the workflow files is what makes it reversible: the files stay,
+so re-enabling is one click, and nothing has to be regenerated from templates that have moved
+on since.
+
+It deliberately does not delete or archive the repo, close their issues, or unpin their status
+issue. All three are one click on GitHub, having thought about it.
+
+Plan-then-apply, like everything else that changes something.
+
 ## `roster doctor [handle]`
 
 Check the org is wired up, and that the agents have actually been running.

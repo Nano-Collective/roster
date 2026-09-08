@@ -21,6 +21,9 @@ export const VIEWS = [
    old links still land somewhere sensible. */
 export const VIEW_ALIAS = { memory: "brain" };
 
+/** Screens that belong to the org rather than to one staff member. */
+export const ORG_WIDE = new Set(["inbox", "org", "staff", "docs"]);
+
 export const S = {
   /** The org export from /api/org. Everything the brain screens read comes off this. */
   data: null,
@@ -49,6 +52,9 @@ export const S = {
   /** Which kind of run the Prompt screen is showing, and which layer of it is open. */
   promptKind: "daily",
   promptOpen: null,
+
+  /** Which org-layer file the Org screen is showing. */
+  orgOpen: null,
 
   inboxFilter: "",
   inboxStaff: "",
@@ -89,12 +95,13 @@ export function readHash() {
 
 export function writeHash(push) {
   if (S.applyingHash) return;
-  if (!S.staffHandle && S.view !== "docs") return;
+  if (!S.staffHandle && !ORG_WIDE.has(S.view)) return;
   const params = new URLSearchParams();
   const q = S.view === "brain" ? S.fileQuery : S.view === "changed" ? S.changedQuery : S.query;
   if (q) params.set("q", q);
   if (S.view === "brain" && S.openFile) params.set("f", S.openFile);
   if (S.view === "docs" && S.openDoc) params.set("p", S.openDoc);
+  if (S.view === "org" && S.orgOpen) params.set("f", S.orgOpen);
   if (S.view === "prompt") {
     if (S.promptKind !== "daily") params.set("k", S.promptKind);
     if (S.promptOpen) params.set("f", S.promptOpen);
@@ -120,7 +127,7 @@ export function applyHash() {
   const known = S.data.staff.some((s) => s.handle === h.handle);
   if (known) S.staffHandle = h.handle;
   const asked = VIEW_ALIAS[h.view] ?? h.view;
-  if (asked === "inbox" || asked === "docs" || VIEWS.some(([id]) => id === asked)) S.view = asked;
+  if (ORG_WIDE.has(asked) || VIEWS.some(([id]) => id === asked)) S.view = asked;
 
   if (S.view === "brain") {
     S.fileQuery = h.q;
@@ -132,6 +139,7 @@ export function applyHash() {
   }
 
   if (S.view === "docs") S.openDoc = h.p;
+  if (S.view === "org") S.orgOpen = h.f;
 
   if (S.view === "prompt") {
     S.promptKind = h.k || "daily";

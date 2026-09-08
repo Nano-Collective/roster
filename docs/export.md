@@ -21,6 +21,7 @@ that reads it gets the same view without reimplementing the memory grammar.
 |---|---|
 | `org` | the GitHub organisation |
 | `name` | the business name |
+| `opsName` | the ops repo's directory, so a consumer can address `org.yaml` and `org/*.md` by path |
 | `human` | the `human` block from `org.yaml` |
 | `generatedAt` | ISO timestamp |
 | `staff[]` | one entry per staff member |

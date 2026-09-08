@@ -75,7 +75,9 @@
 .tfile.tlayer{align-items:flex-start;padding:5px 8px}
 .tfile.tlayer span.t{display:flex;flex-direction:column;gap:1px}
 .tfile.tlayer .lname{font:12.5px var(--mono);overflow:hidden;text-overflow:ellipsis}
-.tfile.tlayer .lrepo{font:10px var(--sans);color:var(--ink-faint);letter-spacing:.02em}
+.tfile.tlayer .lrepo{font:10px/1.45 var(--sans);color:var(--ink-faint);letter-spacing:.02em;
+      white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+      overflow:hidden}
 .tfile.tlayer[aria-current="true"] .lname{color:var(--accent)}
 .tfile.tlayer.dim{opacity:.5}
 .treenote{margin:0 8px 6px;font:11px/1.45 var(--sans);color:var(--ink-faint)}

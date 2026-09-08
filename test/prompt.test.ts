@@ -109,7 +109,6 @@ test("the allowlist covers the prompt layers and nothing else", () => {
     "technology/prompts/work.md",
   ];
   const no = [
-    "roster-ops/org.yaml",
     "roster-ops/compose.mjs",
     "roster-ops/.github/workflows/session.yaml",
     "technology/staff.yaml",
@@ -118,6 +117,7 @@ test("the allowlist covers the prompt layers and nothing else", () => {
     "../../etc/hosts",
     "roster-ops/org/../../technology/staff.yaml",
   ];
+  // org.yaml is writable too, but only behind validateOrgYaml. See orgyaml.test.ts.
   for (const p of yes) assert.equal(isWritable(ws, p, brains), true, p + " should be writable");
   for (const p of no) assert.equal(isWritable(ws, p, brains), false, p + " must not be writable");
 });

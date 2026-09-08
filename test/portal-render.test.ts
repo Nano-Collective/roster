@@ -295,13 +295,63 @@ function fixtureFetch(u: string) {
               { file: "README.md", title: "Overview" },
               { file: "agents.md", title: "Choosing a coding agent" },
             ]
-          : url.startsWith("/api/prompt")
-            ? PROMPT_FIXTURE
-            : url.startsWith("/api/thread")
-              ? INBOX_FIXTURE.items[1]
-              : url.startsWith("/api/sync")
-                ? { results: [] }
-                : ORG,
+          : url.startsWith("/api/staff/plan")
+            ? url.includes("action=retire")
+              ? {
+                  action: "retire",
+                  plan: {
+                    handle: "cmo",
+                    name: "Chief Marketing Officer",
+                    dir: "marketing",
+                    brain: "acme/marketing",
+                    workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
+                    peers: [
+                      {
+                        handle: "cto",
+                        dir: "technology",
+                        brain: "acme/technology",
+                        label: "from-cmo",
+                      },
+                    ],
+                    keeps: [
+                      "acme/marketing is untouched",
+                      "103 facts and everything in memory/notes/",
+                    ],
+                    warnings: [],
+                  },
+                }
+              : {
+                  action: "hire",
+                  plan: {
+                    dir: "finance",
+                    files: ["CHARTER.md", "staff.yaml"],
+                    labels: ["will", "cfo"],
+                    secrets: ["CFO_APP_ID"],
+                    peers: [
+                      {
+                        handle: "cto",
+                        dir: "technology",
+                        brain: "acme/technology",
+                        label: "from-cfo",
+                      },
+                    ],
+                    warnings: ["schedule was chosen to sit clear of everyone else's"],
+                    staff: {
+                      handle: "cfo",
+                      name: "Chief Financial Officer",
+                      brain: "acme/finance",
+                      schedule: "0 9 * * 1-5",
+                      model: "a-model",
+                    },
+                  },
+                }
+            : url.startsWith("/api/prompt")
+              ? PROMPT_FIXTURE
+              : url.startsWith("/api/thread")
+                ? INBOX_FIXTURE.items[1]
+                : url.startsWith("/api/sync")
+                  ? { results: [] }
+                  : ORG,
     text: async () =>
       url.startsWith("/api/doc?")
         ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
@@ -385,6 +435,7 @@ const ALIAS: Record<string, string> = {
   openSurfaces: "openSurfaces",
   promptKind: "promptKind",
   promptOpen: "promptOpen",
+  orgOpen: "orgOpen",
   sync: "sync",
   loadedAt: "loadedAt",
 };
@@ -861,6 +912,16 @@ test("an opened group fans outwards, clear of every other group", () => {
 
 /* Everything below covers the amendments: a readable diff, real markdown, one brain view,
    a health screen you can act on, and an inbox you can scope to one staff member. */
+
+/* A wrapper div's textContent is its children joined, so a search by text finds the row
+   before the button inside it. Ask for the button. */
+function button(root: any, label: string): any {
+  const found = walkNodes(root).find(
+    (n) => n.tagName === "BUTTON" && String(n.textContent).trim() === label,
+  );
+  if (!found) throw new Error(`no button called "${label}"`);
+  return found;
+}
 
 function walkNodes(n: any, out: any[] = []): any[] {
   if (!n || typeof n !== "object") return out;
@@ -1770,8 +1831,7 @@ test("asking for a change pre-fills what the finding already worked out", async 
   await new Promise((r) => setTimeout(r, 30));
 
   const card = walkNodes(s._byId.main).find((n) => String(n.className ?? "").startsWith("prob "));
-  const fix = walkNodes(card).find((n) => String(n.textContent) === "Copy a prompt to fix this");
-  fix.onclick();
+  button(card, "Copy a prompt to fix this").onclick();
   await new Promise((r) => setTimeout(r, 20));
 
   assert.equal(s._asked.length, 1, "it should ask before copying");
@@ -1785,10 +1845,82 @@ test("asking for a change pre-fills what the finding already worked out", async 
 test("the general ask starts empty rather than guessing", async () => {
   const s = await renderAll("#/cto/prompt");
   await new Promise((r) => setTimeout(r, 30));
-  const btn = walkNodes(s._byId.main).find(
-    (n) => String(n.textContent) === "Copy a brief for changing this",
-  );
-  btn.onclick();
+  button(s._byId.main, "Copy a brief for changing this").onclick();
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(s._asked, [""], "nothing to pre-fill when nothing found it");
+});
+
+/* ------------------------- staff, and the org layer ------------------------ */
+
+test("the staff screen lists everyone with somewhere to go", async () => {
+  const s = await renderAll("#/-/staff");
+  assert.equal(s.view, "staff");
+  const nodes = walkNodes(s._byId.main);
+  const cards = nodes.filter((n) => String(n.className ?? "").includes("staffcard"));
+  assert.equal(cards.length, ORG.staff.length, "one card per staff member");
+  assert.match(cards[0].innerHTML, /facts/, "with something about what they hold");
+  assert.ok(
+    nodes.some((n) => String(n.textContent) === "Hire someone"),
+    "and a way to add one",
+  );
+});
+
+test("a retire plan says what it keeps as loudly as what it stops", async () => {
+  /* The promise of retiring rather than deleting is that the memory survives, and somebody
+     has to believe that before they click. A plan that only lists what it breaks has not
+     earned the click. */
+  const s = await renderAll("#/-/staff");
+  const card = walkNodes(s._byId.main).find((n) => String(n.className ?? "").includes("staffcard"));
+  button(card, "Retire").onclick();
+  await new Promise((r) => setTimeout(r, 30));
+
+  const nodes = walkNodes(s._byId.main);
+  const heads = nodes
+    .filter((n) => String(n.className ?? "").startsWith("planhead"))
+    .map((n) => String(n._text ?? ""));
+  assert.deepEqual(heads, ["This would stop", "This would keep"], String(heads));
+
+  const kept = nodes.filter((n) => String(n.className ?? "").includes("planline keep"));
+  assert.ok(kept.length >= 2, "what survives has to be enumerated");
+  assert.match(kept.map((k) => k.textContent).join(" "), /untouched/);
+});
+
+test("a hire plan names the repo it would create and what is left to you", async () => {
+  const s = await renderAll("#/-/staff");
+  button(s._byId.main, "Hire someone").onclick();
+
+  const handle = walkNodes(s._byId.main).find((n) => n.dataset?.field === "handle");
+  assert.ok(handle, "the form needs a handle field");
+  handle.value = "cfo";
+  button(s._byId.main, "Show the plan").onclick();
+  await new Promise((r) => setTimeout(r, 30));
+
+  const text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(text, /acme\/finance/, "the repo it would create");
+  assert.match(text, /pinned status issue/);
+  assert.match(text, /roster app cfo/, "and the manual step it cannot do");
+});
+
+test("the org screen offers every file the whole roster inherits", async () => {
+  const s = await renderAll("#/-/org");
+  assert.equal(s.view, "org");
+  const keys = walkNodes(s._byId.main)
+    .filter((n) => n.dataset?.key)
+    .map((n) => n.dataset.key);
+  assert.deepEqual(keys, [
+    "org.yaml",
+    "org/business.md",
+    "org/operating.md",
+    "org/guardrails.md",
+    "org/voice.md",
+  ]);
+  // Five filenames tell you nothing about which to open, so each says what it is for.
+  const notes = walkNodes(s._byId.main).filter((n) => String(n.className ?? "") === "lrepo");
+  assert.equal(notes.length, 5);
+  assert.ok(
+    notes.every((n) => String(n.textContent).length > 30),
+    "and says it properly",
+  );
 });

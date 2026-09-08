@@ -153,13 +153,22 @@ function runtimeReads(ws: Workspace, brainDir: string): Layer[] {
  * and the set of files a person edits to change how their agents behave is small and
  * nameable. `staff.yaml`, `.github/workflows/` and `memory/INDEX.md` are deliberately not in
  * it — the first two break composition when they are wrong, and the third is the agent's.
+ *
+ * `org.yaml` is the exception: it belongs to the person, not the agent, so it is writable, and
+ * `validateOrgYaml` runs before anything is written.
  */
 export function isWritable(ws: Workspace, rel: string, brainDirs: string[]): boolean {
   const full = resolve(ws.root, rel);
   if (!full.startsWith(resolve(ws.root) + "/")) return false;
   const opsRel = relative(resolve(ws.opsDir), full);
   if (!opsRel.startsWith("..")) {
-    return /^org\/[\w.-]+\.md$/.test(opsRel) || /^prompts\/[\w.-]+\.md$/.test(opsRel);
+    // org.yaml is writable but validated before it lands: it is the one file here that stops
+    // every prompt composing when it is wrong, rather than just reading oddly.
+    return (
+      /^org\/[\w.-]+\.md$/.test(opsRel) ||
+      /^prompts\/[\w.-]+\.md$/.test(opsRel) ||
+      opsRel === "org.yaml"
+    );
   }
   for (const dir of brainDirs) {
     const brainRel = relative(resolve(ws.root, dir), full);
@@ -228,4 +237,36 @@ function short(e: unknown): string {
   const msg = e instanceof Error ? (e as any).stderr?.toString() || e.message : String(e);
   const line = msg.split("\n").find((l: string) => l.trim()) ?? msg;
   return line.length > 200 ? line.slice(0, 199) + "…" : line;
+}
+
+/**
+ * A shape check on org.yaml, before it is allowed to land.
+ *
+ * Not a schema. It catches the two ways an edit here is expensive: YAML the tenant's own
+ * parser cannot read, and a file that parses but has lost the keys every prompt composes
+ * against. Everything else is the person's business.
+ */
+export function validateOrgYaml(
+  text: string,
+  parseYaml: (t: string, f?: string) => Record<string, unknown>,
+): string | null {
+  let doc: Record<string, unknown>;
+  try {
+    doc = parseYaml(text, "org.yaml");
+  } catch (err) {
+    return `that is not YAML compose.mjs can read: ${(err as Error).message}`;
+  }
+  if (!doc || typeof doc !== "object") return "org.yaml has to be a mapping";
+  for (const key of ["org", "name"]) {
+    if (!doc[key] || typeof doc[key] !== "string") {
+      return `org.yaml needs a "${key}", and every prompt is composed against it`;
+    }
+  }
+  for (const key of ["staff", "repos"]) {
+    if (doc[key] !== undefined && !Array.isArray(doc[key])) return `"${key}" has to be a list`;
+  }
+  for (const s of (doc.staff as Array<Record<string, unknown>>) ?? []) {
+    if (!s?.handle) return "every staff entry needs a handle";
+  }
+  return null;
 }

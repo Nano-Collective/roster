@@ -50,6 +50,34 @@ down with the list, so opening a thread is a render rather than a request.
   disclosure. An item a cross-reference points at opens in the portal when the inbox already
   holds it, and on GitHub when it does not.
 
+## Org
+
+The layer every staff member inherits, in one place: `org.yaml` and the four org documents,
+each with a line saying what it is for, because five filenames tell you nothing about which to
+open. All five are editable, and saving commits and pushes.
+
+`org.yaml` is the exception to the write allowlist. It belongs to the person rather than the
+agent, so it is writable. But it is the one file here that stops every prompt composing when
+it is wrong, so the server parses it with the tenant's own `compose.mjs` first and refuses
+anything that is not YAML it can read, or that has lost `org`, `name`, or a handle on a staff
+entry.
+
+## Staff
+
+Everyone on the roster, and the two things you could previously only do from a terminal.
+
+**Hiring** runs the same `buildPlan` and `applyPlan` that `roster hire` does, on the server.
+Only the handle is required; everything else is copied from whoever is already here. You see
+the plan first, listing every file, every label, the schedule it chose and why, and the manual
+steps it cannot do for you. Nothing happens until you apply. What the terminal would have
+printed is shown when it finishes.
+
+**Retiring** is `roster retire`, and it is deliberately not deletion. A brain repo is that
+agent's entire memory and there is no undo, so retiring disables the workflows, unwires them
+from `org.yaml` and from every peer, and deletes the dead `from-<handle>` labels. The plan says
+what it keeps as prominently as what it stops, because that is the thing you have to believe
+before clicking it.
+
 ## Brain
 
 Memory and the file tree, merged, because they were always the same thing: both manifests

@@ -8,11 +8,13 @@ import { auditPrompt } from "../lib/audit.js";
 import { docPages, docsDir } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
-import { isWritable, KINDS, promptView, saveFile } from "../lib/prompt.js";
+import { isWritable, KINDS, promptView, saveFile, validateOrgYaml } from "../lib/prompt.js";
 import { orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
 import { syncRepos } from "../lib/sync.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 import { portalAsset, portalIndex } from "../portal/assets.js";
+import { applyPlan, buildPlan, type Flags, type OrgYaml } from "./hire.js";
+import { applyRetirePlan, buildRetirePlan } from "./retire.js";
 
 export const portalHelp = `
 roster portal
@@ -183,6 +185,82 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* Hiring and retiring, from the same plan-then-apply the CLI runs. The portal builds
+         the plan with `buildPlan` and applies it with `applyPlan`, rather than describing
+         either again: two descriptions of how to create a repo is one too many. */
+      if (url.pathname === "/api/staff/plan") {
+        const handle = url.searchParams.get("handle") ?? "";
+        const action = url.searchParams.get("action") === "retire" ? "retire" : "hire";
+        const org = readOrg(ws.opsDir, parseYaml);
+        try {
+          if (action === "retire") {
+            if (!(org.staff ?? []).some((s) => s.handle === handle)) {
+              throw new Error(`"${handle}" is not in org.yaml`);
+            }
+            const plan = buildRetirePlan(ws, org, handle, parseYaml);
+            json(res, { action, plan });
+            return;
+          }
+          if (!/^[a-z][a-z0-9-]{1,20}$/.test(handle)) {
+            throw new Error(`"${handle}" is not a usable handle. Lowercase, digits and dashes.`);
+          }
+          if ((org.staff ?? []).some((s) => s.handle === handle)) {
+            throw new Error(`"${handle}" is already in org.yaml`);
+          }
+          const flags = hireFlags(url.searchParams);
+          const plan = buildPlan(ws, org as OrgYaml, handle, flags, parseYaml);
+          // The file bodies are megabytes of scaffold nobody reads in a plan. Names only.
+          json(res, {
+            action,
+            plan: { ...plan, files: [...plan.files.keys()].sort() },
+          });
+        } catch (err) {
+          res.writeHead(400, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: String((err as Error).message) }));
+        }
+        return;
+      }
+
+      if (url.pathname === "/api/staff/apply") {
+        if (!writeAllowed(req)) {
+          res.writeHead(403, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
+          return;
+        }
+        body(req)
+          .then(async (raw) => {
+            const payload = JSON.parse(raw || "{}") as {
+              action?: string;
+              handle?: string;
+              flags?: Record<string, string>;
+            };
+            const handle = payload.handle ?? "";
+            const org = readOrg(ws.opsDir, parseYaml);
+            /* Both of these write to GitHub and to disk, and both print as they go. The
+               output is captured and returned, because a person who just created a repo
+               wants the same account of it the terminal gives. */
+            const said = capture();
+            let code: number;
+            try {
+              if (payload.action === "retire") {
+                code = await applyRetirePlan(ws, buildRetirePlan(ws, org, handle, parseYaml));
+              } else {
+                const flags = hireFlags(new URLSearchParams(payload.flags ?? {}));
+                const plan = buildPlan(ws, org as OrgYaml, handle, flags, parseYaml);
+                code = await applyPlan(ws, plan, { ...flags, apply: true });
+              }
+            } finally {
+              said.stop();
+            }
+            json(res, { ok: code === 0, code, output: said.text() });
+          })
+          .catch((err) => {
+            res.writeHead(400, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+          });
+        return;
+      }
+
       /* A prompt you paste into your own AI to change what this agent is told. It carries
          the composed text and every layer, because knowing which of eight files to open is
          the hard part and a brief that asks for them has handed that back. */
@@ -238,6 +316,10 @@ export async function portalCommand(argv: string[]): Promise<number> {
             }
             if (!isWritable(ws, payload.path, brainDirs)) {
               throw new Error(`${payload.path} is not a file the portal may write`);
+            }
+            if (payload.path.endsWith("org.yaml")) {
+              const wrong = validateOrgYaml(payload.text, parseYaml);
+              if (wrong) throw new Error(wrong);
             }
             const result = saveFile(
               ws,
@@ -433,6 +515,58 @@ export async function portalCommand(argv: string[]): Promise<number> {
       );
     });
   });
+}
+
+function json(res: import("node:http").ServerResponse, data: unknown) {
+  res.writeHead(200, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  res.end(JSON.stringify(data));
+}
+
+/** The hire flags the portal is allowed to set. Everything else keeps its default. */
+function hireFlags(params: URLSearchParams): Flags {
+  const num = (k: string) => (params.get(k) ? Number(params.get(k)) : undefined);
+  return {
+    name: params.get("name") ?? undefined,
+    dir: params.get("dir") ?? undefined,
+    schedule: params.get("schedule") ?? undefined,
+    model: params.get("model") ?? undefined,
+    timeout: num("timeout"),
+    mentionTimeout: num("mentionTimeout"),
+    prMentionTimeout: num("prMentionTimeout"),
+    secretPrefix: params.get("secretPrefix") ?? undefined,
+    app: params.get("app") ?? undefined,
+    publicApp: params.get("publicApp") ?? undefined,
+    visibility: params.get("visibility") ?? undefined,
+  };
+}
+
+/**
+ * Both commands narrate to stdout as they work, and that narration is the useful part: which
+ * repo was created, which label went where, what could not be done. Captured rather than
+ * rewritten, so the portal shows exactly what the terminal would have.
+ */
+function capture() {
+  const chunks: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  const err = process.stderr.write.bind(process.stderr);
+  const grab =
+    (pass: typeof out) =>
+    (chunk: any, ...rest: any[]) => {
+      chunks.push(String(chunk));
+      return (pass as any)(chunk, ...rest);
+    };
+  process.stdout.write = grab(out) as any;
+  process.stderr.write = grab(err) as any;
+  return {
+    stop() {
+      process.stdout.write = out;
+      process.stderr.write = err;
+    },
+    text: () => chunks.join(""),
+  };
 }
 
 /** The org half of the token set, for a brief that names the org and the human. */

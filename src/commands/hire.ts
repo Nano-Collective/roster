@@ -45,7 +45,7 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
   new repo's secrets. Those are the manual steps, and the plan lists them.
 `;
 
-interface Plan {
+export interface Plan {
   org: OrgSpec;
   staff: StaffSpec;
   dir: string;
@@ -90,7 +90,7 @@ export async function hireCommand(argv: string[]): Promise<number> {
   return applyPlan(ws, plan, opts);
 }
 
-interface OrgYaml {
+export interface OrgYaml {
   org: string;
   name: string;
   human?: { github?: string; marker?: string };
@@ -99,7 +99,7 @@ interface OrgYaml {
   repos?: Array<{ name: string; visibility?: string; role?: string }>;
 }
 
-function buildPlan(
+export function buildPlan(
   ws: Workspace,
   org: OrgYaml,
   handle: string,
@@ -316,7 +316,7 @@ function printPlan(plan: Plan, ws: Workspace) {
   );
 }
 
-async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise<number> {
+export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise<number> {
   const { staff } = plan;
   const ready = await ghReady();
   if (!ready.ok) {
@@ -522,7 +522,7 @@ function git(cwd: string, args: string[]) {
   execFileSync("git", args, { cwd, stdio: ["ignore", "ignore", "pipe"] });
 }
 
-interface Flags {
+export interface Flags {
   ops?: string;
   name?: string;
   dir?: string;
@@ -573,5 +573,3 @@ function parseFlags(argv: string[]): Flags {
   }
   return out;
 }
-
-export { buildPlan, type Plan };
