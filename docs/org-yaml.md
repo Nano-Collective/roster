@@ -34,7 +34,8 @@ agent:
 
 defaults:
   model: claude-opus-5
-  timeout_minutes: 60
+  timeout_minutes: 90
+  mention_timeout_minutes: 90
   allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 
 staff:
@@ -92,7 +93,8 @@ Fallbacks for staff members who do not set their own.
 | Field | Means |
 |---|---|
 | `model` | Model id passed to the agent. |
-| `timeout_minutes` | Ceiling on a daily session. |
+| `timeout_minutes` | Ceiling on a daily session. `90` if unset. |
+| `mention_timeout_minutes` | Ceiling on a mention run. Falls back to `timeout_minutes`, then `90`. |
 | `allowed_tools` | Tool permission string. Meaningful to agents that take one, ignored by those that do not. |
 
 ### `staff`

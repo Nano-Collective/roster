@@ -93,7 +93,7 @@ export interface OrgYaml {
   org: string;
   name: string;
   human?: { github?: string; marker?: string };
-  defaults?: { model?: string; timeout_minutes?: number };
+  defaults?: { model?: string; timeout_minutes?: number; mention_timeout_minutes?: number };
   staff?: Array<{ handle: string; dir?: string; name?: string; schedule?: string }>;
   repos?: Array<{ name: string; visibility?: string; role?: string }>;
 }
@@ -162,8 +162,15 @@ export function buildPlan(
       .map((r) => `${org.org}/${r.name}`),
     schedule,
     model,
-    timeout: opts.timeout ?? org.defaults?.timeout_minutes ?? 60,
-    mentionTimeout: opts.mentionTimeout ?? 30,
+    timeout: opts.timeout ?? org.defaults?.timeout_minutes ?? 90,
+    // A mention that ends in a build needs a session's room: the product repo's gate alone
+    // can outlast a short ceiling, and a hire that has to discover that costs a run. An org
+    // that wants them split says so; absent that, one number governs both.
+    mentionTimeout:
+      opts.mentionTimeout ??
+      org.defaults?.mention_timeout_minutes ??
+      org.defaults?.timeout_minutes ??
+      90,
     secretPrefix: opts.secretPrefix ?? handle.toUpperCase(),
     publicSecretPrefix: publicIdentity?.secret_prefix ?? "BOT",
     app: app ?? `${handle}`,

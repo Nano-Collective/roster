@@ -492,10 +492,10 @@ export interface Run {
   updatedAt: string;
 }
 
-/** The ceiling the caller hands to the reusable workflow; session.yaml defaults to 60. */
+/** The ceiling the caller hands to the reusable workflow; session.yaml defaults to 90. */
 export function timeoutOf(callerText: string): number {
   const m = /timeout_minutes:\s*(\d+)/.exec(callerText);
-  return m ? Number(m[1]) : 60;
+  return m ? Number(m[1]) : 90;
 }
 
 export function runMinutes(run: Run): number {

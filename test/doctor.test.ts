@@ -33,7 +33,7 @@ test("the timeout comes from the caller, not from a guess", () => {
   assert.equal(timeoutOf("    with:\n      timeout_minutes: 30\n"), 30);
   assert.equal(timeoutOf("timeout_minutes:    90"), 90);
   // session.yaml's own default, for a caller that does not override it.
-  assert.equal(timeoutOf("with:\n  staff: cto\n"), 60);
+  assert.equal(timeoutOf("with:\n  staff: cto\n"), 90);
 });
 
 test("a job killed by its timeout is named as one, not left as 'cancelled'", () => {

@@ -29,7 +29,7 @@ on:
         type: string
       timeout_minutes:
         required: false
-        default: 60
+        default: 90
         type: number
       allowed_tools:
         required: false
