@@ -1924,3 +1924,25 @@ test("the org screen offers every file the whole roster inherits", async () => {
     "and says it properly",
   );
 });
+
+test("a portal left running across an upgrade says so instead of rendering undefined", async () => {
+  /* Assets are read per request; the server is loaded once. So a long-running portal serves
+     new modules against an old API, and the first sign of it was an Org screen asking for
+     `undefined/org.yaml`. */
+  const s = await renderAll();
+  s.fetch = async (u: string) =>
+    String(u).startsWith("/api/org")
+      ? {
+          ok: true,
+          // An export from before opsName existed.
+          json: async () => ({ org: "acme", name: "Acme", human: {}, staff: ORG.staff }),
+          text: async () => "",
+        }
+      : { ok: true, json: async () => ({}), text: async () => "" };
+
+  await s.refreshAll(false);
+  const text = String(s._byId.main.textContent) + String(s._byId.main.children[0]?.innerHTML ?? "");
+  assert.match(text, /newer than the portal serving it/, "it has to say what is wrong");
+  assert.match(text, /start it again/, "and what to do");
+  assert.match(text, /opsName/, "and which field is missing");
+});

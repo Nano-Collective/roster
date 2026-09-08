@@ -30,6 +30,16 @@ const SCREEN = {
   health: viewHealth,
 };
 
+/**
+ * Fields of the org export this page cannot render without.
+ *
+ * The portal reads its stylesheets and modules per request, so editing one and reloading
+ * works. Its *server* is loaded once, at start. A portal left running across an upgrade
+ * therefore serves new assets against an old API, and the first sign of it was an Org screen
+ * asking for `undefined/org.yaml`. A missing field is version skew, and skew should say so.
+ */
+const NEEDS = ["org", "name", "opsName", "staff"];
+
 export async function boot() {
   initTheme();
   S.data = await getOrg();
@@ -76,6 +86,20 @@ export async function boot() {
   });
 
   render();
+}
+
+/** Say it plainly, rather than rendering half a page built on values that are not there. */
+function stale(missing) {
+  const m = $("#main");
+  m.replaceChildren();
+  const box = el("div", { className: "notice" });
+  box.innerHTML =
+    "<b>This page is newer than the portal serving it.</b><br>" +
+    "The stylesheets and modules are read per request, but the server is not: it was loaded " +
+    "when <code>roster portal</code> started. Stop it and start it again.<br><br>" +
+    "<span class=\"meta\">/api/org is not sending: " + missing.join(", ") + "</span>";
+  m.append(box);
+  $("#orgname").textContent = "restart needed";
 }
 
 /* Who `@cto` and `@you` are, so a mention in a thread can point somewhere useful
@@ -181,6 +205,11 @@ function markSidebar() {
 /* --------------------------------- render --------------------------------- */
 
 function render() {
+  /* Checked on every paint rather than once at boot, because `refreshAll` re-fetches the
+     export and a portal can go stale under a page that is already open. */
+  const missing = NEEDS.filter((k) => S.data?.[k] === undefined);
+  if (missing.length) return stale(missing);
+
   // A refresh can add or remove a staff member, and the sidebar is built once.
   const roster = S.data.staff.map((s) => s.handle).join(" ");
   if (roster !== paintedRoster) paintSidebar();

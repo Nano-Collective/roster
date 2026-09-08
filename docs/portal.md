@@ -213,6 +213,15 @@ index and notes size, charter, status issue, missing surfaces.
 The framework's own documentation, rendered where you already are. Links between pages navigate
 the portal.
 
+## After upgrading roster
+
+**Restart the portal.** Its stylesheets and modules are read per request, so editing one and
+reloading works. Its server is not: it is loaded when `roster portal` starts. A portal left
+running across an upgrade serves new modules against an old API.
+
+The page notices and says so rather than rendering half of itself against values that are not
+there, naming the fields the old server is not sending.
+
 ## Keeping it current
 
 `/api/sync` fetches and fast-forwards every repository on each refresh. It refuses to pull one
