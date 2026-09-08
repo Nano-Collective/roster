@@ -13,6 +13,7 @@ import {
 } from "../src/commands/hire.js";
 import { nextSlot, render } from "../src/lib/render.js";
 import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
+import { testWorkspace } from "./helpers/workspace.js";
 
 /**
  * Hiring writes into repos that already exist — a peer's manifest, the org's own org.yaml —
@@ -22,7 +23,7 @@ import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
  */
 
 const ROOT = join(import.meta.dirname, "..", "..");
-const ws = findWorkspace(join(ROOT, "roster-ops"));
+const ws = await testWorkspace();
 const { parseYaml } = await loadComposer(ws.opsDir);
 const ORG = readOrg(ws.opsDir, parseYaml) as any;
 

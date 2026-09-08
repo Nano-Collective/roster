@@ -3,13 +3,14 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { isWritable, validateOrgYaml } from "../src/lib/prompt.js";
 import { loadComposer } from "../src/lib/workspace.js";
+import { testWorkspace } from "./helpers/workspace.js";
 
 /**
  * `org.yaml` is the one file the portal writes that stops every prompt composing when it is
  * wrong, rather than just reading oddly. So it is writable, and checked first.
  */
 
-const { parseYaml } = await loadComposer(join(import.meta.dirname, "..", "..", "roster-ops"));
+const { parseYaml } = await loadComposer((await testWorkspace()).opsDir);
 const ws = { root: "/ws", opsDir: "/ws/roster-ops", opsName: "roster-ops" };
 
 test("a good org.yaml passes", () => {

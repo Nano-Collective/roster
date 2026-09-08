@@ -5,6 +5,7 @@ import { test } from "node:test";
 // The tenant vendors this file; the framework tests the same copy it ships.
 // @ts-expect-error - plain JS, no types by design
 import { parseYaml, render } from "../templates/ops/compose.mjs";
+import { testWorkspace } from "./helpers/workspace.js";
 
 const OPS = join(import.meta.dirname, "..", "templates", "ops");
 
@@ -89,10 +90,10 @@ test("stops runaway includes instead of hanging the runner", () => {
   assert.throws(() => render("{{> self.md}}", {}, () => "{{> self.md}}"), /include depth exceeded/);
 });
 
-test("the shipped org.yaml template parses", () => {
+test("the shipped org.yaml template parses", async () => {
   // Guards against a template edit that composes locally and breaks in a runner.
   const org = parseYaml(
-    readFileSync(join(OPS, "..", "..", "..", "roster-ops", "org.yaml"), "utf8"),
+    readFileSync(join((await testWorkspace()).opsDir, "org.yaml"), "utf8"),
   ) as any;
   assert.equal(typeof org.org, "string");
   assert.ok(Array.isArray(org.staff) && org.staff.length > 0, "org.yaml must list staff");

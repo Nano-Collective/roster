@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { isWritable, promptView, saveFile } from "../src/lib/prompt.js";
 import { findWorkspace, loadComposer } from "../src/lib/workspace.js";
+import { testWorkspace } from "./helpers/workspace.js";
 
 /**
  * The prompt screen and the one write path that touches a repo the agents run from.
@@ -16,7 +17,7 @@ import { findWorkspace, loadComposer } from "../src/lib/workspace.js";
  */
 
 const ROOT = join(import.meta.dirname, "..");
-const ws = findWorkspace(join(ROOT, ".."));
+const ws = await testWorkspace();
 const { compose } = await loadComposer(ws.opsDir);
 
 test("the layers are walked out of the includes, not written down", async () => {

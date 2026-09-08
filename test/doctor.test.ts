@@ -12,6 +12,7 @@ import {
   runMinutes,
   timeoutOf,
 } from "../src/commands/doctor.js";
+import { testWorkspace } from "./helpers/workspace.js";
 
 /**
  * Doctor's job is to be believed, so the tests here are mostly about not crying wolf. Every
@@ -71,7 +72,7 @@ test("a run one minute short of the ceiling still counts as a timeout", () => {
   assert.equal(isTimeout(near, 60), true);
 });
 
-const OPS = join(import.meta.dirname, "..", "..", "roster-ops");
+const OPS = (await testWorkspace()).opsDir;
 
 test("doctor runs offline against the real workspace and finds it healthy", async () => {
   /* The same bet as the portal tests: built from the live workspace, so it breaks when the
@@ -130,12 +131,7 @@ test("an unknown handle is an error, not an empty pass", async () => {
   }) as typeof process.stderr.write;
   let code: number;
   try {
-    code = await doctorCommand([
-      "nobody",
-      "--offline",
-      "--ops",
-      join(import.meta.dirname, "..", "..", "roster-ops"),
-    ]);
+    code = await doctorCommand(["nobody", "--offline", "--ops", OPS]);
   } finally {
     process.stderr.write = write;
   }

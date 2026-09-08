@@ -10,6 +10,7 @@ import {
   removePeerLine,
 } from "../src/commands/retire.js";
 import { loadComposer } from "../src/lib/workspace.js";
+import { testWorkspace } from "./helpers/workspace.js";
 
 /**
  * Retiring is the destructive-looking operation that must not destroy anything. What the tests
@@ -17,7 +18,7 @@ import { loadComposer } from "../src/lib/workspace.js";
  * to keep, and deleting the wrong label from the wrong repo.
  */
 
-const REAL_OPS = join(import.meta.dirname, "..", "..", "roster-ops");
+const REAL_OPS = (await testWorkspace()).opsDir;
 const { parseYaml } = await loadComposer(REAL_OPS);
 
 const ORG_YAML = `org: acme

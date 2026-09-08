@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { testWorkspace } from "./helpers/workspace.js";
 
 /**
  * Documentation rots quietly. These tests hold it to the code: every command it mentions has to
@@ -222,8 +223,8 @@ test("every manifest field the code reads is in the staff.yaml reference", () =>
 
 test("the export reference matches the shape the exporter actually produces", async () => {
   const { buildExport } = await import("../src/lib/export.js");
-  const { findWorkspace, loadComposer, readOrg } = await import("../src/lib/workspace.js");
-  const ws = findWorkspace(join(ROOT, ".."));
+  const { loadComposer, readOrg } = await import("../src/lib/workspace.js");
+  const ws = await testWorkspace();
   const { parseYaml } = await loadComposer(ws.opsDir);
   const org = buildExport(ws, readOrg(ws.opsDir, parseYaml) as never, parseYaml);
 
