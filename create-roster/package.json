@@ -1,6 +1,6 @@
 {
   "name": "create-roster",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "npm create roster \u2014 stand up an agent-run org, in your browser.",
   "type": "module",
   "bin": {

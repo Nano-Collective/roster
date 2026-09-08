@@ -28,7 +28,7 @@ if (!arg && existsSync(dir) && readdirSync(dir).some((f) => !f.startsWith(".")))
 
 /* Pinned to the matching line, so `npm create roster` and the package it runs cannot drift
    apart across a release. */
-const child = spawn("npx", ["--yes", "@nanocollective/roster@0.1.0-alpha.1"], {
+const child = spawn("npx", ["--yes", "@nanocollective/roster@0.1.0-alpha.2"], {
   cwd: dir,
   stdio: "inherit",
 });

@@ -1,6 +1,6 @@
 {
   "name": "@nanocollective/roster",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "An agent-run org, powered by GitHub. Scaffold AI staff members whose brain is a repo.",
   "type": "module",
   "bin": {
