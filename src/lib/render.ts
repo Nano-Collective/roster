@@ -234,10 +234,11 @@ export function specFromManifest(m: Record<string, any>, dir: string): StaffSpec
     worksIn: (m.works_in ?? []).map((w: any) => String(w?.repo)).filter(Boolean),
     schedule: String(m.schedule ?? ""),
     model: String(m.model ?? ""),
-    timeout: Number(m.timeout_minutes ?? 60),
-    // Absent from the manifests written before these were separate fields. The defaults are
-    // the values those manifests were already producing, so nothing moves on the first upgrade.
-    mentionTimeout: Number(m.mention_timeout_minutes ?? 30),
+    timeout: Number(m.timeout_minutes ?? 90),
+    // Absent from the manifests written before these were separate fields. 90 either way: a
+    // mention that ends in a build needs a session's room, and the 30 these once fell back to
+    // killed four runs mid-gate at a ceiling nobody had chosen.
+    mentionTimeout: Number(m.mention_timeout_minutes ?? 90),
     secretPrefix: String(priv.secret_prefix ?? String(m.handle ?? dir).toUpperCase()),
     publicSecretPrefix: String(pub.secret_prefix ?? "BOT"),
     app: String(priv.app ?? ""),
