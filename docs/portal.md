@@ -62,7 +62,25 @@ down with the list, so opening a thread is a render rather than a request.
   a shorter timeline than open work because it is there to be read rather than triaged. A
   closed row is dimmed and marked; the sidebar badge keeps counting only what is open.
 - **Reply, close, reopen, open an issue.** All as you, through your own `gh`, so they are
-  indistinguishable from doing it on the site. Closing asks for confirmation.
+  indistinguishable from doing it on the site. Closing asks for confirmation. A half-written
+  reply survives a repaint, and pressing Comment with an empty box says so rather than
+  silently doing nothing.
+- **Labels are the repo's own, as toggles.** A new issue offers the labels that exist on the
+  repository you picked, fetched from GitHub and cached. A text box was a spelling test:
+  `from-cmo` and `from-CMO` are different labels and only one of them exists. The repos come
+  from `org.yaml` over their own route, so the picker is filled before the inbox has answered.
+- **Attachments.** Drop a file on the box, pick one, or paste one. Paste is the one that
+  matters, because a screenshot is on the clipboard and never on disk. GitHub's own drag-and-drop
+  attachments are minted by its web app and cannot be made with `gh`, so the file is committed
+  to `attachments/<date>-<name>` in the repo the issue lives in and pushed. The body gets the
+  link for you and the repo-relative path for the agent, which reads it off its own checkout
+  rather than needing a token for a private repo. 25MB a file; a failed push is reported rather
+  than hidden.
+- **Reactions.** The 👀 an agent leaves when it picks something up, under the comment it is on,
+  with who left it. Without it you post a comment, see nothing change, and have to open GitHub
+  to find out it landed.
+- **How much conversation** is on each row, which is most of what tells a live thread from
+  something filed and never answered.
 - Issue and PR references in a body become chips you can click through, and `@handle`
   mentions become chips too. A mention of somebody on this roster goes to their repository
   rather than to a GitHub profile of that name, which for `@cto` is a stranger.
@@ -78,6 +96,29 @@ down with the list, so opening a thread is a render rather than a request.
   own order. Labels, assignees and renames are bookkeeping, so a run of them folds behind one
   disclosure. An item a cross-reference points at opens in the portal when the inbox already
   holds it, and on GitHub when it does not.
+
+## Pull requests
+
+The same screen, scoped to pull requests, in its own place in the sidebar. An inbox is what is
+waiting on you; a pull request is work that is finished and waiting on a merge, and the count
+that matters is not how many are open but how many are green and still sitting there.
+
+A pull request's thread has three tabs.
+
+- **Conversation** is the thread: body, timeline, reactions, reply box, same as an issue.
+- **Commits**, with subject, author and sha, each linking to GitHub.
+- **Files**: the full patch, rendered as a diff with line numbers, the same renderer *What
+  changed* uses. A file with no patch is binary or too large for the API to send one, and says
+  so rather than showing nothing.
+
+Both are fetched when you open the tab, not carried by the inbox. A diff is the biggest thing
+on this screen by an order of magnitude, and paying for every open PR's diff on every refresh
+of every repo to show one of them is the wrong trade.
+
+**Merge** sits beside Close, with squash, merge commit or rebase, and asks before it goes. It
+never deletes the branch: that is a second decision and not this button's to make. It runs
+`gh pr merge` as you, so a protected branch, a failing required check or a merge queue behaves
+exactly as it would on the site.
 
 ## Org
 
@@ -156,7 +197,7 @@ rather than going nowhere.
 `roster prompt <handle> --kind daily` in a terminal. Composed on the server by the tenant's own
 `compose.mjs`, so there is no second implementation to drift.
 
-Pick the kind: `daily`, `mention` or `pr-mention`. A mention prompt is written for the comment
+Pick the kind: `daily` or `mention`. A mention prompt is written for the comment
 that woke it, so a preview fills in obviously-fake context.
 
 Beneath the composed text, the files it was made of, in two groups.
@@ -172,25 +213,9 @@ tells the agent to open these; it does not contain them. Editing a charter chang
 agent does without changing a byte of the composed prompt, and that distinction is easy to
 miss.
 
-### Problems
-
-The audit, beside the layers. Nothing here judges prose: every check is something a machine
-can be sure about, because a linter you stop believing is worse than no linter.
-
-| Check | Why it matters |
-|---|---|
-| a file is still the scaffold | `org/business.md` is composed into every run. Leaving it as questions is invisible: the run works and the output is just generic |
-| a placeholder never resolved | `{{staff.product.repo}}` is null for a staff member who contributes to no other repo, and the agent reads the braces literally |
-| the same line in two layers | the layers are inherited, so a rule a charter repeats from `org/` is duplication nobody reading either file can see |
-| the prompt is long | it is read in full on every run, forever |
-| it names a file that is not there | an instruction to read something absent is a quiet no-op inside a run nobody watches |
-| an included layer is empty | it contributes nothing and costs a line of includes |
-
-**Every finding carries the fix.** "Copy a prompt to fix this" builds a brief containing the
-finding, the composed prompt, and every layer, and puts it on your clipboard. Paste it into
-whatever agent you use. Knowing there is a problem is the hard part; writing the paragraph is
-not. The box comes pre-filled with what the finding worked out, so you can add to it rather
-than retype it.
+What is *wrong* with any of this is on [Health](#health). This screen answers "what is sent";
+whether what is sent is any good is a different question, and a tree that was half prompt and
+half complaints answered neither well.
 
 ### Getting help changing it
 
@@ -284,7 +309,11 @@ opening the diff that did it: one block per file, coloured, with line numbers.
 
 ## Health
 
-Three parts.
+Four parts: the rig, the org, the prompts and the memory. The rig is about this staff member,
+so it is first; the rest widens out from there.
+
+**The rig**: schedule in words, workflows present, last commit, last commit touching `memory/`,
+index and notes size, charter, status issue, missing surfaces.
 
 **The org, from `roster doctor`.** Every finding that is not `ok`, with what to do about it, and
 a button that turns the lot into one brief for a coding agent. That is `roster fix`: `doctor`,
@@ -300,14 +329,28 @@ an agent that has started editing has stopped reading.
 
 Paste it into whatever edits files here, then press *Check again*. The ids should be gone.
 
-**Memory problems**, and **the rig**.
+**Prompt problems.** The audit, over all three kinds of run at once. Nothing here judges prose:
+every check is something a machine can be sure about, because a linter you stop believing is
+worse than no linter. A finding true of more than one prompt is one row, and it says which.
 
-Memory problems are the same checks `roster lint` runs. Each one has a button that opens an
+| Check | Why it matters |
+|---|---|
+| a file is still the scaffold | `org/business.md` is composed into every run. Leaving it as questions is invisible: the run works and the output is just generic |
+| a placeholder never resolved | `{{staff.product.repo}}` is null for a staff member who contributes to no other repo, and the agent reads the braces literally |
+| the same line in two layers | the layers are inherited, so a rule a charter repeats from `org/` is duplication nobody reading either file can see |
+| the prompt is long | it is read in full on every run, forever |
+| it names a file that is not there | an instruction to read something absent is a quiet no-op inside a run nobody watches |
+| an included layer is empty | it contributes nothing and costs a line of includes |
+
+**Every finding carries the fix.** "Copy a prompt to fix this" builds a brief containing the
+finding, the composed prompt, and every layer, and puts it on your clipboard. Paste it into
+whatever agent you use. Knowing there is a problem is the hard part; writing the paragraph is
+not. The box comes pre-filled with what the finding worked out, so you can add to it rather
+than retype it. "Open the file" takes you to that layer on the Prompt screen.
+
+**Memory problems** are the same checks `roster lint` runs. Each one has a button that opens an
 issue in that staff member's own repo asking them to fix it, which is usually right, because
 they wrote it.
-
-**The rig**: schedule in words, workflows present, last commit, last commit touching `memory/`,
-index and notes size, charter, status issue, missing surfaces.
 
 ## Docs
 

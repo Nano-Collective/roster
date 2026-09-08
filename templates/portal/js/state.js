@@ -22,7 +22,10 @@ export const VIEWS = [
 export const VIEW_ALIAS = { memory: "brain" };
 
 /** Screens that belong to the org rather than to one staff member. */
-export const ORG_WIDE = new Set(["inbox", "org", "staff", "docs"]);
+export const ORG_WIDE = new Set(["inbox", "prs", "org", "staff", "docs"]);
+
+/** The two screens that read the inbox, and so share its filters and its `?t=` thread. */
+const INBOXY = new Set(["inbox", "prs"]);
 
 export const S = {
   /** The org export from /api/org. Everything the brain screens read comes off this. */
@@ -71,6 +74,10 @@ export const S = {
 export const openCount = () =>
   (S.inbox?.items ?? []).filter((i) => i.state === "OPEN").length;
 
+/** The same, for the screen that is only pull requests. */
+export const openPrCount = () =>
+  (S.inbox?.items ?? []).filter((i) => i.state === "OPEN" && i.kind === "pr").length;
+
 export const staff = () => S.data.staff.find((s) => s.handle === S.staffHandle) ?? S.data.staff[0];
 
 export function readHash() {
@@ -106,7 +113,7 @@ export function writeHash(push) {
     if (S.promptKind !== "daily") params.set("k", S.promptKind);
     if (S.promptOpen) params.set("f", S.promptOpen);
   }
-  if (S.view === "inbox") {
+  if (INBOXY.has(S.view)) {
     if (S.inboxFilter) params.set("s", S.inboxFilter);
     if (S.inboxStaff) params.set("w", S.inboxStaff);
     if (S.inboxState) params.set("x", S.inboxState);
@@ -146,7 +153,7 @@ export function applyHash() {
     S.promptOpen = h.f;
   }
 
-  if (S.view === "inbox") {
+  if (INBOXY.has(S.view)) {
     S.inboxFilter = h.s;
     S.inboxStaff = h.w;
     S.inboxState = h.x;

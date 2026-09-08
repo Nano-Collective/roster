@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 
-export type Action = "comment" | "close" | "reopen" | "create";
+export type Action = "comment" | "close" | "reopen" | "create" | "merge";
 
 export interface ActRequest {
   action: Action;
@@ -14,7 +14,11 @@ export interface ActRequest {
   labels?: string[];
   /** Only for close: GitHub's own reason, so "not planned" is expressible. */
   reason?: "completed" | "not planned";
+  /** Only for merge. Squash by default: it is what these repos mostly want. */
+  mergeMethod?: "squash" | "merge" | "rebase";
 }
+
+const MERGE_FLAG = { squash: "--squash", merge: "--merge", rebase: "--rebase" } as const;
 
 export interface ActResult {
   ok: true;
@@ -70,6 +74,19 @@ export async function act(req: ActRequest): Promise<ActResult> {
 
   if (action === "reopen") {
     await run("gh", ["issue", "reopen", n, "--repo", repo], { encoding: "utf8" });
+    return { ok: true, action };
+  }
+
+  /* The only action here that cannot be taken back with another click. It is explicit about
+     the method rather than relying on the repo's default, and it never deletes the branch:
+     that is a second decision, and it is not this button's to make. */
+  if (action === "merge") {
+    const flag = MERGE_FLAG[req.mergeMethod ?? "squash"];
+    if (!flag) throw new Error(`unknown merge method "${req.mergeMethod}"`);
+    const args = ["pr", "merge", n, "--repo", repo, flag];
+    // A rebase produces no merge commit, so there is nothing for a body to be the body of.
+    if (req.body?.trim() && req.mergeMethod !== "rebase") args.push("--body", req.body.trim());
+    await run("gh", args, { encoding: "utf8" });
     return { ok: true, action };
   }
 

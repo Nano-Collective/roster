@@ -73,14 +73,21 @@ main{padding:28px 34px 80px;max-width:1180px;overflow-x:hidden}
 /* Source keeps its own line breaks and scrolls, rather than wrapping into soup. */
 .viewer pre.code{white-space:pre;word-break:normal;overflow-x:auto}
 .viewer img{max-width:100%;border-radius:6px;background:#fff}
+/* A recording in a brain gets the same room a screenshot does. Black rather than white
+   behind it: letterboxing should read as the video's own edges, not as a broken image. */
+.viewer video.player,.viewer audio.player{max-width:100%;width:100%;border-radius:6px;background:#000}
+.viewer audio.player{background:none}
 .viewer table{border-collapse:collapse;font:12px var(--mono);width:100%}
 .viewer td,.viewer th{border:1px solid var(--line);padding:4px 8px;text-align:left;white-space:nowrap}
 .viewer th{position:sticky;top:0;background:var(--panel-2);color:var(--ink)}
 
 .gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-.gallery figure{margin:0}
-.gallery img{width:100%;aspect-ratio:4/3;object-fit:contain;background:var(--panel-2);border-radius:6px;
-             border:1px solid var(--line);cursor:pointer}
+.gallery figure{margin:0;position:relative}
+.gallery img,.gallery video{width:100%;aspect-ratio:4/3;object-fit:contain;background:var(--panel-2);
+             border-radius:6px;border:1px solid var(--line);cursor:pointer;display:block}
+/* A still frame and a photograph look identical in a grid, so the video says which it is. */
+.playmark{position:absolute;top:8px;right:8px;display:inline-flex;padding:4px;border-radius:50%;
+          background:color-mix(in srgb,#000 55%,transparent);color:#fff;--ic:12px;pointer-events:none}
 .gallery figcaption{font:10.5px var(--mono);color:var(--ink-faint);margin-top:4px;
                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 

@@ -1,7 +1,14 @@
 /* The inbox list, and the thread beside it. */
 
+/* One row per item, with a hairline between them. Without it a list of two-line titles is a
+   wall of sentences and you have to work out where one item ends — which is most of what made
+   the inbox hard to scan. The line is dropped either side of the selected row, whose own
+   background is already doing the separating. */
 .irow{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
-      padding:9px 10px;border-radius:7px;color:var(--ink-dim)}
+      padding:11px 10px;border-radius:7px;color:var(--ink-dim);
+      border-top:1px solid transparent}
+.irow + .irow{border-top-color:var(--line)}
+.irow[aria-current="true"],.irow[aria-current="true"] + .irow{border-top-color:transparent}
 .irow:hover{background:var(--panel-2)}
 .irow:focus{outline:none}
 .irow:focus-visible{outline:2px solid var(--accent-dim);outline-offset:-2px}
@@ -9,6 +16,12 @@
 .ititle{font:13.5px/1.4 var(--sans);color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;
         -webkit-box-orient:vertical;overflow:hidden}
 .irow[aria-current="true"] .ititle{color:var(--accent)}
+/* The rest of the row follows the title. The project label kept the flat grey it has when
+   nothing is selected, which read as a piece of the row that had not got the message. */
+.irow[aria-current="true"] .repo{color:color-mix(in srgb,var(--accent) 72%,var(--ink-dim));
+      border-right-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.irow[aria-current="true"] .num,.irow[aria-current="true"] .when{
+      color:color-mix(in srgb,var(--accent) 45%,var(--ink-faint))}
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);
      margin-right:6px;vertical-align:2px}
 .imeta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px}
@@ -17,6 +30,9 @@
 .imeta .num{font:10.5px var(--mono);color:var(--ink-faint)}
 .imeta .when{font:10.5px var(--sans);color:var(--ink-faint);margin-left:auto}
 .ck{display:inline-flex;--ic:13px}
+.cc{display:inline-flex;align-items:center;gap:3px;--ic:12px;font:10.5px var(--mono);
+    color:var(--ink-faint)}
+.irow[aria-current="true"] .cc{color:color-mix(in srgb,var(--accent) 45%,var(--ink-faint))}
 /* Closed work reads as finished at a glance, so it can share a list with open work without
    competing with it. */
 .irow.shut .ititle{color:var(--ink-dim)}
@@ -31,7 +47,51 @@
 .thead h3{margin:8px 0 0;font:600 17px/1.35 var(--sans);letter-spacing:-.012em;color:var(--ink)}
 .cmt{border-top:1px solid var(--line);padding:16px 0}
 .cmt.first{border-top:0}
-.reply{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+/* Reactions. Small, under the comment they belong to, the way GitHub puts them — an agent's
+   👀 is an acknowledgement and it should be readable at a glance rather than counted. */
+.reacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.react{font:11px var(--sans);border:1px solid var(--line);border-radius:20px;padding:2px 9px;
+       color:var(--ink-dim);background:var(--panel-2);cursor:default}
+/* Reply, close and merge, beside the title rather than under the last comment. A thread is
+   read newest-first and answered from the top, so nothing here is worth scrolling to. */
+.tacts{margin-top:12px}
+.tacts select{padding:4px 8px;font-size:12px}
+
+/* ---------- pull requests ----------
+   Conversation, commits, files. Three views of one thing, so they are tabs on the thread
+   rather than three places to navigate to. */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:2px 0 0}
+.tab{background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;
+     font:12.5px var(--sans);color:var(--ink-faint);padding:9px 12px;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab[aria-current="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:focus-visible{outline:2px solid var(--accent-dim);outline-offset:-2px}
+
+.prcommit{display:flex;gap:10px;align-items:baseline;padding:8px 0;
+          border-top:1px solid var(--line);font-size:12.5px}
+.prcommit:first-of-type{border-top:0}
+.prcommit .sha{font:11.5px var(--mono);color:var(--ink-faint);flex:none;text-decoration:none}
+.prcommit .sha:hover{color:var(--accent)}
+.prcommit .subj{color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+                white-space:nowrap}
+.prcommit .meta{flex:none}
+
+/* ---------- writing: labels and attachments ----------
+   The label set is small and knowable, so it is a row of toggles rather than a text box that
+   quietly accepts a typo as a new label. Pressed state carries the same tones the inbox rows
+   use, so a `decision` chip is the same colour wherever you meet it. */
+.labelpick{margin-top:12px}
+.labelpick .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip.pick{background:none;cursor:pointer;padding:3px 9px;font-size:11px;color:var(--ink-dim)}
+.chip.pick:hover{border-color:var(--ink-faint);color:var(--ink)}
+.chip.pick:focus-visible{outline:2px solid var(--accent-dim);outline-offset:1px}
+.chip.pick[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,transparent);
+      border-color:var(--accent-dim);color:var(--ink)}
+
+.attach{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap}
+.attach .ghbtn{display:inline-flex;align-items:center;gap:6px;--ic:13px}
+/* The whole textarea is the drop target, because that is where a person aims. */
+textarea.dropping{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
 
 /* ---------- timeline events ----------
    Not comments, so not comment-shaped: a marker, a line of prose, and whatever it points at.

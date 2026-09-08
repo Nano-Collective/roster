@@ -4,15 +4,15 @@ import { getOrg } from "./api.js";
 import { $, el, store } from "./dom.js";
 import { icon, iconHTML } from "./icons.js";
 import { setPeople } from "./md.js";
-import { refreshAll, stampLoaded, syncNotice } from "./refresh.js";
+import { refreshAll, refreshQuietly, stampLoaded, syncNotice } from "./refresh.js";
 import { onRender } from "./router.js";
-import { ORG_WIDE, S, VIEWS, applyHash, openCount, writeHash } from "./state.js";
+import { ORG_WIDE, S, VIEWS, applyHash, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
 import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
 import { viewGraph } from "./views/graph.js";
 import { viewHealth } from "./views/health.js";
-import { viewInbox } from "./views/inbox.js";
+import { stampCounts, viewInbox, viewPrs } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
 import { viewSetup } from "./views/setup.js";
@@ -20,6 +20,7 @@ import { viewStaff } from "./views/staff.js";
 
 const SCREEN = {
   inbox: viewInbox,
+  prs: viewPrs,
   org: viewOrg,
   staff: viewStaff,
   docs: viewDocs,
@@ -54,7 +55,7 @@ export async function boot() {
     /* Every one of these reads a tenant, so during setup they answer 409 and the sidebar is a
        row of four dead ends beside an empty Staff heading. There is one thing to do on this
        screen; the navigation comes back with the org. */
-    for (const el of document.querySelectorAll("#inboxnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
+    for (const el of document.querySelectorAll("#inboxnav, #prsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
       el.hidden = true;
     }
     for (const slot of document.querySelectorAll("[data-icon]")) {
@@ -80,14 +81,18 @@ export async function boot() {
   paintSidebar();
 
   $("#inboxnav").onclick = () => { S.view = "inbox"; render(); };
+  $("#prsnav").onclick = () => { S.view = "prs"; render(); };
   $("#staffnav").onclick = () => { S.view = "staff"; render(); };
   $("#orgnav").onclick = () => { S.view = "org"; render(); };
   $("#docsnav").onclick = () => { S.view = "docs"; render(); };
   $("#refreshall").onclick = () => refreshAll(false);
 
-  // Coming back to the tab after a run should show the run.
+  /* Coming back to the tab after a run should show the run — and coming back to it thirty
+     seconds after leaving it should show nothing at all. Clicking into the window used to
+     re-read every repo on GitHub and repaint the screen under you; now it looks first and
+     only repaints when something actually moved. */
   addEventListener("focus", () => {
-    if (S.loadedAt && Date.now() - S.loadedAt > 30000) refreshAll(false);
+    if (S.loadedAt && Date.now() - S.loadedAt > 60000) refreshQuietly();
   });
   addEventListener("keydown", (e) => {
     if (e.key === "r" && !e.metaKey && !e.ctrlKey &&
@@ -236,8 +241,7 @@ function render() {
   const roster = S.data.staff.map((s) => s.handle).join(" ");
   if (roster !== paintedRoster) paintSidebar();
   markSidebar();
-  const ic = $("#inboxcount");
-  if (ic) ic.textContent = S.inbox ? String(openCount()) : "";
+  stampCounts();
   writeHash(true);
   stampLoaded();
 

@@ -106,5 +106,7 @@ dialog.ask::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
 dialog.ask h3{margin:0;font:600 15.5px var(--sans);letter-spacing:-.012em}
 dialog.ask .askhint{margin:6px 0 12px;font:12.5px/1.55 var(--sans);color:var(--ink-faint)}
 dialog.ask textarea{font:13.5px/1.6 var(--sans);min-height:96px;max-height:44vh}
+/* The attach control, when the dialog is a reply rather than a question. */
+dialog.ask .attach{margin-top:9px}
 dialog.ask .askrow{margin-top:12px;justify-content:flex-end}
 dialog.ask .askrow .meta{margin-right:auto}

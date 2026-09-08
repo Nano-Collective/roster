@@ -142,10 +142,18 @@ const INBOX_FIXTURE = {
       createdAt: "2026-05-01T00:00:00Z",
       body: "| | ask |\n|---|---|\n| a | b |",
       comments: [{ author: "cmo", createdAt: "2026-05-02T00:00:00Z", body: "a reply" }],
+      reactions: [],
       events: [
         { type: "labeled", actor: "cmo", createdAt: "2026-05-02T00:00:00Z", label: "decision" },
         { type: "assigned", actor: "cmo", createdAt: "2026-05-02T00:00:00Z", assignee: "will" },
-        { type: "comment", actor: "cmo", createdAt: "2026-05-02T00:00:00Z", body: "a reply" },
+        {
+          type: "comment",
+          actor: "cmo",
+          createdAt: "2026-05-02T00:00:00Z",
+          body: "a reply",
+          // How an agent says "seen" without writing anything.
+          reactions: [{ content: "EYES", count: 1, by: ["acme-cto"] }],
+        },
         {
           type: "referenced",
           actor: "cto",
@@ -283,90 +291,150 @@ const PROMPT_FIXTURE = {
   ],
 };
 
+/** One pull request in the detail the inbox does not carry, as /api/pr shapes it. */
+const PR_FIXTURE = {
+  base: "main",
+  head: "cto/a-branch",
+  draft: false,
+  mergeable: true,
+  mergeState: "clean",
+  additions: 3,
+  deletions: 1,
+  changedFiles: 1,
+  commits: [
+    {
+      sha: "ac2f197",
+      subject: "ruling: it is a mode, not a kind",
+      author: "acme-cto",
+      date: "2026-05-03T00:00:00Z",
+      url: "https://example.invalid/c",
+    },
+  ],
+  files: [
+    {
+      path: "src/mode.ts",
+      status: "modified",
+      additions: 3,
+      deletions: 1,
+      patch:
+        "@@ -1,2 +1,4 @@\n context\n-const old = 1\n+const now = 2\n+const also = 3\n+const more = 4",
+    },
+  ],
+  errors: [],
+};
+
 /** Whatever the URL asks for, out of fixtures. Overridable per test via `s.fetch`. */
 function fixtureFetch(u: string) {
   const url = String(u);
   return {
     ok: true,
     json: async () =>
-      url.startsWith("/api/inbox")
-        ? INBOX_FIXTURE
-        : url.startsWith("/api/docs")
-          ? [
-              { file: "README.md", title: "Overview" },
-              { file: "agents.md", title: "Choosing a coding agent" },
-            ]
-          : url.startsWith("/api/staff/plan")
-            ? url.includes("action=retire")
-              ? {
-                  action: "retire",
-                  plan: {
-                    handle: "cmo",
-                    name: "Chief Marketing Officer",
-                    dir: "marketing",
-                    brain: "acme/marketing",
-                    workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
-                    peers: [
-                      {
-                        handle: "cto",
-                        dir: "technology",
-                        brain: "acme/technology",
-                        label: "from-cmo",
-                      },
-                    ],
-                    keeps: [
-                      "acme/marketing is untouched",
-                      "103 facts and everything in memory/notes/",
-                    ],
-                    warnings: [],
-                  },
-                }
-              : {
-                  action: "hire",
-                  plan: {
-                    dir: "finance",
-                    files: ["CHARTER.md", "staff.yaml"],
-                    labels: ["will", "cfo"],
-                    secrets: ["CFO_APP_ID"],
-                    peers: [
-                      {
-                        handle: "cto",
-                        dir: "technology",
-                        brain: "acme/technology",
-                        label: "from-cfo",
-                      },
-                    ],
-                    warnings: ["schedule was chosen to sit clear of everyone else's"],
-                    staff: {
-                      handle: "cfo",
-                      name: "Chief Financial Officer",
-                      brain: "acme/finance",
-                      schedule: "0 9 * * 1-5",
-                      model: "a-model",
-                    },
-                  },
-                }
+      url.startsWith("/api/repos")
+        ? { repos: [{ name: "product", owner: "acme", role: "product" }] }
+        : url.startsWith("/api/labels")
+          ? {
+              labels: [
+                { name: "decision", color: "aaa", description: "" },
+                { name: "build", color: "bbb", description: "" },
+              ],
+            }
+          : // Before /api/pr, which every one of these also starts with.
+            url.startsWith("/api/promptaudit")
+            ? {
+                staff: "cto",
+                errors: [],
+                problems: PROMPT_FIXTURE.problems.map((p) => ({
+                  ...p,
+                  kind: "daily",
+                  kinds: ["daily"],
+                })),
+              }
             : url.startsWith("/api/prompt")
               ? PROMPT_FIXTURE
-              : url.startsWith("/api/thread")
-                ? INBOX_FIXTURE.items[1]
-                : url.startsWith("/api/sync")
-                  ? { results: [] }
-                  : url.startsWith("/api/setup/repos")
-                    ? {
-                        repos: [
-                          { name: "acme-web", visibility: "PUBLIC", description: "the site" },
-                        ],
-                      }
-                    : url.startsWith("/api/setup/status")
-                      ? SETUP_FIXTURE
-                      : url.startsWith("/api/brief")
+              : url.startsWith("/api/pr?")
+                ? PR_FIXTURE
+                : url.startsWith("/api/inbox")
+                  ? INBOX_FIXTURE
+                  : url.startsWith("/api/docs")
+                    ? [
+                        { file: "README.md", title: "Overview" },
+                        { file: "agents.md", title: "Choosing a coding agent" },
+                      ]
+                    : url.startsWith("/api/staff/plan")
+                      ? url.includes("action=retire")
                         ? {
-                            kind: "discover",
-                            text: BRIEF_TEXT,
-                            targets: ["roster-ops/org/business.md"],
+                            action: "retire",
+                            plan: {
+                              handle: "cmo",
+                              name: "Chief Marketing Officer",
+                              dir: "marketing",
+                              brain: "acme/marketing",
+                              workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
+                              peers: [
+                                {
+                                  handle: "cto",
+                                  dir: "technology",
+                                  brain: "acme/technology",
+                                  label: "from-cmo",
+                                },
+                              ],
+                              keeps: [
+                                "acme/marketing is untouched",
+                                "103 facts and everything in memory/notes/",
+                              ],
+                              warnings: [],
+                            },
                           }
-                        : (orgOverride ?? ORG),
+                        : {
+                            action: "hire",
+                            plan: {
+                              dir: "finance",
+                              files: ["CHARTER.md", "staff.yaml"],
+                              labels: ["will", "cfo"],
+                              secrets: ["CFO_APP_ID"],
+                              peers: [
+                                {
+                                  handle: "cto",
+                                  dir: "technology",
+                                  brain: "acme/technology",
+                                  label: "from-cfo",
+                                },
+                              ],
+                              warnings: ["schedule was chosen to sit clear of everyone else's"],
+                              staff: {
+                                handle: "cfo",
+                                name: "Chief Financial Officer",
+                                brain: "acme/finance",
+                                schedule: "0 9 * * 1-5",
+                                model: "a-model",
+                              },
+                            },
+                          }
+                      : url.startsWith("/api/prompt")
+                        ? PROMPT_FIXTURE
+                        : url.startsWith("/api/thread")
+                          ? INBOX_FIXTURE.items[1]
+                          : url.startsWith("/api/sync")
+                            ? { results: [] }
+                            : url.startsWith("/api/setup/repos")
+                              ? {
+                                  repos: [
+                                    {
+                                      name: "acme-web",
+                                      visibility: "PUBLIC",
+                                      description: "the site",
+                                    },
+                                  ],
+                                }
+                              : url.startsWith("/api/setup/status")
+                                ? SETUP_FIXTURE
+                                : url.startsWith("/api/brief")
+                                  ? {
+                                      kind: "discover",
+                                      text: BRIEF_TEXT,
+                                      targets: ["roster-ops/org/business.md"],
+                                    }
+                                  : (orgOverride ?? ORG),
     text: async () =>
       url.startsWith("/api/doc?")
         ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
@@ -534,6 +602,7 @@ async function renderAll(hash = "", org: Record<string, unknown> | null = null) 
   const target: any = {
     render: m.app.render,
     refreshAll: m.refresh.refreshAll,
+    refreshQuietly: m.refresh.refreshQuietly,
     mdlite: m.md.mdlite,
     inline: m.md.inline,
     markCurrent: m.dom.markCurrent,
@@ -759,6 +828,44 @@ test("refreshAll re-fetches and re-renders, so a run that lands is visible", asy
   assert.equal(s.DATA.generatedAt, "2030-01-01T00:00:00Z", "state must be replaced");
   assert.equal(s.INBOX, null, "the inbox must be invalidated so it refetches");
   assert.ok(s._byId.main.children.length > 0, "and the view re-rendered");
+});
+
+test("coming back to the tab costs nothing when nothing has changed", async () => {
+  /* Focus used to run a full refresh: sync, drop the inbox, repaint. The drop sent the next
+     paint back to GitHub for every repo, and the repaint took whatever was on screen with it,
+     including a half-written issue. Almost every focus finds nothing new. */
+  const s = await renderAll();
+  const first = s.DATA;
+  const loaded = { items: [{ repo: "acme/brain" }], repos: [], errors: [] };
+  s.INBOX = loaded;
+  s.fetch = async (u: string) =>
+    String(u).startsWith("/api/sync")
+      ? { ok: true, json: async () => ({ results: [{ dir: "brain", pulled: false }] }) }
+      : { ok: true, json: async () => ({ ...first, generatedAt: "2030-01-01T00:00:00Z" }) };
+
+  await s.refreshQuietly();
+  assert.equal(s.INBOX, loaded, "the loaded inbox is kept, so nothing re-reads GitHub");
+
+  // And when something did land, it is a full refresh again.
+  s.fetch = async (u: string) =>
+    String(u).startsWith("/api/sync")
+      ? { ok: true, json: async () => ({ results: [{ dir: "brain", pulled: true }] }) }
+      : { ok: true, json: async () => ({ ...first, generatedAt: "2030-01-02T00:00:00Z" }) };
+  await s.refreshQuietly();
+  assert.equal(s.INBOX, null, "a pull invalidates it");
+});
+
+test("a change to the export repaints even when nothing was pulled", async () => {
+  /* The working tree is the other way a run becomes visible: an agent that committed locally,
+     or a file edited by hand. `generatedAt` alone is stamped per request and is not a change. */
+  const s = await renderAll();
+  s.INBOX = { items: [], repos: [], errors: [] };
+  s.fetch = async (u: string) =>
+    String(u).startsWith("/api/sync")
+      ? { ok: true, json: async () => ({ results: [] }) }
+      : { ok: true, json: async () => ({ ...s.DATA, name: "A different name" }) };
+  await s.refreshQuietly();
+  assert.equal(s.INBOX, null, "something moved, so the inbox is stale too");
 });
 
 test("mdlite escapes before it formats", async () => {
@@ -1413,7 +1520,10 @@ test("bookkeeping folds away, and the events that matter do not", async () => {
   assert.equal(more.getAttribute("aria-expanded"), "true");
 });
 
-test("the thread keeps GitHub's order: body, then events, then the reply box", async () => {
+test("the thread runs newest first, with the opening post at the bottom", async () => {
+  /* GitHub's own order puts the answer you came for underneath a year of bookkeeping. What
+     this screen is for is "what just happened", so the newest thing is the first thing, and
+     the actions are in the header rather than under the last comment. */
   const s = await renderAll("#/x/inbox");
   await new Promise((r) => setTimeout(r, 20));
   openInbox(s);
@@ -1421,9 +1531,182 @@ test("the thread keeps GitHub's order: body, then events, then the reply box", a
   const viewer = walkNodes(s._byId.main).find((n) => String(n.className ?? "") === "viewer");
   const kinds = viewer.children.map((c: any) => String(c.className ?? "").split(" ")[0]);
   assert.equal(kinds[0], "thead", "the title block first");
-  assert.equal(kinds[1], "cmt", "then the opening post");
-  assert.equal(kinds[kinds.length - 1], "reply", "and the reply box last");
-  assert.ok(kinds.includes("tev"), "with timeline events in between");
+  assert.equal(kinds[kinds.length - 1], "cmt", "and the opening post last, as the oldest thing");
+  assert.ok(kinds.includes("tev"), "with the timeline above it");
+  assert.ok(!kinds.includes("reply"), "no reply box to scroll to: it is a dialog now");
+
+  // The newest event is a cross-reference; the oldest is a label. Newest first means the
+  // cross-reference comes before the fold that holds the labels.
+  const events = walkNodes(viewer).filter((n) => String(n.className ?? "").startsWith("tev "));
+  assert.equal(String(events[0].className), "tev cross-referenced", String(events[0].className));
+});
+
+test("an agent's 👀 is shown under the comment it is on", async () => {
+  /* The acknowledgement an agent leaves when it picks something up. Without it a person posts
+     a comment, sees nothing change, and has to open GitHub to find out it landed. */
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  const nodes = openInbox(s);
+
+  const marks = nodes.filter((n) => String(n.className ?? "") === "react");
+  assert.equal(marks.length, 1, "one chip per reaction that anyone actually used");
+  assert.equal(marks[0].textContent, "👀 1");
+  assert.equal(marks[0].title, "acme-cto", "and it says who");
+});
+
+test("a row says how much conversation is on it", async () => {
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  s.view = "inbox";
+  s.render();
+
+  const rows = walkNodes(s._byId.main).filter((n) => String(n.className ?? "").startsWith("irow"));
+  const talked = rows.find((r: any) => /Needs a ruling/.test(r.innerHTML));
+  assert.match(talked.innerHTML, /class="cc" title="1 comments"/, "the one with a reply says so");
+  const quiet = rows.find((r: any) => /An older pull request/.test(r.innerHTML));
+  assert.ok(!/class="cc"/.test(quiet.innerHTML), "and one with none says nothing at all");
+});
+
+test("the new issue form has its repos before the inbox has answered", async () => {
+  /* It used to read them off the loaded inbox, so clicking New issue during the seconds the
+     inbox spends asking GitHub — which is most of the time you would — gave an empty picker. */
+  const s = await renderAll("#/x/inbox");
+  s.INBOX = null;
+  s.view = "inbox";
+  s.render();
+  button(s._byId.main, "New issue").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+
+  const options = walkNodes(s._byId.main).filter((n) => n.tagName === "OPTION");
+  assert.ok(
+    options.some((o: any) => o.value === "acme/product"),
+    "the repos come from org.yaml, not from the inbox: " + options.map((o: any) => o.value),
+  );
+});
+
+test("labels are the repo's own, offered as toggles rather than typed", async () => {
+  /* A text box for labels is a spelling test: `from-cmo` and `from-CMO` are different labels
+     and only one of them exists. */
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  s.view = "inbox";
+  s.render();
+  button(s._byId.main, "New issue").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+
+  const chips = walkNodes(s._byId.main).filter((n) =>
+    String(n.className ?? "").startsWith("chip pick"),
+  );
+  assert.deepEqual(
+    chips.map((c: any) => c.textContent),
+    ["decision", "build"],
+  );
+  assert.equal(chips[0].getAttribute("aria-pressed"), "false", "nothing is on to start with");
+
+  chips[0].onclick();
+  assert.equal(chips[0].getAttribute("aria-pressed"), "true", "clicking one turns it on");
+  chips[0].onclick();
+  assert.equal(
+    chips[0].getAttribute("aria-pressed"),
+    "false",
+    "and clicking it again turns it off",
+  );
+});
+
+test("a pull request opens onto its commits and its diff", async () => {
+  /* Both are fetched when asked for rather than carried by the inbox: a diff is the biggest
+     thing on this screen, and paying for every open PR's diff on every refresh to show one of
+     them is the wrong trade. */
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  s.view = "inbox";
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+
+  const tabs = walkNodes(s._byId.main).filter((n) => String(n.className ?? "") === "tab");
+  assert.deepEqual(
+    tabs.map((t: any) => t.textContent),
+    ["Conversation", "Commits", "Files"],
+  );
+
+  tabs[1].onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  const commits = walkNodes(s._byId.main).filter((n) => String(n.className ?? "") === "prcommit");
+  assert.equal(commits.length, 1);
+  assert.match(commits[0].textContent, /ruling: it is a mode, not a kind/);
+
+  tabs[2].onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  const added = walkNodes(s._byId.main).filter((n) => String(n.className ?? "").includes("dadd"));
+  assert.equal(added.length, 3, "the patch is rendered as a diff, not as text");
+});
+
+test("Pull requests is its own screen, and only lists pull requests", async () => {
+  /* An inbox is what is waiting on you; a PR is work that is finished and waiting on a merge.
+     Same machinery underneath — the threads, the tabs, the diff — but its own place to stand. */
+  const s = await renderAll("#/-/prs");
+  assert.equal(s.view, "prs");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const nodes = walkNodes(s._byId.main);
+  const titles = nodes
+    .filter((n) => String(n.className ?? "").startsWith("irow"))
+    .map((n: any) => String(n.innerHTML));
+  assert.equal(titles.length, 1, "one open PR in the fixture");
+  assert.ok(String(titles[0]).includes("An older pull request"));
+  assert.ok(
+    !titles.some((t) => t.includes("Needs a ruling")),
+    "an issue does not belong on this screen",
+  );
+
+  // Nothing here could open a pull request, so nothing here offers to.
+  assert.throws(() => button(s._byId.main, "New issue"), /no button called/);
+
+  // And the count under the title is about merging, not about who owes a reply.
+  const sub = String(nodes.find((n) => String(n.className ?? "") === "sub")?._html ?? "");
+  assert.match(sub, /1 open/);
+  assert.match(sub, /with checks passing/);
+});
+
+test("replying is a dialog on the header, not a box at the end of the thread", async () => {
+  /* The reply box used to be under the last comment, so answering a long thread meant
+     scrolling to the end of it. The actions are about the thread, not about its last message. */
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  openInbox(s);
+
+  const head = walkNodes(s._byId.main).find((n) => String(n.className ?? "") === "thead");
+  const acts = walkNodes(head).find((n) => String(n.className ?? "").includes("tacts"));
+  assert.ok(acts, "the actions sit in the header");
+  assert.deepEqual(
+    acts.children.filter((c: any) => c.tagName === "BUTTON").map((c: any) => c.textContent),
+    ["Reply", "Close"],
+  );
+
+  let sent: any = null;
+  s.fetch = async (u: string, init: any) => {
+    if (String(u) === "/api/act") sent = JSON.parse(init.body);
+    return { ok: true, json: async () => ({ ok: true }), text: async () => "" };
+  };
+  button(head, "Reply").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+
+  assert.equal(s._asked.length, 1, "it asks in a dialog");
+  assert.equal(sent?.action, "comment");
+  assert.equal(sent?.repo, "acme/brain");
+  assert.equal(sent?.number, 3);
+  assert.equal(sent?.body, "make it shorter", "and posts what was typed into it");
+});
+
+test("an issue is not offered a Merge button; an open pull request is", async () => {
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  openInbox(s);
+  assert.throws(() => button(s._byId.main, "Merge"), /no button called/);
+
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+  assert.ok(button(s._byId.main, "Merge"), "an open PR can be merged from here");
 });
 
 test("@cto in a comment is told apart from @a-stranger", async () => {
@@ -1600,11 +1883,8 @@ test("the prompt screen shows the text, the layers, and which repo each came fro
   const heads = nodes
     .filter((n) => String(n.className ?? "") === "ghead")
     .map((n) => String(n._text ?? ""));
-  assert.deepEqual(
-    heads,
-    ["The prompt", "Inlined, in order", "Problems", "Named, not inlined"],
-    String(heads),
-  );
+  // No "Problems": what is wrong with a prompt is a health question, and Health asks it.
+  assert.deepEqual(heads, ["The prompt", "Inlined, in order", "Named, not inlined"], String(heads));
 
   const keys = nodes.filter((n) => n.dataset?.key).map((n) => n.dataset.key);
   assert.ok(keys.includes("composed"), "the composed text is the first thing offered");
@@ -1833,8 +2113,10 @@ test("inline HTML in a comment is reduced, and code spans are left alone", async
 
 test("a prompt problem is rendered with the fix you can hand to an AI", async () => {
   /* Knowing there is a problem is the hard part. Every finding carries the sentence that goes
-     into the amend brief, so the button beside it is the point of the finding. */
-  const s = await renderAll("#/cto/prompt");
+     into the amend brief, so the button beside it is the point of the finding.
+     On Health, not on Prompt: "what is sent" and "is what is sent any good" are two questions,
+     and only the second one is a health question. */
+  const s = await renderAll("#/cto/health");
   await new Promise((r) => setTimeout(r, 30));
 
   const cards = walkNodes(s._byId.main).filter((n) =>
@@ -1866,11 +2148,28 @@ test("a prompt with nothing wrong shows no Problems box at all", async () => {
   assert.ok(!heads.includes("Problems"), "an empty findings list is not a section: " + heads);
 });
 
+test("the prompt screen is the prompt, and says nothing about problems", async () => {
+  /* Even the count is gone. The tree beside the prompt is the prompt's layers; what is wrong
+     with them is asked and answered on Health. */
+  const s = await renderAll("#/cto/prompt");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const nodes = walkNodes(s._byId.main);
+  assert.ok(
+    !nodes.some((n) => String(n.className ?? "").startsWith("prob ")),
+    "no finding cards on this screen",
+  );
+  const heads = nodes
+    .filter((n) => String(n.className ?? "") === "ghead")
+    .map((n) => String(n._text ?? ""));
+  assert.ok(!heads.includes("Problems"), "and no section for them either: " + heads);
+});
+
 test("asking for a change pre-fills what the finding already worked out", async () => {
   /* A finding carries the sentence that describes the fix. Skipping straight to the clipboard
      would be fewer clicks and worse: "and keep it in operating.md" is exactly the sort of
      thing you want to add before sending it. */
-  const s = await renderAll("#/cto/prompt");
+  const s = await renderAll("#/cto/health");
   await new Promise((r) => setTimeout(r, 30));
 
   const card = walkNodes(s._byId.main).find((n) => String(n.className ?? "").startsWith("prob "));

@@ -9,9 +9,21 @@
 import { el, grow } from "./dom.js";
 
 /**
+ * @param decorate  given the textarea, returns a node to sit under it. This is how the reply
+ *   box carries its attachments: the control has to write into the box it is beside.
+ * @param allowEmpty  saying nothing is an answer for some of these. Closing an issue without
+ *   a parting comment is the normal case, not a cancelled dialog.
  * @returns the text, or null if they cancelled.
  */
-export function askText({ title, hint, value = "", placeholder = "", confirm = "Continue" }) {
+export function askText({
+  title,
+  hint,
+  value = "",
+  placeholder = "",
+  confirm = "Continue",
+  decorate,
+  allowEmpty = false,
+}) {
   const box = document.createElement("dialog");
   // The shim in the tests has no dialog element. Falling back keeps a view renderable there
   // rather than throwing halfway through a paint.
@@ -25,6 +37,8 @@ export function askText({ title, hint, value = "", placeholder = "", confirm = "
 
   const ta = el("textarea", { value, placeholder, rows: 5 });
   box.append(ta);
+  const under = decorate?.(ta);
+  if (under) box.append(under);
 
   const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
   const go = el("button", { className: "ghbtn primary", textContent: confirm });
@@ -42,12 +56,13 @@ export function askText({ title, hint, value = "", placeholder = "", confirm = "
       answer = text;
       box.close();
     };
+    const said = () => ta.value.trim() || (allowEmpty ? "" : null);
     cancel.onclick = () => done(null);
-    go.onclick = () => done(ta.value.trim() || null);
+    go.onclick = () => done(said());
     ta.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        done(ta.value.trim() || null);
+        done(said());
       }
     });
     // Escape and the backdrop both close it, and both mean no.

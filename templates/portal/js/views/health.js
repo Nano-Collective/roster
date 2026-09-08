@@ -6,6 +6,7 @@ import { inline } from "../md.js";
 import { render } from "../router.js";
 import { S, staff } from "../state.js";
 import { checklist } from "./checklist.js";
+import { copyAmendBrief } from "./prompt.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -27,14 +28,6 @@ export function viewHealth(m) {
   const rig = s.rig ?? {};
   m.append(el("h1", { textContent: s.name + " · health" }));
 
-  /* `roster doctor` runs over the whole org, so it is drawn once at the top rather than
-     pretended to be per-staff. The comment this replaced said doctor "does not exist yet". */
-  const org = el("div", { className: "card", style: "margin-bottom:16px" });
-  org.append(el("h3", { textContent: "The org, from roster doctor" }));
-  const rows = el("div");
-  org.append(rows);
-  m.append(org);
-  checklist(rows, {});
   const errs = s.problems.filter((p) => p.level === "error");
   const warns = s.problems.filter((p) => p.level === "warning");
   m.append(el("p", { className: "sub", innerHTML:
@@ -82,6 +75,22 @@ export function viewHealth(m) {
   }
   m.append(g);
 
+  /* `roster doctor` runs over the whole org, so it is not per-staff — but it is the same
+     question this screen is asking, so it reads as another section of it rather than a card
+     bolted on above the facts. Below the grid: the grid is about this staff member, and the
+     org is the wider frame you look at once you have seen them. */
+  m.append(el("div", { className: "hsect", textContent: "The org, from roster doctor" }));
+  const rows = el("div");
+  m.append(rows);
+  checklist(rows, {});
+
+  /* What is wrong with what this agent is sent. It used to sit in the tree on the Prompt
+     screen, beside the prompt itself — which answers "what is sent", not "is it any good".
+     Both questions are health questions, so both are here. */
+  const prompt = el("div");
+  m.append(el("div", { className: "hsect", textContent: "Prompt problems" }), prompt);
+  promptProblems(prompt, s);
+
   m.append(el("div", { className: "hsect", textContent: "Memory problems" }));
 
   if (!s.problems.length) {
@@ -116,6 +125,70 @@ export function viewHealth(m) {
     }
     d.append(actions);
     m.append(d);
+  }
+}
+
+/**
+ * Everything the audit says about this staff member's prompts, over every kind of run.
+ *
+ * Fetched rather than read off the export: composing three prompts and diffing their layers is
+ * not something to do on every page paint of every screen, and this is the only one that asks.
+ */
+async function promptProblems(host, s) {
+  host.replaceChildren(el("p", { className: "empty", textContent: "Composing the prompts…" }));
+  let data;
+  try {
+    data = await (
+      await fetch("/api/promptaudit?staff=" + encodeURIComponent(s.handle), { cache: "no-store" })
+    ).json();
+  } catch (e) {
+    host.replaceChildren(el("p", { className: "empty err", textContent: e.message }));
+    return;
+  }
+
+  host.replaceChildren();
+  for (const bad of data.errors ?? []) {
+    host.append(
+      el("div", { className: "notice", textContent:
+        "The " + bad.kind + " prompt does not compose: " + bad.error }),
+    );
+  }
+  if (!(data.problems ?? []).length) {
+    if (!(data.errors ?? []).length) {
+      host.append(el("p", { className: "empty", textContent: "Nothing the audit can fault." }));
+    }
+    return;
+  }
+
+  /* Worst first, and each one carrying the sentence that fixes it. Knowing there is a problem
+     is the hard part; writing the paragraph that asks for the change is not. */
+  const rank = { error: 0, warning: 1, note: 2 };
+  for (const p of [...data.problems].sort((a, b) => (rank[a.level] ?? 3) - (rank[b.level] ?? 3))) {
+    const d = el("div", { className: "prob " + p.level });
+    d.append(el("div", { className: "ptitle", textContent: p.title }));
+    d.append(el("div", { className: "pdetail", textContent: p.detail }));
+    d.append(
+      el("div", { className: "pdetail", textContent: "On the " + (p.kinds ?? []).join(", ") + " prompt" }),
+    );
+
+    const note = el("span", { className: "meta" });
+    const fix = el("button", { className: "ghbtn", textContent: "Copy a prompt to fix this" });
+    fix.onclick = () => copyAmendBrief(s.handle, p.kind, p.want, fix, note);
+    const actions = el("div", { className: "row", style: "margin-top:8px" }, [fix]);
+    if (p.path) {
+      const go = el("button", { className: "ghbtn", textContent: "Open the file" });
+      // The file is a layer of a prompt, so it opens where prompts are read.
+      go.onclick = () => {
+        S.promptKind = p.kind;
+        S.promptOpen = p.path;
+        S.view = "prompt";
+        render();
+      };
+      actions.append(go);
+    }
+    actions.append(note);
+    d.append(actions);
+    host.append(d);
   }
 }
 

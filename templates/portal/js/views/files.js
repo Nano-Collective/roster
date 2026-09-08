@@ -1,10 +1,16 @@
-/* Rendering one file out of a brain: markdown, image, CSV, JSON, or source. */
+/* Rendering one file out of a brain: markdown, image, video, CSV, JSON, or source. */
 
 import { el, kb } from "../dom.js";
 import { fileUrl, getFile } from "../api.js";
+import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
 
 const IMG = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico"];
+
+/* A brain records as often as it screenshots, and a recording read as source is a screenful
+   of binary. It plays here for the same reason an image displays here: it is the file. */
+const VIDEO = ["mp4", "m4v", "webm", "mov", "ogv"];
+const AUDIO = ["mp3", "m4a", "wav", "oga"];
 
 export async function showFile(viewer, s, f, pick) {
   viewer.replaceChildren(el("p", { className: "empty", textContent: "Loading…" }));
@@ -19,6 +25,27 @@ export async function showFile(viewer, s, f, pick) {
 
   if (IMG.includes(f.ext)) {
     viewer.replaceChildren(head, el("img", { src: fileUrl(path), alt: f.path }));
+    return;
+  }
+
+  if (VIDEO.includes(f.ext) || AUDIO.includes(f.ext)) {
+    const player = el(VIDEO.includes(f.ext) ? "video" : "audio", {
+      src: fileUrl(path),
+      controls: true,
+      preload: "metadata",
+      className: "player",
+    });
+    // Nothing else here streams, so say what to do when a codec the browser cannot decode
+    // turns up — a .mov is often h.265, and a silent black rectangle explains nothing.
+    const fallback = el("p", { className: "meta", hidden: true });
+    player.onerror = () => {
+      fallback.hidden = false;
+      fallback.textContent = "This browser cannot play " + f.ext + ". The file itself is fine — ";
+      fallback.append(
+        el("a", { href: fileUrl(path), download: f.path.split("/").pop(), textContent: "download it" }),
+      );
+    };
+    viewer.replaceChildren(head, player, fallback);
     return;
   }
 
@@ -69,26 +96,31 @@ function csvTable(text) {
 }
 
 export function showGallery(viewer, s, surface) {
-  const imgs = surface.files.filter((f) => IMG.includes(f.ext));
-  if (!imgs.length) {
-    viewer.replaceChildren(el("p", { className: "empty", textContent: "No images here." }));
+  const shots = surface.files.filter((f) => IMG.includes(f.ext) || VIDEO.includes(f.ext));
+  if (!shots.length) {
+    viewer.replaceChildren(el("p", { className: "empty", textContent: "Nothing to show here." }));
     return;
   }
   const g = el("div", { className: "gallery" });
-  for (const f of imgs.slice(0, 200)) {
+  for (const f of shots.slice(0, 200)) {
     const fig = el("figure");
-    const img = el("img", {
-      src: fileUrl(s.dir + "/" + f.path),
-      loading: "lazy",
-      alt: f.path,
-    });
-    img.onclick = () => showFile(viewer, s, f);
-    fig.append(img, el("figcaption", { textContent: f.path.split("/").pop() }));
+    const src = fileUrl(s.dir + "/" + f.path);
+    /* A video tile is its own first frame rather than a placeholder, which is what makes a
+       wall of recordings tell you anything. `preload="metadata"` is enough for that and does
+       not pull the whole file for every tile on the page. */
+    const tile = IMG.includes(f.ext)
+      ? el("img", { src, loading: "lazy", alt: f.path })
+      : el("video", { src, preload: "metadata", muted: true, playsInline: true });
+    tile.onclick = () => showFile(viewer, s, f);
+    fig.append(tile);
+    if (!IMG.includes(f.ext)) fig.append(el("span", { className: "playmark" }, [icon("play", "ic")]));
+    fig.append(el("figcaption", { textContent: f.path.split("/").pop() }));
     g.append(fig);
   }
+  const vids = shots.filter((f) => VIDEO.includes(f.ext)).length;
   viewer.replaceChildren(
     el("div", { className: "meta", style: "margin-bottom:12px" }, [
-      imgs.length + " images in " + surface.path,
+      shots.length - vids + " images" + (vids ? " and " + vids + " videos" : "") + " in " + surface.path,
     ]),
     g,
   );

@@ -144,10 +144,13 @@ export function mdlite(src, opts = {}) {
     chips(
       s
         .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(
-          /!\[([^\]]*)\]\(([^)\s]+)\)/g,
-          (_m, alt, src2) =>
-            '<img src="' + mdAsset(src2, opts) + '" alt="' + alt + '" loading="lazy">',
+        .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_m, alt, src2) =>
+          // `![](clip.mp4)` is how a recording gets written into a note, and GitHub plays it.
+          // An <img> pointing at a video is a broken-image icon, so it becomes a player.
+          /\.(mp4|m4v|webm|mov|ogv)(\?|#|$)/i.test(src2)
+            ? '<video src="' + mdAsset(src2, opts) + '" controls preload="metadata" class="player">' +
+              "</video>"
+            : '<img src="' + mdAsset(src2, opts) + '" alt="' + alt + '" loading="lazy">',
         )
         // Non-greedy and allowing an inner asterisk, because "**bold with *this* inside**" is
         // ordinary in these files and the old pattern silently left the stars on the page.

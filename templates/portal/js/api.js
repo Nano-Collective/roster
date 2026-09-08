@@ -7,6 +7,12 @@ export const getDocs = () => json("/api/docs");
 export const getInbox = (force) => json("/api/inbox" + (force ? "?refresh=1" : ""));
 export const getSync = () => json("/api/sync").catch(() => null);
 
+/** The repos org.yaml lists. Off disk, so the new-issue form does not wait on the inbox. */
+export const getRepos = () => json("/api/repos");
+
+/** What one repo's labels actually are, so they can be offered rather than typed. */
+export const getLabels = (repo) => json("/api/labels?repo=" + encodeURIComponent(repo));
+
 export const getDoc = (page) =>
   fetch("/api/doc?page=" + encodeURIComponent(page), { cache: "no-store" }).then((r) => r.text());
 
@@ -17,6 +23,10 @@ export const getThread = (repo, number, kind) =>
   json(
     "/api/thread?repo=" + encodeURIComponent(repo) + "&number=" + number + "&kind=" + kind,
   );
+
+/** A pull request's commits and its diff. Asked for on the Files or Commits tab, not before. */
+export const getPr = (repo, number) =>
+  json("/api/pr?repo=" + encodeURIComponent(repo) + "&number=" + number);
 
 export const diffUrl = (dir, sha, path) =>
   "/api/diff?dir=" + encodeURIComponent(dir) + "&sha=" + encodeURIComponent(sha) +
@@ -33,6 +43,23 @@ export async function post(payload, url = "/api/act") {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error(data.error || "failed with " + res.status);
   return data;
+}
+
+/**
+ * Put a file in the repo an issue lives in, and get back the path and the link.
+ *
+ * Read here rather than posted as a form because everything else on this server speaks JSON,
+ * and a file small enough to belong in a repo is small enough to base64.
+ */
+export async function upload(repo, file) {
+  const data = await new Promise((ok, no) => {
+    const r = new FileReader();
+    r.onerror = () => no(new Error("could not read " + file.name));
+    // A data URL is "data:<type>;base64,<payload>"; only the payload travels.
+    r.onload = () => ok(String(r.result).split(",")[1] ?? "");
+    r.readAsDataURL(file);
+  });
+  return post({ repo, name: file.name, data }, "/api/upload");
 }
 
 /* ------------------------------- setup and authoring ------------------------------- */

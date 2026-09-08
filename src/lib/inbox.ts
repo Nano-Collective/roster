@@ -10,6 +10,28 @@ export interface Comment {
 }
 
 /**
+ * A reaction, with who left it.
+ *
+ * This is how an agent says "seen" without writing a comment: the runner puts 👀 on the thing
+ * it picked up. Without it the portal showed a person their own message and nothing else, and
+ * the only way to know it had landed was to open GitHub.
+ */
+export interface Reaction {
+  /** GitHub's enum: THUMBS_UP, EYES, ROCKET… */
+  content: string;
+  count: number;
+  /** The first few, for the tooltip. Not all of them: nobody hovers to count. */
+  by: string[];
+}
+
+const REACTIONS = `
+  reactionGroups {
+    content
+    reactors(first:6) { totalCount nodes { ... on User { login } ... on Bot { login } } }
+  }
+`;
+
+/**
  * One entry in a thread's history, in the order GitHub tells it.
  *
  * Comments alone are not the thread. Half of what these agents do to each other is a
@@ -58,6 +80,8 @@ export interface TimelineEvent {
   to?: string;
   /** APPROVED / CHANGES_REQUESTED / COMMENTED, on a review */
   state?: string;
+  /** What people and agents put on a comment. Only comments carry these. */
+  reactions?: Reaction[];
 }
 
 export interface InboxItem {
@@ -80,6 +104,8 @@ export interface InboxItem {
   /** Kept because a count of replies is worth having without walking the timeline. */
   comments: Comment[];
   events: TimelineEvent[];
+  /** On the opening post, as opposed to on any of the replies. */
+  reactions: Reaction[];
 }
 
 /* The inline fragments are the same text in both unions, so they are written once. They
@@ -87,7 +113,7 @@ export interface InboxItem {
    request's is `PullRequestTimelineItems`, and a fragment is bound to one type. */
 const TIMELINE_COMMON = `
   __typename
-  ... on IssueComment { author { login } createdAt body url }
+  ... on IssueComment { author { login } createdAt body url ${REACTIONS} }
   ... on CrossReferencedEvent {
     actor { login } createdAt
     source {
@@ -163,6 +189,7 @@ query($owner:String!, $name:String!) {
       nodes {
         number title body url state createdAt updatedAt
         author { login }
+        ${REACTIONS}
         labels(first:12) { nodes { name } }
         assignees(first:8) { nodes { login } }
         timelineItems(last:80, itemTypes:${ISSUE_TYPES}) { nodes { ${TIMELINE_COMMON} } }
@@ -172,6 +199,7 @@ query($owner:String!, $name:String!) {
       nodes {
         number title body url state createdAt updatedAt isDraft
         author { login }
+        ${REACTIONS}
         labels(first:12) { nodes { name } }
         assignees(first:8) { nodes { login } }
         commits(last:1) { nodes { commit { statusCheckRollup { state } } } }
@@ -186,6 +214,7 @@ query($owner:String!, $name:String!) {
       nodes {
         number title body url state createdAt updatedAt
         author { login }
+        ${REACTIONS}
         labels(first:12) { nodes { name } }
         assignees(first:8) { nodes { login } }
         timelineItems(last:${CLOSED_TIMELINE}, itemTypes:${ISSUE_TYPES}) {
@@ -199,6 +228,7 @@ query($owner:String!, $name:String!) {
       nodes {
         number title body url state createdAt updatedAt isDraft
         author { login }
+        ${REACTIONS}
         labels(first:12) { nodes { name } }
         assignees(first:8) { nodes { login } }
         timelineItems(last:${CLOSED_TIMELINE}, itemTypes:${PR_TYPES}) {
@@ -283,7 +313,19 @@ function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxI
       .filter((e) => e.type === "comment")
       .map((e) => ({ author: e.actor, createdAt: e.createdAt, body: e.body ?? "" })),
     events,
+    reactions: reactions(n),
   };
+}
+
+/** GitHub sends a group per reaction type whether or not anyone used it. Empty ones are noise. */
+function reactions(n: any): Reaction[] {
+  return (n.reactionGroups ?? [])
+    .filter((g: any) => (g.reactors?.totalCount ?? 0) > 0)
+    .map((g: any) => ({
+      content: g.content,
+      count: g.reactors.totalCount,
+      by: (g.reactors.nodes ?? []).map((u: any) => u?.login).filter(Boolean),
+    }));
 }
 
 /** One raw timeline node, flattened. Anything unrecognised is dropped rather than guessed at. */
@@ -293,7 +335,14 @@ function event(e: any): TimelineEvent | null {
 
   switch (e.__typename) {
     case "IssueComment":
-      return { type: "comment", actor: who, createdAt: at, body: e.body ?? "", url: e.url };
+      return {
+        type: "comment",
+        actor: who,
+        createdAt: at,
+        body: e.body ?? "",
+        url: e.url,
+        reactions: reactions(e),
+      };
 
     case "CrossReferencedEvent": {
       const s = e.source;

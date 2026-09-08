@@ -14,6 +14,7 @@ import { askText } from "../dialog.js";
 import { el, esc, grow, kb, toClipboard } from "../dom.js";
 import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
+import { render } from "../router.js";
 import { S, staff, writeHash } from "../state.js";
 import { diffStat, unifiedDiff } from "../textdiff.js";
 import { renderDiff } from "./changed.js";
@@ -21,8 +22,52 @@ import { renderDiff } from "./changed.js";
 const KINDS = [
   ["daily", "Daily", "the scheduled run"],
   ["mention", "Mention", "someone typed @them in an issue"],
-  ["pr-mention", "PR mention", "someone typed @them on a pull request"],
 ];
+
+/**
+ * Build the paste-ready brief on the server, where compose.mjs lives, and copy it.
+ *
+ * A finding pre-fills the box rather than skipping it: what it wrote is a starting point, and
+ * "and keep it in operating.md" is exactly the sort of thing you want to add.
+ *
+ * Exported because the findings themselves live on Health now, and the fix for one of them is
+ * the same brief whichever screen you asked from.
+ */
+export async function copyAmendBrief(handle, kind, want, btn, note) {
+  const label = btn.textContent;
+  const asked = await askText({
+    title: "What do you want changed?",
+    hint:
+      "This goes at the top of a brief carrying the whole prompt and every file it is " +
+      "made of. Say it the way you would say it to a person.",
+    value: want,
+    placeholder: "stop opening decision issues for anything reversible",
+    confirm: "Copy the brief",
+  });
+  if (!asked) return;
+  btn.disabled = true;
+  btn.textContent = "building…";
+  try {
+    const url =
+      "/api/amend?staff=" + encodeURIComponent(handle) +
+      "&kind=" + encodeURIComponent(kind) +
+      "&want=" + encodeURIComponent(asked);
+    const text = await (await fetch(url, { cache: "no-store" })).text();
+    btn.disabled = false;
+    toClipboard(text, btn, label);
+    if (note) {
+      note.textContent = "paste it into whatever agent you use";
+      note.className = "meta";
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = label;
+    if (note) {
+      note.textContent = e.message;
+      note.className = "meta err";
+    }
+  }
+}
 
 export function viewPrompt(m) {
   const s = staff();
@@ -54,40 +99,7 @@ export function viewPrompt(m) {
   const note = el("span", { className: "meta" });
   m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [kind, help, copy, note]));
 
-  /* Build the paste-ready brief on the server, where compose.mjs lives, and copy it.
-     A finding pre-fills the box rather than skipping it: what it wrote is a starting point,
-     and "and keep it in operating.md" is exactly the sort of thing you want to add. */
-  async function copyAmend(want, btn) {
-    const target = btn ?? help;
-    const label = target.textContent;
-    const asked = await askText({
-      title: "What do you want changed?",
-      hint:
-        "This goes at the top of a brief carrying the whole prompt and every file it is " +
-        "made of. Say it the way you would say it to a person.",
-      value: want,
-      placeholder: "stop opening decision issues for anything reversible",
-      confirm: "Copy the brief",
-    });
-    if (!asked) return;
-    target.disabled = true;
-    target.textContent = "building…";
-    try {
-      const url =
-        "/api/amend?staff=" + encodeURIComponent(s.handle) +
-        "&kind=" + encodeURIComponent(S.promptKind) +
-        "&want=" + encodeURIComponent(asked);
-      const text = await (await fetch(url, { cache: "no-store" })).text();
-      target.disabled = false;
-      toClipboard(text, target, label);
-      note.textContent = "paste it into whatever agent you use";
-    } catch (e) {
-      target.disabled = false;
-      target.textContent = label;
-      note.textContent = e.message;
-      note.className = "meta err";
-    }
-  }
+  const copyAmend = (want, btn) => copyAmendBrief(s.handle, S.promptKind, want, btn ?? help, note);
 
   const split = el("div", { className: "split" });
   const tree = el("div", { className: "tree" });
@@ -140,12 +152,9 @@ export function viewPrompt(m) {
     for (const l of view.layers) inlined.append(layerRow(l));
     tree.append(inlined);
 
-    if (view.problems?.length) {
-      const bad = group("Problems", String(view.problems.length));
-      for (const p of view.problems) bad.append(problemRow(p));
-      tree.append(bad);
-    }
-
+    /* No Problems section. This screen answers "what is sent"; whether what is sent is any
+       good is a health question, and it is asked and answered on Health. Having both here
+       made the tree beside the prompt half prompt and half complaints. */
     const named = group("Named, not inlined");
     named.append(
       el("p", {
@@ -158,28 +167,6 @@ export function viewPrompt(m) {
     tree.append(named);
 
     open(S.promptOpen ?? "composed");
-  }
-
-  /* A finding is only half useful. The other half is the sentence that goes into the brief,
-     which is why every one of them carries a `want`. */
-  function problemRow(p) {
-    const b = el("div", { className: "prob " + p.level });
-    b.append(el("div", { className: "ptitle", textContent: p.title }));
-    b.append(el("div", { className: "pdetail", textContent: p.detail }));
-    const fix = el("button", { className: "ghbtn", textContent: "Copy a prompt to fix this" });
-    fix.onclick = () => copyAmend(p.want, fix);
-    const row = el("div", { className: "row", style: "margin-top:8px" }, [fix]);
-    if (p.path) {
-      row.append(
-        el("button", {
-          className: "ghbtn",
-          textContent: "Open the file",
-          onclick: () => open(p.path),
-        }),
-      );
-    }
-    b.append(row);
-    return b;
   }
 
   function group(title, right) {

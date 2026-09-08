@@ -29,6 +29,41 @@ export async function refreshAll(soft) {
   }
 }
 
+/**
+ * The same thing, for coming back to the tab.
+ *
+ * Asked for by a focus event rather than by a person, so it has to earn every visible effect.
+ * A full refresh drops the inbox, which sends the next paint to GitHub for four seconds and
+ * throws away whatever was on screen — including a half-written issue. Almost every focus
+ * finds nothing new, so this one syncs, looks, and only then does any of that.
+ */
+export async function refreshQuietly() {
+  const bar = $("#refreshall");
+  bar?.classList.add("spin");
+  try {
+    S.sync = await getSync();
+    const data = await getOrg();
+    const changed = shape(data) !== shape(S.data);
+    S.data = data;
+    S.loadedAt = new Date();
+    stampLoaded();
+    // Something landed in a checkout: the inbox is stale too, and the screen should say so.
+    if (changed || (S.sync?.results ?? []).some((r) => r.pulled)) {
+      S.inbox = null;
+      render();
+    }
+  } finally {
+    bar?.classList.remove("spin");
+  }
+}
+
+/** The export minus its timestamp, which is stamped per request and always differs. */
+function shape(data) {
+  if (!data) return "";
+  const { generatedAt, ...rest } = data;
+  return JSON.stringify(rest);
+}
+
 export function stampLoaded() {
   const s = $("#loaded");
   if (s && S.loadedAt) s.textContent = "data " + ago(S.loadedAt.toISOString());

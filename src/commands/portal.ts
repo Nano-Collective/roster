@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { type ActRequest, act } from "../lib/act.js";
@@ -12,6 +12,7 @@ import {
   handoffPage,
   setSecret,
 } from "../lib/appmanifest.js";
+import { attach, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
 import { docPages, docsDir } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
@@ -71,7 +72,21 @@ const MIME: Record<string, string> = {
   ".webp": "image/webp",
   ".ico": "image/x-icon",
   ".pdf": "application/pdf",
+  // A brain holds recordings as often as it holds screenshots, and a video served as
+  // application/octet-stream is a download prompt rather than something you can watch.
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".webm": "video/webm",
+  ".mov": "video/quicktime",
+  ".ogv": "video/ogg",
+  ".mp3": "audio/mpeg",
+  ".m4a": "audio/mp4",
+  ".wav": "audio/wav",
+  ".oga": "audio/ogg",
 };
+
+/** Types a browser streams rather than downloads, and so may ask for by byte range. */
+const SEEKABLE = /^(video|audio)\//;
 
 /**
  * Hand-offs in flight, keyed by the state GitHub echoes back.
@@ -119,6 +134,11 @@ export async function portalCommand(argv: string[]): Promise<number> {
   // switching views instant. The refresh button bypasses it.
   let cache: { at: number; body: string } | null = null;
   const TTL = 45_000;
+
+  /* A repo's labels, per repo. They are the vocabulary of the org and change about never, so
+     the picker on the new-issue form should not cost a round trip every time it opens. */
+  const labelCache = new Map<string, { at: number; labels: unknown[] }>();
+  const LABEL_TTL = 300_000;
 
   const brainDirs = () =>
     (readOrg(ws!.opsDir, parseYaml).staff ?? []).map((s) => s.dir ?? s.handle);
@@ -387,12 +407,12 @@ export async function portalCommand(argv: string[]): Promise<number> {
     res.writeHead(404).end("not found");
   };
 
-  const body = (req: import("node:http").IncomingMessage) =>
+  const body = (req: import("node:http").IncomingMessage, limit = 1_000_000) =>
     new Promise<string>((resolve, reject) => {
       let buf = "";
       req.on("data", (c) => {
         buf += c;
-        if (buf.length > 1_000_000) reject(new Error("body too large"));
+        if (buf.length > limit) reject(new Error("body too large"));
       });
       req.on("end", () => resolve(buf));
       req.on("error", reject);
@@ -724,6 +744,40 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* Everything wrong with one staff member's prompts, across every kind of run.
+         The Prompt screen used to carry these, which put "what is broken" inside "what is
+         sent" — two different questions, and only one of them is a health question. Composed
+         per kind because a finding can be true of the daily prompt and not of a mention. */
+      if (url.pathname === "/api/promptaudit") {
+        const handle = url.searchParams.get("staff") ?? "";
+        const org = readOrg(w.opsDir, parseYaml);
+        const entry = (org.staff ?? []).find((s) => s.handle === handle);
+        if (!entry) {
+          res.writeHead(400).end("bad request");
+          return;
+        }
+        const brainDir = join(w.root, entry.dir ?? entry.handle);
+        const roots = workspaceRoots(org as any);
+        const found = new Map<string, any>();
+        const errors: Array<{ kind: string; error: string }> = [];
+        for (const kind of KINDS) {
+          try {
+            const view = promptView(w, compose, handle, brainDir, kind);
+            for (const p of auditPrompt(w, view, roots)) {
+              // The same stub is a finding on all three prompts. One row, and it says which.
+              const key = `${p.id}|${p.path ?? ""}|${p.title}`;
+              const seen = found.get(key);
+              if (seen) seen.kinds.push(kind);
+              else found.set(key, { ...p, kind, kinds: [kind] });
+            }
+          } catch (err) {
+            errors.push({ kind, error: String((err as Error).message) });
+          }
+        }
+        json(res, { staff: handle, problems: [...found.values()], errors });
+        return;
+      }
+
       if (url.pathname === "/api/amend") {
         const handle = url.searchParams.get("staff") ?? "";
         const kind = url.searchParams.get("kind") ?? "daily";
@@ -826,12 +880,53 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* A file dropped onto an issue. It is committed into the repo the issue lives in, so
+         the agent that reads the issue has the file on disk rather than a link it cannot
+         fetch. Same guard as every other write: a local POST from the portal. */
+      if (url.pathname === "/api/upload") {
+        if (!writeAllowed(req)) {
+          refuseWrite(res);
+          return;
+        }
+        // Base64 costs a third on top, and the cap is on the file rather than the envelope.
+        body(req, Math.ceil(MAX_UPLOAD * 1.4))
+          .then((raw) => {
+            const payload = JSON.parse(raw || "{}") as {
+              repo?: string;
+              name?: string;
+              data?: string;
+            };
+            const repo = payload.repo ?? "";
+            const known = knownRepos().find((r: any) => `${r.owner}/${r.name}` === repo);
+            if (!known) throw new Error(`${repo} is not a repo in org.yaml`);
+            if (!payload.name) throw new Error("a file needs a name");
+            json(
+              res,
+              attach({
+                repoDir: join(w.root, known.name),
+                repo,
+                name: payload.name,
+                data: Buffer.from(payload.data ?? "", "base64"),
+                today: new Date().toISOString().slice(0, 10),
+              }),
+            );
+          })
+          .catch((err) => {
+            res.writeHead(400, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+          });
+        return;
+      }
+
       if (url.pathname === "/api/sync") {
         const org = readOrg(w.opsDir, parseYaml) as any;
         const dirs = [w.opsName, ...(org.staff ?? []).map((s: any) => s.dir ?? s.handle)];
         syncRepos(w.root, dirs)
           .then((results) => {
-            cache = null; // anything pulled invalidates the inbox too
+            /* Only what was actually pulled. This used to drop the cache on every sync, so
+               every window focus — which syncs first — paid for a full re-read of every repo
+               on GitHub, four seconds of it, to learn nothing had changed. */
+            if (results.some((r) => r.pulled)) cache = null;
             res.writeHead(200, {
               "content-type": "application/json; charset=utf-8",
               "cache-control": "no-store",
@@ -842,6 +937,45 @@ export async function portalCommand(argv: string[]): Promise<number> {
             res.writeHead(500, { "content-type": "application/json" });
             res.end(JSON.stringify({ results: [], error: String(err?.message ?? err) }));
           });
+        return;
+      }
+
+      /* The repos org.yaml lists, off disk. Its own route because the new-issue form needs
+         them and used to read them off the loaded inbox: click New issue while the inbox was
+         still asking GitHub and the repo picker was empty, which is exactly when you would. */
+      if (url.pathname === "/api/repos") {
+        json(res, { repos: knownRepos() });
+        return;
+      }
+
+      if (url.pathname === "/api/labels") {
+        const repo = url.searchParams.get("repo") ?? "";
+        if (!knownRepos().some((r: any) => `${r.owner}/${r.name}` === repo)) {
+          res.writeHead(400).end("bad request");
+          return;
+        }
+        const hit = labelCache.get(repo);
+        if (hit && Date.now() - hit.at < LABEL_TTL) {
+          json(res, { labels: hit.labels });
+          return;
+        }
+        api<Array<{ name: string; color: string; description: string | null }>>(
+          `repos/${repo}/labels?per_page=100`,
+        )
+          .then((result) => {
+            if (!result.ok) {
+              json(res, { labels: [], error: result.error });
+              return;
+            }
+            const labels = (result.data ?? []).map((l) => ({
+              name: l.name,
+              color: l.color,
+              description: l.description ?? "",
+            }));
+            labelCache.set(repo, { at: Date.now(), labels });
+            json(res, { labels });
+          })
+          .catch((err) => json(res, { labels: [], error: String(err?.message ?? err) }));
         return;
       }
 
@@ -870,6 +1004,66 @@ export async function portalCommand(argv: string[]): Promise<number> {
             res.writeHead(500, { "content-type": "application/json" });
             res.end(JSON.stringify({ items: [], errors: [String(err?.message ?? err)] }));
           });
+        return;
+      }
+
+      /**
+       * One pull request in the detail the inbox does not carry: its commits, and the patch
+       * for every file it touches.
+       *
+       * Fetched when you ask for it rather than folded into the org-wide read. A diff is the
+       * biggest thing on this screen by an order of magnitude, and paying for every open PR's
+       * diff on every inbox refresh to show one of them is the wrong trade.
+       */
+      if (url.pathname === "/api/pr") {
+        const repo = url.searchParams.get("repo") ?? "";
+        const number = Number(url.searchParams.get("number"));
+        const allowed = knownRepos().some((r: any) => `${r.owner}/${r.name}` === repo);
+        if (!allowed || !Number.isInteger(number) || number <= 0) {
+          res.writeHead(400).end("bad request");
+          return;
+        }
+        Promise.all([
+          api<any>(`repos/${repo}/pulls/${number}`),
+          api<any[]>(`repos/${repo}/pulls/${number}/commits?per_page=100`),
+          api<any[]>(`repos/${repo}/pulls/${number}/files?per_page=100`),
+        ])
+          .then(([pr, commits, files]) => {
+            if (!pr.ok) {
+              json(res, { error: pr.error });
+              return;
+            }
+            json(res, {
+              base: pr.data.base?.ref,
+              head: pr.data.head?.ref,
+              draft: !!pr.data.draft,
+              /* GitHub computes mergeability in the background, so the first read of a fresh
+                 PR can honestly answer "I do not know yet". Passed through as null rather
+                 than flattened to false, which would read as a conflict. */
+              mergeable: pr.data.mergeable,
+              mergeState: pr.data.mergeable_state,
+              additions: pr.data.additions,
+              deletions: pr.data.deletions,
+              changedFiles: pr.data.changed_files,
+              commits: (commits.data ?? []).map((c: any) => ({
+                sha: String(c.sha).slice(0, 7),
+                subject: String(c.commit?.message ?? "").split("\n")[0],
+                author: c.author?.login ?? c.commit?.author?.name ?? "",
+                date: c.commit?.author?.date,
+                url: c.html_url,
+              })),
+              files: (files.data ?? []).map((f: any) => ({
+                path: f.filename,
+                status: f.status,
+                additions: f.additions,
+                deletions: f.deletions,
+                // Absent on binaries and on files too large for the API to patch.
+                patch: f.patch ?? "",
+              })),
+              errors: [commits, files].filter((r) => !r.ok).map((r) => r.error),
+            });
+          })
+          .catch((err) => json(res, { error: String(err?.message ?? err) }));
         return;
       }
 
@@ -939,10 +1133,42 @@ export async function portalCommand(argv: string[]): Promise<number> {
           return;
         }
         const ext = extname(full).toLowerCase();
-        res.writeHead(200, {
-          "content-type": MIME[ext] ?? "application/octet-stream",
-          "cache-control": "no-store",
-        });
+        const type = MIME[ext] ?? "application/octet-stream";
+
+        /* Media is streamed, not downloaded, and a <video> that cannot ask for a byte range
+           cannot seek — Safari will not play it at all. Everything else is small enough that
+           reading it whole is simpler than being clever. */
+        if (SEEKABLE.test(type)) {
+          const size = statSync(full).size;
+          const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
+          if (range) {
+            const start = range[1] ? Number(range[1]) : 0;
+            const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+            if (!(start <= end && start < size)) {
+              res.writeHead(416, { "content-range": `bytes */${size}` }).end();
+              return;
+            }
+            res.writeHead(206, {
+              "content-type": type,
+              "content-length": end - start + 1,
+              "content-range": `bytes ${start}-${end}/${size}`,
+              "accept-ranges": "bytes",
+              "cache-control": "no-store",
+            });
+            createReadStream(full, { start, end }).pipe(res);
+            return;
+          }
+          res.writeHead(200, {
+            "content-type": type,
+            "content-length": size,
+            "accept-ranges": "bytes",
+            "cache-control": "no-store",
+          });
+          createReadStream(full).pipe(res);
+          return;
+        }
+
+        res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
         res.end(readFileSync(full));
         return;
       }
@@ -1051,7 +1277,6 @@ function hireFlags(params: URLSearchParams): Flags {
     model: params.get("model") ?? undefined,
     timeout: num("timeout"),
     mentionTimeout: num("mentionTimeout"),
-    prMentionTimeout: num("prMentionTimeout"),
     secretPrefix: params.get("secretPrefix") ?? undefined,
     app: params.get("app") ?? undefined,
     publicApp: params.get("publicApp") ?? undefined,
