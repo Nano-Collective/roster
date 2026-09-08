@@ -24,7 +24,7 @@ status_issue: 15
 schedule: "0 7 * * 1-5"
 model: claude-opus-5
 timeout_minutes: 90
-mention_timeout_minutes: 30
+mention_timeout_minutes: 90
 
 bot: acme-cto[bot]
 public_bot: acme-robot[bot]
@@ -68,8 +68,8 @@ labels:
 |---|---|---|
 | `schedule` | none | Cron for the daily run. Rendered into the caller. |
 | `model` | org default | Model id. |
-| `timeout_minutes` | 60 | Ceiling on the daily session. |
-| `mention_timeout_minutes` | 30 | Ceiling on a mention run. |
+| `timeout_minutes` | 90 | Ceiling on the daily session. |
+| `mention_timeout_minutes` | 90 | Ceiling on a mention run. |
 
 The three ceilings are separate on purpose. Raising the daily one because sessions have grown
 should not double the budget for a PR amendment. A job killed by a ceiling is reported by

@@ -29,7 +29,7 @@ repositories in this organisation**. Without it, callers fail with "workflow not
 | `kind` | string | `daily` | `daily` or `mention`. |
 | `ops_repo` | string | required | `owner/name` of the ops repo. |
 | `model` | string | `claude-opus-5` | Passed to the agent, unless the agent resolves its own. |
-| `timeout_minutes` | number | `60` | Job ceiling. |
+| `timeout_minutes` | number | `90` | Job ceiling. |
 | `allowed_tools` | string | `Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch` | Tool permissions, for agents that take them. |
 | `issue_number` | string | `""` | Trigger context. |
 | `comment_id` | string | `""` | Trigger context. |

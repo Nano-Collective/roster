@@ -463,14 +463,18 @@ test("a caller the framework has dropped is removed, not left to fail at run tim
 });
 
 test("raising the daily ceiling does not drag the mention ceiling with it", async () => {
-  // They shared %%TIMEOUT%% and had only ever coincided at 60, which hid the coupling.
+  // They shared %%TIMEOUT%% and had only ever coincided at 60, which hid the coupling. Both
+  // are set here: they now default to the same 90, which would hide it again.
   const { root, ops } = brainWorkspace();
   try {
     writeManifest(root);
     const mf = join(root, "technology", "staff.yaml");
     writeFileSync(
       mf,
-      readFileSync(mf, "utf8").replace("timeout_minutes: 60", "timeout_minutes: 90"),
+      readFileSync(mf, "utf8").replace(
+        "timeout_minutes: 60",
+        "timeout_minutes: 90\nmention_timeout_minutes: 30",
+      ),
     );
     const ws = findWorkspace(ops);
     const { parseYaml } = await loadComposer(ops);
@@ -479,6 +483,11 @@ test("raising the daily ceiling does not drag the mention ceiling with it", asyn
     const text = (name: string) => files.find((f) => f.rel.endsWith(name))!.next!;
     assert.match(text("cto-daily.yaml"), /timeout_minutes: 90/);
     assert.match(text("cto-mention.yaml"), /timeout_minutes: 30/, "a mention is not a session");
+    assert.match(
+      text("cto-daily.yaml"),
+      /timeout_minutes: 90/,
+      "and a mention ceiling does not drag the daily one down either",
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

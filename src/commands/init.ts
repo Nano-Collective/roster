@@ -192,7 +192,8 @@ agent:
 
 defaults:
   model: claude-opus-5
-  timeout_minutes: 60
+  timeout_minutes: 90
+  mention_timeout_minutes: 90
   allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 
 # Every staff member, and where their brain lands in the runner checkout.
