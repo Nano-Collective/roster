@@ -1,0 +1,11 @@
+# pnpm 11 refuses to run a dependency's build script until the repo names it, and
+# `pnpm install` exits 1 rather than warning — so every CI job that installs dies at that step
+# before it reaches lint, types, tests or the build.
+#
+# esbuild is not an optional extra here: tsx and tsup are built on it, and its postinstall is
+# what puts the platform binary in place. Nothing runs without it.
+#
+# pnpm 11 reads settings from this file rather than .npmrc, which is why a repo with no
+# workspace packages still has one.
+allowBuilds:
+  esbuild: true
