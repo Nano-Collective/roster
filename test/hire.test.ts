@@ -26,6 +26,27 @@ const ws = findWorkspace(join(ROOT, "roster-ops"));
 const { parseYaml } = await loadComposer(ws.opsDir);
 const ORG = readOrg(ws.opsDir, parseYaml) as any;
 
+/* What this tenant happens to be called, read rather than written down. These tests run
+   against the workspace beside the framework, and that is somebody's real org. */
+const FIRST_HANDLE: string = ORG.staff?.[0]?.handle ?? "";
+const FIRST_DIR: string = ORG.staff?.[0]?.dir ?? FIRST_HANDLE;
+const FIRST_MANIFEST = (() => {
+  try {
+    return parseYaml(
+      readFileSync(join(ws.root, FIRST_DIR, "staff.yaml"), "utf8"),
+      "staff.yaml",
+    ) as any;
+  } catch {
+    return null;
+  }
+})();
+const SIBLING_APP: string | undefined = (FIRST_MANIFEST?.identities ?? []).find(
+  (i: any) => i?.scope === "private",
+)?.app;
+const PUBLIC_APP: string | undefined = (FIRST_MANIFEST?.identities ?? []).find(
+  (i: any) => i?.scope === "public",
+)?.app;
+
 const plan = (handle: string, opts: Record<string, unknown> = {}): Plan =>
   buildPlan(
     ws,
@@ -72,7 +93,7 @@ test("the generated manifest parses with the tenant's own parser", () => {
      at 07:00 on the first run rather than here. */
   const m = parseYaml(plan("cfo").files.get("staff.yaml")!, "staff.yaml") as any;
   assert.equal(m.handle, "cfo");
-  assert.equal(m.brain, "acme/finance");
+  assert.equal(m.brain, `${ORG.org}/finance`);
   assert.equal(m.identities.length, 2);
   assert.ok(
     m.surfaces.some((s: any) => s.path === "memory/" && s.render === "memory"),
@@ -116,12 +137,18 @@ test("a new hire is staggered clear of everyone already on a schedule", () => {
 });
 
 test("the app slug follows the house pattern rather than the org name", () => {
-  // acme's apps are acme-cto and acme-cmo, not acme-cto. Guessing from the org would be wrong.
+  /* A tenant's App slugs carry its own naming, which is often not the org name. Guessing from
+     the org would be wrong, so a new hire copies the pattern a sibling already uses. Derived
+     from whoever is actually here rather than written down, because this file is read by people
+     whose org is not this one. */
+  const sibling = SIBLING_APP;
   const p = plan("cfo");
-  assert.equal(p.staff.app, "acme-cfo");
-  assert.equal(p.staff.publicApp, "acme-robot", "the public identity is shared, so it is copied");
+  assert.ok(sibling, "this test needs an existing staff member with an app to copy from");
+  const expected = sibling!.slice(0, sibling!.lastIndexOf(FIRST_HANDLE)) + "cfo";
+  assert.equal(p.staff.app, expected);
+  assert.equal(p.staff.publicApp, PUBLIC_APP, "the public identity is shared, so it is copied");
   assert.ok(
-    p.warnings.some((w) => w.includes("acme-cto")),
+    p.warnings.some((w) => w.includes(sibling!)),
     "an inferred value should say what it followed",
   );
 });
@@ -346,7 +373,7 @@ test("the generated callers are valid workflows with the triggers they are meant
   assert.match(mention, /^\s{2}issues:$/m, "a mention in a new issue body must still wake a run");
   assert.match(
     mention,
-    /github\.event\.sender\.login == 'you'/,
+    new RegExp(`github\\.event\\.sender\\.login == '${ORG.human.github}'`),
     "and the loop guard must be on the sender, not the author",
   );
   assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
