@@ -353,7 +353,9 @@ function fixtureFetch(u: string) {
                   ? { results: [] }
                   : url.startsWith("/api/setup/repos")
                     ? {
-                        repos: [{ name: "acme-web", visibility: "PUBLIC", description: "the site" }],
+                        repos: [
+                          { name: "acme-web", visibility: "PUBLIC", description: "the site" },
+                        ],
                       }
                     : url.startsWith("/api/setup/status")
                       ? SETUP_FIXTURE
