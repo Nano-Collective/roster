@@ -427,7 +427,42 @@ test("a value that lives in the manifest is never mistaken for drift", async () 
   }
 });
 
-test("raising the daily ceiling does not drag the PR-amendment ceiling with it", async () => {
+test("a caller the framework has dropped is removed, not left to fail at run time", async () => {
+  /* pr-mention was removed from the framework. A tenant that upgraded and kept the workflow
+     would have a route that still dispatches into session.yaml with a kind that no longer
+     composes: worse than absent, because it fails several minutes into a run instead. */
+  const { root, ops } = brainWorkspace();
+  try {
+    writeManifest(root);
+    const stale = join(brainRoot(root), ".github", "workflows", "cto-pr-mention.yaml");
+    mkdirSync(dirname(stale), { recursive: true });
+    writeFileSync(
+      stale,
+      ["jobs:", "  amend:", "    uses: acme/roster-ops/.github/workflows/session.yaml@main"].join(
+        "\n",
+      ),
+    );
+    // Something of the staff member's own, in the same directory, that is nobody's business.
+    const theirs = join(brainRoot(root), ".github", "workflows", "cto-something-custom.yaml");
+    writeFileSync(theirs, "on: workflow_dispatch\njobs: {}\n");
+
+    const ws = findWorkspace(ops);
+    const { parseYaml } = await loadComposer(ops);
+    const [plan] = planBrains(ws, parseYaml);
+
+    const gone = plan!.files.find((f) => f.rel.endsWith("cto-pr-mention.yaml"));
+    assert.equal(gone?.verdict, "obsolete", "a dropped caller is reported");
+    assert.equal(gone?.next, undefined, "and there is nothing to write in its place");
+    assert.ok(
+      !plan!.files.some((f) => f.rel.endsWith("cto-something-custom.yaml")),
+      "a workflow that does not call the ops repo is the staff member's own, and is left alone",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("raising the daily ceiling does not drag the mention ceiling with it", async () => {
   // They shared %%TIMEOUT%% and had only ever coincided at 60, which hid the coupling.
   const { root, ops } = brainWorkspace();
   try {
@@ -443,12 +478,7 @@ test("raising the daily ceiling does not drag the PR-amendment ceiling with it",
 
     const text = (name: string) => files.find((f) => f.rel.endsWith(name))!.next!;
     assert.match(text("cto-daily.yaml"), /timeout_minutes: 90/);
-    assert.match(
-      text("cto-pr-mention.yaml"),
-      /timeout_minutes: 60/,
-      "a PR amendment is not a session",
-    );
-    assert.match(text("cto-mention.yaml"), /timeout_minutes: 30/);
+    assert.match(text("cto-mention.yaml"), /timeout_minutes: 30/, "a mention is not a session");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

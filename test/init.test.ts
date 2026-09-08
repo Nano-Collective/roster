@@ -129,7 +129,7 @@ test("a brand new org can be hired into, and doctor is happy with the result", a
     );
 
     const ids = new Set(health.findings.map((f) => f.id));
-    assert.ok(ids.has("compose"), "and all three prompts must compose");
+    assert.ok(ids.has("compose"), "and both prompts must compose");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -12,7 +12,7 @@ roster prompt <handle> [options]
   agent is sent — the CLI imports the tenant's own compose.mjs, so there is no second
   implementation to drift.
 
-  --kind <k>       daily | mention | pr-mention        (default: daily)
+  --kind <k>       daily | mention                     (default: daily)
   --diff <file>    diff the composed prompt against the prompt: block in a workflow file
   --stat           with --diff, print a summary instead of the full diff
   --ops <dir>      ops repo directory (default: found by walking up)

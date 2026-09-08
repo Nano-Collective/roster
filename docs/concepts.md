@@ -34,7 +34,7 @@ A staff member's repository *is* their memory. There is no database.
 | `memory/INDEX.md` | one line per fact, read in full at every boot |
 | `memory/notes/` | the argument behind a fact, read only when that fact is in play |
 | `log/decisions.md` | why things were decided. Not boot context. |
-| `.github/workflows/` | three callers, about forty lines each |
+| `.github/workflows/` | two callers, about forty lines each |
 
 ## Charter and manifest
 
@@ -83,10 +83,15 @@ control.
 |---|---|
 | `daily` | the scheduled session. Boot, work, hand off. |
 | `mention` | `@handle` in a comment or a new issue body. A task, not a session. |
-| `pr-mention` | a review comment on the public product repo, forwarded in. |
 
-`mention` and `pr-mention` prompts refuse to compose without trigger context, because they are
-written for the comment that woke them. That is correct behaviour, not a bug.
+A `mention` prompt refuses to compose without trigger context, because it is written for the
+comment that woke it. That is correct behaviour, not a bug.
+
+There used to be a third, `pr-mention`: a review comment on the public product repo, forwarded
+into the brain by a workflow in that repo. It was removed. Two repos, a dispatch, a forwarder
+with its own author gate and a second reaction path bought one thing: asking for a change
+without leaving the diff. It cost more than that was worth, in explaining and in debugging.
+Ask in the tracker instead, or from the portal.
 
 ## Identities
 

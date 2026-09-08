@@ -59,7 +59,7 @@ function workspace() {
       join(root, dir, "memory", "INDEX.md"),
       "- **`a-fact`** · [will] It is so. **So:** act.\n- **`b-fact`** · [will] Also so. **So:** act.\n",
     );
-    for (const kind of ["daily", "mention", "pr-mention"]) {
+    for (const kind of ["daily", "mention"]) {
       writeFileSync(join(root, dir, ".github", "workflows", `${handle}-${kind}.yaml`), "on: {}\n");
     }
   }
@@ -74,7 +74,7 @@ test("the plan says what stops and what is kept", () => {
 
   assert.equal(plan.name, "Chief Marketing Officer");
   assert.equal(plan.brain, "acme/marketing");
-  assert.deepEqual(plan.workflows, ["cmo-daily.yaml", "cmo-mention.yaml", "cmo-pr-mention.yaml"]);
+  assert.deepEqual(plan.workflows, ["cmo-daily.yaml", "cmo-mention.yaml"]);
   assert.ok(
     plan.keeps.some((k) => k.includes("acme/marketing")),
     "the repo it is keeping has to be named: " + plan.keeps.join(" | "),

@@ -92,7 +92,7 @@ test("every kind composes for every staff member", async () => {
     ),
   );
   for (const s of org.staff ?? []) {
-    for (const kind of ["daily", "mention", "pr-mention"]) {
+    for (const kind of ["daily", "mention"]) {
       const view = promptView(ws, compose, s.handle, join(ws.root, s.dir ?? s.handle), kind);
       assert.ok(view.composed.length > 500, `${s.handle}/${kind} composed to nothing`);
       assert.ok(view.layers.length >= 2, `${s.handle}/${kind} found no layers`);

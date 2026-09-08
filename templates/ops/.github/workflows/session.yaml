@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       kind:
-        description: "daily | mention | pr-mention"
+        description: "daily | mention"
         required: false
         default: daily
         type: string
@@ -35,16 +35,12 @@ on:
         required: false
         default: "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
         type: string
-      # Trigger context. Empty on a scheduled run; set when a comment or a PR woke us.
+      # Trigger context. Empty on a scheduled run; set when a comment woke us.
       issue_number:
         required: false
         default: ""
         type: string
       comment_id:
-        required: false
-        default: ""
-        type: string
-      pr_number:
         required: false
         default: ""
         type: string
@@ -102,9 +98,7 @@ jobs:
       # missed". It sits here, before any checkout, so the eyes land in seconds rather than after
       # the clones.
       #
-      # `mention` only. A pr-mention is already acknowledged by the forwarder in the public product
-      # repo, on the comment the human actually left, and reacting again here would put two on it.
-      # A daily run has nothing to react to.
+      # `mention` only: a daily run has nothing to react to.
       #
       # An `issues` payload carries no comment, so the eyes go on the issue itself. That is the
       # route where a mention is typed straight into the body of a new issue.
@@ -191,20 +185,6 @@ jobs:
             [ -d "$dir" ] && identify "$dir" "${PUBLIC_SLUG:-$PRIVATE_SLUG}"
           done
 
-      # A PR request is answered on the PR's own branch, never on a new one.
-      - name: Check out the PR branch
-        if: inputs.pr_number != ''
-        env:
-          GH_TOKEN: ${{ steps.public.outputs.token || steps.private.outputs.token }}
-          PRODUCT_DIR: ${{ steps.plan.outputs.product_dir }}
-          PRODUCT_REPO: ${{ steps.plan.outputs.product_repo }}
-        run: |
-          set -euo pipefail
-          [ -n "$PRODUCT_DIR" ] || { echo "no product repo to check a PR out of"; exit 1; }
-          cd "$PRODUCT_DIR"
-          gh pr checkout "${{ inputs.pr_number }}" --repo "$PRODUCT_REPO"
-          echo "on $(git branch --show-current)"
-
       - uses: pnpm/action-setup@v6
         if: steps.plan.outputs.needs_node == 'true'
         with:
@@ -226,7 +206,6 @@ jobs:
           ROSTER_CONTEXT: >-
             {"issue_number":"${{ inputs.issue_number }}",
              "comment_id":"${{ inputs.comment_id }}",
-             "pr_number":"${{ inputs.pr_number }}",
              "repo":"${{ github.repository }}",
              "actor":"${{ github.actor }}"}
         run: |

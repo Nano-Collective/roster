@@ -32,7 +32,6 @@ const STAFF = {
   model: "a-model",
   timeout: 90,
   mentionTimeout: 30,
-  prMentionTimeout: 30,
   secretPrefix: "CTO",
   publicSecretPrefix: "PIPWEB",
   app: "acme-cto",

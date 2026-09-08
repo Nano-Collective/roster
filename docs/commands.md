@@ -48,7 +48,7 @@ Will not write `org/business.md`. That is yours.
 
 ## `roster hire <handle>`
 
-Scaffold a staff member: repo, three callers, manifest, memory index, charter stub, labels,
+Scaffold a staff member: repo, two callers, manifest, memory index, charter stub, labels,
 pinned status issue, and peer wiring in both directions.
 
 ```
@@ -58,7 +58,6 @@ pinned status issue, and peer wiring in both directions.
 --model <id>
 --timeout <n>          daily ceiling, minutes
 --mention-timeout <n>
---pr-timeout <n>
 --secret-prefix <X>    secrets become <X>_APP_ID and <X>_APP_PRIVATE_KEY
 --app <slug>           defaults to the pattern the peers use
 --public-app <slug>    the shared public identity
@@ -144,7 +143,7 @@ amend <who>     change what a staff member is told, with the whole prompt attach
 ```
 
 ```
---kind <k>      for amend: daily | mention | pr-mention  (default: daily)
+--kind <k>      for amend: daily | mention  (default: daily)
 --want <text>   for amend: what you want changed
 --ops <dir>
 ```
@@ -177,14 +176,14 @@ roster brief discover > roster-ops/.claude/commands/discover.md
 Compose and print what a staff member is actually sent.
 
 ```
---kind daily|mention|pr-mention
+--kind daily|mention
 --diff <workflow.yaml>
 ```
 
-`mention` and `pr-mention` need trigger context:
+`mention` needs trigger context:
 
 ```bash
-ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","pr_number":"1","repo":"o/r"}' \
+ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","repo":"o/r"}' \
   roster prompt cto --kind mention
 ```
 

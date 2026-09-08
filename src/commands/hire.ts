@@ -17,7 +17,7 @@ import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/wor
 export const hireHelp = `
 roster hire <handle> [--name "Chief Financial Officer"] [--apply]
 
-  Scaffold a new staff member: their brain repo, the three caller workflows, a manifest, a
+  Scaffold a new staff member: their brain repo, the two caller workflows, a manifest, a
   memory index, a charter stub, labels, a pinned status issue, and the peer wiring in both
   directions.
 
@@ -34,7 +34,6 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
   --model <id>           defaults to org.yaml's
   --timeout <n>          daily run ceiling, minutes
   --mention-timeout <n>  mention run ceiling, minutes
-  --pr-timeout <n>       PR-amendment run ceiling, minutes
   --secret-prefix <X>    secrets are <X>_APP_ID and <X>_APP_PRIVATE_KEY. Defaults to HANDLE.
   --app <slug>           this staff member's GitHub App. Defaults to the pattern its peers use.
   --public-app <slug>    the shared public identity. Defaults to whatever the peers use.
@@ -165,7 +164,6 @@ export function buildPlan(
     model,
     timeout: opts.timeout ?? org.defaults?.timeout_minutes ?? 60,
     mentionTimeout: opts.mentionTimeout ?? 30,
-    prMentionTimeout: opts.prMentionTimeout ?? 60,
     secretPrefix: opts.secretPrefix ?? handle.toUpperCase(),
     publicSecretPrefix: publicIdentity?.secret_prefix ?? "BOT",
     app: app ?? `${handle}`,
@@ -530,7 +528,6 @@ export interface Flags {
   model?: string;
   timeout?: number;
   mentionTimeout?: number;
-  prMentionTimeout?: number;
   secretPrefix?: string;
   app?: string;
   publicApp?: string;
@@ -565,7 +562,6 @@ function parseFlags(argv: string[]): Flags {
     else if (flag === "--model") out.model = value;
     else if (flag === "--timeout") out.timeout = Number(value);
     else if (flag === "--mention-timeout") out.mentionTimeout = Number(value);
-    else if (flag === "--pr-timeout") out.prMentionTimeout = Number(value);
     else if (flag === "--secret-prefix") out.secretPrefix = value;
     else if (flag === "--app") out.app = value;
     else if (flag === "--public-app") out.publicApp = value;

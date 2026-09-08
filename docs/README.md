@@ -81,7 +81,7 @@ Nano-Collective/roster          the framework. Never a runtime dependency of any
   ├── staff.yaml                the machine-readable half of the charter
   ├── memory/INDEX.md           one line per fact, read at every boot
   ├── memory/notes/             the argument behind a fact, read on demand
-  └── .github/workflows/        three callers, about forty lines each
+  └── .github/workflows/        two callers, about forty lines each
 ```
 
 **The framework never runs anything.** It writes templates out; a tenant runs its own copies.

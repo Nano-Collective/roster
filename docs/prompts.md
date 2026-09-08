@@ -35,13 +35,12 @@ does not control.
 |---|---|---|
 | `daily` | cron | no |
 | `mention` | `@handle` in a comment, or in a new issue body | yes |
-| `pr-mention` | a review comment on the product repo, forwarded in | yes |
 
-`mention` and `pr-mention` refuse to compose without context, because they are written for the
-comment that woke them. That is correct behaviour. To see one locally:
+A `mention` refuses to compose without context, because it is written for the comment that woke
+it. That is correct behaviour. To see one locally:
 
 ```bash
-ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","pr_number":"1","repo":"o/r"}' \
+ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","repo":"o/r"}' \
   roster prompt cto --kind mention
 ```
 
@@ -81,9 +80,9 @@ than a hang.
 | `peers` | list of the other staff members |
 | `peer` | the first peer, or null |
 | `peer_list` | peers pre-rendered as a markdown list |
-| `kind` | `daily`, `mention` or `pr-mention` |
+| `kind` | `daily` or `mention` |
 | `event` | trigger context, from `ROSTER_CONTEXT` |
-| `event.issue_number`, `event.comment_id`, `event.pr_number`, `event.repo`, `event.actor` | |
+| `event.issue_number`, `event.comment_id`, `event.repo`, `event.actor` | |
 
 Anything else in a manifest is reachable under `staff.`, so `staff.status_issue` and
 `staff.public_token_env` work without being listed here.

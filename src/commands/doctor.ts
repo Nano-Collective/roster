@@ -364,18 +364,16 @@ async function checkStaff(
   }
 
   /* The prompt is what actually runs, so a template that throws is a run that dies at 07:00.
-     `mention` and `pr-mention` are written for the comment that woke them and refuse to
-     compose without one, which is correct — so they are given a stand-in, exactly as the
-     workflow supplies the real thing. Composing them with no context proves nothing except
-     that they are strict. */
+     `mention` is written for the comment that woke it and refuses to compose without one,
+     which is correct — so it is given a stand-in, exactly as the workflow supplies the real
+     thing. Composing it with no context proves nothing except that it is strict. */
   const CONTEXT = JSON.stringify({
     issue_number: "1",
     comment_id: "1",
-    pr_number: "1",
     repo: `${org.org}/example`,
   });
   const before = process.env.ROSTER_CONTEXT;
-  for (const kind of ["daily", "mention", "pr-mention"]) {
+  for (const kind of ["daily", "mention"]) {
     try {
       if (kind === "daily") delete process.env.ROSTER_CONTEXT;
       else process.env.ROSTER_CONTEXT = CONTEXT;
@@ -403,18 +401,18 @@ async function checkStaff(
       scope,
       level: "ok",
       id: "compose",
-      title: "prompts compose for daily, mention and pr-mention",
+      title: "prompts compose for daily and mention",
     });
   }
 
   // Callers, and whether they point at a reusable workflow that exists.
   const callers = readCallers(root);
-  if (callers.length !== 3) {
+  if (callers.length !== 2) {
     out.push({
       scope,
       level: callers.length ? "warn" : "fail",
       id: "callers",
-      title: `${callers.length} caller workflow${callers.length === 1 ? "" : "s"}, expected 3 (daily, mention, pr-mention)`,
+      title: `${callers.length} caller workflow${callers.length === 1 ? "" : "s"}, expected 2 (daily, mention)`,
       fix: "A missing caller is a route that silently never fires. Compare against roster's templates/brain.",
     });
   }
@@ -452,8 +450,13 @@ async function checkStaff(
       });
     }
   }
-  if (callers.length === 3 && !out.some((f) => f.id.startsWith("callers"))) {
-    out.push({ scope, level: "ok", id: "callers", title: `3 callers, all pointing at ${opsRepo}` });
+  if (callers.length === 2 && !out.some((f) => f.id.startsWith("callers"))) {
+    out.push({
+      scope,
+      level: "ok",
+      id: "callers",
+      title: `2 callers, both pointing at ${opsRepo}`,
+    });
   }
 
   // Surfaces the portal and the agent both expect to be able to open.

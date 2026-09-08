@@ -110,7 +110,6 @@ test("the scaffold contains the things a staff member cannot work without", () =
     "memory/INDEX.md",
     ".github/workflows/cfo-daily.yaml",
     ".github/workflows/cfo-mention.yaml",
-    ".github/workflows/cfo-pr-mention.yaml",
     ".claude/commands/charter.md",
   ]) {
     assert.ok(files.has(needed), `a hire with no ${needed} is not a hire`);
@@ -282,7 +281,7 @@ test("hiring someone who already exists is refused", () => {
 
 /* ------------------------------ end to end ------------------------------ */
 
-test("a scaffolded hire is coherent: doctor passes and all three prompts compose", async () => {
+test("a scaffolded hire is coherent: doctor passes and both prompts compose", async () => {
   /* The check that earned its keep. Run against a sandbox the first time, it found two real
      defects: the manifest left `status_issue` commented out and `works_in` empty, and the
      prompts reference both — so a freshly hired agent would have died at 07:00 on its first
@@ -348,7 +347,7 @@ test("a scaffolded hire is coherent: doctor passes and all three prompts compose
     );
 
     const ids = new Set(health.findings.map((f) => f.id));
-    assert.ok(ids.has("compose"), "all three prompts must compose, including pr-mention");
+    assert.ok(ids.has("compose"), "both prompts must compose");
     assert.ok(ids.has("callers"));
     assert.ok(ids.has("charter"));
   } finally {
@@ -363,7 +362,6 @@ test("a caller's filename is templated too, so it says whose run it is", () => {
   assert.deepEqual(names.sort(), [
     ".github/workflows/cfo-daily.yaml",
     ".github/workflows/cfo-mention.yaml",
-    ".github/workflows/cfo-pr-mention.yaml",
   ]);
 });
 
@@ -378,5 +376,4 @@ test("the generated callers are valid workflows with the triggers they are meant
     "and the loop guard must be on the sender, not the author",
   );
   assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
-  assert.match(files.get(".github/workflows/cfo-pr-mention.yaml")!, /repository_dispatch/);
 });

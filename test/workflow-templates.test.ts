@@ -97,11 +97,7 @@ test("a mention gets an eyes reaction, before anything slow happens", () => {
   );
 
   const step = SESSION_CODE.slice(at, SESSION_CODE.indexOf("- name:", at + 10));
-  assert.match(
-    step,
-    /if: inputs\.kind == 'mention'/,
-    "a pr-mention is already acknowledged by the public forwarder; reacting again would be two",
-  );
+  assert.match(step, /if: inputs\.kind == 'mention'/, "a daily run has nothing to react to");
   assert.match(
     step,
     /continue-on-error: true/,

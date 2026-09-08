@@ -259,7 +259,11 @@ test("portal.md names every screen the router can show", () => {
 
   /* A screen id is code and its heading is prose, so the two are allowed to differ. Where
      they do, say so here rather than renaming a heading to satisfy a test. */
-  const HEADING: Record<string, string> = { changed: "what changed", memory: "brain" };
+  const HEADING: Record<string, string> = {
+    changed: "what changed",
+    memory: "brain",
+    prs: "pull requests",
+  };
   const page = read("portal.md").toLowerCase();
   const missing = screens
     .map((s) => HEADING[s] ?? s)

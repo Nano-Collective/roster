@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { merge3 } from "../lib/merge.js";
@@ -362,7 +370,7 @@ function parseFlags(argv: string[]): Flags {
 export interface BrainFile {
   rel: string;
   kind: "generated" | "scaffold";
-  verdict: "same" | "regenerate" | "missing";
+  verdict: "same" | "regenerate" | "missing" | "obsolete";
   /** What --apply would write. Absent for a scaffold file, which is never rewritten. */
   next?: string;
   diff?: string;
@@ -444,6 +452,17 @@ export function planBrains(ws: Workspace, parseYaml: ParseYaml): BrainPlan[] {
           : { rel, kind, verdict: "regenerate", next: text, diff: unified(have, text) },
       );
     }
+
+    /* A caller the framework no longer generates. Left alone it is worse than clutter: it
+       still dispatches into session.yaml, with a `kind` that no longer composes, so the route
+       fails at run time rather than being absent. Callers are framework-owned and regenerated
+       wholesale, so removing one it has dropped is the same ownership, not a new claim. */
+    for (const rel of callerFiles(root)) {
+      if (want.has(rel)) continue;
+      const text = readFileSync(join(root, rel), "utf8");
+      if (!text.includes(`${orgSpec.opsRepo}/.github/workflows/session.yaml`)) continue;
+      base.files.push({ rel, kind: "generated", verdict: "obsolete" });
+    }
     out.push(base);
   }
   return out;
@@ -471,6 +490,15 @@ function unified(before: string, after: string): string {
   }
 }
 
+/** Every workflow in a brain repo, so an upgrade can see the ones the framework has dropped. */
+function callerFiles(root: string): string[] {
+  const dir = join(root, ".github", "workflows");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((n) => n.endsWith(".yaml") || n.endsWith(".yml"))
+    .map((n) => `.github/workflows/${n}`);
+}
+
 function reportBrains(brains: BrainPlan[], opts: Flags) {
   for (const b of brains) {
     const interesting = b.files.filter((f) => f.verdict !== "same");
@@ -490,6 +518,12 @@ function reportBrains(brains: BrainPlan[], opts: Flags) {
         process.stdout.write(`    + ${f.rel}  new in the framework\n`);
         continue;
       }
+      if (f.verdict === "obsolete") {
+        process.stdout.write(
+          `    - ${f.rel}  the framework no longer generates this; will be removed\n`,
+        );
+        continue;
+      }
       process.stdout.write(`    ↑ ${f.rel}  differs from the template\n`);
       if (f.diff) {
         for (const line of f.diff.split("\n")) process.stdout.write(`        ${line}\n`);
@@ -503,6 +537,11 @@ function applyBrains(brains: BrainPlan[]) {
   let wrote = 0;
   for (const b of brains) {
     for (const f of b.files) {
+      if (f.verdict === "obsolete") {
+        rmSync(join(b.root, f.rel), { force: true });
+        wrote++;
+        continue;
+      }
       if (f.next === undefined) continue;
       const dest = join(b.root, f.rel);
       mkdirSync(dirname(dest), { recursive: true });

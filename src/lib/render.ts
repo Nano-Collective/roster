@@ -24,10 +24,6 @@ export interface StaffSpec {
   model: string;
   timeout: number;
   mentionTimeout: number;
-  /* A PR amendment is a focused task, not a session. It shared %%TIMEOUT%% with the daily run
-     until raising the CTO's daily ceiling to 90 would have silently doubled it too — they had
-     only ever coincided at 60, which is why nobody had noticed the coupling. */
-  prMentionTimeout: number;
   /** Secret name prefix for this staff member's own app: CTO_APP_ID and so on. */
   secretPrefix: string;
   /** The shared public identity every staff member pushes through. */
@@ -94,7 +90,6 @@ export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
     MODEL: s.model,
     TIMEOUT: String(s.timeout),
     MENTION_TIMEOUT: String(s.mentionTimeout),
-    PR_MENTION_TIMEOUT: String(s.prMentionTimeout),
     SECRET_PREFIX: s.secretPrefix,
     PUBLIC_SECRET_PREFIX: s.publicSecretPrefix,
     APP: s.app,
@@ -243,7 +238,6 @@ export function specFromManifest(m: Record<string, any>, dir: string): StaffSpec
     // Absent from the manifests written before these were separate fields. The defaults are
     // the values those manifests were already producing, so nothing moves on the first upgrade.
     mentionTimeout: Number(m.mention_timeout_minutes ?? 30),
-    prMentionTimeout: Number(m.pr_mention_timeout_minutes ?? 60),
     secretPrefix: String(priv.secret_prefix ?? String(m.handle ?? dir).toUpperCase()),
     publicSecretPrefix: String(pub.secret_prefix ?? "BOT"),
     app: String(priv.app ?? ""),

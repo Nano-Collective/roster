@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import type { AuditFinding } from "./audit.js";
 import type { Workspace } from "./workspace.js";
 
-export const KINDS = ["daily", "mention", "pr-mention"] as const;
+export const KINDS = ["daily", "mention"] as const;
 
 export interface Layer {
   /** As the include names it: `org/voice.md`, or `staff:prompts/work.md`. */

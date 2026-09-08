@@ -212,9 +212,9 @@ export function render(template, ctx, readPartial, depth = 0) {
       if (path.startsWith("event.")) {
         throw new Error(
           `{{${path}}} needs trigger context, which arrives as ROSTER_CONTEXT.\n` +
-            `  A "mention" or "pr-mention" prompt is written for a comment that woke it, so it cannot\n` +
+            `  A "mention" prompt is written for the comment that woke it, so it cannot\n` +
             `  be composed without one. To see it locally:\n` +
-            `    ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","pr_number":"1","repo":"o/r"}' \\\n` +
+            `    ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","repo":"o/r"}' \\\n` +
             `      node compose.mjs --staff <handle> --kind <kind>`,
         );
       }
@@ -315,7 +315,7 @@ function main(argv) {
     args[argv[i].slice(2)] = argv[i + 1];
   }
   if (!args.staff || !args.kind) {
-    console.error("usage: node compose.mjs --staff <handle> --kind <daily|mention|pr-mention> [--ops DIR] [--brains DIR]");
+    console.error("usage: node compose.mjs --staff <handle> --kind <daily|mention> [--ops DIR] [--brains DIR]");
     process.exit(2);
   }
   const opsDir = resolve(args.ops ?? HERE);

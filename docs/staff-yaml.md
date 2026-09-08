@@ -25,7 +25,6 @@ schedule: "0 7 * * 1-5"
 model: claude-opus-5
 timeout_minutes: 90
 mention_timeout_minutes: 30
-pr_mention_timeout_minutes: 60
 
 bot: acme-cto[bot]
 public_bot: acme-robot[bot]
@@ -71,7 +70,6 @@ labels:
 | `model` | org default | Model id. |
 | `timeout_minutes` | 60 | Ceiling on the daily session. |
 | `mention_timeout_minutes` | 30 | Ceiling on a mention run. |
-| `pr_mention_timeout_minutes` | 60 | Ceiling on a PR-amendment run. |
 
 The three ceilings are separate on purpose. Raising the daily one because sessions have grown
 should not double the budget for a PR amendment. A job killed by a ceiling is reported by

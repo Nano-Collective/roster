@@ -26,14 +26,13 @@ repositories in this organisation**. Without it, callers fail with "workflow not
 | Input | Type | Default | Means |
 |---|---|---|---|
 | `staff` | string | required | Handle, as in `org.yaml`. |
-| `kind` | string | `daily` | `daily`, `mention` or `pr-mention`. |
+| `kind` | string | `daily` | `daily` or `mention`. |
 | `ops_repo` | string | required | `owner/name` of the ops repo. |
 | `model` | string | `claude-opus-5` | Passed to the agent, unless the agent resolves its own. |
 | `timeout_minutes` | number | `60` | Job ceiling. |
 | `allowed_tools` | string | `Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch` | Tool permissions, for agents that take them. |
 | `issue_number` | string | `""` | Trigger context. |
 | `comment_id` | string | `""` | Trigger context. |
-| `pr_number` | string | `""` | Trigger context. |
 
 ## Secrets
 
@@ -62,14 +61,13 @@ authentication error forty lines into a log.
 6. **Check out the brain**, full history. The agent reads its own past.
 7. **Check out peers and product repos**, per the plan.
 8. **Set git identity** to the App.
-9. **Check out the PR branch**, on a `pr-mention`.
-10. **Set up Node and pnpm**, if the plan found a `package.json`.
-11. **Compose the prompt**, to a step output and to `.roster-prompt.txt`.
-12. **Check the agent has a credential.**
-13. **Work out which agent runs this**, by running `agents.mjs`.
-14. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
+9. **Set up Node and pnpm**, if the plan found a `package.json`.
+10. **Compose the prompt**, to a step output and to `.roster-prompt.txt`.
+11. **Check the agent has a credential.**
+12. **Work out which agent runs this**, by running `agents.mjs`.
+13. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
     CLI one. See [choosing a coding agent](agents.md).
-15. **Say so if the run did not finish.**
+14. **Say so if the run did not finish.**
 
 ## What `runner-plan.mjs` emits
 

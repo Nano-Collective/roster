@@ -35,7 +35,7 @@ roster brief <kind> [handle]
   these briefs by \`roster init\` and \`roster hire\`. There is nothing in them that is
   specific to any agent.
 
-  --kind <k>      for amend: daily | mention | pr-mention  (default: daily)
+  --kind <k>      for amend: daily | mention  (default: daily)
   --want <text>   for amend: what you want changed
   --ops <dir>     ops repo directory (default: found by walking up)
 `;

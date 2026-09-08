@@ -34,7 +34,6 @@ _identity.md    who you are posting as, and where
 _paths.md       where things are in the runner checkout
 daily.md        the scheduled session
 mention.md      a focused task from a comment
-pr-mention.md   a review comment forwarded from the product repo
 ```
 
 The syntax is small on purpose: `{{ path.to.value }}`, `{{> partial.md }}`,

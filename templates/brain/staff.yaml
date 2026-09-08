@@ -13,7 +13,6 @@ schedule: "%%SCHEDULE%%"
 model: %%MODEL%%
 timeout_minutes: %%TIMEOUT%%
 mention_timeout_minutes: %%MENTION_TIMEOUT%%
-pr_mention_timeout_minutes: %%PR_MENTION_TIMEOUT%%
 
 bot: %%APP%%[bot]
 public_bot: %%PUBLIC_APP%%[bot]

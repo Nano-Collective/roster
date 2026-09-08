@@ -119,8 +119,7 @@ seconds. If it does not:
 
 - The reaction is `continue-on-error`. A missing reaction never costs the answer, so check
   whether the run itself started at all.
-- It is scoped to `kind == 'mention'`. A pr-mention is acknowledged by the forwarder in the
-  public repo instead, so that it gets one reaction rather than two.
+- It is scoped to `kind == 'mention'`. A daily run has nothing to react to.
 - On the `issues` route (a mention typed into a new issue body) the eyes go on the issue, not
   on a comment, because that payload has no comment.
 
