@@ -51,11 +51,6 @@ test("the presets name packages that exist, with the binaries they actually inst
 
 test("each preset carries the flags that make it survive a runner", () => {
   // Every one of these was read off the tool's own help or docs, not assumed.
-  assert.match(
-    PRESETS.codex.run,
-    /--sandbox danger-full-access/,
-    "a session edits the checkout and pushes; a sandbox that forbids that fails silently",
-  );
   assert.match(PRESETS.codex.run, /exec -/, "the prompt arrives on stdin");
   assert.match(
     PRESETS.nanocoder.run,
@@ -146,4 +141,86 @@ test("an agent with no credential env var is refused", () => {
 test("the staff member's model wins over the agent's default", () => {
   assert.equal(resolveAgent({ agent: "codex" }, { model: "gpt-5-mini" }).model, "gpt-5-mini");
   assert.equal(resolveAgent({ agent: "codex" }, {}).model, PRESETS.codex.model);
+});
+
+/* ---------------------------- permissions ---------------------------- */
+
+test("one word in org.yaml becomes each agent's own way of saying it", () => {
+  /* The point of the level. Claude takes a list of tool names, Codex a sandbox and an approval
+     policy, nanocoder a development mode, and none of the three can read the others' spelling. */
+  const flags = (agent: unknown, permissions?: string) =>
+    resolveAgent({ agent, permissions }, {}).flags;
+
+  assert.match(
+    flags("claude"),
+    /--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"/,
+  );
+  assert.match(flags("codex"), /--sandbox danger-full-access/);
+  assert.match(flags("nanocoder"), /--mode yolo/);
+
+  assert.match(flags("codex", "read-only"), /--sandbox read-only/);
+  assert.match(flags("nanocoder", "read-only"), /--mode plan/, "plan edits nothing");
+  assert.match(flags("claude", "read-only"), /--allowedTools "Read,Glob,Grep/);
+  assert.ok(!/Write|Edit/.test(flags("claude", "read-only")), "and nothing that writes");
+
+  assert.match(flags("codex", "workspace"), /--sandbox workspace-write/);
+  assert.match(flags("nanocoder", "workspace"), /--mode auto-accept/);
+});
+
+test("an unattended run is never left waiting for an approval it cannot get", () => {
+  // A sandbox that permits writes still stops to ask by default, and a run that stops to ask
+  // at 07:00 times out having done nothing.
+  for (const level of ["full", "workspace", "read-only"]) {
+    assert.match(
+      resolveAgent({ agent: "codex", permissions: level }, {}).flags,
+      /approval_policy="never"/,
+      `codex at ${level} must not wait for approval`,
+    );
+  }
+});
+
+test("an unknown permission level is refused rather than guessed at", () => {
+  assert.throws(
+    () => resolveAgent({ agent: "codex", permissions: "yolo" }, {}),
+    /unknown permissions "yolo"/,
+  );
+});
+
+test("options are passed through in the agent's own vocabulary", () => {
+  // Codex takes -c key=value; the others take flags. Neither is roster's business to model.
+  assert.match(
+    resolveAgent({ agent: { id: "codex", options: { model_reasoning_effort: "high" } } }, {}).flags,
+    /-c model_reasoning_effort='"high"'/,
+  );
+  assert.match(
+    resolveAgent({ agent: { id: "nanocoder", options: { provider: "openrouter" } } }, {}).flags,
+    /--provider 'openrouter'/,
+  );
+});
+
+test("allowed_tools still wins for the agent whose vocabulary it is", () => {
+  /* It predates the levels and is Claude's own spelling. Nothing translates it for the others:
+     a tool list written for one agent is not a permission level for another. */
+  const org = { agent: "claude", defaults: { allowed_tools: ["Read", "Glob"] } };
+  assert.match(resolveAgent(org, {}).flags, /--allowedTools "Read,Glob"/);
+  assert.match(
+    resolveAgent({ ...org, agent: "codex" }, {}).flags,
+    /--sandbox danger-full-access/,
+    "codex has no idea what a Glob is; it gets the level instead",
+  );
+});
+
+test("a staff member can be trusted less than the org", () => {
+  const org = { agent: "codex", permissions: "full" };
+  assert.match(resolveAgent(org, { permissions: "read-only" }).flags, /--sandbox read-only/);
+});
+
+test("nanocoder ships the config it cannot run without", () => {
+  const { config } = resolveAgent({ agent: "nanocoder" }, {}) as any;
+  assert.equal(config.path, "agents.config.json");
+  const providers = config.contents.nanocoder.providers;
+  assert.ok(Array.isArray(providers), "an array, which is what nanocoder reads");
+  assert.match(providers[0].apiKey, /\$\{NANOCODER_API_KEY\}/, "the key is expanded, not stored");
+  assert.match(JSON.stringify(providers[0].models), /FILL IN/, "and the blank says it is one");
+  assert.equal(resolveAgent({ agent: "codex" }, {}).config, null, "codex needs no such file");
 });

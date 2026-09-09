@@ -24,6 +24,19 @@ import { parseYaml } from "./compose.mjs";
  * `uses:` cannot be an expression. Only the reference Claude runner is one of these.
  * `cli` is everything else: install a package, run a command. That path is open-ended.
  */
+/* Claude says what an agent may do as a list of its own tool names. The three levels are the
+   same list narrowed: everything, everything but the network, and nothing that writes. */
+const CLAUDE_TOOLS = {
+  full: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"',
+  workspace: '--allowedTools "Bash,Read,Write,Edit,Glob,Grep"',
+  "read-only": '--allowedTools "Read,Glob,Grep,WebFetch,WebSearch"',
+};
+
+/** Single quotes, because every one of these ends up inside `eval` in the session. */
+function shellArg(v) {
+  return `'${String(v).replace(/'/g, "'\\''")}'`;
+}
+
 export const PRESETS = {
   // The reference runner, and the default. Uses Anthropic's own action, which handles tool
   // permissions and output for us.
@@ -31,15 +44,19 @@ export const PRESETS = {
     kind: "action",
     token_env: "CLAUDE_CODE_OAUTH_TOKEN",
     model: "claude-opus-5",
+    permissions: CLAUDE_TOOLS,
+    option: (k, v) => `--${k} ${shellArg(v)}`,
   },
 
   // The same agent through its plain CLI, for anyone who would rather not depend on the action.
   claude: {
     kind: "cli",
     install: "npm install -g @anthropic-ai/claude-code",
-    run: 'claude -p --model "$AGENT_MODEL" --allowedTools "$AGENT_TOOLS" < "$AGENT_PROMPT_FILE"',
+    run: 'claude -p --model "$AGENT_MODEL" $AGENT_FLAGS < "$AGENT_PROMPT_FILE"',
     token_env: "CLAUDE_CODE_OAUTH_TOKEN",
     model: "claude-opus-5",
+    permissions: CLAUDE_TOOLS,
+    option: (k, v) => `--${k} ${shellArg(v)}`,
   },
 
   codex: {
@@ -47,9 +64,19 @@ export const PRESETS = {
     install: "npm install -g @openai/codex",
     // `exec -` reads the prompt from stdin. The sandbox has to be opened up because the whole
     // point of a session is that it edits the checkout and pushes.
-    run: 'codex exec - --model "$AGENT_MODEL" --sandbox danger-full-access < "$AGENT_PROMPT_FILE"',
+    run: 'codex exec - --model "$AGENT_MODEL" $AGENT_FLAGS < "$AGENT_PROMPT_FILE"',
     token_env: "CODEX_API_KEY",
     model: "gpt-5-codex",
+    /* Codex spells freedom as a sandbox plus an approval policy, and both have to be said:
+       a sandbox that allows writes still stops to ask by default, and a run that stops to ask
+       at 07:00 is a run that times out having done nothing. */
+    permissions: {
+      full: '--sandbox danger-full-access -c approval_policy="never"',
+      workspace: '--sandbox workspace-write -c approval_policy="never"',
+      "read-only": '--sandbox read-only -c approval_policy="never"',
+    },
+    // `-c key=value` is its highest-precedence override, so anything else goes through it.
+    option: (k, v) => `-c ${k}=${shellArg(JSON.stringify(v))}`,
   },
 
   nanocoder: {
@@ -68,9 +95,35 @@ export const PRESETS = {
        safe when somebody has configured it another way. */
     run:
       'NANOCODER_PROVIDERS_FILE="${NANOCODER_PROVIDERS_FILE:-roster-ops/agents.config.json}" ' +
-      'nanocoder --model "$AGENT_MODEL" --mode yolo --trust-directory --plain run "$(cat "$AGENT_PROMPT_FILE")"',
+      'nanocoder --model "$AGENT_MODEL" $AGENT_FLAGS --trust-directory --plain run "$(cat "$AGENT_PROMPT_FILE")"',
     token_env: "NANOCODER_API_KEY",
     model: "",
+    /* Its development modes. `plan` is genuinely read-only: it reasons and proposes and edits
+       nothing, which is the right answer for a staff member you are not ready to trust yet. */
+    permissions: {
+      full: "--mode yolo",
+      workspace: "--mode auto-accept",
+      "read-only": "--mode plan",
+    },
+    option: (k, v) => `--${k} ${shellArg(v)}`,
+    /* A client rather than a model, so it cannot run until it has been told whose model to
+       call. Written on init and reported by doctor when it is missing, because the failure
+       without it is a run that installs, starts, finds no provider and exits. */
+    config: {
+      path: "agents.config.json",
+      contents: {
+        nanocoder: {
+          providers: [
+            {
+              name: "openrouter",
+              baseUrl: "https://openrouter.ai/api/v1",
+              apiKey: "${NANOCODER_API_KEY}",
+              models: ["FILL IN: a model this provider serves, and set it as `model` in org.yaml"],
+            },
+          ],
+        },
+      },
+    },
   },
 };
 
@@ -106,7 +159,58 @@ export function resolveAgent(org, staff = {}) {
     token_env: merged.token_env,
     // The staff member's own model wins; then the agent's default. Empty means "the agent's".
     model: staff.model ?? merged.model ?? "",
+    flags: flagsFor(merged, spec, org, staff),
+    config: merged.config ?? null,
   };
+}
+
+/** The three levels, in the order a person would climb them. */
+export const LEVELS = ["read-only", "workspace", "full"];
+
+/**
+ * What the agent is allowed to do, in its own words.
+ *
+ * org.yaml says `permissions: full` and every agent hears something different: Claude a list
+ * of tool names, Codex a sandbox and an approval policy, nanocoder a development mode. The
+ * translation lives here because it is the only place that knows which agent is running, and
+ * because the alternative is a config file written in one tool's vocabulary that quietly means
+ * nothing to the other two.
+ *
+ * `options` is the escape hatch, in that agent's own vocabulary, spelled onto its command line
+ * by the preset. Anything roster does not model is still reachable without waiting for us.
+ */
+function flagsFor(merged, spec, org, staff) {
+  const out = [];
+  const asked = staff.permissions ?? spec.permissions ?? org.permissions ?? "full";
+  if (!LEVELS.includes(asked)) {
+    throw new Error(`unknown permissions "${asked}". One of: ${LEVELS.join(", ")}`);
+  }
+
+  /* `allowed_tools` predates the levels and is Claude's own vocabulary, so it still wins for
+     an agent that takes a tool list. Nothing translates it for the others: a list written for
+     one tool is not a permission level for another, and guessing would be worse than saying so. */
+  const tools = staff.allowed_tools ?? org.defaults?.allowed_tools;
+  const table = merged.permissions;
+  if (tools && table === CLAUDE_TOOLS) {
+    const list = Array.isArray(tools) ? tools.join(",") : String(tools);
+    out.push(`--allowedTools "${list.replace(/\s+/g, "")}"`);
+  } else if (table) {
+    out.push(table[asked]);
+  }
+
+  const options = { ...(spec.options ?? {}), ...(staff.options ?? {}) };
+  const speller = merged.option;
+  for (const [k, v] of Object.entries(options)) {
+    if (v === undefined || v === null || v === "") continue;
+    if (!speller) {
+      throw new Error(
+        `agent "${merged.id ?? "custom"}" has options but no way to spell them.\n` +
+          "  A custom agent takes its options in its own `run` command.",
+      );
+    }
+    out.push(speller(k, v));
+  }
+  return out.filter(Boolean).join(" ");
 }
 
 function strip(o) {
@@ -148,6 +252,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     `model=${agent.model}`,
     `install<<AGENT_EOF_9c1f\n${agent.install}\nAGENT_EOF_9c1f`,
     `run<<AGENT_EOF_9c1f\n${agent.run}\nAGENT_EOF_9c1f`,
+    `flags<<AGENT_EOF_9c1f\n${agent.flags}\nAGENT_EOF_9c1f`,
   ].join("\n");
   process.stdout.write(out + "\n");
 }

@@ -21,18 +21,55 @@ That is the whole interface. Everything else is a convenience.
 
 ## Picking one
 
-In `org.yaml`:
+In `org.yaml`. This block is the whole surface: choose an agent, say how much freedom it gets,
+and pass anything else through in that agent's own words.
 
 ```yaml
 agent:
   id: codex
+  permissions: full        # full | workspace | read-only
+  options:                 # optional, and in codex's vocabulary rather than roster's
+    model_reasoning_effort: high
 ```
 
-Or the short form, which is the same thing:
+The short form is the same thing with the defaults:
 
 ```yaml
 agent: codex
 ```
+
+### `permissions`
+
+One word here, because "how much may this thing do without asking" is a question about your
+org rather than about a vendor. Each agent hears it in its own vocabulary:
+
+| | `read-only` | `workspace` | `full` |
+|---|---|---|---|
+| **claude** | `--allowedTools Read,Glob,Grep,WebFetch,WebSearch` | the same plus `Bash,Write,Edit` | plus `WebFetch,WebSearch` |
+| **codex** | `--sandbox read-only` | `--sandbox workspace-write` | `--sandbox danger-full-access` |
+| **nanocoder** | `--mode plan` | `--mode auto-accept` | `--mode yolo` |
+
+`full` is the default and is what a daily session needs: the whole point of a run is that it
+edits the checkout, commits and pushes. `workspace` keeps it off the network. `read-only` is
+for a staff member you are not ready to trust yet, and it is genuinely read-only in all three:
+nanocoder's `plan` mode reasons and proposes and edits nothing.
+
+Codex also gets `approval_policy="never"` at every level. A sandbox that permits writes still
+stops to ask by default, and a run that stops to ask at 07:00 is a run that times out having
+done nothing.
+
+A staff member can be trusted less than the org:
+
+```yaml
+# marketing/staff.yaml
+permissions: workspace
+```
+
+### `options`
+
+Anything roster does not model, in the agent's own words, spelled onto its command line by the
+preset: `-c key=value` for codex, `--key value` for the others. It is the escape hatch that
+means a flag roster has never heard of is still reachable without waiting for us.
 
 A staff member can override it in their own `staff.yaml`, which is worth doing when roles
 differ in kind. A research role on a long-context model and an engineering role on a coding
@@ -177,7 +214,8 @@ An org called `acme` with two staff members, `cto` in `acme/technology` and `cmo
 ```yaml
 # roster-ops/org.yaml
 org: acme
-agent: claude-code-action     # the default; you can leave this line out entirely
+agent:
+  id: claude-code-action      # the default; the whole block can be left out
 
 defaults:
   model: claude-opus-5
@@ -195,7 +233,9 @@ Nothing else. No file in the brain repos, no per-staff config.
 
 ```yaml
 # roster-ops/org.yaml
-agent: codex
+agent:
+  id: codex
+  permissions: full           # --sandbox danger-full-access, approval_policy never
 
 defaults:
   model: gpt-5-codex          # what $AGENT_MODEL becomes
@@ -216,11 +256,15 @@ Two files rather than one, because a provider has to be named.
 
 ```yaml
 # roster-ops/org.yaml
-agent: nanocoder
+agent:
+  id: nanocoder
+  permissions: full           # --mode yolo
 
 defaults:
   model: qwen/qwen3-coder     # must be one of the models listed below
 ```
+
+`roster init --agent nanocoder` writes this file for you, with the blanks marked. Fill them in:
 
 ```json
 // roster-ops/agents.config.json

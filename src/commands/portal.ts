@@ -373,14 +373,16 @@ export async function portalCommand(argv: string[]): Promise<number> {
           org,
           dir: join(startedIn, "roster-ops"),
           files: [
-            ...initFiles({
-              org,
-              name: String(params.name ?? org),
-              human: String(params.human ?? ""),
-              marker: String(params.marker ?? "human"),
-              opsName: "roster-ops",
-              agent: String(params.agent ?? "claude-code-action"),
-            }).keys(),
+            ...(
+              await initFiles({
+                org,
+                name: String(params.name ?? org),
+                human: String(params.human ?? ""),
+                marker: String(params.marker ?? "human"),
+                opsName: "roster-ops",
+                agent: String(params.agent ?? "claude-code-action"),
+              })
+            ).keys(),
           ].sort(),
         });
         return;

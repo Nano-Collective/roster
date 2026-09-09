@@ -17,10 +17,10 @@ import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
  * granting it. That is stated in the help rather than pretended about.
  */
 
-function newOrg() {
+async function newOrg() {
   const root = mkdtempSync(join(tmpdir(), "roster-init-"));
   const opsDir = join(root, "roster-ops");
-  for (const [rel, text] of initFiles({
+  for (const [rel, text] of await initFiles({
     org: "acme",
     name: "Acme Robotics",
     human: "someone",
@@ -34,8 +34,8 @@ function newOrg() {
   return { root, opsDir };
 }
 
-test("a new tenant gets the machinery, the org layer and a recorded base", () => {
-  const files = initFiles({
+test("a new tenant gets the machinery, the org layer and a recorded base", async () => {
+  const files = await initFiles({
     org: "acme",
     name: "Acme",
     human: "someone",
@@ -58,7 +58,7 @@ test("a new tenant gets the machinery, the org layer and a recorded base", () =>
 });
 
 test("the org manifest a new tenant gets parses with the parser it ships with", async () => {
-  const { root, opsDir } = newOrg();
+  const { root, opsDir } = await newOrg();
   try {
     const { parseYaml } = await loadComposer(opsDir);
     const org = readOrg(opsDir, parseYaml) as any;
@@ -72,16 +72,18 @@ test("the org manifest a new tenant gets parses with the parser it ships with", 
   }
 });
 
-test("business.md is questions, not invented prose", () => {
+test("business.md is questions, not invented prose", async () => {
   /* The one file nothing can generate. An agent that does not know the business writes work
      that is plausible and generic, which takes longer to notice than no work at all. */
-  const body = initFiles({
-    org: "acme",
-    name: "Acme",
-    human: "s",
-    marker: "s",
-    opsName: "roster-ops",
-  }).get("org/business.md")!;
+  const body = (
+    await initFiles({
+      org: "acme",
+      name: "Acme",
+      human: "s",
+      marker: "s",
+      opsName: "roster-ops",
+    })
+  ).get("org/business.md")!;
   assert.match(body, /stub/i);
   assert.match(body, /\/discover/, "it has to say how to fill it in");
   assert.match(body, /^## /m, "and it has to ask something");
@@ -89,7 +91,7 @@ test("business.md is questions, not invented prose", () => {
 });
 
 test("a brand new org can be hired into, and doctor is happy with the result", async () => {
-  const { root, opsDir } = newOrg();
+  const { root, opsDir } = await newOrg();
   try {
     const ws = findWorkspace(opsDir);
     const { parseYaml } = await loadComposer(opsDir);
@@ -136,7 +138,7 @@ test("a brand new org can be hired into, and doctor is happy with the result", a
 });
 
 test("the first hire is told it has no shared identity rather than being given a made-up one", async () => {
-  const { root, opsDir } = newOrg();
+  const { root, opsDir } = await newOrg();
   try {
     const ws = findWorkspace(opsDir);
     const { parseYaml } = await loadComposer(opsDir);
@@ -154,7 +156,7 @@ test("the first hire is told it has no shared identity rather than being given a
 });
 
 test("a second hire copies what the first one established", async () => {
-  const { root, opsDir } = newOrg();
+  const { root, opsDir } = await newOrg();
   try {
     const ws = findWorkspace(opsDir);
     const { parseYaml } = await loadComposer(opsDir);
@@ -205,4 +207,53 @@ test("a second hire copies what the first one established", async () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("choosing an agent brings its own boilerplate with it", async () => {
+  /* The point of picking one in org.yaml: what that agent needs to run should arrive with it,
+     with the parts only a person can supply marked as blanks rather than invented. */
+  const files = await initFiles({
+    org: "acme",
+    name: "Acme",
+    human: "someone",
+    marker: "boss",
+    opsName: "roster-ops",
+    agent: "nanocoder",
+  });
+
+  const config = files.get("agents.config.json");
+  assert.ok(config, "nanocoder cannot run without a provider, so one is scaffolded");
+  assert.match(config, /\$\{NANOCODER_API_KEY\}/, "and the key is expanded, never stored");
+  assert.match(config, /FILL IN/, "with the part only a person can answer marked");
+
+  const org = files.get("org.yaml")!;
+  assert.match(org, /permissions: full/, "and the level, which every agent understands");
+  assert.match(org, /id: nanocoder/);
+});
+
+test("an agent that needs no config file gets none, and its own default model", async () => {
+  const files = await initFiles({
+    org: "acme",
+    name: "Acme",
+    human: "someone",
+    marker: "boss",
+    opsName: "roster-ops",
+    agent: "codex",
+  });
+  assert.ok(!files.has("agents.config.json"), "codex configures itself from flags");
+  assert.match(files.get("org.yaml")!, /model: gpt-5-codex/, "the preset's own default");
+});
+
+test("an agent nobody has heard of is refused with the list", async () => {
+  await assert.rejects(
+    initFiles({
+      org: "acme",
+      name: "Acme",
+      human: "someone",
+      marker: "boss",
+      opsName: "roster-ops",
+      agent: "not-an-agent",
+    }),
+    /unknown agent "not-an-agent"/,
+  );
 });

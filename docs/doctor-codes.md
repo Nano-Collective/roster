@@ -25,6 +25,8 @@ ran at all.
 | `human` | **fail.** `org.yaml` has no `human.github`. The mention callers gate on that login, so nothing can wake an agent. |
 | `repo` | Every repo in `org.yaml` is reachable. A failure means it does not exist or your `gh` cannot see it. |
 | `repo.visibility` | A repo's real visibility disagrees with what `org.yaml` records. Cosmetic, but the posture it records is then fiction. |
+| `agent` | Which runner this org uses, resolved from the tenant's own `agents.mjs`. **fail** if `org.yaml` names one it does not know. |
+| `agent.config` | **fail.** The agent needs a config file of its own and it is missing, or still has a `FILL IN` in it. Nanocoder is the one preset that does: it is a client rather than a model, so without a provider it starts, finds nothing to call, and exits. |
 | `business` | **fail** if `org/business.md` is missing. Every prompt is composed on top of it. |
 | `business.stub` | `org/business.md` is still the questions it shipped with. Nothing errors; the agents just write competent work about a business that does not exist. |
 | `actions-access` | **fail** unless the ops repo is callable from the whole organisation. This is the "workflow not found" trap. See [manual steps](manual-steps.md#1-allow-the-ops-repos-workflow-to-be-called). |

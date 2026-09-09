@@ -58,14 +58,20 @@ export async function collect(opts: Flags & { only?: string }): Promise<Report |
   const composer = await loadComposer(ws.opsDir);
   const org = readOrg(ws.opsDir, composer.parseYaml) as OrgFile;
 
+  /* A named staff member who is not there is an error. *No* staff members is a brand new
+     tenant, and every workspace check still means something: whether the agent resolves,
+     whether business.md has been written, whether Actions can see the ops repo. Refusing to
+     run at all was how `roster init` handed somebody a doctor that answered
+     "no staff member undefined". */
   const staff = (org.staff ?? []).filter((s) => !opts.only || s.handle === opts.only);
-  if (!staff.length) return null;
+  if (opts.only && !staff.length) return null;
 
   const findings: Finding[] = [];
   const online = !opts.offline && (await gate(findings));
 
   findings.push(...checkWorkspace(ws, org));
   findings.push(...checkBusiness(ws));
+  findings.push(...(await checkAgent(ws, org)));
   if (online) findings.push(...(await checkOrgOnline(ws, org)));
 
   // Staff members are independent, so they are checked at the same time rather than in turn.
@@ -198,6 +204,73 @@ function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
     });
   }
 
+  return out;
+}
+
+/**
+ * The agent, and whatever it cannot run without.
+ *
+ * Asked of the tenant's own agents.mjs, so the answer is the one the runner will get rather
+ * than one this command believes. A preset that declares a config file declares it because the
+ * failure without it is invisible until 07:00: the agent installs, starts, finds nothing to
+ * call, and exits.
+ */
+async function checkAgent(ws: Workspace, org: OrgFile): Promise<Finding[]> {
+  const scope = "workspace";
+  let agent: { id: string; config?: { path: string } | null };
+  try {
+    const { resolveAgent } = (await import(`file://${join(ws.opsDir, "agents.mjs")}`)) as {
+      resolveAgent: (o: unknown, s: unknown) => typeof agent;
+    };
+    agent = resolveAgent(org, {});
+  } catch (err) {
+    return [
+      {
+        scope,
+        level: "fail",
+        id: "agent",
+        title: `no runner resolves: ${firstLine(err)}`,
+        fix: "Nothing can run until org.yaml names an agent this tenant's agents.mjs knows.",
+      },
+    ];
+  }
+
+  const out: Finding[] = [{ scope, level: "ok", id: "agent", title: `runs on ${agent.id}` }];
+
+  /* A blank roster wrote and nobody filled in. It scaffolds these deliberately rather than
+     inventing a value, so finding one later is the check that closes the loop. */
+  const orgFile = join(ws.opsDir, "org.yaml");
+  if (existsSync(orgFile) && /FILL IN/.test(readFileSync(orgFile, "utf8"))) {
+    out.push({
+      scope,
+      level: "fail",
+      id: "agent.config",
+      title: "org.yaml still has a blank in it",
+      fix: "Fill in the FILL IN. A run cannot pick a model from a placeholder.",
+    });
+  }
+  if (!agent.config) return out;
+
+  const path = join(ws.opsDir, agent.config.path);
+  if (!existsSync(path)) {
+    out.push({
+      scope,
+      level: "fail",
+      id: "agent.config",
+      title: `${agent.id} needs ${agent.config.path} and there is none`,
+      fix: "roster init writes it for a new tenant. See docs/agents.md for what goes in it.",
+    });
+    return out;
+  }
+  if (/FILL IN/.test(readFileSync(path, "utf8"))) {
+    out.push({
+      scope,
+      level: "fail",
+      id: "agent.config",
+      title: `${agent.config.path} still has a blank in it`,
+      fix: `Fill in the FILL IN. ${agent.id} cannot pick a model without it.`,
+    });
+  }
   return out;
 }
 

@@ -31,12 +31,12 @@ experiment_private: true
 
 agent:
   id: claude-code-action
+  permissions: full
 
 defaults:
   model: claude-opus-5
   timeout_minutes: 90
   mention_timeout_minutes: 90
-  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 
 staff:
   - { handle: cto, dir: technology, name: Chief Technology Officer, schedule: "0 7 * * 1-5" }
@@ -82,9 +82,15 @@ Which coding agent runs a session. Either a string, or a map. See
 | `run` | if `id` is unknown | Shell command that runs it, reading `$AGENT_PROMPT_FILE`. |
 | `token_env` | if `id` is unknown | Environment variable its credential goes in. |
 | `model` | no | Default model for this agent. A staff member's own `model` wins. |
+| `permissions` | no | `full`, `workspace` or `read-only`. Defaults to `full`. One word, translated into each agent's own vocabulary: a tool list for Claude, a sandbox and an approval policy for Codex, a development mode for nanocoder. A staff member can set their own, and be trusted less than the org. |
+| `options` | no | A map, in that agent's own vocabulary, spelled onto its command line untranslated. The escape hatch for anything roster does not model. |
 
 Any field given overrides the preset's, so a preset that is right except for one flag needs
 one line.
+
+An agent that needs a config file of its own gets one written when `roster init` chooses it,
+with the parts only a person can supply left as `FILL IN` blanks. `roster doctor` fails while
+any of them are still there.
 
 ### `defaults`
 
@@ -95,7 +101,7 @@ Fallbacks for staff members who do not set their own.
 | `model` | Model id passed to the agent. |
 | `timeout_minutes` | Ceiling on a daily session. `90` if unset. |
 | `mention_timeout_minutes` | Ceiling on a mention run. Falls back to `timeout_minutes`, then `90`. |
-| `allowed_tools` | Which tools an agent may use. **Claude's vocabulary**, because Claude is the only preset that takes an allowlist: it becomes `--allowedTools`. It reaches every run as `$AGENT_TOOLS` whatever the agent is, so a custom runner can use it, and an agent with no such concept ignores it. Editing it re-renders the callers, so run `roster upgrade --apply` afterwards. |
+| `allowed_tools` | Claude's own spelling of a permission level, kept because it predates `agent.permissions` and still wins for the agents that take a tool list. Nothing translates it for the others: a list written for one agent is not a permission level for another. Prefer [`agent.permissions`](agents.md#permissions), which every agent understands. |
 
 ### `staff`
 

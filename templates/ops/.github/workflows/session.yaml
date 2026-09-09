@@ -253,9 +253,11 @@ jobs:
           # No --max-turns. A run that legitimately needs more turns should get them: capping it
           # fails the action *after* the work is done and committed, which is a false red rather
           # than a saved penny. timeout-minutes is the real bound.
+          # The permission flags come from agents.mjs, which is the only thing that knows
+          # which agent is running and therefore how to say "may write" to it.
           claude_args: >-
             --model ${{ inputs.model }}
-            --allowedTools "${{ inputs.allowed_tools }}"
+            ${{ steps.agent.outputs.flags }}
           prompt: ${{ steps.compose.outputs.text }}
 
       # Any agent with a command line. The prompt is handed over as a file, never as an
@@ -268,6 +270,8 @@ jobs:
           PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
           PIPWEB_TOKEN: ${{ steps.public.outputs.token }}
           AGENT_MODEL: ${{ steps.agent.outputs.model || inputs.model }}
+          AGENT_FLAGS: ${{ steps.agent.outputs.flags }}
+          # Kept for a custom `run` written before permissions existed.
           AGENT_TOOLS: ${{ inputs.allowed_tools }}
           AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
           FALLBACK_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

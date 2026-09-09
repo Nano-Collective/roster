@@ -25,7 +25,7 @@ export async function makeTenant(
   const opsName = "roster-ops";
   const opsDir = join(root, opsName);
 
-  for (const [rel, text] of initFiles({
+  for (const [rel, text] of await initFiles({
     org,
     name: org,
     human: "someone",

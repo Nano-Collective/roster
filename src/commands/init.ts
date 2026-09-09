@@ -56,7 +56,7 @@ export async function initCommand(argv: string[]): Promise<number> {
     return 2;
   }
 
-  const files = initFiles({ org: opts.org, name, human, marker, opsName, agent: opts.agent });
+  const files = await initFiles({ org: opts.org, name, human, marker, opsName, agent: opts.agent });
 
   process.stdout.write(`\n  roster init — ${name} (${opts.org})\n\n`);
   process.stdout.write(`    ops repo    ${opts.org}/${opsName}\n`);
@@ -129,19 +129,29 @@ export async function initCommand(argv: string[]): Promise<number> {
  * a temp directory. That end-to-end run is the plan's own acceptance test for this phase, and
  * it is the only thing that proves a brand new org is coherent rather than merely plausible.
  */
-export function initFiles(o: {
+export async function initFiles(o: {
   org: string;
   name: string;
   human: string;
   marker: string;
   opsName: string;
   agent?: string;
-}): Map<string, string> {
+}): Promise<Map<string, string>> {
   const files = new Map<string, string>();
   for (const rel of templateFiles(opsTemplateDir())) {
     files.set(rel, readFileSync(join(opsTemplateDir(), rel), "utf8"));
   }
-  files.set("org.yaml", orgYaml({ ...o, agent: o.agent ?? "claude-code-action" }));
+
+  /* Asked of the same agents.mjs the tenant will vendor, rather than repeated here. What a
+     preset knows and this file would otherwise have to guess: which model it defaults to, and
+     whether it needs a config file of its own before it can run at all. */
+  const agent = o.agent ?? "claude-code-action";
+  const preset = await agentPreset(agent);
+  const model = preset.model || '"FILL IN: a model the provider below serves"';
+  files.set("org.yaml", orgYaml({ ...o, agent, model }));
+  if (preset.config) {
+    files.set(preset.config.path, JSON.stringify(preset.config.contents, null, 2) + "\n");
+  }
   files.set("org/business.md", businessStub(o.name, o.org));
   /* The org-level briefs, as slash commands. `/discover` was named in this command's own
      output and in the docs for a while before it existed anywhere. */
@@ -159,6 +169,31 @@ export function initFiles(o: {
   return files;
 }
 
+/**
+ * One preset out of the framework's own agents.mjs.
+ *
+ * Imported rather than restated. agents.mjs is the file the tenant vendors and the runner
+ * executes, so anything this command believes about an agent has to come from there or the two
+ * will disagree the first time a preset changes.
+ */
+async function agentPreset(id: string): Promise<{
+  model?: string;
+  config?: { path: string; contents: unknown };
+}> {
+  const path = join(opsTemplateDir(), "agents.mjs");
+  const { PRESETS } = (await import(`file://${path}`)) as {
+    PRESETS: Record<string, { model?: string; config?: { path: string; contents: unknown } }>;
+  };
+  const preset = PRESETS[id];
+  if (!preset) {
+    throw new Error(
+      `unknown agent "${id}". Known: ${Object.keys(PRESETS).join(", ")}.\n` +
+        "  Anything else works by writing install, run and token_env into org.yaml by hand.",
+    );
+  }
+  return preset;
+}
+
 function orgYaml(o: {
   org: string;
   name: string;
@@ -166,6 +201,7 @@ function orgYaml(o: {
   marker: string;
   opsName: string;
   agent: string;
+  model: string;
 }): string {
   return `# The org manifest. Read at the top of every composed prompt.
 # Kept deliberately simple: compose.mjs parses a small, strict YAML subset, and a manifest
@@ -189,12 +225,18 @@ experiment_private: true
 # works by writing the three fields out longhand. See agents.mjs.
 agent:
   id: ${o.agent}
+  # How much it may do without stopping to ask: full, workspace, or read-only. One word here,
+  # translated into each agent's own vocabulary by agents.mjs — a tool list for Claude, a
+  # sandbox and an approval policy for Codex, a development mode for nanocoder.
+  permissions: full
+  # Anything else, in that agent's own words, passed through untranslated:
+  #   options:
+  #     provider: openrouter
 
 defaults:
-  model: claude-opus-5
+  model: ${o.model}
   timeout_minutes: 90
   mention_timeout_minutes: 90
-  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 
 # Every staff member, and where their brain lands in the runner checkout.
 # Written by \`roster hire\`.
