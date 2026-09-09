@@ -2197,6 +2197,34 @@ test("the general ask starts empty rather than guessing", async () => {
 
 /* ------------------------- staff, and the org layer ------------------------ */
 
+test("hiring asks for a time, not for cron", async () => {
+  /* `0 9 * * 1-5` is nine on weekdays, and nobody hiring their first staff member knows that.
+     The value that goes to the server is still cron, because that is what the workflow takes. */
+  const s = await renderAll("#/-/staff");
+  await new Promise((r) => setTimeout(r, 20));
+  button(s._byId.main, "Hire someone").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+
+  const nodes = walkNodes(s._byId.main);
+  const time = nodes.find((n) => n.tagName === "INPUT" && n.type === "time");
+  assert.ok(time, "a time picker, not a text box wanting five fields");
+  const days = nodes.filter((n) => n.tagName === "OPTION").map((o: any) => o.textContent);
+  assert.ok(days.includes("Weekdays"), "and the days in words: " + days.join(", "));
+
+  let asked = "";
+  s.fetch = async (u: string) => {
+    if (String(u).includes("/api/staff/plan")) asked = String(u);
+    return { ok: true, json: async () => ({ error: "stop here" }), text: async () => "" };
+  };
+  const handle = nodes.find((n) => n.dataset?.field === "handle");
+  handle.value = "cfo";
+  time.value = "07:30";
+  button(s._byId.main, "Show the plan").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  // `+` rather than a space: URLSearchParams form-encodes, and decodeURIComponent leaves it.
+  assert.match(asked, /schedule=30\+7\+\*\+\*\+1-5/, "the server still gets cron: " + asked);
+});
+
 test("the staff screen lists everyone with somewhere to go", async () => {
   const s = await renderAll("#/-/staff");
   assert.equal(s.view, "staff");

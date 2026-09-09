@@ -50,10 +50,11 @@ h1{font:600 21px var(--sans);margin:0 0 4px;letter-spacing:-.015em}
 .grid{display:grid;gap:11px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
 
 /* ---------- controls ---------- */
-input[type=search],select{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
+input[type=search],input[type=time],select{background:var(--panel-2);
+  border:1px solid var(--line);color:var(--ink);
   border-radius:7px;padding:7px 11px;font:13px var(--sans);outline:none}
 input[type=search]{width:280px}
-input[type=search]:focus,select:focus{border-color:var(--accent-dim)}
+input[type=search]:focus,input[type=time]:focus,select:focus{border-color:var(--accent-dim)}
 textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
       border-radius:8px;padding:10px 12px;font:13px/1.55 var(--sans);outline:none;resize:vertical}
 textarea:focus{border-color:var(--accent-dim)}

@@ -774,7 +774,17 @@ async function checkStaffOnline(
 
   /* The headline. Nothing else here proves the app is installed *and* granted — that pair is
      only observable from a run that finished, so a window of recent runs is read rather than
-     just the last one. One bad run is noise; four in ten is the thing you wanted to know. */
+     just the last one. One bad run is noise; four in ten is the thing you wanted to know.
+
+     What the grant belongs to is the repository, not the workflow, so one finished run in this
+     repo proves it for all of them. That matters for a mention workflow, whose normal state is
+     a wall of skipped runs: every comment on the tracker fires it and the gate drops all but
+     the real ones. Reporting each of those as "nothing has proved the app grant" was true only
+     of the workflow in isolation, and false about the thing a person would go and check. */
+  const proven = runs.some(({ res }) =>
+    (res.data ?? []).some((r) => r.status === "completed" && r.conclusion === "success"),
+  );
+
   for (const { name, res } of runs) {
     if (!res.ok) {
       out.push({
@@ -802,13 +812,24 @@ async function checkStaffOnline(
       continue;
     }
     if (!real.length) {
-      out.push({
-        scope,
-        level: "warn",
-        id: "runs",
-        title: `${name}: ${all.length} recent triggers, all gated out before doing anything`,
-        fix: "Nothing here has exercised the app grant. A skipped run proves only the trigger.",
-      });
+      out.push(
+        proven
+          ? {
+              scope,
+              level: "ok",
+              id: "runs",
+              title: `${name}: ${all.length} recent triggers, all gated out, which is its normal state`,
+            }
+          : {
+              scope,
+              level: "warn",
+              id: "runs",
+              title: `${name}: ${all.length} recent triggers, all gated out before doing anything`,
+              fix:
+                "Nothing in this repo has exercised the app grant. A skipped run proves only " +
+                "the trigger, so trigger one workflow here by hand before trusting any of them.",
+            },
+      );
       continue;
     }
 

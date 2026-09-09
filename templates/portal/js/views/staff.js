@@ -15,6 +15,7 @@ import { icon } from "../icons.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { appPanel } from "./app.js";
+import { cronText } from "./health.js";
 import { paste } from "./paste.js";
 
 export function viewStaff(m) {
@@ -110,7 +111,7 @@ export function viewStaff(m) {
     const handle = field("handle", "cfo", "lowercase, digits and dashes");
     const name = field("name", "Chief Financial Officer", "defaults to the handle, uppercased");
     const dir = field("dir", "finance", "directory and repo name; defaults to the handle");
-    const schedule = field("schedule", "0 9 * * 1-5", "defaults to a slot clear of everyone else");
+    const schedule = scheduleField();
     for (const f of [handle, name, dir, schedule]) box.append(f.row);
 
     const status = el("span", { className: "meta" });
@@ -134,7 +135,8 @@ export function viewStaff(m) {
       out.replaceChildren();
       const params = new URLSearchParams({ handle: handle.input.value.trim() });
       for (const [key, f] of [["name", name], ["dir", dir], ["schedule", schedule]]) {
-        if (f.input.value.trim()) params.set(key, f.input.value.trim());
+        const value = (f.value ? f.value() : f.input.value).trim();
+        if (value) params.set(key, value);
       }
       try {
         const data = await (await fetch("/api/staff/plan?" + params, { cache: "no-store" })).json();
@@ -279,6 +281,64 @@ function field(label, placeholder, hint) {
     el("small", { textContent: hint }),
   );
   return { row, input };
+}
+
+/**
+ * When the daily run happens, as a time and a set of days rather than as cron.
+ *
+ * The value on the wire is still a cron expression, because that is what goes in the workflow
+ * and what `roster hire` takes. But nobody hiring their first staff member knows that
+ * `0 9 * * 1-5` is nine in the morning on weekdays, and a field that demands it is a field
+ * that gets a wrong answer or an empty one.
+ *
+ * UTC, said out loud, with the local equivalent beside it: GitHub schedules in UTC, and an
+ * agent that starts an hour off twice a year is worse than one you had to think about once.
+ */
+function scheduleField() {
+  const time = el("input", { type: "time", value: "", step: "60", style: "width:130px" });
+  const days = el("select");
+  days.append(
+    el("option", { value: "1-5", textContent: "Weekdays" }),
+    el("option", { value: "*", textContent: "Every day" }),
+    el("option", { value: "1", textContent: "Mondays" }),
+    el("option", { value: "1,3,5", textContent: "Mon, Wed, Fri" }),
+  );
+  // Said rather than relying on "the first option is selected", which is true of a rendered
+  // <select> and not of one that has only been built.
+  days.value = "1-5";
+
+  const said = el("small");
+  const value = () => {
+    if (!time.value) return "";
+    const [h, m] = time.value.split(":");
+    return `${Number(m)} ${Number(h)} * * ${days.value}`;
+  };
+  const say = () => {
+    const cron = value();
+    said.textContent = cron
+      ? cronText(cron) + local(time.value)
+      : "Leave it empty for a slot clear of everyone else.";
+  };
+  time.oninput = say;
+  days.onchange = say;
+  say();
+
+  const row = el("div", { className: "ffield" });
+  row.append(
+    el("label", { textContent: "schedule" }),
+    el("div", { className: "row" }, [time, days, el("span", { className: "meta", textContent: "UTC" })]),
+    said,
+  );
+  return { row, input: time, value };
+}
+
+/** What that UTC time is where the person reading it is, when the two differ. */
+function local(hhmm) {
+  if (!hhmm) return "";
+  const [h, m] = hhmm.split(":").map(Number);
+  const at = new Date(Date.UTC(2026, 0, 5, h, m));
+  const here = at.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return here === hhmm ? "" : " · " + here + " where you are";
 }
 
 const MARK = { ok: "check", stop: "closed", keep: "issue-open", todo: "dash", warn: "label" };

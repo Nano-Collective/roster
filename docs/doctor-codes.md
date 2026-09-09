@@ -63,8 +63,11 @@ This is the only check that proves the whole chain works, so it is worth underst
 
 - **"has never run"** is a warning, not an `ok`. Nothing has exercised the App grant or the
   secrets, so nothing is known.
-- **"all gated out before doing anything"** means every recent trigger was `skipped`. That is
-  normal for a mention workflow, but it means the credentials are still unproven.
+- **"all gated out"** means every recent trigger was `skipped`, which is a mention workflow's
+  normal state: every comment on the tracker fires it and the gate drops all but the real ones.
+  It is only a warning when *nothing* in that repo has finished a run, because the App grant
+  belongs to the repository rather than to the workflow, so one finished run proves it for all
+  of them.
 - **"ran to a Nm ceiling and were killed"** is a timeout. GitHub reports those as `cancelled`,
   so doctor identifies them by duration. If the ceiling it names differs from the one the
   caller sets today, it says so: those runs happened under the old setting.
