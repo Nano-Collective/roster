@@ -58,8 +58,12 @@ textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color
       border-radius:8px;padding:10px 12px;font:13px/1.55 var(--sans);outline:none;resize:vertical}
 textarea:focus{border-color:var(--accent-dim)}
 
-.ghbtn{display:inline-block;padding:5px 11px;border:1px solid var(--line);border-radius:7px;
-       font:12px var(--sans);color:var(--ink-dim);text-decoration:none;white-space:nowrap}
+/* One size, whether it is a button or a link. They sit in rows together, and `a` taking its
+   line-height from the font shorthand while `button` set its own made every such row a set of
+   controls at two different heights. */
+.ghbtn{display:inline-flex;align-items:center;justify-content:center;min-height:28px;
+       padding:5px 11px;border:1px solid var(--line);border-radius:7px;
+       font:12px/1.4 var(--sans);color:var(--ink-dim);text-decoration:none;white-space:nowrap}
 .ghbtn:hover{color:var(--ink);border-color:var(--accent-dim);background:var(--panel-2)}
 button.ghbtn{cursor:pointer;font-family:var(--sans);background:transparent;
       -webkit-appearance:none;appearance:none;font-size:12px;line-height:1.4}

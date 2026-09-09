@@ -830,7 +830,22 @@ async function checkStaffOnline(
     /* A job killed by `timeout-minutes` is reported by GitHub as "cancelled", which reads like
        somebody pressed a button. Recognising it by its duration is the difference between
        "cancelled, no idea why" and "the session no longer fits in its hour". */
-    if (timedOut.length) {
+    /* A raised ceiling with a clean run after the last kill is history, not a problem: the
+       fix was made and the next run proved it. Reported as `ok` rather than dropped, because
+       "those runs were killed and this is why they are not a finding" is worth being able to
+       read. It used to stay red until ten more runs had pushed the old ones out of the window,
+       which is a week of a screen saying something is wrong when nothing is. */
+    const provedSince = ceiling !== timeout && ok.some((r) => r.createdAt > timedOut[0]!.createdAt);
+    if (timedOut.length && provedSince) {
+      out.push({
+        scope,
+        level: "ok",
+        id: "runs.timeout",
+        title:
+          `${name}: the ${ceiling}m ceiling that killed ${timedOut.length} of the last ` +
+          `${real.length} was raised to ${timeout}m, and a run has finished since`,
+      });
+    } else if (timedOut.length) {
       out.push({
         scope,
         level: "fail",

@@ -54,7 +54,7 @@ ran at all.
 | `peer-labels` | The `from-<handle>` label exists on the *peer's* tracker, which is where this staff member's asks land. |
 | `status-issue` | The declared status issue is actually pinned. If not, the place you look is not the place the agent maintains. |
 | `runs` | A window of recent runs. See below. |
-| `runs.timeout` | **fail.** Runs were killed at a ceiling. |
+| `runs.timeout` | **fail.** Runs were killed at a ceiling. Drops to `ok` once the ceiling has been raised *and* a run has finished since the last kill: the fix is made and proved, and the old runs are history rather than a problem. |
 | `runs.cancelled` | Runs were cancelled short of any ceiling, with their durations. |
 
 ## Reading `runs`

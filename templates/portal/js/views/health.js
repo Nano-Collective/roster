@@ -28,12 +28,14 @@ export function viewHealth(m) {
   const rig = s.rig ?? {};
   m.append(el("h1", { textContent: s.name + " · health" }));
 
-  const errs = s.problems.filter((p) => p.level === "error");
-  const warns = s.problems.filter((p) => p.level === "warning");
-  m.append(el("p", { className: "sub", innerHTML:
-    "<span class='" + (errs.length ? "err" : "ok") + "'>" + errs.length + " errors</span> · " +
-    "<span class='warn'>" + warns.length + " warnings</span> · memory checks are the same ones " +
-    "<code>roster lint</code> runs; the rest is read off the checkout." }));
+  m.append(
+    el("p", {
+      className: "sub",
+      textContent:
+        "The rig, then three sets of checks: the org, the prompts they are sent, and what " +
+        "they have written down.",
+    }),
+  );
 
   /* The rig: is the scaffolding still there, and has the agent actually been running. This
      is everything answerable without the GitHub API — installation grants, secrets and
@@ -75,27 +77,75 @@ export function viewHealth(m) {
   }
   m.append(g);
 
-  /* `roster doctor` runs over the whole org, so it is not per-staff — but it is the same
-     question this screen is asking, so it reads as another section of it rather than a card
-     bolted on above the facts. Below the grid: the grid is about this staff member, and the
-     org is the wider frame you look at once you have seen them. */
-  m.append(el("div", { className: "hsect", textContent: "The org, from roster doctor" }));
-  const rows = el("div");
-  m.append(rows);
-  checklist(rows, {});
+  /* Three sets of checks, and they were three different-looking things: hairline rows for
+     doctor, bordered boxes for the prompt audit, cards with two buttons each for lint. Same
+     question in all three, so one shape: a heading that carries its own count, a line saying
+     what the section is, the findings as rows, and the section's actions at the end. */
+  const doctor = section(m, "The org, from roster doctor", "doctor");
+  checklist(doctor.body, { shell: doctor });
 
   /* What is wrong with what this agent is sent. It used to sit in the tree on the Prompt
      screen, beside the prompt itself — which answers "what is sent", not "is it any good".
      Both questions are health questions, so both are here. */
-  const prompt = el("div");
-  m.append(el("div", { className: "hsect", textContent: "Prompt problems" }), prompt);
+  const prompt = section(m, "Prompt problems", "prompts");
   promptProblems(prompt, s);
 
-  m.append(el("div", { className: "hsect", textContent: "Memory problems" }));
+  memoryProblems(section(m, "Memory problems", "memory"), s);
+}
 
-  if (!s.problems.length) {
-    m.append(el("p", { className: "empty", textContent: "Nothing to fix." }));
-    return;
+/**
+ * One section: a heading with a count, a body, and a row for whatever acts on all of it.
+ *
+ * Returned rather than built in one go because two of the three fill themselves in later, and
+ * a heading that appears with its count already right is worth the small indirection.
+ */
+function section(m, title, key) {
+  const head = el("div", { className: "hsect" });
+  head.append(el("span", { textContent: title }));
+  const count = el("i");
+  head.append(count);
+  const body = el("div", { className: "hbody " + key });
+  const actions = el("div", { className: "row hacts" });
+  m.append(head, body, actions);
+  return {
+    body,
+    actions,
+    /** `n` findings, or a word when a count is the wrong shape of answer. */
+    say: (text) => { count.textContent = text; },
+  };
+}
+
+/** The same checks `roster lint` runs, over what this staff member has written down. */
+function memoryProblems({ body, actions, say }, s) {
+  say(s.problems.length ? String(s.problems.length) : "clean");
+  body.append(
+    el("p", {
+      className: "hnote",
+      textContent: s.problems.length
+        ? "The same checks roster lint runs, over memory/INDEX.md."
+        : "Nothing roster lint can fault in memory/INDEX.md.",
+    }),
+  );
+  if (!s.problems.length) return;
+
+  for (const p of s.problems) {
+    const { row, body: text } = finding(
+      p.level === "error" ? "error" : "warning",
+      { html: inline(p.message) },
+      [p.rule, p.line ? "INDEX.md:" + p.line : ""],
+    );
+    const status = el("span", { className: "meta" });
+    const btn = el("button", { className: "ghbtn", textContent: "Ask " + s.handle.toUpperCase() + " to fix" });
+    btn.onclick = () => askToFix(s, [p], btn, status);
+    const acts = el("div", { className: "row facts" }, [btn]);
+    if (p.slug) {
+      const go = el("button", { className: "ghbtn", textContent: "Show the fact" });
+      go.onclick = () => { S.openFile = "fact:" + p.slug; S.fileQuery = ""; S.view = "brain"; render(); };
+      acts.append(go);
+    }
+    acts.append(status);
+    text.append(acts);
+    body.append(row);
   }
 
   /* The portal's one power over an agent is that it acts as the human, so "fix this" is an
@@ -104,28 +154,30 @@ export function viewHealth(m) {
   const all = el("button", { className: "ghbtn primary",
     textContent: "Ask " + s.handle.toUpperCase() + " to fix all " + s.problems.length });
   all.onclick = () => askToFix(s, s.problems, all, allStatus);
-  m.append(el("div", { className: "row", style: "margin-bottom:12px" }, [all, allStatus]));
+  actions.append(all, allStatus);
+}
 
-  for (const p of s.problems) {
-    const d = el("div", { className: "card" });
-    d.innerHTML = '<div class="row"><span class="' + (p.level === "error" ? "err" : "warn") +
-      '" style="font:11px var(--mono)">' + p.level + "</span>" +
-      '<span class="pill">' + esc(p.rule) + "</span>" +
-      (p.line ? '<span class="meta">INDEX.md:' + p.line + "</span>" : "") + "</div>" +
-      '<p style="margin:8px 0 0">' + inline(p.message) + "</p>";
-
-    const status = el("span", { className: "meta" });
-    const btn = el("button", { className: "ghbtn", textContent: "Ask " + s.handle.toUpperCase() + " to fix" });
-    btn.onclick = () => askToFix(s, [p], btn, status);
-    const actions = el("div", { className: "row fix" }, [btn, status]);
-    if (p.slug) {
-      const go = el("button", { className: "ghbtn", textContent: "Show the fact" });
-      go.onclick = () => { S.openFile = "fact:" + p.slug; S.fileQuery = ""; S.view = "brain"; render(); };
-      actions.append(go);
-    }
-    d.append(actions);
-    m.append(d);
+/**
+ * One finding, in the shape every section uses: a level marker, what is wrong, and where.
+ *
+ * The marker carries the severity so the words do not have to. A row that opens with the word
+ * "warning" spends its first line saying something a glyph already said.
+ */
+function finding(level, title, tags) {
+  const row = el("div", { className: "check " + (level === "error" ? "fail" : "warn") });
+  row.append(el("span", { className: "checkmark", textContent: level === "error" ? "✗" : "!" }));
+  const body = el("div");
+  // Plain text where there is any, markup only where a message carries its own.
+  const head = el("b");
+  if (title.html) head.innerHTML = title.html;
+  else head.textContent = title.text;
+  body.append(head);
+  for (const t of tags.filter(Boolean)) {
+    body.append(el("span", { className: "meta", textContent: t }));
   }
+  row.append(body);
+  // Everything else goes in the second column, under the text rather than under the marker.
+  return { row, body };
 }
 
 /**
@@ -134,47 +186,50 @@ export function viewHealth(m) {
  * Fetched rather than read off the export: composing three prompts and diffing their layers is
  * not something to do on every page paint of every screen, and this is the only one that asks.
  */
-async function promptProblems(host, s) {
-  host.replaceChildren(el("p", { className: "empty", textContent: "Composing the prompts…" }));
+async function promptProblems({ body, say }, s) {
+  say("…");
+  body.append(el("p", { className: "hnote", textContent: "Composing the prompts…" }));
   let data;
   try {
     data = await (
       await fetch("/api/promptaudit?staff=" + encodeURIComponent(s.handle), { cache: "no-store" })
     ).json();
   } catch (e) {
-    host.replaceChildren(el("p", { className: "empty err", textContent: e.message }));
+    say("?");
+    body.replaceChildren(el("p", { className: "hnote err", textContent: e.message }));
     return;
   }
 
-  host.replaceChildren();
-  for (const bad of data.errors ?? []) {
-    host.append(
+  const problems = data.problems ?? [];
+  const errors = data.errors ?? [];
+  say(problems.length ? String(problems.length) : errors.length ? "?" : "clean");
+  body.replaceChildren(
+    el("p", {
+      className: "hnote",
+      textContent: problems.length
+        ? "What the audit can be sure about, over every kind of run this staff member has."
+        : "Nothing the audit can fault in what this staff member is sent.",
+    }),
+  );
+  for (const bad of errors) {
+    body.append(
       el("div", { className: "notice", textContent:
         "The " + bad.kind + " prompt does not compose: " + bad.error }),
     );
   }
-  if (!(data.problems ?? []).length) {
-    if (!(data.errors ?? []).length) {
-      host.append(el("p", { className: "empty", textContent: "Nothing the audit can fault." }));
-    }
-    return;
-  }
+  if (!problems.length) return;
 
   /* Worst first, and each one carrying the sentence that fixes it. Knowing there is a problem
      is the hard part; writing the paragraph that asks for the change is not. */
   const rank = { error: 0, warning: 1, note: 2 };
-  for (const p of [...data.problems].sort((a, b) => (rank[a.level] ?? 3) - (rank[b.level] ?? 3))) {
-    const d = el("div", { className: "prob " + p.level });
-    d.append(el("div", { className: "ptitle", textContent: p.title }));
-    d.append(el("div", { className: "pdetail", textContent: p.detail }));
-    d.append(
-      el("div", { className: "pdetail", textContent: "On the " + (p.kinds ?? []).join(", ") + " prompt" }),
-    );
+  for (const p of [...problems].sort((a, b) => (rank[a.level] ?? 3) - (rank[b.level] ?? 3))) {
+    const { row, body: text } = finding(p.level, { text: p.title }, [(p.kinds ?? []).join(", ")]);
+    text.append(el("p", { textContent: p.detail }));
 
     const note = el("span", { className: "meta" });
     const fix = el("button", { className: "ghbtn", textContent: "Copy a prompt to fix this" });
     fix.onclick = () => copyAmendBrief(s.handle, p.kind, p.want, fix, note);
-    const actions = el("div", { className: "row", style: "margin-top:8px" }, [fix]);
+    const actions = el("div", { className: "row facts" }, [fix]);
     if (p.path) {
       const go = el("button", { className: "ghbtn", textContent: "Open the file" });
       // The file is a layer of a prompt, so it opens where prompts are read.
@@ -187,8 +242,8 @@ async function promptProblems(host, s) {
       actions.append(go);
     }
     actions.append(note);
-    d.append(actions);
-    host.append(d);
+    text.append(actions);
+    body.append(row);
   }
 }
 

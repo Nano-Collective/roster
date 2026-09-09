@@ -8,8 +8,27 @@
 .kv.bad .v{color:var(--err)}
 .card .fix{margin-top:10px}
 .card .fixed{color:var(--accent);font:11.5px var(--mono)}
-.hsect{font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;
-      color:var(--ink-faint);margin:24px 0 10px}
+
+/* ---------- sections ----------
+   Doctor, the prompt audit and lint ask the same kind of question, and used to answer it in
+   three different shapes: hairline rows, bordered boxes, and cards with two buttons each. One
+   shape now. A heading carries its own count, so the page can be read by scanning the left
+   edge, and each section's own actions sit at its end rather than above its findings. */
+.hsect{display:flex;align-items:baseline;gap:10px;
+      font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;
+      color:var(--ink-faint);margin:28px 0 0;padding-bottom:8px;
+      border-bottom:1px solid var(--line)}
+.hsect i{margin-left:auto;font:11.5px var(--mono);font-style:normal;letter-spacing:0;
+      text-transform:none;color:var(--ink-faint)}
+.hbody{padding-top:2px}
+/* What the section is, in one line, before any of its findings. */
+.hnote{margin:10px 0 0;font:12.5px/1.55 var(--sans);color:var(--ink-faint)}
+.hacts{margin-top:12px}
+.hacts:empty{margin-top:0}
+/* Per-finding actions, in the text column rather than under the marker. */
+.facts{margin-top:9px}
+/* Two tags in a row read as one word without this: `too-longINDEX.md:49`. */
+.hbody .check .meta + .meta{margin-left:8px}
 
 /* ---------- the staff screen ---------- */
 .staffcard .v small{margin-top:4px}

@@ -59,7 +59,9 @@ async function syncOne(path: string, dir: string): Promise<SyncResult> {
     if (ahead > 0) return { ...base, ahead, behind, dirty, skipped: "diverged" };
 
     await git("pull", "--ff-only", "--quiet");
-    return { ...base, ahead, behind, dirty, pulled: true };
+    /* Level now, so say so. Reporting the count from before the pull is what made the portal
+       tell you a repo it had just brought up to date was "still 1 behind", every time. */
+    return { ...base, ahead, behind: 0, dirty, pulled: true };
   } catch (err) {
     return { ...base, error: firstLine(err) };
   }

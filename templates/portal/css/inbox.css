@@ -42,11 +42,14 @@
 .ck.passing{color:var(--accent)} .ck.failing{color:var(--err)} .ck.pending{color:var(--warn)}
 
 /* ---------- thread ---------- */
-.thead{border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:4px}
-.trow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.thead{border-bottom:1px solid var(--line);padding-bottom:16px}
 .thead h3{margin:8px 0 0;font:600 17px/1.35 var(--sans);letter-spacing:-.012em;color:var(--ink)}
+.tlabels{margin-top:10px}
 .cmt{border-top:1px solid var(--line);padding:16px 0}
 .cmt.first{border-top:0}
+/* The header already draws a line under itself. Whatever the reversed thread puts first must
+   not draw a second one right under it. */
+.lead{border-top:0}
 /* Reactions. Small, under the comment they belong to, the way GitHub puts them — an agent's
    👀 is an acknowledgement and it should be readable at a glance rather than counted. */
 .reacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
@@ -54,8 +57,10 @@
        color:var(--ink-dim);background:var(--panel-2);cursor:default}
 /* Reply, close and merge, beside the title rather than under the last comment. A thread is
    read newest-first and answered from the top, so nothing here is worth scrolling to. */
-.tacts{margin-top:12px}
-.tacts select{padding:4px 8px;font-size:12px}
+.tacts{margin-top:16px;gap:8px}
+.tacts select{min-height:28px;padding:4px 8px;font-size:12px}
+/* The way out of the screen, not one of the things you do on it. */
+.tacts .out{margin-left:auto}
 
 /* ---------- pull requests ----------
    Conversation, commits, files. Three views of one thing, so they are tabs on the thread

@@ -9,8 +9,17 @@ import { el, toClipboard } from "../dom.js";
 
 const LEVEL_ORDER = { fail: 0, warn: 1, ok: 2 };
 
+/**
+ * @param opts.shell  when Health draws this, the section it lives in: `{actions, say}`. The
+ *   setup screen passes nothing and gets the layout it has always had. Its own screen is a
+ *   wizard, where a chunky button and a paragraph under it are right; on Health it is one
+ *   section of four, and has to look like the other three.
+ */
 export async function checklist(host, opts = {}) {
-  host.replaceChildren(el("p", { className: "sub", textContent: "Checking…" }));
+  const inSection = Boolean(opts.shell);
+  const btnClass = inSection ? "ghbtn" : "btn";
+  const noteClass = inSection ? "hnote" : "sub";
+  host.replaceChildren(el("p", { className: noteClass, textContent: "Checking…" }));
 
   let report;
   try {
@@ -26,9 +35,10 @@ export async function checklist(host, opts = {}) {
   const bad = findings.filter((f) => f.level !== "ok");
 
   host.replaceChildren();
+  opts.shell?.say(bad.length ? String(bad.length) : "clean");
   host.append(
     el("p", {
-      className: "sub",
+      className: noteClass,
       textContent: bad.length
         ? `${bad.filter((f) => f.level === "fail").length} failing, ${bad.filter((f) => f.level === "warn").length} to look at.` +
           (report.online ? "" : " Local checks only.")
@@ -51,7 +61,7 @@ export async function checklist(host, opts = {}) {
 
   /* The isitagentready move: the findings as instructions, for the agent you already have
      pointed at this workspace. What only a person can do is deliberately not in that text. */
-  const copy = el("button", { className: "btn primary", textContent: "Copy all instructions" });
+  const copy = el("button", { className: btnClass + " primary", textContent: "Copy all instructions" });
   const note = el("span", { className: "meta" });
   copy.onclick = async () => {
     copy.disabled = true;
@@ -70,14 +80,17 @@ export async function checklist(host, opts = {}) {
     }
   };
 
-  const again = el("button", { className: "btn", textContent: "Check again" });
+  const again = el("button", { className: btnClass, textContent: "Check again" });
   again.onclick = () => checklist(host, opts);
 
-  host.append(el("div", { className: "row" }, [copy, again, note]));
+  const feet = opts.shell?.actions ?? host;
+  if (opts.shell) feet.replaceChildren();
+  feet.append(copy, again, note);
   if (bad.length) {
-    host.append(
+    feet.append(
       el("p", {
-        className: "sub",
+        className: noteClass,
+        style: "flex-basis:100%",
         textContent:
           "Paste it into Cursor, Claude Code or anything else that can edit files here, then " +
           "check again. The ids above should be gone.",

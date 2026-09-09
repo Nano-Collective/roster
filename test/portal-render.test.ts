@@ -1538,7 +1538,7 @@ test("the thread runs newest first, with the opening post at the bottom", async 
   // The newest event is a cross-reference; the oldest is a label. Newest first means the
   // cross-reference comes before the fold that holds the labels.
   const events = walkNodes(viewer).filter((n) => String(n.className ?? "").startsWith("tev "));
-  assert.equal(String(events[0].className), "tev cross-referenced", String(events[0].className));
+  assert.match(String(events[0].className), /^tev cross-referenced/, String(events[0].className));
 });
 
 test("an agent's 👀 is shown under the comment it is on", async () => {
@@ -2119,11 +2119,12 @@ test("a prompt problem is rendered with the fix you can hand to an AI", async ()
   const s = await renderAll("#/cto/health");
   await new Promise((r) => setTimeout(r, 30));
 
-  const cards = walkNodes(s._byId.main).filter((n) =>
-    String(n.className ?? "").startsWith("prob "),
+  const section = walkNodes(s._byId.main).find(
+    (n) => String(n.className ?? "") === "hbody prompts",
   );
-  assert.equal(cards.length, 2, "one card per finding");
-  assert.ok(String(cards[0].className).includes("error"), "the worst one first");
+  const cards = walkNodes(section).filter((n) => String(n.className ?? "").startsWith("check "));
+  assert.equal(cards.length, 2, "one row per finding, in the prompt section");
+  assert.ok(String(cards[0].className).includes("fail"), "the worst one first");
   assert.match(cards[0].textContent, /business\.md is still the scaffold/);
   assert.match(cards[0].textContent, /Copy a prompt to fix this/, "with the fix beside it");
 
@@ -2156,8 +2157,8 @@ test("the prompt screen is the prompt, and says nothing about problems", async (
 
   const nodes = walkNodes(s._byId.main);
   assert.ok(
-    !nodes.some((n) => String(n.className ?? "").startsWith("prob ")),
-    "no finding cards on this screen",
+    !nodes.some((n) => String(n.className ?? "").startsWith("check ")),
+    "no finding rows on this screen",
   );
   const heads = nodes
     .filter((n) => String(n.className ?? "") === "ghead")
@@ -2172,7 +2173,9 @@ test("asking for a change pre-fills what the finding already worked out", async 
   const s = await renderAll("#/cto/health");
   await new Promise((r) => setTimeout(r, 30));
 
-  const card = walkNodes(s._byId.main).find((n) => String(n.className ?? "").startsWith("prob "));
+  const card = walkNodes(
+    walkNodes(s._byId.main).find((n) => String(n.className ?? "") === "hbody prompts"),
+  ).find((n) => String(n.className ?? "").startsWith("check "));
   button(card, "Copy a prompt to fix this").onclick();
   await new Promise((r) => setTimeout(r, 20));
 

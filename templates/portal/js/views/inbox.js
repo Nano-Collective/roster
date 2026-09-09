@@ -288,15 +288,12 @@ function inboxScreen(m, opts) {
 
     const head = el("div", { className: "thead" });
     head.innerHTML =
-      '<div class="trow">' +
-        '<div class="meta">' + esc(item.repo) + " · " + (item.kind === "pr" ? "PR " : "") + "#" + item.number +
-          ' · <span class="' + (item.state === "OPEN" ? "ok" : "") + '">' + esc(item.state) + "</span>" +
-          " · " + esc(item.author) + " · " + ago(item.updatedAt) + "</div>" +
-        '<a class="ghbtn" href="' + esc(item.url) + '" target="_blank" rel="noopener">Open in GitHub</a>' +
-      "</div>" +
+      '<div class="meta">' + esc(item.repo) + " · " + (item.kind === "pr" ? "PR " : "") + "#" + item.number +
+        ' · <span class="' + (item.state === "OPEN" ? "ok" : "") + '">' + esc(item.state) + "</span>" +
+        " · " + esc(item.author) + " · " + ago(item.updatedAt) + "</div>" +
       "<h3>" + esc(item.title) + "</h3>" +
       (item.labels.length
-        ? '<div class="row" style="margin-top:8px">' +
+        ? '<div class="row tlabels">' +
           item.labels.map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>").join("") +
           "</div>"
         : "");
@@ -319,6 +316,7 @@ function inboxScreen(m, opts) {
        bottom of a year of bookkeeping, and the thing you do most on this screen is read what
        just happened. The title and the actions are in the header, so nothing you need is
        further down than the first screenful. */
+    const from = pane.children.length;
     for (const node of timeline(item, openThread)) pane.append(node);
     pane.append(
       comment({
@@ -326,6 +324,9 @@ function inboxScreen(m, opts) {
         repo: item.repo, reactions: item.reactions,
       }),
     );
+    /* Whatever ends up first drops its own top rule. The header already draws a line under
+       itself, and with the thread reversed the first thing under it is any of three shapes. */
+    pane.children[from]?.classList?.add("lead");
   }
 
   /**
@@ -559,6 +560,17 @@ function inboxScreen(m, opts) {
     }
 
     row.append(status);
+    // Last, and pushed to the far end: it is the way out of this screen rather than one of the
+    // things you do on it. Same shape as the rest, so the row reads as one set of controls.
+    row.append(
+      el("a", {
+        className: "ghbtn out",
+        href: item.url,
+        target: "_blank",
+        rel: "noopener",
+        textContent: "Open in GitHub",
+      }),
+    );
     return row;
   }
 
@@ -806,13 +818,44 @@ function checkGlyph(state) {
 function newIssueForm(viewer) {
   const box = el("div");
   const repo = el("select", { title: "Which repo the issue goes in" });
-  const title = el("input", { type: "search", placeholder: "Title", style: "flex:1;min-width:240px" });
+  const title = el("input", { type: "search", placeholder: "Title", style: "width:100%" });
   const body = el("textarea", { placeholder: "Body (markdown)", rows: 8 });
   const status = el("span", { className: "meta" });
   const create = el("button", { className: "ghbtn primary", textContent: "Create issue" });
 
   const picked = labelPicker(() => repo.value);
   const files = attachBox(body, () => repo.value);
+
+  /**
+   * Who the issue is for.
+   *
+   * Picking a repo is not the same as addressing somebody, and the thing that actually wakes a
+   * staff member is an `@handle` in the body: their mention workflow gates on it. So this sets
+   * both — their brain repo, and the mention at the top of what you are writing — and the two
+   * selects stay in step, because an issue in `technology` that never says `@cto` is a note to
+   * nobody that sits there until somebody happens to read it.
+   */
+  const who = el("select", { title: "Which staff member this is for" });
+  who.append(
+    el("option", { value: "", textContent: "For nobody in particular" }),
+    ...S.data.staff.map((s) => el("option", { value: s.handle, textContent: "For " + s.name })),
+  );
+  const mentionOf = (s) => s.mention ?? "@" + s.handle;
+  who.onchange = () => {
+    const s = S.data.staff.find((x) => x.handle === who.value);
+    if (!s) return;
+    if (s.brain) {
+      repo.value = s.brain;
+      picked.load();
+    }
+    const at = mentionOf(s);
+    if (!body.value.includes(at)) {
+      body.value = at + " " + body.value.replace(/^\s+/, "");
+      body.focus();
+      body.setSelectionRange?.(body.value.length, body.value.length);
+    }
+    hint();
+  };
 
   /* The repos come from org.yaml over its own route rather than off the loaded inbox. Reading
      them off the inbox meant that clicking New issue before GitHub had answered — which is
@@ -842,7 +885,28 @@ function newIssueForm(viewer) {
       status.className = "meta err";
     });
 
-  repo.onchange = () => picked.load();
+  /* Both ways, so the pair never disagrees: choosing a brain repo names its owner, and
+     choosing anything else means the issue is for nobody in particular. */
+  repo.onchange = () => {
+    const owner = S.data.staff.find((x) => x.brain === repo.value);
+    who.value = owner?.handle ?? "";
+    picked.load();
+    hint();
+  };
+
+  /* Said out loud rather than assumed. The mention is the mechanism, and somebody who deletes
+     it from the body has quietly turned a request into a note. */
+  const forWhom = el("p", { className: "meta", style: "margin:9px 0 0" });
+  const hint = () => {
+    const s = S.data.staff.find((x) => x.handle === who.value);
+    forWhom.textContent = !s
+      ? "Nobody is woken by this. Pick a staff member to address it to one of them."
+      : body.value.includes(mentionOf(s))
+        ? mentionOf(s) + " in the body is what wakes " + s.name + ", usually within a minute."
+        : "Put " + mentionOf(s) + " in the body, or nothing will wake " + s.name + ".";
+  };
+  body.addEventListener("input", hint);
+  hint();
 
   create.onclick = async () => {
     if (!repo.value) return;
@@ -870,8 +934,10 @@ function newIssueForm(viewer) {
 
   box.append(
     el("h3", { style: "margin:0 0 12px;font:600 16px var(--sans)", textContent: "New issue" }),
-    el("div", { className: "row", style: "margin-bottom:9px" }, [repo, title]),
+    el("div", { className: "row", style: "margin-bottom:9px" }, [who, repo]),
+    el("div", { className: "row", style: "margin-bottom:9px" }, [title]),
     body,
+    forWhom,
     files.node,
     picked.node,
     el("div", { className: "row", style: "margin-top:10px" }, [create, status]),
