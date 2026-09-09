@@ -61,7 +61,15 @@ agent: claude-code-action
 
 - credential: `CLAUDE_CODE_OAUTH_TOKEN`
 - default model: `claude-opus-5`
-- tool permissions come from `allowed_tools` on the caller
+- tool permissions come from `allowed_tools` on the caller, which roster renders from
+  `defaults.allowed_tools` in org.yaml
+
+That allowlist is Claude's own vocabulary, and it is the one setting on this page that does not
+translate. Codex takes a sandbox mode rather than a tool list; nanocoder takes a development
+mode. Both presets therefore ignore `$AGENT_TOOLS` entirely, and neither is any less restricted
+for it: what bounds them is the sandbox flag in their own `run` command. If you switch agents,
+`allowed_tools` stops being the thing that governs what the agent may touch, and the `run`
+command becomes it.
 
 It is the only preset that is a GitHub Action rather than a CLI. `uses:` in a workflow cannot
 be an expression, so an Action-based runner has to be written into `session.yaml` literally.
@@ -390,7 +398,7 @@ secret each repo is missing.
 |---|---|
 | `$AGENT_PROMPT_FILE` | absolute path to the composed prompt |
 | `$AGENT_MODEL` | the staff member's model, or the agent's default |
-| `$AGENT_TOOLS` | the `allowed_tools` string from the caller |
+| `$AGENT_TOOLS` | the `allowed_tools` string from the caller, which comes from `defaults.allowed_tools` in org.yaml |
 | `$GH_TOKEN` | a token for the private trackers, already authenticated |
 | `$PUBLIC_TOKEN` | a token for the public product repo, if there is one |
 | *`token_env`* | the agent's credential, under whatever name it wants |

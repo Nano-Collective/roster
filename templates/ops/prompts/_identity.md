@@ -4,7 +4,8 @@ You post as **`{{staff.bot}}`** on the private trackers, not as {{human.name}}. 
 authenticated as that app via `GH_TOKEN`.
 
 **Anything that needs {{human.name}} must @-mention `@{{human.github}}`.** They get no notification
-otherwise. Assigning also notifies; do both on `decision` issues.
+otherwise, and GitHub does not notify you about your own comments. Assigning also notifies; do both
+on `decision` issues.
 
 {{#if staff.product}}
 For anything touching **`{{staff.product.repo}}`**, which is public, use the anonymous identity

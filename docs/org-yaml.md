@@ -95,7 +95,7 @@ Fallbacks for staff members who do not set their own.
 | `model` | Model id passed to the agent. |
 | `timeout_minutes` | Ceiling on a daily session. `90` if unset. |
 | `mention_timeout_minutes` | Ceiling on a mention run. Falls back to `timeout_minutes`, then `90`. |
-| `allowed_tools` | Tool permission string. Meaningful to agents that take one, ignored by those that do not. |
+| `allowed_tools` | Which tools an agent may use. **Claude's vocabulary**, because Claude is the only preset that takes an allowlist: it becomes `--allowedTools`. It reaches every run as `$AGENT_TOOLS` whatever the agent is, so a custom runner can use it, and an agent with no such concept ignores it. Editing it re-renders the callers, so run `roster upgrade --apply` afterwards. |
 
 ### `staff`
 

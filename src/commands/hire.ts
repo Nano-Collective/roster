@@ -11,6 +11,7 @@ import {
   renderTree,
   type StaffSpec,
   tokensFor,
+  toolsOf,
 } from "../lib/render.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 
@@ -195,6 +196,7 @@ export function buildPlan(
     opsDirName: ws.opsName,
     human: org.human?.github ?? "",
     humanMarker: org.human?.marker ?? "human",
+    allowedTools: toolsOf(org),
   };
   if (!orgSpec.human)
     warnings.push("org.yaml has no human.github, so the mention gate will never match");

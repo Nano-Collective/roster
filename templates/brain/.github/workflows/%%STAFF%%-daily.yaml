@@ -25,6 +25,7 @@ jobs:
       ops_repo: %%OPS_REPO%%
       model: %%MODEL%%
       timeout_minutes: %%TIMEOUT%%
+      allowed_tools: "%%ALLOWED_TOOLS%%"
     secrets:
       APP_ID: ${{ secrets.%%SECRET_PREFIX%%_APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.%%SECRET_PREFIX%%_APP_PRIVATE_KEY }}

@@ -21,7 +21,7 @@ import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { parsePaste } from "../lib/paste.js";
 import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
 import { isWritable, KINDS, promptView, saveFile, validateOrgYaml } from "../lib/prompt.js";
-import { orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
+import { orgTokens, specFromManifest, tokensFor, toolsOf } from "../lib/render.js";
 import { joinTenant, loadFrameworkComposer, orgHasTenant, setupStatus } from "../lib/setup.js";
 import { syncRepos } from "../lib/sync.js";
 import { loadComposer, readOrg, tryWorkspace, type Workspace } from "../lib/workspace.js";
@@ -1325,6 +1325,7 @@ function orgSpec(
     opsDirName: w.opsName,
     human: human.name ?? human.github ?? "the human",
     humanMarker: human.marker ?? human.github ?? "human",
+    allowedTools: toolsOf(org),
   };
 }
 

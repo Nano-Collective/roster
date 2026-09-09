@@ -46,6 +46,15 @@ export interface OrgSpec {
   human: string;
   /** The provenance tag on a fact the human ruled on, and their label on a tracker. */
   humanMarker: string;
+  /**
+   * The tool allowlist, as the agent that understands one wants it.
+   *
+   * Claude's vocabulary, because Claude is the only preset that takes an allowlist. It reaches
+   * a run as `$AGENT_TOOLS` whatever the agent is, and an agent with no such concept ignores
+   * it. It lives on the org rather than on the staff member because it is a statement about
+   * what these agents may do, and that is not a per-role question.
+   */
+  allowedTools: string;
 }
 
 /**
@@ -61,6 +70,18 @@ const NOTE = "%%TOKENS%%";
 const TOKEN = /%%([A-Z_]+)%%/g;
 
 /** The half of the token set that does not need a staff member: briefs about the org layer. */
+/**
+ * `defaults.allowed_tools` from org.yaml, as the comma-separated string a workflow input takes.
+ *
+ * A list in YAML, a string on the wire. Falls back to the set roster scaffolds with, so a
+ * tenant that has deleted the key gets what it had before rather than an agent with no tools.
+ */
+export function toolsOf(org: unknown): string {
+  const list = (org as any)?.defaults?.allowed_tools;
+  const asked = Array.isArray(list) ? list.join(",") : typeof list === "string" ? list : "";
+  return asked.replace(/\s+/g, "") || "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch";
+}
+
 export function orgTokens(org: OrgSpec): Record<string, string> {
   return {
     ORG: org.org,
@@ -69,6 +90,7 @@ export function orgTokens(org: OrgSpec): Record<string, string> {
     OPS_REPO_DIR: org.opsDirName,
     HUMAN: org.human,
     HUMAN_MARKER: org.humanMarker,
+    ALLOWED_TOOLS: org.allowedTools,
   };
 }
 

@@ -18,6 +18,7 @@ const ORG = {
   opsDirName: "roster-ops",
   human: "Ada",
   humanMarker: "ada",
+  allowedTools: "Bash,Read",
 };
 
 const STAFF = {

@@ -2,7 +2,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { amendBrief } from "../lib/amend.js";
 import { promptView } from "../lib/prompt.js";
-import { briefTemplateDir, orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
+import {
+  briefTemplateDir,
+  orgTokens,
+  specFromManifest,
+  tokensFor,
+  toolsOf,
+} from "../lib/render.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
 export const briefHelp = `
@@ -122,6 +128,7 @@ function spec(org: ReturnType<typeof readOrg>, ws: ReturnType<typeof findWorkspa
     opsDirName: ws.opsName,
     human: human.name ?? human.github ?? "the human",
     humanMarker: human.marker ?? human.github ?? "human",
+    allowedTools: toolsOf(org),
   };
 }
 

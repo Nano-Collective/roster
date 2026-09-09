@@ -55,6 +55,7 @@ jobs:
       ops_repo: %%OPS_REPO%%
       model: %%MODEL%%
       timeout_minutes: %%MENTION_TIMEOUT%%
+      allowed_tools: "%%ALLOWED_TOOLS%%"
       issue_number: ${{ github.event.issue.number }}
       comment_id: ${{ github.event.comment.id }}
     secrets:

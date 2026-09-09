@@ -355,6 +355,21 @@ test("a scaffolded hire is coherent: doctor passes and both prompts compose", as
   }
 });
 
+test("the tool allowlist reaches the run, rather than sitting in org.yaml doing nothing", () => {
+  /* It was written into every scaffolded org.yaml and read by nothing: no caller passed it,
+     so session.yaml's own default was always what ran. Editing that line changed nothing,
+     which is worse than not having the line. */
+  const files = plan("cfo").files;
+  for (const name of [".github/workflows/cfo-daily.yaml", ".github/workflows/cfo-mention.yaml"]) {
+    assert.match(
+      files.get(name)!,
+      /allowed_tools: "[A-Za-z,]+"/,
+      `${name} must pass the allowlist through to the session`,
+    );
+    assert.ok(!files.get(name)!.includes("%%ALLOWED_TOOLS%%"), "and it must be filled in");
+  }
+});
+
 test("a caller's filename is templated too, so it says whose run it is", () => {
   // cto-daily.yaml, not daily.yaml: they sit in one Actions list per repo. Missing this is
   // why the first brain comparison reported every live workflow as absent.

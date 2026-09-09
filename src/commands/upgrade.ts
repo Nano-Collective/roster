@@ -17,6 +17,7 @@ import {
   renderTree,
   specFromManifest,
   tokensFor,
+  toolsOf,
 } from "../lib/render.js";
 import {
   classify,
@@ -403,6 +404,7 @@ export function planBrains(ws: Workspace, parseYaml: ParseYaml): BrainPlan[] {
     opsDirName: ws.opsName,
     human: org.human?.github ?? "",
     humanMarker: org.human?.marker ?? "human",
+    allowedTools: toolsOf(org),
   };
 
   const out: BrainPlan[] = [];

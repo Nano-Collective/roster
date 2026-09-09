@@ -26,12 +26,6 @@ question instead of doing work has wasted its slot.
   flight.** Stage explicit paths. Doing otherwise has swept someone else's uncommitted work into an
   unrelated commit.
 
-## Notifications, and why they matter
-
-**Anything that needs {{human.name}} must @-mention `@{{human.github}}`.** They get no notification
-otherwise, and GitHub does not notify you about your own comments. Assigning also notifies: on a
-`decision` issue, do both.
-
 ## The repo is your memory
 
 Your chat history is wiped between runs. Your persona, your plan and everything you have learned
