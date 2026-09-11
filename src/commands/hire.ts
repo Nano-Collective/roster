@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { api, ghJson, ghReady } from "../lib/gh.js";
+import { readHumans } from "../lib/humans.js";
 import {
   brainTemplateDir,
   briefCommands,
@@ -94,6 +95,8 @@ export interface OrgYaml {
   org: string;
   name: string;
   human?: { github?: string; marker?: string };
+  /** The plural spelling. Both are read; see lib/humans.ts. */
+  humans?: Array<{ github?: string; name?: string; marker?: string; role?: string }>;
   defaults?: { model?: string; timeout_minutes?: number; mention_timeout_minutes?: number };
   staff?: Array<{ handle: string; dir?: string; name?: string; schedule?: string }>;
   repos?: Array<{ name: string; visibility?: string; role?: string }>;
@@ -189,17 +192,24 @@ export function buildPlan(
     );
   }
 
+  const humans = readHumans(org);
   const orgSpec: OrgSpec = {
     org: org.org,
     name: org.name,
     opsRepo: `${org.org}/${ws.opsName}`,
     opsDirName: ws.opsName,
-    human: org.human?.github ?? "",
-    humanMarker: org.human?.marker ?? "human",
+    human: humans[0]?.github ?? "",
+    humanMarker: humans[0]?.marker ?? "human",
+    humanLogins: humans.map((h) => h.github).filter(Boolean),
     allowedTools: toolsOf(org),
   };
   if (!orgSpec.human)
     warnings.push("org.yaml has no human.github, so the mention gate will never match");
+  if (humans.length > 1) {
+    warnings.push(
+      `the mention gate accepts ${humans.map((h) => h.github).join(", ")} — everyone in org.yaml`,
+    );
+  }
 
   const tokens = tokensFor(orgSpec, staff);
   const files = renderTree(brainTemplateDir(), tokens);

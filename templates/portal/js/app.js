@@ -4,7 +4,14 @@ import { getOrg } from "./api.js";
 import { $, el, store } from "./dom.js";
 import { icon, iconHTML } from "./icons.js";
 import { setPeople } from "./md.js";
-import { refreshAll, refreshQuietly, stampLoaded, syncNotice } from "./refresh.js";
+import {
+  countInBackground,
+  refreshAll,
+  refreshQuietly,
+  stampCounts,
+  stampLoaded,
+  syncNotice,
+} from "./refresh.js";
 import { onRender } from "./router.js";
 import { ORG_WIDE, S, VIEWS, applyHash, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
@@ -12,7 +19,7 @@ import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
 import { viewGraph } from "./views/graph.js";
 import { viewHealth } from "./views/health.js";
-import { stampCounts, viewInbox, viewPrs } from "./views/inbox.js";
+import { viewInbox, viewPrs } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
 import { viewSetup } from "./views/setup.js";
@@ -102,6 +109,11 @@ export async function boot() {
     }
   });
   setInterval(stampLoaded, 30000);
+
+  /* What is waiting on you is the first thing this page should be able to tell you, and it used
+     to be the one thing it would not say until you clicked Inbox. One request, shared with
+     whichever screen renders next. */
+  countInBackground();
 
   // Only the state changes here. This used to re-run half of boot on every navigation,
   // which stacked up a focus listener, a keydown listener and an interval each time.

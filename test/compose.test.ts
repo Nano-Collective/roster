@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 // The tenant vendors this file; the framework tests the same copy it ships.
 // @ts-expect-error - plain JS, no types by design
-import { parseYaml, render } from "../templates/ops/compose.mjs";
+import { humanSentence, parseYaml, readHumans, render } from "../templates/ops/compose.mjs";
 import { testWorkspace } from "./helpers/workspace.js";
 
 const OPS = join(import.meta.dirname, "..", "templates", "ops");
@@ -98,4 +98,65 @@ test("the shipped org.yaml template parses", async () => {
   assert.equal(typeof org.org, "string");
   assert.ok(Array.isArray(org.staff) && org.staff.length > 0, "org.yaml must list staff");
   for (const s of org.staff) assert.ok(s.handle, "every staff entry needs a handle");
+});
+
+/* ------------------------------ who they answer to ----------------------------- */
+
+/**
+ * An org used to have exactly one human. The list is duplicated here rather than imported from
+ * `src/lib/humans.ts` on purpose — this file is vendored into every tenant and a run must not
+ * depend on npm — so the two have to agree, and this is the half that ships to the runner.
+ */
+
+test("readHumans reads both spellings, newest first, without duplicating anybody", () => {
+  assert.deepEqual(
+    readHumans({ human: { name: "Will", github: "will-lamerton", marker: "will" } }),
+    [{ github: "will-lamerton", name: "Will", marker: "will", role: undefined }],
+  );
+
+  const both = readHumans({
+    human: { name: "Will", github: "WILL-lamerton" },
+    humans: [
+      { name: "Will", github: "will-lamerton" },
+      { name: "Sam", github: "sam-x" },
+    ],
+  });
+  assert.deepEqual(
+    both.map((h: any) => h.github),
+    ["will-lamerton", "sam-x"],
+  );
+});
+
+test("a marker falls back to the first part of the name, which is what tags a ruling", () => {
+  assert.equal(readHumans({ human: { name: "Will Lamerton", github: "w" } })[0].marker, "will");
+});
+
+test("humans_extra is empty for one human, which is what the {{#if}} in _identity.md turns on", () => {
+  const one = readHumans({ human: { name: "Will", github: "w" } });
+  assert.equal(humanSentence(one.slice(1)), "");
+  const two = readHumans({
+    humans: [
+      { name: "Will", github: "w" },
+      { name: "Sam", github: "s" },
+    ],
+  });
+  assert.equal(humanSentence(two.slice(1)), "Sam (@s)");
+
+  // And the fragment only names the others when there are others.
+  const identity = readFileSync(join(OPS, "prompts", "_identity.md"), "utf8");
+  assert.match(identity, /\{\{#if humans_extra\}\}/);
+  const ctx = {
+    human: two[0],
+    humans: two,
+    humans_extra: humanSentence(two.slice(1)),
+    staff: { bot: "acme-cto[bot]", name: "CTO" },
+  };
+  assert.match(
+    render(identity, ctx, () => null),
+    /Sam \(@s\) can also wake you/,
+  );
+  assert.doesNotMatch(
+    render(identity, { ...ctx, humans_extra: "" }, () => null),
+    /can also wake you/,
+  );
 });

@@ -4,6 +4,7 @@ import { el, kb } from "../dom.js";
 import { fileUrl, getFile } from "../api.js";
 import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
+import { yamlPre } from "../yaml.js";
 
 const IMG = ["png", "jpg", "jpeg", "gif", "svg", "webp", "ico"];
 
@@ -80,6 +81,12 @@ export async function showFile(viewer, s, f, pick) {
       /* malformed: show it as it is */
     }
     viewer.replaceChildren(head, el("pre", { className: "code", textContent: pretty }));
+    return;
+  }
+
+  // A manifest is the one kind of source in a brain that is read closely rather than skimmed.
+  if (f.ext === "yaml" || f.ext === "yml") {
+    viewer.replaceChildren(head, yamlPre(text));
     return;
   }
 

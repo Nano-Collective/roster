@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { docPages, searchDocs } from "../src/lib/docs.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**
@@ -262,7 +263,10 @@ test("portal.md names every screen the router can show", () => {
   const HEADING: Record<string, string> = {
     changed: "what changed",
     memory: "brain",
-    prs: "pull requests",
+    // The screen is `prs` in the router and "Pending work" on the page: what is behind it is
+    // finished work waiting on you, and the word for how it arrives is not the word for what
+    // it is.
+    prs: "pending work",
   };
   const page = read("portal.md").toLowerCase();
   const missing = screens
@@ -273,4 +277,50 @@ test("portal.md names every screen the router can show", () => {
 
   // Setup is not in the router — it replaces the whole shell — so it is checked by name.
   assert.match(read("portal.md"), /^## Setup$/m, "portal.md must cover the setup screen");
+});
+
+/* ------------------------------ searching them ----------------------------- */
+
+/**
+ * The portal's docs screen filtered titles, which cannot find the thing you are usually
+ * after: a sentence in a paragraph. These hold the search to the two properties that make it
+ * worth having — it reads the bodies, and the page *about* a thing outranks the four that
+ * mention it once.
+ */
+
+test("search finds a phrase in a body, not just in a title", () => {
+  const hits = searchDocs("mention gate");
+  assert.ok(hits.length, "nothing matched a phrase that is certainly in the docs");
+  assert.ok(
+    hits.every((h) => h.matches.length),
+    "every hit should carry the lines it matched, or the result is unreadable",
+  );
+  assert.ok(
+    hits.some((h) => !h.title.toLowerCase().includes("mention")),
+    "a title filter would have found none of these",
+  );
+});
+
+test("every word has to appear, so two words narrow rather than widen", () => {
+  const one = searchDocs("upgrade");
+  const two = searchDocs("upgrade conflict");
+  assert.ok(one.length >= two.length, "adding a word should never add pages");
+  assert.equal(searchDocs("upgrade zzzzunfindable").length, 0);
+});
+
+test("the page about a thing outranks the pages that mention it", () => {
+  const hits = searchDocs("org.yaml");
+  assert.equal(hits[0]!.file, "org-yaml.md", "ranked: " + hits.map((h) => h.file).join(", "));
+});
+
+test("an empty query is not a search", () => {
+  assert.deepEqual(searchDocs(""), []);
+  assert.deepEqual(searchDocs("   "), []);
+});
+
+test("a hit is a page the portal will actually serve", () => {
+  // /api/doc only serves what /api/docs listed, so a result that is not in that list is a
+  // row you can click and get a 404 from.
+  const listed = new Set(docPages().map((d) => d.file));
+  for (const hit of searchDocs("agent")) assert.ok(listed.has(hit.file), hit.file);
 });

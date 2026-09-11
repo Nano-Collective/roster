@@ -89,6 +89,13 @@
 .editor{font:12.5px/1.7 var(--mono);min-height:340px;overflow:hidden;resize:none}
 .editnote{margin:8px 0 0;font:11.5px var(--sans);color:var(--ink-faint)}
 
+/* The path, then the controls, pushed to the far end. Editing these files is the whole point
+   of the Org screen, and the way in used to be a grey word in a row of grey words — which is
+   why "there is no easy way to edit the org docs" was fair about a screen that could. */
+.filehead{margin-bottom:6px;gap:8px;align-items:center}
+.filehead .meta{margin-right:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.editbtn{gap:6px;--ic:13px}
+
 /* A prompt audit finding. Not a tree row: it carries an explanation and two buttons, and
    squeezing that into the navigator's row shape is how it would get ignored. */
 .prob{border:1px solid var(--line);border-radius:7px;padding:9px 10px;margin:0 3px 6px}

@@ -7,10 +7,75 @@
  * Its own module because both the shell and the inbox need it, and importing the shell from
  * a view would make the module graph a ring. */
 
-import { getOrg, getSync } from "./api.js";
+import { getInbox, getOrg, getSync } from "./api.js";
 import { $, ago, el, esc } from "./dom.js";
 import { render } from "./router.js";
-import { S } from "./state.js";
+import { openCount, openPrCount, S } from "./state.js";
+
+/**
+ * The inbox, fetched at most once at a time.
+ *
+ * Two things want it the moment the page opens: the sidebar, which counts what is waiting on
+ * you, and the Inbox screen, if that is where the URL landed. Both used to ask separately, and
+ * the second one paid a second round trip through every repo on GitHub to learn what the first
+ * was already finding out.
+ *
+ * So the request is shared. `force` always goes to GitHub — it is the refresh button — and
+ * everything else takes whatever is in flight or already loaded.
+ */
+let inflight = null;
+
+export function ensureInbox(force) {
+  if (!force && S.inbox) return Promise.resolve(S.inbox);
+  if (!force && inflight) return inflight;
+  const asked = getInbox(force)
+    .then((data) => {
+      S.inbox = data;
+      if (inflight === asked) inflight = null;
+      return data;
+    })
+    .catch((err) => {
+      if (inflight === asked) inflight = null;
+      throw err;
+    });
+  inflight = asked;
+  return asked;
+}
+
+/**
+ * The two sidebar counts, wherever they are asked for.
+ *
+ * They live here rather than on the Inbox screen because they are the shell's, and because the
+ * whole point of this pass is that they are right before anybody has opened that screen. While
+ * the first fetch is out they show a placeholder rather than nothing: an empty badge reads as
+ * "zero", and zero is a different claim from "still counting".
+ */
+export function stampCounts() {
+  const waiting = !S.inbox;
+  for (const [sel, n] of [
+    ["#inboxcount", openCount],
+    ["#prcount", openPrCount],
+  ]) {
+    const slot = document.querySelector(sel);
+    if (!slot) continue;
+    slot.textContent = waiting ? "" : String(n());
+    slot.classList.toggle("wait", waiting);
+  }
+}
+
+/**
+ * Count what is waiting on you without opening the screen that lists it.
+ *
+ * The badges used to fill in only once something else caused a render with an inbox loaded,
+ * which in practice meant "after you visit the Inbox". A sidebar that says nothing until you
+ * look at it is not a sidebar.
+ */
+export function countInBackground() {
+  stampCounts();
+  return ensureInbox(false)
+    .then(stampCounts)
+    .catch(() => stampCounts());
+}
 
 export async function refreshAll(soft) {
   const bar = $("#refreshall");
@@ -21,9 +86,12 @@ export async function refreshAll(soft) {
     S.sync = await getSync();
     S.data = await getOrg();
     S.inbox = null; // the inbox re-fetches itself on next paint
+    inflight = null;
     S.loadedAt = new Date();
     if (!soft) render();
     stampLoaded();
+    // The badges are now claiming a count from before the sync. Re-ask, and say so meanwhile.
+    countInBackground();
   } finally {
     bar?.classList.remove("spin");
   }
@@ -50,7 +118,9 @@ export async function refreshQuietly() {
     // Something landed in a checkout: the inbox is stale too, and the screen should say so.
     if (changed || (S.sync?.results ?? []).some((r) => r.pulled)) {
       S.inbox = null;
+      inflight = null;
       render();
+      countInBackground();
     }
   } finally {
     bar?.classList.remove("spin");

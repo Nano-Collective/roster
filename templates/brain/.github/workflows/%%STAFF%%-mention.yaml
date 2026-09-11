@@ -30,20 +30,25 @@ concurrency:
 
 jobs:
   answer:
-    # Only the human, only on a real mention. A bot quoting the phrase must never wake the loop.
+    # Only a human this org answers to, only on a real mention. A bot quoting the phrase must
+    # never wake the loop.
+    #
+    # The list is every login in `org.yaml`'s `humans:` (or the singular `human:`), so a second
+    # founder can wake a staff member without their comment being dropped in silence. One human
+    # is a one-element list: the gate has a single shape whatever the org looks like.
     #
     # The outer gate is on `sender` — the account that performed the action — and not on the author
     # of the thing it acted on. That distinction is load-bearing on the `issues` route: the pinned
-    # status issue is opened by the human and then edited by this staff member on every run, so an
+    # status issue is opened by a human and then edited by this staff member on every run, so an
     # author check would let the agent's own edit wake another run, which would edit it again.
     #
     # One spelling of the mention is enough: GitHub's `contains` is documented as not case
     # sensitive, so this already matches an uppercase mention at the start of a sentence.
     if: >-
-      github.event.sender.login == '%%HUMAN%%' &&
+      contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.sender.login) &&
       (
         (github.event_name == 'issue_comment' &&
-         github.event.comment.user.login == '%%HUMAN%%' &&
+         contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.comment.user.login) &&
          contains(github.event.comment.body, '%%MENTION%%')) ||
         (github.event_name == 'issues' &&
          contains(github.event.issue.body, '%%MENTION%%'))

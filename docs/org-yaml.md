@@ -59,16 +59,36 @@ repos:
 | `ops_dir` | no | Directory name of the ops repo in the runner checkout. Defaults to `roster-ops`. |
 | `experiment_private` | no | Whether the fact that this org is agent-run is itself private. Read by the guardrails fragment. |
 
-### `human`
+### `human` and `humans`
 
-Who the staff answer to. There is exactly one.
+Who the staff answer to. One person is a `human` map; more than one is a `humans` list:
+
+```yaml
+humans:
+  - { name: Will, github: will-lamerton, marker: will, role: founder }
+  - { name: Sam, github: sam-x, marker: sam, role: operations }
+```
 
 | Field | Required | Means |
 |---|---|---|
-| `github` | yes | Login. **The mention callers gate on this**, so without it nothing can wake an agent. |
+| `github` | yes | Login. **The mention callers gate on these**, so without one nothing can wake an agent. |
 | `name` | no | What to call them in prose. Defaults to the login. |
-| `marker` | no | Provenance tag on a fact they ruled on, as in `[will]`. Also used as a label. |
+| `marker` | no | Provenance tag on a fact they ruled on, as in `[will]`. Also used as a label. Defaults to the first part of the name, lowercased. |
 | `role` | no | Prose only. |
+
+Both keys are read, and the singular is not deprecated: an org with one human should keep
+writing `human`. When both are present, anyone in `human` who is not already in the list is
+appended rather than dropped.
+
+**The first entry is the primary.** Prompts are prose addressed to somebody ("*Will* is not
+here"), and a list of two cannot go in that sentence, so the first one goes there, their
+`marker` is what `%%HUMAN_MARKER%%` renders, and the rest are named by
+`{{humans_extra}}` in the identity fragment. Everything that *gates* on identity reads all of
+them: the mention caller's `if:` is `contains(fromJSON('["will-lamerton","sam-x"]'), …)`.
+
+Adding a human changes every generated caller workflow, so it takes a `roster upgrade` to reach
+the brain repos. Until that lands, the new person can open issues and read everything, and
+mentioning a staff member does nothing.
 
 ### `agent`
 
@@ -135,7 +155,7 @@ Every repository the org owns, and what it is for.
 
 | Reader | Uses |
 |---|---|
-| `compose.mjs` | `org`, `name`, `human`, `ops_dir`, `staff` |
+| `compose.mjs` | `org`, `name`, `human`, `humans`, `ops_dir`, `staff` |
 | `runner-plan.mjs` | `org`, `staff`, and each manifest's `works_in` and `peers` |
 | `agents.mjs` | `agent`, `staff` |
 | `roster hire` | all of it, plus every existing manifest |

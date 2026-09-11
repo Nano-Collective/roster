@@ -30,8 +30,10 @@
       <span class="ic" data-icon="inbox"></span> Inbox
       <span class="n" id="inboxcount"></span>
     </button>
-    <button class="nav" id="prsnav" data-view="prs">
-      <span class="ic" data-icon="merged"></span> Pull requests
+    <!-- "Pending work", not "Pull requests": what is behind it is finished work waiting on you,
+         and the word for how it is delivered is not the word for what it is. -->
+    <button class="nav" id="prsnav" data-view="prs" title="Finished work waiting on you to merge">
+      <span class="ic" data-icon="merged"></span> Pending work
       <span class="n" id="prcount"></span>
     </button>
     <button class="nav" id="orgnav" data-view="org">

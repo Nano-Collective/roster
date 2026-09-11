@@ -35,6 +35,31 @@ export function markCurrent(list, btn) {
   btn.setAttribute("aria-current", "true");
 }
 
+/**
+ * Placeholder shapes, for the seconds a screen spends asking GitHub.
+ *
+ * The inbox reads every repo in the org, which is several seconds on a cold cache, and what
+ * stood there meanwhile was the word "Asking GitHub…" in an otherwise empty box beside an
+ * empty box. Nothing about that says the shape of what is coming, so the page looked broken
+ * rather than busy.
+ *
+ * `kind` names the shape: "row" for a list item, "line" for a paragraph, "head" for a title.
+ * They are decorative, so they are hidden from assistive technology and the live region
+ * elsewhere on the screen does the announcing.
+ */
+export function skeleton(kind, n = 1) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const box = el("div", { className: "sk sk-" + kind });
+    box.setAttribute("aria-hidden", "true");
+    if (kind === "row") {
+      box.append(el("div", { className: "skbar t" }), el("div", { className: "skbar m" }));
+    }
+    out.push(box);
+  }
+  return out;
+}
+
 export function store(k, v) {
   try {
     return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v);

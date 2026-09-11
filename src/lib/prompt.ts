@@ -262,11 +262,16 @@ export function validateOrgYaml(
       return `org.yaml needs a "${key}", and every prompt is composed against it`;
     }
   }
-  for (const key of ["staff", "repos"]) {
+  for (const key of ["staff", "repos", "humans"]) {
     if (doc[key] !== undefined && !Array.isArray(doc[key])) return `"${key}" has to be a list`;
   }
   for (const s of (doc.staff as Array<Record<string, unknown>>) ?? []) {
     if (!s?.handle) return "every staff entry needs a handle";
+  }
+  /* A human with no login cannot wake anybody: the mention callers gate on it. Refused here
+     rather than warned about later, because the failure it causes is silence. */
+  for (const h of (doc.humans as Array<Record<string, unknown>>) ?? []) {
+    if (!h?.github) return "every entry in humans needs a github login";
   }
   return null;
 }

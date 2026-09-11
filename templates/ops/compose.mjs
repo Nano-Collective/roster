@@ -235,6 +235,50 @@ function truthy(v) {
 }
 
 // ---------------------------------------------------------------------------
+// Who the staff answer to
+//
+// One person was written as `human:`. More than one is a `humans:` list. Both are read, the
+// singular still works, and the first entry is the one the prose addresses. Duplicated in
+// roster's own src/lib/humans.ts rather than imported, for the same reason the YAML parser
+// above is: a run must not depend on npm or on a network call.
+// ---------------------------------------------------------------------------
+
+export function readHumans(org) {
+  const listed = Array.isArray(org?.humans) ? org.humans : org?.humans ? [org.humans] : [];
+  const out = [];
+  for (const entry of [...listed, org?.human].filter(Boolean)) {
+    const github = String(entry.github ?? entry.login ?? "").trim();
+    const name = String(entry.name ?? github).trim();
+    if (!github && !name) continue;
+    if (github && out.some((h) => h.github.toLowerCase() === github.toLowerCase())) continue;
+    out.push({
+      github,
+      name: name || github,
+      marker: String(entry.marker ?? "").trim() || defaultMarker(name || github),
+      role: entry.role ?? undefined,
+    });
+  }
+  return out;
+}
+
+/** "Will (@will-lamerton) and Sam (@sam)", for a sentence in a prompt. */
+export function humanSentence(humans) {
+  const parts = humans.map((h) => (h.github ? `${h.name} (@${h.github})` : h.name));
+  if (parts.length < 2) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+function defaultMarker(name) {
+  return (
+    String(name)
+      .trim()
+      .split(/[\s-]+/)[0]
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "human"
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Composition
 // ---------------------------------------------------------------------------
 
@@ -268,10 +312,13 @@ export function compose({ opsDir, brainsDir, staff, kind }) {
     }
   }
 
+  const humans = readHumans(org);
   const ctx = {
     org,
     event,
-    human: org.human,
+    // The first is who the prose addresses; `humans` is everybody the mention gate accepts.
+    human: humans[0] ?? org.human,
+    humans,
     ops: { dir: org.ops_dir ?? "roster-ops" },
     // `dir` lives in the org registry (it is where the checkout lands), everything
     // else lives in the staff member's own manifest.
@@ -288,6 +335,11 @@ export function compose({ opsDir, brainsDir, staff, kind }) {
     // Convenience strings the fragments lean on, computed once here so a
     // fragment never has to do string work.
     peer_list: peers.map((p) => `- \`${p.dir}/\` - the ${p.name}'s brain`).join("\n"),
+    // Everybody who can wake this staff member and rule on their work, and the same list
+    // without the one the prose already names. Empty when there is only one, which is what
+    // makes `{{#if humans_extra}}` the right way to mention the others at all.
+    human_list: humanSentence(humans),
+    humans_extra: humanSentence(humans.slice(1)),
   };
 
   // "staff:foo.md" resolves inside the staff member's own brain repo, which is how a

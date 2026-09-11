@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
+import { readHumans } from "../lib/humans.js";
 import { parseMemory } from "../lib/memory.js";
 import { looksUnwritten } from "../lib/stub.js";
 import { opsTemplateDir } from "../lib/templates.js";
@@ -130,6 +131,7 @@ interface OrgFile {
   staff?: Array<{ handle: string; dir?: string; name?: string; schedule?: string }>;
   repos?: Array<{ name: string; role?: string; visibility?: string }>;
   human?: { github?: string };
+  humans?: Array<{ github?: string; name?: string; marker?: string }>;
 }
 
 function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
@@ -143,13 +145,29 @@ function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
     title: `org.yaml names ${org.repos?.length ?? 0} repos and ${org.staff?.length ?? 0} staff`,
   });
 
-  if (!org.human?.github) {
+  const humans = readHumans(org);
+  if (!humans.some((h) => h.github)) {
     out.push({
       scope,
       level: "fail",
       id: "human",
-      title: "org.yaml has no human.github",
-      fix: "The mention callers gate on this login. Without it nothing can wake an agent.",
+      title: "org.yaml names no human with a github login",
+      fix:
+        "The mention callers gate on these logins. Without one nothing can wake an agent. " +
+        "Write `human: { github: you }`, or a `humans:` list for more than one.",
+    });
+  } else if (humans.some((h) => !h.github)) {
+    /* A human with a name and no login reads as somebody the staff answer to, and is not: they
+       cannot wake anybody, and nothing in a generated workflow will ever match them. */
+    out.push({
+      scope,
+      level: "warn",
+      id: "human.login",
+      title: `${humans
+        .filter((h) => !h.github)
+        .map((h) => h.name)
+        .join(", ")} has no github login`,
+      fix: "Give them one, or the mention gate silently ignores everything they write.",
     });
   }
 

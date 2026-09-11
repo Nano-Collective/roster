@@ -22,7 +22,8 @@ that reads it gets the same view without reimplementing the memory grammar.
 | `org` | the GitHub organisation |
 | `name` | the business name |
 | `opsName` | the ops repo's directory, so a consumer can address `org.yaml` and `org/*.md` by path |
-| `human` | the `human` block from `org.yaml` |
+| `human` | the first human, normalised: `{ github, name, marker, role }`. Kept for consumers written when an org had exactly one |
+| `humans[]` | everyone the staff answer to, in order, read from `humans` or the singular `human`. `human` is `humans[0]` |
 | `generatedAt` | ISO timestamp |
 | `staff[]` | one entry per staff member |
 

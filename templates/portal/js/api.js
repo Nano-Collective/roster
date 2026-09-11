@@ -13,6 +13,12 @@ export const getRepos = () => json("/api/repos");
 /** What one repo's labels actually are, so they can be offered rather than typed. */
 export const getLabels = (repo) => json("/api/labels?repo=" + encodeURIComponent(repo));
 
+/** Full-text across the docs. Titles are not enough: what you want is usually a paragraph. */
+export const searchDocs = (q) => json("/api/docsearch?q=" + encodeURIComponent(q));
+
+/** Every file in the org layer that the portal may write, off disk rather than hardcoded. */
+export const getOrgLayer = () => json("/api/orglayer");
+
 export const getDoc = (page) =>
   fetch("/api/doc?page=" + encodeURIComponent(page), { cache: "no-store" }).then((r) => r.text());
 

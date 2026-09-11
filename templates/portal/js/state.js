@@ -51,13 +51,16 @@ export const S = {
   changedFilter: "",
 
   openDoc: null,
+  /** The docs search box. Its own field: the Docs screen keeps it while you read a page. */
+  docQuery: "",
 
   /** Which kind of run the Prompt screen is showing, and which layer of it is open. */
   promptKind: "daily",
   promptOpen: null,
 
-  /** Which org-layer file the Org screen is showing. */
+  /** Which org-layer file the Org screen is showing, and what it found on disk. */
   orgOpen: null,
+  orgFiles: [],
 
   inboxFilter: "",
   inboxStaff: "",
@@ -79,6 +82,29 @@ export const openPrCount = () =>
   (S.inbox?.items ?? []).filter((i) => i.state === "OPEN" && i.kind === "pr").length;
 
 export const staff = () => S.data.staff.find((s) => s.handle === S.staffHandle) ?? S.data.staff[0];
+
+/**
+ * Everyone the staff answer to.
+ *
+ * An org can have more than one. `humans` is the list the export sends now; `human` is what a
+ * portal whose server predates the list sends, and falling back to it is what keeps the page
+ * working across the upgrade rather than showing an org with nobody in it.
+ */
+export const humansOf = () =>
+  S.data?.humans?.length ? S.data.humans : S.data?.human?.github ? [S.data.human] : [];
+
+/** Whether a login is one of them. Assignment to any of them is assignment to "us". */
+export const isHuman = (login) =>
+  !!login &&
+  humansOf().some((h) => String(h.github ?? "").toLowerCase() === String(login).toLowerCase());
+
+/** What to call them collectively, for a filter label or a count. */
+export const humanLabel = () => {
+  const humans = humansOf();
+  if (!humans.length) return "you";
+  if (humans.length === 1) return humans[0].name ?? humans[0].github ?? "you";
+  return humans.map((h) => h.name ?? h.github).join(" or ");
+};
 
 export function readHash() {
   const raw = (location.hash || "").replace(/^#\/?/, "");
@@ -104,7 +130,14 @@ export function writeHash(push) {
   if (S.applyingHash) return;
   if (!S.staffHandle && !ORG_WIDE.has(S.view)) return;
   const params = new URLSearchParams();
-  const q = S.view === "brain" ? S.fileQuery : S.view === "changed" ? S.changedQuery : S.query;
+  const q =
+    S.view === "brain"
+      ? S.fileQuery
+      : S.view === "changed"
+        ? S.changedQuery
+        : S.view === "docs"
+          ? S.docQuery
+          : S.query;
   if (q) params.set("q", q);
   if (S.view === "brain" && S.openFile) params.set("f", S.openFile);
   if (S.view === "docs" && S.openDoc) params.set("p", S.openDoc);
@@ -141,6 +174,8 @@ export function applyHash() {
     S.openFile = h.f;
   } else if (S.view === "changed") {
     S.changedQuery = h.q;
+  } else if (S.view === "docs") {
+    S.docQuery = h.q;
   } else {
     S.query = h.q;
   }

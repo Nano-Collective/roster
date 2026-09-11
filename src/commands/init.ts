@@ -211,6 +211,11 @@ org: ${o.org}
 name: ${o.name}
 ops_dir: ${o.opsName}
 
+# Who the staff answer to. More than one person? Use a "humans:" list instead — the mention
+# gate accepts every login in it, and the first is the one the prompts address:
+#   humans:
+#     - { name: ${o.human}, github: ${o.human}, marker: ${o.marker}, role: founder }
+#     - { name: Sam, github: sam, marker: sam, role: operations }
 human:
   name: ${o.human}
   github: ${o.human}

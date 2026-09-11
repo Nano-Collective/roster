@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { type ActRequest, act } from "../lib/act.js";
@@ -14,9 +14,10 @@ import {
 } from "../lib/appmanifest.js";
 import { attach, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
-import { docPages, docsDir } from "../lib/docs.js";
+import { docPages, docsDir, searchDocs } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
 import { api, ghJson } from "../lib/gh.js";
+import { readHumans } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { parsePaste } from "../lib/paste.js";
 import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
@@ -454,6 +455,15 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* Search across the docs, rather than only their titles.
+         Twenty-odd pages is small enough to read on every keystroke and far too much to scan by
+         eye, and the thing you are usually looking for — "which page explains the mention
+         gate" — is a phrase in a paragraph rather than a word in a heading. */
+      if (url.pathname === "/api/docsearch") {
+        json(res, { hits: searchDocs(url.searchParams.get("q") ?? "") });
+        return;
+      }
+
       if (url.pathname === "/api/doc") {
         const page = url.searchParams.get("page") ?? "";
         // Only a page the listing offered: the name is attacker-controlled and reaches the disk.
@@ -575,6 +585,49 @@ export async function portalCommand(argv: string[]): Promise<number> {
           "cache-control": "no-store",
         });
         res.end(JSON.stringify(data));
+        return;
+      }
+
+      /**
+       * Every file in the org layer, off disk.
+       *
+       * The Org screen used to list five paths written into the page. A tenant that added
+       * `org/pricing.md` could not reach it from here at all, and one that had not written
+       * `org/business.md` yet got a viewer saying "not found" with no way to fix it. Both are
+       * the same mistake: a list of what a tenant *should* have, standing in for what it has.
+       *
+       * Only the files the portal may actually write are offered, which is `isWritable`'s
+       * allowlist — an editor that lists a file it cannot save is a trap.
+       */
+      if (url.pathname === "/api/orglayer") {
+        const listMd = (dir: string, prefix: string) =>
+          existsSync(join(w.opsDir, dir))
+            ? readdirSync(join(w.opsDir, dir))
+                .filter((f) => f.endsWith(".md"))
+                .sort()
+                .map((f) => prefix + f)
+            : [];
+        const files = ["org.yaml", ...listMd("org", "org/"), ...listMd("prompts", "prompts/")]
+          .filter((rel) => isWritable(w, `${w.opsName}/${rel}`, brainDirs()))
+          .map((rel) => {
+            const full = join(w.opsDir, rel);
+            const text = readFileSync(full, "utf8");
+            return {
+              path: rel,
+              bytes: statSync(full).size,
+              group: rel.startsWith("prompts/") ? "prompts" : "org",
+              /* The first heading, for anything the page has no description of. Markdown
+                 only: `# ` opens a comment in YAML, and the first line of org.yaml is one. */
+              title: rel.endsWith(".md")
+                ? (text
+                    .split("\n")
+                    .find((l) => l.startsWith("# "))
+                    ?.slice(2)
+                    .trim() ?? "")
+                : "",
+            };
+          });
+        json(res, { files, opsName: w.opsName });
         return;
       }
 
@@ -1312,21 +1365,23 @@ function capture() {
   };
 }
 
-/** The org half of the token set, for a brief that names the org and the human. */
+/** The org half of the token set, for a brief that names the org and the humans. */
 function orgSpec(
-  org: { org: string; name: string; human?: Record<string, string> },
+  org: { org: string; name: string; human?: unknown; humans?: unknown },
   w: {
     opsName: string;
   },
 ) {
-  const human = org.human ?? {};
+  const humans = readHumans(org as any);
+  const first = humans[0];
   return {
     org: org.org,
     name: org.name,
     opsRepo: `${org.org}/${w.opsName}`,
     opsDirName: w.opsName,
-    human: human.name ?? human.github ?? "the human",
-    humanMarker: human.marker ?? human.github ?? "human",
+    human: first?.name ?? first?.github ?? "the human",
+    humanMarker: first?.marker ?? "human",
+    humanLogins: humans.map((h) => h.github).filter(Boolean),
     allowedTools: toolsOf(org),
   };
 }

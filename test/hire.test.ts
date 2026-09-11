@@ -385,9 +385,13 @@ test("the generated callers are valid workflows with the triggers they are meant
   const mention = files.get(".github/workflows/cfo-mention.yaml")!;
   // The regression fixed earlier today has to survive being generated for a new hire.
   assert.match(mention, /^\s{2}issues:$/m, "a mention in a new issue body must still wake a run");
+  // The gate is a list of logins, so a second founder's comment is not silently dropped. One
+  // human is a one-element list, which is what this org has.
   assert.match(
     mention,
-    new RegExp(`github\\.event\\.sender\\.login == '${ORG.human.github}'`),
+    new RegExp(
+      `contains\\(fromJSON\\('\\["${ORG.human.github}"[^)]*\\), github\\.event\\.sender\\.login\\)`,
+    ),
     "and the loop guard must be on the sender, not the author",
   );
   assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);

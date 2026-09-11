@@ -1,26 +1,18 @@
 /* The inbox: everything open across the org, and the thread beside it. */
 
-import { getInbox, getLabels, getPr, getRepos, getThread, post, upload } from "../api.js";
+import { getLabels, getPr, getThread, post, upload } from "../api.js";
 import { askText } from "../dialog.js";
-import { ago, el, esc, markCurrent } from "../dom.js";
+import { ago, el, esc, markCurrent, skeleton } from "../dom.js";
 import { icon, iconHTML } from "../icons.js";
 import { mdlite } from "../md.js";
-import { refreshAll } from "../refresh.js";
-import { S, openCount, openPrCount, writeHash } from "../state.js";
+import { ensureInbox, refreshAll, stampCounts } from "../refresh.js";
+import { humanLabel, humansOf, isHuman, S, writeHash } from "../state.js";
 import { renderDiff } from "./changed.js";
 
 const LABEL_TONE = {
   decision: "hot", blocked: "hot", will: "hot", review: "warm", submit: "warm",
   idea: "cool", build: "cool", setup: "cool", data: "cool",
 };
-
-/** Both sidebar counts, wherever they are asked for. */
-export function stampCounts() {
-  const inbox = document.querySelector("#inboxcount");
-  if (inbox) inbox.textContent = S.inbox ? String(openCount()) : "";
-  const prs = document.querySelector("#prcount");
-  if (prs) prs.textContent = S.inbox ? String(openPrCount()) : "";
-}
 
 /** Half-written replies, by thread, for as long as the page is open. */
 const DRAFTS = new Map();
@@ -66,10 +58,15 @@ export const viewInbox = (m) => inboxScreen(m, {});
 export const viewPrs = (m) => inboxScreen(m, { prs: true });
 
 function inboxScreen(m, opts) {
-  m.append(el("h1", { textContent: opts.prs ? "Pull requests" : "Inbox" }));
+  /* "Pending work", not "Pull requests". Every one of these is a piece of work a staff member
+     has finished and cannot land on their own, which is the thing you are being asked about.
+     That it arrives as a pull request is how it is delivered, not what it is. */
+  m.append(el("h1", { textContent: opts.prs ? "Pending work" : "Inbox" }));
   const sub = el("p", {
     className: "sub",
-    textContent: opts.prs ? "Every pull request across the org." : "Everything open across the org.",
+    textContent: opts.prs
+      ? "Work the staff have finished and cannot land themselves."
+      : "Everything open across the org.",
   });
   m.append(sub);
 
@@ -81,7 +78,7 @@ function inboxScreen(m, opts) {
   const scope = el("select");
   scope.append(
     el("option", { value: "", textContent: "Everything" }),
-    el("option", { value: "mine", textContent: "On " + (S.data.human.name ?? "me") }),
+    el("option", { value: "mine", textContent: "On " + humanLabel() }),
     // Scoping pull requests to pull requests is not a filter, and a decision is not a PR.
     ...(opts.prs
       ? []
@@ -117,7 +114,10 @@ function inboxScreen(m, opts) {
   // A pull request comes from a branch, so there is nothing here that could open one.
   if (!opts.prs) {
     const newBtn = el("button", { className: "ghbtn", textContent: "New issue" });
-    newBtn.onclick = () => newIssueForm(viewer);
+    newBtn.onclick = () => {
+      delete viewer.dataset.wait;
+      newIssueForm(viewer);
+    };
     controls.push(newBtn);
   }
   m.append(el("div", { className: "row", style: "margin-bottom:16px" }, controls));
@@ -134,7 +134,7 @@ function inboxScreen(m, opts) {
   state.onchange = () => { S.inboxState = state.value; writeHash(false); paint(); };
   refresh.onclick = () => { refresh.classList.add("spin"); load(true); };
 
-  if (S.inbox) { stampCount(); paint(); restore(); } else load(false);
+  if (S.inbox) { stampCounts(); paint(); restore(); } else load(false);
 
   /** A `?t=` in the URL names a thread. It used to be read into the state and then never
       acted on, because only the already-loaded branch opened one. */
@@ -150,33 +150,58 @@ function inboxScreen(m, opts) {
     openThread(S.inboxOpen);
   }
 
+  /**
+   * Fetch, through the one request the shell may already have in flight.
+   *
+   * Waiting looks like what is coming: rows in the list, a thread in the viewer. The reads run
+   * across every repo in the org, so on a cold cache this is seconds, and seconds of a blank
+   * panel beside a blank panel reads as a page that has failed rather than one that is working.
+   */
   async function load(force) {
-    list.replaceChildren(el("p", { className: "empty", textContent: "Asking GitHub…" }));
+    sub.dataset.busy = "1";
+    list.replaceChildren(
+      el("p", { className: "skhead", textContent: "Asking GitHub…" }),
+      ...skeleton("row", 7),
+    );
+    /* The flag is what makes the placeholder safe to remove: you can open New issue while this
+       is still running, and the arriving inbox must not throw away what you have started
+       typing. Anything that writes real content into the viewer clears it. */
+    if (!S.inboxOpen) {
+      viewer.dataset.wait = "1";
+      viewer.replaceChildren(...skeleton("head", 1), ...skeleton("line", 6));
+    }
     try {
-      S.inbox = await getInbox(force);
+      await ensureInbox(force);
     } catch (e) {
       refresh.classList.remove("spin");
+      delete sub.dataset.busy;
+      clearPlaceholder();
       list.replaceChildren(
         el("p", { className: "empty err", textContent: "Could not reach GitHub: " + e.message }),
       );
       return;
     }
     refresh.classList.remove("spin");
-    stampCount();
+    delete sub.dataset.busy;
+    stampCounts();
     paint();
     restore();
+    // Nothing was selected, so the placeholder thread has nothing to become.
+    clearPlaceholder();
   }
 
-  /* The sidebar badges are painted by the shell, which runs before this screen has asked
-     GitHub anything. Without this they stay empty until something else causes a render. */
-  function stampCount() {
-    stampCounts();
+  /** Take the waiting shapes away, and leave alone anything that replaced them. */
+  function clearPlaceholder() {
+    if (viewer.dataset.wait !== "1") return;
+    delete viewer.dataset.wait;
+    viewer.replaceChildren();
   }
 
   function paint() {
     if (!S.inbox) return;
     const q = S.query.trim().toLowerCase();
-    const human = S.data.human.github;
+    // "On you" is on any of the humans this org answers to, not only the first one.
+    const onAHuman = (i) => (i.assignees ?? []).some(isHuman);
 
     const whoseStaff = S.inboxStaff ? S.data.staff.find((s) => s.handle === S.inboxStaff) : null;
     const mine = S.inbox.items
@@ -191,12 +216,12 @@ function inboxScreen(m, opts) {
       (i) => !q || (i.title + " " + i.repo + " " + i.labels.join(" ") + " #" + i.number)
         .toLowerCase().includes(q),
     );
-    if (S.inboxFilter === "mine") items = items.filter((i) => i.assignees.includes(human));
+    if (S.inboxFilter === "mine") items = items.filter(onAHuman);
     else if (S.inboxFilter === "decision") items = items.filter((i) => i.labels.includes("decision"));
     else if (S.inboxFilter === "pr") items = items.filter((i) => i.kind === "pr");
 
     const open = mine.filter(isOpen);
-    const onYou = open.filter((i) => i.assignees.includes(human)).length;
+    const onYou = open.filter(onAHuman).length;
     const prs = open.filter((i) => i.kind === "pr").length;
     const shut = mine.length - open.length;
     const where = whoseStaff
@@ -214,7 +239,7 @@ function inboxScreen(m, opts) {
             (failing ? " · " + failing + " failing" : "") +
             (S.inboxState === "all" ? " · " + shut + " closed or merged" : "")
           : open.length + " open" + where + " · <b>" + onYou + " on " +
-            esc(S.data.human.name ?? "you") + "</b> · " + prs + " open PRs" +
+            esc(humanLabel()) + "</b> · " + prs + " waiting on a merge" +
             (S.inboxState === "all" ? " · " + shut + " closed" : "")) +
       (S.inbox.fetchedAt ? ' <span class="meta">· checked ' + ago(S.inbox.fetchedAt) + "</span>" : "");
 
@@ -234,13 +259,14 @@ function inboxScreen(m, opts) {
     for (const i of items) {
       const shutState = i.state === "MERGED" ? "merged" : i.state === "OPEN" ? "" : "closed";
       const b = el("button", { className: "irow" + (shutState ? " shut" : "") });
-      const yours = i.assignees.includes(human);
+      const yours = onAHuman(i);
       const chips = i.labels
         .slice(0, 3)
         .map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>")
         .join("");
       b.innerHTML =
-        '<div class="ititle">' + (yours ? '<span class="dot" title="assigned to you"></span>' : "") +
+        '<div class="ititle">' +
+          (yours ? '<span class="dot" title="assigned to ' + esc(humanLabel()) + '"></span>' : "") +
           esc(i.title) + "</div>" +
         '<div class="imeta">' +
           '<span class="repo">' + esc(i.repo.split("/")[1]) + "</span>" +
@@ -298,6 +324,7 @@ function inboxScreen(m, opts) {
           "</div>"
         : "");
     head.append(threadActions(item));
+    delete viewer.dataset.wait;
     viewer.replaceChildren(head);
 
     /* A pull request is a conversation, a set of commits and a diff. The inbox carries the
@@ -468,7 +495,11 @@ function inboxScreen(m, opts) {
         confirm,
         allowEmpty,
         value: DRAFTS.get(key) ?? "",
-        placeholder: "Reply as " + (S.data.human.github ?? "you") + "…",
+        /* It goes out through whoever's `gh` is signed in here, which is only knowably one
+           person when the org has one. With two it would be a guess, and a wrong name on a
+           reply box is worse than no name. */
+        placeholder:
+          "Reply as " + (humansOf().length === 1 ? humansOf()[0].github : "yourself") + "…",
         decorate: (ta) => {
           ta.oninput = () => {
             if (ta.value) DRAFTS.set(key, ta.value);
@@ -815,101 +846,104 @@ function checkGlyph(state) {
 
 /* --------------------------------- new issue -------------------------------- */
 
+/**
+ * Ask one of the staff for something.
+ *
+ * One question, one dropdown: **who is this for**. It used to be two — a staff member and a
+ * repo — which asked you to know that an issue reaches an agent by landing in their brain repo
+ * *and* saying their `@handle`, and let you set the pair to a combination that reaches nobody.
+ * Neither of those is a decision worth having; both follow from the name you picked.
+ *
+ * So the repo is their brain, the mention goes in the body and is kept in step with the choice,
+ * and where it is going is said on the page rather than chosen on it.
+ */
 function newIssueForm(viewer) {
   const box = el("div");
-  const repo = el("select", { title: "Which repo the issue goes in" });
   const title = el("input", { type: "search", placeholder: "Title", style: "width:100%" });
-  const body = el("textarea", { placeholder: "Body (markdown)", rows: 8 });
+  const body = el("textarea", {
+    placeholder: "What do you want them to do? (markdown)",
+    rows: 8,
+    value: "",
+  });
   const status = el("span", { className: "meta" });
-  const create = el("button", { className: "ghbtn primary", textContent: "Create issue" });
+  const create = el("button", { className: "ghbtn primary", textContent: "Send it" });
 
-  const picked = labelPicker(() => repo.value);
-  const files = attachBox(body, () => repo.value);
-
-  /**
-   * Who the issue is for.
-   *
-   * Picking a repo is not the same as addressing somebody, and the thing that actually wakes a
-   * staff member is an `@handle` in the body: their mention workflow gates on it. So this sets
-   * both — their brain repo, and the mention at the top of what you are writing — and the two
-   * selects stay in step, because an issue in `technology` that never says `@cto` is a note to
-   * nobody that sits there until somebody happens to read it.
-   */
-  const who = el("select", { title: "Which staff member this is for" });
-  who.append(
-    el("option", { value: "", textContent: "For nobody in particular" }),
-    ...S.data.staff.map((s) => el("option", { value: s.handle, textContent: "For " + s.name })),
-  );
   const mentionOf = (s) => s.mention ?? "@" + s.handle;
-  who.onchange = () => {
-    const s = S.data.staff.find((x) => x.handle === who.value);
-    if (!s) return;
-    if (s.brain) {
-      repo.value = s.brain;
-      picked.load();
+  const chosen = () => S.data.staff.find((x) => x.handle === who.value) ?? null;
+  const repoOf = () => chosen()?.brain ?? "";
+
+  const picked = labelPicker(repoOf);
+  const files = attachBox(body, repoOf);
+
+  const who = el("select", { title: "Whose brain this goes to" });
+  who.append(
+    ...S.data.staff.map((s) =>
+      el("option", {
+        value: s.handle,
+        textContent: s.name + (s.brain ? "" : " · no brain repo"),
+      }),
+    ),
+  );
+  if (!S.data.staff.length) {
+    who.append(el("option", { value: "", textContent: "nobody has been hired yet" }));
+  }
+  who.value = S.inboxStaff || S.data.staff[0]?.handle || "";
+
+  /* The mention is the mechanism: their workflow gates on it, so a body without one is a note
+     nobody is woken by. It is written in for you, and rewritten when you change your mind —
+     leaving the last person's `@handle` at the top would send the issue to one staff member
+     and address it to another. */
+  const MENTIONS = S.data.staff.map(mentionOf);
+  const retarget = (to) => {
+    const at = mentionOf(to);
+    let text = String(body.value ?? "");
+    for (const old of MENTIONS) {
+      if (old === at) continue;
+      text = text.replace(new RegExp("^\\s*" + old.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*"), "");
     }
-    const at = mentionOf(s);
-    if (!body.value.includes(at)) {
-      body.value = at + " " + body.value.replace(/^\s+/, "");
-      body.focus();
-      body.setSelectionRange?.(body.value.length, body.value.length);
-    }
-    hint();
+    body.value = text.includes(at) ? text : at + " " + text.replace(/^\s+/, "");
   };
 
-  /* The repos come from org.yaml over its own route rather than off the loaded inbox. Reading
-     them off the inbox meant that clicking New issue before GitHub had answered — which is
-     most of the time, since a refresh drops the inbox — gave you an empty picker. */
-  repo.append(el("option", { value: "", textContent: "loading repos…" }));
-  getRepos()
-    .then(({ repos }) => {
-      const known = repos ?? [];
-      repo.replaceChildren(
-        ...known.map((r) =>
-          el("option", {
-            value: r.owner + "/" + r.name,
-            textContent: r.name + (r.role && r.role !== "repo" ? " · " + r.role : ""),
-          }),
-        ),
-      );
-      if (!known.length) {
-        repo.append(el("option", { value: "", textContent: "no repos in org.yaml" }));
-      } else {
-        repo.value = known[0].owner + "/" + known[0].name;
-      }
-      picked.load();
-    })
-    .catch((e) => {
-      repo.replaceChildren(el("option", { value: "", textContent: "could not list repos" }));
-      status.textContent = e.message;
-      status.className = "meta err";
-    });
-
-  /* Both ways, so the pair never disagrees: choosing a brain repo names its owner, and
-     choosing anything else means the issue is for nobody in particular. */
-  repo.onchange = () => {
-    const owner = S.data.staff.find((x) => x.brain === repo.value);
-    who.value = owner?.handle ?? "";
+  who.onchange = () => {
+    const s = chosen();
+    if (!s) return;
+    retarget(s);
     picked.load();
     hint();
   };
 
-  /* Said out loud rather than assumed. The mention is the mechanism, and somebody who deletes
-     it from the body has quietly turned a request into a note. */
+  /* Where it lands and what wakes them, said out loud. Somebody who deletes the mention from
+     the body has quietly turned a request into a note, and this is the only thing that says so. */
   const forWhom = el("p", { className: "meta", style: "margin:9px 0 0" });
   const hint = () => {
-    const s = S.data.staff.find((x) => x.handle === who.value);
-    forWhom.textContent = !s
-      ? "Nobody is woken by this. Pick a staff member to address it to one of them."
-      : body.value.includes(mentionOf(s))
-        ? mentionOf(s) + " in the body is what wakes " + s.name + ", usually within a minute."
-        : "Put " + mentionOf(s) + " in the body, or nothing will wake " + s.name + ".";
+    const s = chosen();
+    if (!s) {
+      forWhom.textContent = "There is nobody to send this to yet. Hire a staff member first.";
+      create.disabled = true;
+      return;
+    }
+    if (!s.brain) {
+      forWhom.textContent =
+        s.name + " has no brain repo in their manifest, so there is nowhere to put this.";
+      create.disabled = true;
+      return;
+    }
+    create.disabled = false;
+    forWhom.textContent =
+      "Goes to " + s.brain + ". " +
+      (String(body.value ?? "").includes(mentionOf(s))
+        ? mentionOf(s) + " in the body is what wakes them, usually within a minute."
+        : "Put " + mentionOf(s) + " back in the body, or nothing will wake them.");
   };
   body.addEventListener("input", hint);
+
+  if (chosen()) retarget(chosen());
+  picked.load();
   hint();
 
   create.onclick = async () => {
-    if (!repo.value) return;
+    const s = chosen();
+    if (!s?.brain) return;
     if (!title.value.trim()) { title.focus(); return; }
     create.disabled = true;
     status.textContent = "creating…";
@@ -917,7 +951,7 @@ function newIssueForm(viewer) {
     try {
       const r = await post({
         action: "create",
-        repo: repo.value,
+        repo: s.brain,
         title: title.value,
         body: body.value,
         labels: picked.chosen(),
@@ -933,8 +967,11 @@ function newIssueForm(viewer) {
   };
 
   box.append(
-    el("h3", { style: "margin:0 0 12px;font:600 16px var(--sans)", textContent: "New issue" }),
-    el("div", { className: "row", style: "margin-bottom:9px" }, [who, repo]),
+    el("h3", { style: "margin:0 0 12px;font:600 16px var(--sans)", textContent: "Ask a staff member" }),
+    el("div", { className: "row", style: "margin-bottom:9px" }, [
+      el("label", { className: "meta", textContent: "For", htmlFor: "newissue-who" }),
+      Object.assign(who, { id: "newissue-who" }),
+    ]),
     el("div", { className: "row", style: "margin-bottom:9px" }, [title]),
     body,
     forWhom,

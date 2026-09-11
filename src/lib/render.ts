@@ -47,6 +47,14 @@ export interface OrgSpec {
   /** The provenance tag on a fact the human ruled on, and their label on a tracker. */
   humanMarker: string;
   /**
+   * Every login that may wake an agent.
+   *
+   * The prose names one person; the mention gate has to accept all of them, or a comment from
+   * the co-founder is dropped without a trace. Optional so a caller that only has the singular
+   * human still renders — it falls back to that one login.
+   */
+  humanLogins?: string[];
+  /**
    * The tool allowlist, as the agent that understands one wants it.
    *
    * Claude's vocabulary, because Claude is the only preset that takes an allowlist. It reaches
@@ -90,6 +98,9 @@ export function orgTokens(org: OrgSpec): Record<string, string> {
     OPS_REPO_DIR: org.opsDirName,
     HUMAN: org.human,
     HUMAN_MARKER: org.humanMarker,
+    /* A JSON array, spelled into a GitHub expression as `fromJSON('%%HUMAN_LOGINS%%')`. One
+       login is still a one-element list, so the generated gate has one shape rather than two. */
+    HUMAN_LOGINS: JSON.stringify((org.humanLogins ?? [org.human]).filter(Boolean)),
     ALLOWED_TOOLS: org.allowedTools,
   };
 }

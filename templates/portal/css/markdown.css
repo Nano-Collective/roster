@@ -35,6 +35,19 @@
 .cbody h1{font-size:17px} .cbody h2{font-size:15.5px} .cbody h3{font-size:14px}
 .doc{font-size:14px;max-width:80ch}
 
+/* ---------- YAML ----------
+   org.yaml and staff.yaml are the two files here anybody reads closely, and flat grey made
+   finding a key in one a matter of reading every line. Structure is what YAML has that prose
+   does not; these five colours are it, and nothing else is coloured. Tokens from the theme,
+   so light and dark both work without a second palette. */
+.yk{color:var(--will)}          /* keys */
+.ys{color:var(--accent)}        /* quoted strings */
+.yn{color:var(--derived)}       /* numbers */
+.yb{color:var(--derived)}       /* true, false, null */
+.yc{color:var(--ink-faint);font-style:italic}  /* comments */
+.yp,.yd{color:var(--ink-faint)} /* colons, brackets, list dashes */
+pre.yaml{color:var(--ink)}
+
 /* A reference to another issue or PR, as a chip rather than a raw link: half of a status
    issue is #113, and a wall of blue URLs is the thing that makes them unreadable. */
 .ref{display:inline-block;font:11.5px var(--mono);color:var(--will);background:var(--panel-2);

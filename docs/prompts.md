@@ -70,8 +70,11 @@ than a hang.
 |---|---|
 | `org` | the whole of `org.yaml` |
 | `org.name`, `org.org` | the business name, the GitHub org |
-| `human` | the `human` block from `org.yaml` |
+| `human` | the primary human: the first of `humans`, or the singular `human` block |
 | `human.name`, `human.github`, `human.marker` | |
+| `humans` | everyone the staff answer to, in order. See [org.yaml](org-yaml.md#human-and-humans) |
+| `human_list` | all of them as a sentence: "Will (@will-lamerton) and Sam (@sam-x)" |
+| `humans_extra` | the same, minus the primary. **Empty when there is only one**, which is what makes `{{#if humans_extra}}` the way to mention the others |
 | `ops.dir` | ops repo directory in the checkout |
 | `staff` | the whole of this staff member's `staff.yaml` |
 | `staff.dir` | where their brain lands in the checkout |

@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { humanLogins, readHumans } from "../lib/humans.js";
 import { merge3 } from "../lib/merge.js";
 import {
   brainTemplateDir,
@@ -402,8 +403,9 @@ export function planBrains(ws: Workspace, parseYaml: ParseYaml): BrainPlan[] {
     name: org.name,
     opsRepo: `${org.org}/${ws.opsName}`,
     opsDirName: ws.opsName,
-    human: org.human?.github ?? "",
-    humanMarker: org.human?.marker ?? "human",
+    human: readHumans(org)[0]?.github ?? "",
+    humanMarker: readHumans(org)[0]?.marker ?? "human",
+    humanLogins: humanLogins(org),
     allowedTools: toolsOf(org),
   };
 

@@ -16,6 +16,19 @@ authentication and no API quota, and works offline. It can write to GitHub throu
 
 Keep the repos checked out beside each other, in the same shape the runner uses.
 
+## The sidebar
+
+**The counts are right on load.** The badges beside Inbox and Pending work used to fill in only
+once something caused a render with an inbox already loaded, which in practice meant "after you
+visit the Inbox". A sidebar that says nothing until you look at it is not a sidebar. The page
+now asks once at boot, and the Inbox screen shares that request rather than making a second one.
+
+While the first answer is outstanding the badge is a placeholder rather than blank, because an
+empty badge reads as zero and zero is a different claim from "still counting". The screens
+themselves wait the same way: the inbox draws rows and the thread pane draws a page, in
+placeholder shapes, for the seconds GitHub takes. Anything you start writing in that pane
+survives the answer landing under it.
+
 ## Setup
 
 **With no tenant where you started it, the portal is the setup screen instead.** That is not an
@@ -65,10 +78,15 @@ down with the list, so opening a thread is a render rather than a request.
   indistinguishable from doing it on the site. Closing asks for confirmation. A half-written
   reply survives a repaint, and pressing Comment with an empty box says so rather than
   silently doing nothing.
-- **Labels are the repo's own, as toggles.** A new issue offers the labels that exist on the
-  repository you picked, fetched from GitHub and cached. A text box was a spelling test:
-  `from-cmo` and `from-CMO` are different labels and only one of them exists. The repos come
-  from `org.yaml` over their own route, so the picker is filled before the inbox has answered.
+- **A new issue asks one question: who is it for.** One dropdown, over the staff. It goes to
+  that person's brain repo and their `@handle` is written into the body for you, because those
+  are the two things that make an issue reach an agent rather than sit there. It used to ask
+  for a staff member *and* a repo, which let you set the pair to a combination that woke
+  nobody. To file in a product repo instead, use GitHub: this form is for asking the staff for
+  something.
+- **Labels are the repo's own, as toggles.** They are the labels that exist on the recipient's
+  repository, fetched from GitHub and cached. A text box was a spelling test: `from-cmo` and
+  `from-CMO` are different labels and only one of them exists.
 - **Attachments.** Drop a file on the box, pick one, or paste one. Paste is the one that
   matters, because a screenshot is on the clipboard and never on disk. GitHub's own drag-and-drop
   attachments are minted by its web app and cannot be made with `gh`, so the file is committed
@@ -97,11 +115,15 @@ down with the list, so opening a thread is a render rather than a request.
   disclosure. An item a cross-reference points at opens in the portal when the inbox already
   holds it, and on GitHub when it does not.
 
-## Pull requests
+## Pending work
 
 The same screen, scoped to pull requests, in its own place in the sidebar. An inbox is what is
 waiting on you; a pull request is work that is finished and waiting on a merge, and the count
 that matters is not how many are open but how many are green and still sitting there.
+
+It is called **Pending work** rather than "Pull requests" because that is what is behind it: a
+piece of work a staff member finished and cannot land alone. A pull request is how it arrives,
+not what it is.
 
 A pull request's thread has three tabs.
 
@@ -122,15 +144,33 @@ exactly as it would on the site.
 
 ## Org
 
-The layer every staff member inherits, in one place: `org.yaml` and the four org documents,
-each with a line saying what it is for, because five filenames tell you nothing about which to
-open. All five are editable, and saving commits and pushes.
+The layer every staff member inherits, in one place: `org.yaml`, every `org/*.md`, and the
+prompt files in `prompts/`, each with a line saying what it is for, because a filename tells
+you nothing about which to open. Anything roster does not ship falls back to its own first
+heading.
+
+**The list comes off disk**, not out of the page. It used to be five paths written into the
+portal, so a tenant that added `org/pricing.md` could not open it at all and one that had not
+written `org/business.md` yet got "not found" with nothing to do about it. Only files the
+portal may actually write are listed: an editor that offers a file it cannot save is a trap.
+
+Every one of them is editable from the screen it is read on: an **Edit** button on the file,
+⌘S to save, and saving commits and pushes. Only `org.yaml` asks for confirmation first; a
+prose edit is one commit to revert, and asking every time teaches people to click through the
+question.
 
 `org.yaml` is the exception to the write allowlist. It belongs to the person rather than the
 agent, so it is writable. But it is the one file here that stops every prompt composing when
 it is wrong, so the server parses it with the tenant's own `compose.mjs` first and refuses
-anything that is not YAML it can read, or that has lost `org`, `name`, or a handle on a staff
-entry.
+anything that is not YAML it can read, or that has lost `org`, `name`, a handle on a staff
+entry, or a github login on an entry in [`humans`](org-yaml.md#human-and-humans).
+
+YAML is coloured, here and anywhere else the portal shows it: comments, keys, strings, numbers
+and the three keywords. `org.yaml` and `staff.yaml` are the two files anybody reads closely,
+and finding a key in a flat grey wall means reading every line.
+
+The card at the top names **everyone** the staff answer to, not the first of them. An org can
+have more than one human, and a card that names one of two reads as the only one who counts.
 
 ## Staff
 
@@ -356,6 +396,13 @@ they wrote it.
 
 The framework's own documentation, rendered where you already are. Links between pages navigate
 the portal.
+
+**Search reads the pages, not their titles.** Twenty-odd pages is too many to scan by eye and
+few enough for the server to read in full on every keystroke, and what you are looking for
+("which page explains the mention gate") is a sentence in a paragraph rather than a word in a
+heading. A page has to contain every word you typed; results rank a title hit over a heading
+hit over sheer frequency, carry the lines the words were found in, and the first one opens as
+you type. The query is in the URL, so a search is a link.
 
 ## After upgrading roster
 

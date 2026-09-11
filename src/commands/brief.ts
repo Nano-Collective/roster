@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { amendBrief } from "../lib/amend.js";
+import { readHumans } from "../lib/humans.js";
 import { promptView } from "../lib/prompt.js";
 import {
   briefTemplateDir,
@@ -120,14 +121,18 @@ function staffTokens(
 }
 
 function spec(org: ReturnType<typeof readOrg>, ws: ReturnType<typeof findWorkspace>) {
-  const human = (org.human ?? {}) as Record<string, string>;
+  const humans = readHumans(org);
+  const first = humans[0];
   return {
     org: org.org,
     name: org.name,
     opsRepo: `${org.org}/${ws.opsName}`,
     opsDirName: ws.opsName,
-    human: human.name ?? human.github ?? "the human",
-    humanMarker: human.marker ?? human.github ?? "human",
+    /* A brief is prose addressed to one person, so it names the first. The rest are in the
+       manifest and in the gate; a brief that said "Will and Sam" would read as a committee. */
+    human: first?.name ?? first?.github ?? "the human",
+    humanMarker: first?.marker ?? "human",
+    humanLogins: humans.map((h) => h.github).filter(Boolean),
     allowedTools: toolsOf(org),
   };
 }

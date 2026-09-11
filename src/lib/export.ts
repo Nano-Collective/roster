@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { type Human, readHumans } from "./humans.js";
 import { type Fact, type Link, type LintProblem, lintMemory, parseMemory } from "./memory.js";
 import type { Workspace } from "./workspace.js";
 
@@ -89,7 +90,10 @@ export interface OrgExport {
   name: string;
   /** The ops directory name, so the portal can address org.yaml and org/*.md by path. */
   opsName: string;
+  /** The first human, kept for every reader written when there was only ever one. */
   human: Record<string, unknown>;
+  /** Everyone the staff answer to, in order. `human` is `humans[0]`. */
+  humans: Human[];
   generatedAt: string;
   staff: StaffExport[];
 }
@@ -103,6 +107,7 @@ export function buildExport(
     org: string;
     name: string;
     human?: Record<string, unknown>;
+    humans?: Array<Record<string, unknown>>;
     staff?: Array<Record<string, any>>;
   },
   parseYaml: (t: string, f?: string) => Record<string, unknown>,
@@ -155,11 +160,17 @@ export function buildExport(
     s.sharedBots = s.bots.filter((b) => (times.get(b) ?? 0) > 1);
   }
 
+  /* Normalised here rather than in the page: the portal asks "is this item assigned to a human"
+     on every row, and that question should not depend on which of the two spellings the org
+     happens to use. `human` stays the first of them, because every reader of this export
+     predates the list and none of them should have to change to keep working. */
+  const humans = readHumans(org);
   return {
     org: org.org,
     name: org.name,
     opsName: ws.opsName,
-    human: org.human ?? {},
+    human: (humans[0] as unknown as Record<string, unknown>) ?? org.human ?? {},
+    humans,
     generatedAt: new Date().toISOString(),
     staff,
   };

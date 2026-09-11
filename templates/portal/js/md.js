@@ -6,6 +6,7 @@
 
 import { esc } from "./dom.js";
 import { iconHTML } from "./icons.js";
+import { yamlHTMLFromEscaped } from "./yaml.js";
 
 /* Who this org is, so `@cto` can be told from `@some-stranger`. Registered once at boot
    rather than threaded through every call site, because every call site would pass the
@@ -190,11 +191,19 @@ export function mdlite(src, opts = {}) {
     }
 
     if (line.trim().startsWith("```")) {
+      // The fence's language was thrown away, which is most of why a YAML example in the docs
+      // read as a grey block while the same file in the Org screen is coloured.
+      const lang = line.trim().slice(3).trim().toLowerCase();
       const buf = [];
       i++;
       while (i < lines.length && !lines[i].trim().startsWith("```")) buf.push(lines[i++]);
       i++;
-      out.push("<pre><code>" + buf.join("\n") + "</code></pre>");
+      const body = buf.join("\n");
+      out.push(
+        "<pre" + (lang ? ' class="lang-' + esc(lang) + '"' : "") + "><code>" +
+          (lang === "yaml" || lang === "yml" ? yamlHTMLFromEscaped(body) : body) +
+          "</code></pre>",
+      );
       continue;
     }
 

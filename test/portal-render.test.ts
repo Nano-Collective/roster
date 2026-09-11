@@ -355,86 +355,91 @@ function fixtureFetch(u: string) {
                 ? PR_FIXTURE
                 : url.startsWith("/api/inbox")
                   ? INBOX_FIXTURE
-                  : url.startsWith("/api/docs")
-                    ? [
-                        { file: "README.md", title: "Overview" },
-                        { file: "agents.md", title: "Choosing a coding agent" },
-                      ]
-                    : url.startsWith("/api/staff/plan")
-                      ? url.includes("action=retire")
-                        ? {
-                            action: "retire",
-                            plan: {
-                              handle: "cmo",
-                              name: "Chief Marketing Officer",
-                              dir: "marketing",
-                              brain: "acme/marketing",
-                              workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
-                              peers: [
-                                {
-                                  handle: "cto",
-                                  dir: "technology",
-                                  brain: "acme/technology",
-                                  label: "from-cmo",
-                                },
-                              ],
-                              keeps: [
-                                "acme/marketing is untouched",
-                                "103 facts and everything in memory/notes/",
-                              ],
-                              warnings: [],
-                            },
-                          }
-                        : {
-                            action: "hire",
-                            plan: {
-                              dir: "finance",
-                              files: ["CHARTER.md", "staff.yaml"],
-                              labels: ["will", "cfo"],
-                              secrets: ["CFO_APP_ID"],
-                              peers: [
-                                {
-                                  handle: "cto",
-                                  dir: "technology",
-                                  brain: "acme/technology",
-                                  label: "from-cfo",
-                                },
-                              ],
-                              warnings: ["schedule was chosen to sit clear of everyone else's"],
-                              staff: {
-                                handle: "cfo",
-                                name: "Chief Financial Officer",
-                                brain: "acme/finance",
-                                schedule: "0 9 * * 1-5",
-                                model: "a-model",
-                              },
-                            },
-                          }
-                      : url.startsWith("/api/prompt")
-                        ? PROMPT_FIXTURE
-                        : url.startsWith("/api/thread")
-                          ? INBOX_FIXTURE.items[1]
-                          : url.startsWith("/api/sync")
-                            ? { results: [] }
-                            : url.startsWith("/api/setup/repos")
-                              ? {
-                                  repos: [
+                  : // Before /api/docs, which is a prefix of it.
+                    url.startsWith("/api/docsearch")
+                    ? DOC_HITS_FIXTURE
+                    : url.startsWith("/api/docs")
+                      ? [
+                          { file: "README.md", title: "Overview" },
+                          { file: "agents.md", title: "Choosing a coding agent" },
+                        ]
+                      : url.startsWith("/api/orglayer")
+                        ? ORG_LAYER_FIXTURE
+                        : url.startsWith("/api/staff/plan")
+                          ? url.includes("action=retire")
+                            ? {
+                                action: "retire",
+                                plan: {
+                                  handle: "cmo",
+                                  name: "Chief Marketing Officer",
+                                  dir: "marketing",
+                                  brain: "acme/marketing",
+                                  workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
+                                  peers: [
                                     {
-                                      name: "acme-web",
-                                      visibility: "PUBLIC",
-                                      description: "the site",
+                                      handle: "cto",
+                                      dir: "technology",
+                                      brain: "acme/technology",
+                                      label: "from-cmo",
                                     },
                                   ],
-                                }
-                              : url.startsWith("/api/setup/status")
-                                ? SETUP_FIXTURE
-                                : url.startsWith("/api/brief")
+                                  keeps: [
+                                    "acme/marketing is untouched",
+                                    "103 facts and everything in memory/notes/",
+                                  ],
+                                  warnings: [],
+                                },
+                              }
+                            : {
+                                action: "hire",
+                                plan: {
+                                  dir: "finance",
+                                  files: ["CHARTER.md", "staff.yaml"],
+                                  labels: ["will", "cfo"],
+                                  secrets: ["CFO_APP_ID"],
+                                  peers: [
+                                    {
+                                      handle: "cto",
+                                      dir: "technology",
+                                      brain: "acme/technology",
+                                      label: "from-cfo",
+                                    },
+                                  ],
+                                  warnings: ["schedule was chosen to sit clear of everyone else's"],
+                                  staff: {
+                                    handle: "cfo",
+                                    name: "Chief Financial Officer",
+                                    brain: "acme/finance",
+                                    schedule: "0 9 * * 1-5",
+                                    model: "a-model",
+                                  },
+                                },
+                              }
+                          : url.startsWith("/api/prompt")
+                            ? PROMPT_FIXTURE
+                            : url.startsWith("/api/thread")
+                              ? INBOX_FIXTURE.items[1]
+                              : url.startsWith("/api/sync")
+                                ? { results: [] }
+                                : url.startsWith("/api/setup/repos")
                                   ? {
-                                      kind: "discover",
-                                      text: BRIEF_TEXT,
-                                      targets: ["roster-ops/org/business.md"],
+                                      repos: [
+                                        {
+                                          name: "acme-web",
+                                          visibility: "PUBLIC",
+                                          description: "the site",
+                                        },
+                                      ],
                                     }
-                                  : (orgOverride ?? ORG),
+                                  : url.startsWith("/api/setup/status")
+                                    ? SETUP_FIXTURE
+                                    : url.startsWith("/api/brief")
+                                      ? {
+                                          kind: "discover",
+                                          text: BRIEF_TEXT,
+                                          targets: ["roster-ops/org/business.md"],
+                                        }
+                                      : (orgOverride ?? ORG),
     text: async () =>
       url.startsWith("/api/doc?")
         ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
@@ -462,6 +467,32 @@ const SETUP_FIXTURE = {
   ],
 };
 const BRIEF_TEXT = "Write org/business.md.\n\n<<<ROSTER FILE roster-ops/org/business.md>>>";
+
+/* The org layer, as the server finds it on disk. The Org screen used to carry this list in the
+   page, so a tenant with a file of its own could not open it and a tenant missing one got a
+   viewer full of "not found". */
+const ORG_LAYER_FIXTURE = {
+  opsName: "roster-ops",
+  files: [
+    { path: "org.yaml", bytes: 900, group: "org", title: "" },
+    { path: "org/business.md", bytes: 3000, group: "org", title: "What Acme is" },
+    { path: "org/guardrails.md", bytes: 1900, group: "org", title: "Guardrails" },
+    // One roster does not ship, which is the case the hardcoded list could not show at all.
+    { path: "org/pricing.md", bytes: 800, group: "org", title: "How Acme prices" },
+    { path: "prompts/daily.md", bytes: 4000, group: "prompts", title: "" },
+  ],
+};
+
+const DOC_HITS_FIXTURE = {
+  hits: [
+    {
+      file: "agents.md",
+      title: "Choosing a coding agent",
+      score: 46,
+      matches: [{ line: 12, text: "an agent is an install command and a run command" }],
+    },
+  ],
+};
 
 /** Put a DOM under the modules. Returns the handles the assertions poke at. */
 function install(hash: string) {
@@ -537,6 +568,8 @@ const ALIAS: Record<string, string> = {
   inboxState: "inboxState",
   query: "query",
   openDoc: "openDoc",
+  docQuery: "docQuery",
+  orgFiles: "orgFiles",
   openSurfaces: "openSurfaces",
   promptKind: "promptKind",
   promptOpen: "promptOpen",
@@ -582,6 +615,8 @@ const DEFAULTS = {
   changedQuery: "",
   changedFilter: "",
   openDoc: null,
+  docQuery: "",
+  orgFiles: [],
   inboxFilter: "",
   inboxStaff: "",
   inboxOpen: null,
@@ -1436,6 +1471,33 @@ test("the docs render in the portal, and a link between pages stays inside it", 
   assert.ok(!html.includes('href="manual-steps.md"'), "and not left as a plain href");
 });
 
+test("searching the docs finds pages by what is in them, and shows why", async () => {
+  /* A filter on titles cannot find "which page explains the mention gate", which is the
+     question people actually have. The rows carry the lines that matched, with the words
+     marked, or a result is a filename you have to go and check. */
+  const s = await renderAll("#/-/docs");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const box = walkNodes(s._byId.main).find((n: any) => n.type === "search");
+  assert.ok(box, "the docs screen needs a search box");
+  box.value = "install command";
+  box.oninput();
+  await new Promise((r) => setTimeout(r, 200));
+
+  const keys = walkNodes(s._byId.main)
+    .filter((n: any) => n.dataset?.key)
+    .map((n: any) => n.dataset.key);
+  assert.deepEqual(keys, ["agents.md"], "the list becomes the results");
+
+  const lines = walkNodes(s._byId.main).filter((n: any) => String(n.className ?? "") === "hitline");
+  assert.equal(lines.length, 1, "each result says where the words were found");
+  assert.match(String(lines[0].innerHTML), /<em>install<\/em>/, "and marks them");
+
+  // Typing is searching: the best answer opens without a second click.
+  assert.equal(s.openDoc, "agents.md");
+  assert.equal(s.docQuery, "install command", "and the query is in the state, so it is in the URL");
+});
+
 test("docs work without a staff member selected", async () => {
   // Every other view belongs to somebody; this one does not, and the URL must not demand one.
   const s = await renderAll("#/-/docs");
@@ -1567,9 +1629,11 @@ test("a row says how much conversation is on it", async () => {
   assert.ok(!/class="cc"/.test(quiet.innerHTML), "and one with none says nothing at all");
 });
 
-test("the new issue form has its repos before the inbox has answered", async () => {
-  /* It used to read them off the loaded inbox, so clicking New issue during the seconds the
-     inbox spends asking GitHub — which is most of the time you would — gave an empty picker. */
+test("the new issue form asks one question: who is it for", async () => {
+  /* It used to ask two — a staff member and a repo — which made you know that an issue reaches
+     an agent by landing in their brain *and* saying their handle, and let you set the pair to a
+     combination that reaches nobody. The recipient comes off the org export, which is loaded at
+     boot, so it is populated during the seconds the inbox spends asking GitHub. */
   const s = await renderAll("#/x/inbox");
   s.INBOX = null;
   s.view = "inbox";
@@ -1577,11 +1641,43 @@ test("the new issue form has its repos before the inbox has answered", async () 
   button(s._byId.main, "New issue").onclick();
   await new Promise((r) => setTimeout(r, 20));
 
-  const options = walkNodes(s._byId.main).filter((n) => n.tagName === "OPTION");
-  assert.ok(
-    options.some((o: any) => o.value === "acme/product"),
-    "the repos come from org.yaml, not from the inbox: " + options.map((o: any) => o.value),
+  const handles = (ORG.staff as any[]).map((x) => x.handle);
+  const who = walkNodes(s._byId.main).find(
+    (n: any) => n.tagName === "SELECT" && n.children.every((o: any) => handles.includes(o.value)),
   );
+  assert.ok(who, "there should be a recipient picker listing the staff");
+  assert.deepEqual(
+    who.children.map((o: any) => o.value),
+    handles,
+    "every staff member, and nothing else to get wrong",
+  );
+
+  // And the thing that actually wakes them is written in for you.
+  const first: any = (ORG.staff as any[])[0];
+  const ta = walkNodes(s._byId.main).find((n: any) => n.tagName === "TEXTAREA");
+  assert.match(
+    String(ta.value),
+    new RegExp("^" + (first.mention ?? "@" + first.handle)),
+    "the body is addressed to whoever is selected, or nothing wakes them",
+  );
+});
+
+test("an issue you start writing survives the inbox landing under it", async () => {
+  /* The waiting shapes go in the viewer, which is also where the form goes. Clearing them
+     unconditionally when GitHub answered threw away whatever you had typed in the seconds it
+     took — and those seconds are exactly when you click New issue rather than wait. */
+  const s = await renderAll("#/x/inbox");
+  s.INBOX = null;
+  s.view = "inbox";
+  s.render();
+  button(s._byId.main, "New issue").onclick();
+  const ta: any = walkNodes(s._byId.main).find((n: any) => n.tagName === "TEXTAREA");
+  ta.value = "@cto ship it";
+  await new Promise((r) => setTimeout(r, 30));
+
+  const still = walkNodes(s._byId.main).find((n: any) => n.tagName === "TEXTAREA");
+  assert.ok(still, "the form is gone: the arriving inbox wiped what was being written");
+  assert.equal(still.value, "@cto ship it");
 });
 
 test("labels are the repo's own, offered as toggles rather than typed", async () => {
@@ -2277,25 +2373,32 @@ test("a hire plan names the repo it would create and what is left to you", async
 });
 
 test("the org screen offers every file the whole roster inherits", async () => {
+  /* Off disk, not out of the page. A hardcoded list could not open a file a tenant had added
+     and sent you to "not found" for one it had not written yet. */
   const s = await renderAll("#/-/org");
   assert.equal(s.view, "org");
+  await new Promise((r) => setTimeout(r, 20));
+
   const keys = walkNodes(s._byId.main)
     .filter((n) => n.dataset?.key)
     .map((n) => n.dataset.key);
-  assert.deepEqual(keys, [
-    "org.yaml",
-    "org/business.md",
-    "org/operating.md",
-    "org/guardrails.md",
-    "org/voice.md",
-  ]);
-  // Five filenames tell you nothing about which to open, so each says what it is for.
-  const notes = walkNodes(s._byId.main).filter((n) => String(n.className ?? "") === "lrepo");
-  assert.equal(notes.length, 5);
-  assert.ok(
-    notes.every((n) => String(n.textContent).length > 30),
-    "and says it properly",
+  assert.deepEqual(
+    keys,
+    ORG_LAYER_FIXTURE.files.map((f) => f.path),
   );
+
+  // A filename tells you nothing about which to open, so each says what it is for — including
+  // the one roster does not ship, which falls back to the heading in the file.
+  const notes = walkNodes(s._byId.main).filter((n) => String(n.className ?? "") === "lrepo");
+  assert.equal(notes.length, ORG_LAYER_FIXTURE.files.length);
+  assert.ok(
+    notes.some((n) => String(n.textContent) === "How Acme prices"),
+    "a tenant's own file should be described by its own heading",
+  );
+
+  // And the way in is a button, not a word in a row of grey text.
+  const edit = walkNodes(s._byId.main).find((n) => String(n.className ?? "").includes("editbtn"));
+  assert.ok(edit, "there should be an edit button on the file being read");
 });
 
 test("a portal left running across an upgrade says so instead of rendering undefined", async () => {
