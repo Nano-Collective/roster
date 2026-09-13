@@ -95,13 +95,13 @@ into the brain by a workflow in that repo. It was removed. Two repos, a dispatch
 with its own author gate and a second reaction path bought one thing: asking for a change
 without leaving the diff. It cost more than that was worth, in explaining and in debugging.
 
-What replaced it is one button. A pull request is on the product repo, and **nothing in a
+What replaced it is the reply box. A pull request is on the product repo, and **nothing in a
 product repo wakes anybody**: a staff member's caller workflow is in their own brain repo and
-gates on their `@handle` appearing *there*. So the portal's **Ask a staff member**, on a pull
-request thread or on a single file's diff, opens the request on that person's tracker for you,
-carrying the pull request, the branch, the hunk you were looking at, and an instruction to
-answer on the pull request rather than in the tracker it arrived in. Optionally it says so on
-the pull request too, so the thread does not go quiet while the answer is written elsewhere.
+gates on their `@handle` appearing *there*. So naming somebody in a reply where a comment will
+not reach them offers, under the box, to open the request on their tracker as well. One press
+posts your words on the thread and sends them the pull request, the branch, the hunk you were
+looking at if you started from a file, and an instruction to answer on the pull request rather
+than in the tracker it arrived in.
 
 It is two `gh` calls as you, rather than a workflow, a dispatch and a second gate, which is the
 difference that got the forwarder deleted. See [the portal](portal.md#asking-for-a-change).

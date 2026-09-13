@@ -503,29 +503,32 @@ function inboxScreen(m, opts) {
          of thirty files you meant. The hunk goes with it, so the agent gets the part you were
          reading rather than the whole diff and a guess. */
       const head = blocks[0]?.children?.[0];
-      /* Same rule as the button at the top of the thread: only where a reply reaches nobody.
-         Asking a *different* staff member about a pull request on somebody's own tracker is a
-         real thing to want, and it is what the Inbox's own "Ask a staff member" form is for —
-         putting a second route to it here would cost more in explaining than it saves. */
-      if (item && !listener(item.repo) && head && String(head.className ?? "").includes("dfile")) {
-        head.append(askFileButton(item, d, f));
+      if (item && head && String(head.className ?? "").includes("dfile")) {
+        head.append(replyAboutFile(item, f));
       }
       for (const block of blocks) pane.append(block);
     }
   }
 
-  /** "Ask about this file", in a diff heading. Quiet until you want it. */
-  function askFileButton(item, detail, f) {
+  /**
+   * The same reply box, opened about one file.
+   *
+   * "This bit is wrong" is what you want to say while looking at one file, and the alternative
+   * is describing in prose which of thirty files you meant. It is not a second kind of thing:
+   * it opens the composer the Reply button opens, with the file remembered, so the hunk rides
+   * along to whoever you name in it.
+   */
+  function replyAboutFile(item, f) {
     const b = el("button", {
       className: "ghbtn askfile",
-      textContent: "Ask",
-      title: "Ask a staff member about " + f.path,
+      textContent: "Reply",
+      title: "Reply about " + f.path,
     });
     b.onclick = async () => {
       b.disabled = true;
       try {
-        const r = await askAbout(item, detail, f);
-        if (r) b.textContent = r.warning ? "asked, with a warning" : "asked";
+        const r = await openReply(item, f);
+        if (r) b.textContent = r.warning ? "sent, with a warning" : "sent";
       } catch (e) {
         b.textContent = e.message;
       }
@@ -563,9 +566,9 @@ function inboxScreen(m, opts) {
       status.className = "meta err";
     };
 
-    /* The dialog carries the same attach control the box used to, and the same draft: a reply
-       you started and did not send survives closing it, and comes back the next time you open
-       it rather than being lost to a stray Escape. */
+    /* A reply you started and did not send survives closing the dialog, and comes back the
+       next time you open it rather than being lost to a stray Escape. `compose` is kept for
+       the close button below, which also takes a parting comment. */
     const compose = ({ title, hint, confirm, allowEmpty }) =>
       askText({
         title,
@@ -573,9 +576,6 @@ function inboxScreen(m, opts) {
         confirm,
         allowEmpty,
         value: DRAFTS.get(key) ?? "",
-        /* It goes out through whoever's `gh` is signed in here, which is only knowably one
-           person when the org has one. With two it would be a guess, and a wrong name on a
-           reply box is worse than no name. */
         placeholder:
           "Reply as " + (humansOf().length === 1 ? humansOf()[0].github : "yourself") + "…",
         decorate: (ta) => {
@@ -583,135 +583,33 @@ function inboxScreen(m, opts) {
             if (ta.value) DRAFTS.set(key, ta.value);
             else DRAFTS.delete(key);
           };
-          deaf = deafNote(ta, item);
-          return el("div", {}, [attachBox(ta, () => item.repo).node, deaf.node]);
+          return attachBox(ta, () => item.repo).node;
         },
       });
 
-    /* Set by `compose`'s decorate, read after it resolves: the dialog hands back text and
-       nothing else, and whether to also ask is part of the same answer. */
-    let deaf = null;
-
-    /**
-     * "You typed a name nobody here answers to." And then an offer to fix it.
-     *
-     * The `@` list offers every staff member in every box, and posting one on a product repo
-     * looks exactly like posting one on a tracker: it goes up, it renders as a chip, and
-     * nothing happens.
-     *
-     * Saying so is not enough. The first version of this told you to post the comment and then
-     * go and use Ask, which is the same round trip the Ask button exists to remove, only now
-     * with a lecture in front of it. If the box already knows who you meant and knows a comment
-     * here will not reach them, it should offer to reach them. So it does, ticked, and one
-     * press of Comment does both.
-     */
-    function deafNote(ta, on) {
-      const line = el("span", {});
-      const box = el("input", { type: "checkbox", checked: true, id: "reply-alsoask" });
-      const offer = el("label", { className: "meta", htmlFor: "reply-alsoask" }, [
-        box,
-        el("span", { textContent: " open it on their tracker too, so they see it" }),
-      ]);
-      const note = el("div", { className: "meta err", style: "margin:8px 0 0" }, [line, offer]);
-
-      let deaf = [];
-      const check = () => {
-        deaf = listener(on.repo) ? [] : mentioned(ta.value);
-        note.hidden = !deaf.length;
-        line.textContent = deaf.length
-          ? deaf.map((s) => s.mention ?? "@" + s.handle).join(" and ") +
-            " is not woken by a comment on " + on.repo + ": it is not their tracker. "
-          : "";
-      };
-      ta.addEventListener("input", check);
-      check();
-      /* Only whether the offer was declined. *Who* is worked out from the text that was
-         actually submitted, not from what was in the box while you were typing it: a handle
-         you typed and then deleted would otherwise still be asked. */
-      return { node: note, declined: () => !box.checked };
-    }
-
+    /* One button, because there was no way to tell the two apart. Reply reaches whoever you
+       named in it; see `openReply`. */
     const reply = el("button", { className: "ghbtn primary", textContent: "Reply" });
     reply.onclick = async () => {
-      const body = await compose({
-        title: "Reply to " + item.repo + " #" + item.number,
-        hint: item.title,
-        confirm: "Comment",
-      });
-      if (!body) return;
-
-      /* One press, both writes. `ask` posts the comment itself when asked to, so this is not
-         two requests racing: the tracker issue goes up first because it is the half that
-         actually reaches anybody, and the comment carries a link to it. */
-      const reaching = listener(item.repo) ? [] : mentioned(body);
-      const to = deaf?.declined() ? null : reaching[0];
-      busy(true, to ? "posting, and asking " + (to.mention ?? "@" + to.handle) + "…" : "posting…");
+      let r;
       try {
-        if (to) {
-          await post({
-            action: "ask",
-            repo: to.brain,
-            ask: {
-              staff: {
-                handle: to.handle,
-                name: to.name,
-                mention: to.mention ?? "@" + to.handle,
-                brain: to.brain,
-              },
-              pr: {
-                repo: item.repo,
-                number: item.number,
-                title: item.title ?? "",
-                url: item.url ?? "",
-                kind: item.kind,
-                // The branch names only. The rest of the detail is commits and every file's
-                // patch, and none of it belongs in a request that is about a sentence.
-                head: PRS.get(key)?.head,
-                base: PRS.get(key)?.base,
-              },
-              body,
-            },
-            alsoOnPr: true,
-          });
-        } else {
-          await post({ action: "comment", repo: item.repo, number: item.number, body });
-        }
-        DRAFTS.delete(key);
-        await reloadThread(item);
-      } catch (e) { failed(e); }
+        r = await openReply(item, null);
+      } catch (e) {
+        failed(e);
+        return;
+      }
+      if (!r) return;
+      /* Repaint only when something was said on this thread, which is always true here: `ask`
+         posts the comment too. A warning means the tracker issue went up and the comment did
+         not, and then the status line is the only thing that says so. */
+      if (r.warning) {
+        status.className = "meta err";
+        status.textContent = r.warning;
+        return;
+      }
+      await reloadThread(item);
     };
     buttons.push(reply);
-
-    /* Only where a reply reaches nobody. On a staff member's own tracker an `@handle` already
-       wakes them, and a second button for the same thing would be teaching a rule that does not
-       exist. This is the product-repo lane, and the button is how you get out of it. */
-    if (!listener(item.repo)) {
-      const ask = el("button", { className: "ghbtn", textContent: "Ask a staff member" });
-      ask.onclick = async () => {
-        let r;
-        try {
-          busy(true, "asking…");
-          r = await askAbout(item, PRS.get(item.repo + "#" + item.number) ?? null, null);
-        } catch (e) {
-          failed(e);
-          return;
-        }
-        busy(false, "");
-        if (!r) return;
-        /* Repaint only when something was said on this thread, because a repaint costs the
-           status line — and when the copy was skipped or failed, that line is the only thing
-           on the page saying the ask happened at all. */
-        if (r.prUrl) {
-          await reloadThread(item);
-          return;
-        }
-        status.className = r.warning ? "meta err" : "meta";
-        status.innerHTML =
-          'asked · <a href="' + esc(r.url ?? "") + '" target="_blank" rel="noopener">the ask</a>' +
-          (r.warning ? " · " + esc(r.warning) : "");
-      };
-      buttons.push(ask);
-    }
 
     const closeBtn = el("button", {
       className: "ghbtn",
@@ -799,97 +697,128 @@ function inboxScreen(m, opts) {
   }
 }
 
-/* --------------------------- asking, from a diff -------------------------- */
+/* -------------------------- one composer, one box ------------------------- */
 
 /**
- * Hand this pull request to a staff member, without leaving it.
+ * Reply to a thread, and reach whoever you named while doing it.
  *
- * The pull request is on the product repo and nothing there wakes anybody — see `listener`
- * above, and docs/concepts.md for why the forwarder that once did was removed. What was left
- * behind was a round trip: read the diff, leave the thread, open an issue on the right tracker,
- * retype the context, paste the link. This is that round trip, in one dialog.
+ * There used to be two buttons on a thread, Reply and "Ask a staff member", and nothing on the
+ * page said which one you wanted. They did almost the same thing: both put your words on the
+ * thread, and both could open a request on somebody's tracker. The only real difference was
+ * that one of them made you pick a name from a dropdown, which is a worse way of saying who you
+ * mean than typing their name in the sentence.
  *
- * It writes to the staff member's tracker, because that is the only thing that reaches them,
- * and optionally leaves the same words on the pull request, because a thread that goes silent
- * while an answer is being written somewhere else reads as having been ignored.
+ * So there is one box. Type `@cto` in it, and if a comment here would not reach them the offer
+ * to open it on their tracker appears underneath, ticked. One press does both.
  *
- * @param file  the file they were looking at, when they asked from the Files tab.
+ * @param anchor  the file this is about, when it was opened from a diff. Its hunk rides along.
+ * @returns the result of the write, or null if nothing was written.
  */
-async function askAbout(item, detail, file) {
-  const staff = S.data.staff.filter((s) => s.brain);
-  if (!staff.length) {
-    alert("Nobody has been hired yet, so there is nobody to ask.");
-    return null;
+async function openReply(item, anchor) {
+  const key = item.repo + "#" + item.number + (anchor ? " · " + anchor.path : "");
+  let deaf = null;
+
+  const body = await askText({
+    title: "Reply to " + item.repo + " #" + item.number,
+    hint: anchor ? anchor.path : item.title,
+    confirm: "Comment",
+    value: DRAFTS.get(key) ?? "",
+    /* It goes out through whoever's `gh` is signed in here, which is only knowably one person
+       when the org has one. With two it would be a guess, and a wrong name on a reply box is
+       worse than no name. */
+    placeholder: "Reply as " + (humansOf().length === 1 ? humansOf()[0].github : "yourself") + "…",
+    decorate: (ta) => {
+      ta.oninput = () => {
+        if (ta.value) DRAFTS.set(key, ta.value);
+        else DRAFTS.delete(key);
+      };
+      deaf = deafNote(ta, item, anchor);
+      return el("div", {}, [attachBox(ta, () => item.repo).node, deaf.node]);
+    },
+  });
+  if (!body) return null;
+
+  /* One press, both writes. `ask` posts the comment itself when told to, so these are not two
+     requests racing: the tracker issue goes up first because it is the half that actually
+     reaches anybody, and the comment on the thread carries a link to it.
+
+     Who to reach comes off the text that was submitted rather than off what was in the box
+     while it was being typed, so a handle you typed and then deleted is not asked. */
+  const reaching = listener(item.repo) ? [] : mentioned(body);
+  const to = deaf?.declined() ? null : reaching[0];
+  if (!to) {
+    DRAFTS.delete(key);
+    return post({ action: "comment", repo: item.repo, number: item.number, body });
   }
 
-  const who = el("select", { title: "Whose tracker this goes to" });
-  who.append(...staff.map((s) => el("option", { value: s.handle, textContent: s.name })));
-  who.value = S.inboxStaff && staff.some((s) => s.handle === S.inboxStaff)
-    ? S.inboxStaff
-    : staff[0].handle;
-  const chosen = () => staff.find((s) => s.handle === who.value) ?? staff[0];
-
-  /* On by default. The question was asked while looking at a diff, and the next person to read
-     that diff should be able to tell it was asked at all. */
-  const also = el("input", { type: "checkbox", checked: true, id: "ask-also" });
-
-  const where = el("p", { className: "meta", style: "margin:8px 0 0" });
-  const say = () => {
-    const s = chosen();
-    where.textContent =
-      "Goes to " + s.brain + " as a new issue. " +
-      (s.mention ?? "@" + s.handle) + " is written in for you, with a link to this pull request" +
-      (file ? " and the diff for " + file.path : "") + ", and they are told to answer here.";
-  };
-  who.onchange = say;
-  say();
-
-  const text = await askText({
-    title: "Ask about " + item.repo + " #" + item.number,
-    hint: item.title,
-    confirm: "Ask",
-    placeholder: "What do you want them to do about this?",
-    decorate: () =>
-      el("div", {}, [
-        el("div", { className: "row", style: "margin-top:9px" }, [
-          el("label", { className: "meta", textContent: "Ask", htmlFor: "ask-who" }),
-          Object.assign(who, { id: "ask-who" }),
-          el("label", { className: "meta", htmlFor: "ask-also" }, [
-            also,
-            el("span", { textContent: " say so on the pull request too" }),
-          ]),
-        ]),
-        where,
-      ]),
-  });
-  if (!text) return null;
-
-  const s = chosen();
-  return post({
+  const detail = PRS.get(item.repo + "#" + item.number);
+  const r = await post({
     action: "ask",
-    repo: s.brain,
+    repo: to.brain,
     ask: {
       staff: {
-        handle: s.handle,
-        name: s.name,
-        mention: s.mention ?? "@" + s.handle,
-        brain: s.brain,
+        handle: to.handle,
+        name: to.name,
+        mention: to.mention ?? "@" + to.handle,
+        brain: to.brain,
       },
       pr: {
         repo: item.repo,
         number: item.number,
         title: item.title ?? "",
         url: item.url ?? "",
-        // Only known once the Commits or Files tab has been opened. The body says "the pull
-        // request's branch" rather than naming one it is guessing at.
+        kind: item.kind,
+        // The branch names only. The rest of the detail is commits and every file's patch, and
+        // none of it belongs in a request that is about a sentence.
         head: detail?.head,
         base: detail?.base,
       },
-      body: text,
-      anchor: file ? { path: file.path, patch: file.patch } : undefined,
+      body,
+      ...(anchor ? { anchor: { path: anchor.path, patch: anchor.patch } } : {}),
     },
-    alsoOnPr: !!also.checked,
+    alsoOnPr: true,
   });
+  DRAFTS.delete(key);
+  return r;
+}
+
+/**
+ * "You typed a name nobody here answers to." And then an offer to fix it.
+ *
+ * The `@` list offers every staff member in every box, and posting one on a product repo looks
+ * exactly like posting one on a tracker: it goes up, it renders as a chip, and nothing happens.
+ *
+ * Saying so is not enough. An earlier version told you to post the comment and then go and
+ * press the other button, which is the round trip this whole lane exists to remove, with a
+ * lecture in front of it. If the box knows who you meant and knows a comment here will not
+ * reach them, it should offer to reach them.
+ */
+function deafNote(ta, on, anchor) {
+  const line = el("span", {});
+  const box = el("input", { type: "checkbox", checked: true, id: "reply-alsoask" });
+  const offer = el("label", { className: "meta", htmlFor: "reply-alsoask" }, [
+    box,
+    el("span", {
+      textContent:
+        " open it on their tracker too, with a link to this" +
+        (anchor ? " and the diff for " + anchor.path : ""),
+    }),
+  ]);
+  const note = el("div", { className: "meta err", style: "margin:8px 0 0" }, [line, offer]);
+
+  const check = () => {
+    const deaf = listener(on.repo) ? [] : mentioned(ta.value);
+    note.hidden = !deaf.length;
+    line.textContent = deaf.length
+      ? deaf.map((s) => s.mention ?? "@" + s.handle).join(" and ") +
+        " is not woken by a comment on " + on.repo + ": it is not their tracker. "
+      : "";
+  };
+  ta.addEventListener("input", check);
+  check();
+  /* Only whether the offer was declined. Who, and whether there is anybody at all, is worked
+     out from the text that was actually submitted. */
+  return { node: note, declined: () => !box.checked };
 }
 
 /* ------------------------------- the thread ------------------------------ */

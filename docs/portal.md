@@ -161,24 +161,32 @@ rebase.
 brain repo and gates on their handle appearing *there*; on a product repo the same mention
 posts, renders as a chip, and does nothing. That is deliberate, for the reasons in
 [security](security.md#trust-in-a-prompt), and it used to be silent, which is worse than the
-restriction itself. Type one into a reply where nothing is listening and the box now says so.
+restriction itself.
 
-**Ask a staff member** is the way out. It appears beside Reply on any thread in a repo that is
-nobody's tracker, and in the heading of each file on the **Files** tab, which is where "this
-file is wrong" is usually what you want to say. It asks one question, who, and then opens the
-request on that person's own tracker, carrying:
+**Reply is the one box, and it handles this.** Name somebody in a reply where a comment will
+not reach them and the offer appears under the box, ticked: *open it on their tracker too*. One
+press of Comment posts your words on the thread and opens the request on their tracker, which
+carries
 
 - the pull request, its link and its branch
-- the diff for the file you asked from, clipped: it is there to say *which part*, not to be a
-  copy of the diff that goes stale on the next push
 - their `@handle`, which is what actually wakes them
 - an instruction to **answer on the pull request**, because `prompts/mention.md` otherwise tells
   them to answer where the request came from, which here is the tracker, leaving the diff silent
   and you watching the wrong page
+- the diff for the file you asked from, if you started from one, clipped: it is there to say
+  *which part*, not to be a copy of the diff that goes stale on the next push
 
-By default it also leaves your words on the pull request with a link to what it opened, so the
-thread does not go quiet while the answer is being written somewhere else. Untick that and the
-ask is private.
+Untick it and the reply is just a comment. Who gets asked comes off the text you actually sent,
+so a handle you typed and then deleted is not asked.
+
+On the **Files** tab each file's heading has its own Reply, which opens the same box about that
+one file. "This bit is wrong" is what you want to say while looking at a diff, and the
+alternative is describing in prose which of thirty files you meant.
+
+There was briefly a second button up here called *Ask a staff member*. It did almost the same
+thing as Reply, differing mainly in making you pick a name from a dropdown rather than typing
+it, and nothing on the page said which one you wanted. Two ways to do one thing is worse than
+either of them.
 
 Both writes go through your own `gh`, as you. Nothing is dispatched between repositories and no
 credential is put on a public repo. The tracker issue goes first, because it is the half that

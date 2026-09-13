@@ -1775,12 +1775,11 @@ test("replying is a dialog on the header, not a box at the end of the thread", a
   const head = walkNodes(s._byId.main).find((n) => String(n.className ?? "") === "thead");
   const acts = walkNodes(head).find((n) => String(n.className ?? "").includes("tacts"));
   assert.ok(acts, "the actions sit in the header");
-  /* "Ask a staff member" is here because the fixture's `acme/brain` is nobody's tracker in the
-     org this renders against — which is the case the button exists for. The test below pins the
-     other half: on a repo that *is* somebody's tracker, it is not offered. */
+  /* One composer. There were briefly two buttons here, Reply and "Ask a staff member", and
+     nothing said which you wanted: Reply reaches whoever you name in it, so the second went. */
   assert.deepEqual(
     acts.children.filter((c: any) => c.tagName === "BUTTON").map((c: any) => c.textContent),
-    ["Reply", "Ask a staff member", "Close"],
+    ["Reply", "Close"],
   );
 
   let sent: any = null;
@@ -1808,47 +1807,17 @@ test("replying is a dialog on the header, not a box at the end of the thread", a
  * the page that knows the difference.
  */
 
-test("Ask is not offered on a repo that is somebody's tracker", async () => {
-  // Same fixture, but now `acme/brain` really is the CTO's, so a reply already reaches them
-  // and a second route to the same person would be teaching a rule that does not exist.
-  const s = await renderAll("#/x/inbox", {
-    ...ORG,
-    staff: (ORG as any).staff.map((p: any, i: number) =>
-      i === 0 ? { ...p, brain: "acme/brain" } : p,
-    ),
-  });
-  await new Promise((r) => setTimeout(r, 20));
-  openInbox(s);
-
-  const head = walkNodes(s._byId.main).find((n: any) => String(n.className ?? "") === "thead");
-  assert.throws(() => button(head, "Ask a staff member"), /no button called/);
-});
-
-test("asking sends the pull request with it, and says who it is for", async () => {
+test("there is one composer, not two", async () => {
+  /* Two buttons that both post on the thread and both can open a request on somebody's tracker
+     is two ways to do one thing, and the page never said which you wanted. */
   const s = await renderAll("#/x/inbox");
   await new Promise((r) => setTimeout(r, 20));
   s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
   s.render();
 
-  let sent: any = null;
-  s.fetch = async (u: string, init: any) => {
-    if (String(u) === "/api/act") sent = JSON.parse(init.body);
-    return { ok: true, json: async () => ({ ok: true, url: "u" }), text: async () => "" };
-  };
-
   const head = walkNodes(s._byId.main).find((n: any) => String(n.className ?? "") === "thead");
-  await button(head, "Ask a staff member").onclick();
-  await new Promise((r) => setTimeout(r, 20));
-
-  assert.equal(sent?.action, "ask");
-  // It goes to the staff member's own tracker, never to the repo the pull request is on.
-  assert.equal(sent?.repo, (ORG as any).staff[0].brain);
-  assert.equal(sent?.ask?.staff?.brain, (ORG as any).staff[0].brain);
-  assert.equal(sent?.ask?.staff?.mention, (ORG as any).staff[0].mention);
-  assert.equal(sent?.ask?.pr?.repo, "acme/product");
-  assert.equal(sent?.ask?.pr?.number, 7);
-  assert.equal(sent?.ask?.body, "make it shorter", "what was typed into the dialog");
-  assert.equal(sent?.alsoOnPr, true, "and the thread it was asked in is told, by default");
+  assert.ok(button(head, "Reply"), "the one that is left");
+  assert.throws(() => button(head, "Ask a staff member"), /no button called/);
 });
 
 test("a reply that mentions somebody who is not listening reaches them anyway", async () => {
