@@ -32,6 +32,12 @@ export interface AskPr {
   number: number;
   title: string;
   url: string;
+  /**
+   * Which it is. A product repo has issues on it too, and a reply to one can raise an ask the
+   * same way, so the words have to follow: telling an agent to answer on "the pull request"
+   * when it is an issue sends them looking for something that is not there.
+   */
+  kind?: "pr" | "issue";
   /** Branch names, when the portal has already fetched the detail. */
   head?: string;
   base?: string;
@@ -94,6 +100,8 @@ export function askTitle(req: AskRequest): string {
 export function askBody(req: AskRequest): string {
   const { staff, pr, anchor } = req;
   const said = req.body.trim();
+  const isPr = pr.kind !== "issue";
+  const it = isPr ? "pull request" : "issue";
 
   const out: string[] = [];
   // The mention and the question read as one message; the mention is not a header.
@@ -113,14 +121,17 @@ export function askBody(req: AskRequest): string {
 
   out.push(
     "",
-    `**Answer on the pull request, not here.** That is where it will be read, and it is where`,
-    `the diff is:`,
+    `**Answer on the ${it}, not here.** That is where it will be read${isPr ? ", and it is where the diff is" : ""}:`,
     "",
-    fence(`gh pr comment ${pr.number} --repo ${pr.repo} --body "…"`, ""),
+    fence(`gh issue comment ${pr.number} --repo ${pr.repo} --body "…"`, ""),
     "",
-    ...(pr.head
-      ? [`Push any change to \`${pr.head}\`. Close this issue once the reply is up.`]
-      : ["Push any change to the pull request's branch. Close this issue once the reply is up."]),
+    ...(isPr
+      ? [
+          pr.head
+            ? `Push any change to \`${pr.head}\`. Close this issue once the reply is up.`
+            : "Push any change to the pull request's branch. Close this issue once the reply is up.",
+        ]
+      : ["Close this issue once the reply is up."]),
   );
 
   return `${out

@@ -12,6 +12,7 @@ import {
   runMinutes,
   timeoutOf,
 } from "../src/commands/doctor.js";
+import { makeTenant } from "./helpers/tenant.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**
@@ -101,6 +102,47 @@ test("doctor runs offline against the real workspace and finds it healthy", asyn
     [],
     "the live workspace should have no offline failures",
   );
+});
+
+test("a staff member's own workflow is not read as a broken caller", async () => {
+  /* `.github/workflows/` is not roster's to own. A CTO wrote a Supabase canary and put it
+     beside the callers; every yaml in the directory was being read as one, so the canary's
+     first step (`uses: actions/create-github-app-token@v2`, an action, not a workflow) failed
+     twice as though it were a reusable workflow missing from the ops repo. The file was fine. */
+  const root = mkdtempSync(join(tmpdir(), "roster-callers-"));
+  const ws = await makeTenant(root, { org: "acme" });
+  const dir = join(ws.root, "cto", ".github", "workflows");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "supabase-canary.yaml"),
+    [
+      "name: Sync canary",
+      "on:",
+      '  schedule: [{ cron: "30 6 * * *" }]',
+      "jobs:",
+      "  canary:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/create-github-app-token@v2",
+      "      - uses: actions/checkout@v7",
+      "",
+    ].join("\n"),
+  );
+
+  const r = (await collect({ offline: true, ops: ws.opsDir }))!;
+  const findings = r.findings;
+  const bad = findings.filter(
+    (f) => f.level === "fail" && String(f.title).includes("supabase-canary"),
+  );
+  assert.deepEqual(bad, [], "the canary is not a caller and must not be judged as one");
+
+  // And the two real callers are still found and still checked.
+  assert.ok(
+    findings.some((f) => f.id === "callers" && f.level === "ok"),
+    "the generated callers should still be recognised: " +
+      JSON.stringify(findings.filter((f) => f.id.startsWith("callers"))),
+  );
+  rmSync(root, { recursive: true, force: true });
 });
 
 test("every finding carries a scope, a stable id and a level", async () => {

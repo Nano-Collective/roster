@@ -49,7 +49,7 @@ test("it sends the answer to the pull request, not to the tracker it arrived on"
      only thing that overrides it. */
   const body = askBody(REQ);
   assert.match(body, /\*\*Answer on the pull request, not here\.\*\*/);
-  assert.match(body, /gh pr comment 42 --repo acme\/product/);
+  assert.match(body, /gh issue comment 42 --repo acme\/product/);
   assert.match(body, /Push any change to `fix\/hand-eval`/);
 });
 
@@ -94,4 +94,37 @@ test("a very long pull request title is cut, not passed through", () => {
   const title = askTitle({ ...REQ, pr: { ...REQ.pr, title: "x".repeat(400) } });
   assert.ok(title.length <= 120, `${title.length} characters`);
   assert.match(title, /…$/);
+});
+
+/* ------------------------ an issue is not a pull request ------------------ */
+
+test("an ask about an issue does not send them looking for a diff", () => {
+  /* A product repo has issues on it too, and replying to one can raise an ask the same way.
+     Telling an agent to answer "on the pull request" when it is an issue sends them looking
+     for something that is not there. */
+  const body = askBody({
+    ...REQ,
+    pr: { ...REQ.pr, kind: "issue", head: undefined, base: undefined },
+  });
+  assert.match(body, /\*\*Answer on the issue, not here\.\*\*/);
+  assert.doesNotMatch(body, /pull request/);
+  assert.doesNotMatch(body, /where the diff is/);
+  assert.doesNotMatch(body, /Push any change/, "there is no branch to push to");
+});
+
+test("an ask about a pull request still says so, and still says push", () => {
+  const body = askBody({ ...REQ, pr: { ...REQ.pr, kind: "pr" } });
+  assert.match(body, /\*\*Answer on the pull request, not here\.\*\*/);
+  assert.match(body, /where the diff is/);
+  assert.match(body, /Push any change to `fix\/hand-eval`/);
+});
+
+test("the reply command works on either, because GitHub numbers them together", () => {
+  // `gh issue comment` addresses a pull request too. One command, one thing to remember.
+  for (const kind of ["pr", "issue"] as const) {
+    assert.match(
+      askBody({ ...REQ, pr: { ...REQ.pr, kind } }),
+      /gh issue comment 42 --repo acme\/product/,
+    );
+  }
 });

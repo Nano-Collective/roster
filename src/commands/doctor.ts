@@ -497,7 +497,7 @@ async function checkStaff(
   }
 
   // Callers, and whether they point at a reusable workflow that exists.
-  const callers = readCallers(root);
+  const callers = readCallers(root, entry.handle);
   if (callers.length !== 2) {
     out.push({
       scope,
@@ -625,11 +625,25 @@ export function inferredCeiling(cancelled: Run[]): number | null {
   return most >= 2 ? best : null;
 }
 
-function readCallers(root: string): Caller[] {
+/**
+ * The two workflows roster generates for a staff member, and nothing else.
+ *
+ * `.github/workflows/` is not roster's to own. A staff member may write their own workflows and
+ * one of ours did: a CTO's Supabase canary sat beside the callers, and because every yaml in the
+ * directory was read as a caller, its first step's `uses:` was checked as though it were a
+ * reusable workflow in the ops repo. `actions/create-github-app-token@v2` is an action, so it
+ * failed twice, on a file that was working perfectly.
+ *
+ * Matched by the name `roster hire` gives them, which is also the name `roster upgrade` keys
+ * off. The failure this check exists to catch (a caller pointing at the wrong repo) happens
+ * inside a file that is still called `cto-daily.yaml`, so nothing is lost by naming them.
+ */
+function readCallers(root: string, handle: string): Caller[] {
   const dir = join(root, ".github", "workflows");
   if (!existsSync(dir)) return [];
+  const mine = new RegExp(`^${handle}-(daily|mention)\\.ya?ml$`);
   return readdirSync(dir)
-    .filter((f) => /\.ya?ml$/.test(f))
+    .filter((f) => mine.test(f))
     .sort()
     .map((name) => ({ name, text: readFileSync(join(dir, name), "utf8") }));
 }

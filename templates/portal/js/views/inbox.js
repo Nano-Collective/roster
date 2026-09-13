@@ -583,32 +583,52 @@ function inboxScreen(m, opts) {
             if (ta.value) DRAFTS.set(key, ta.value);
             else DRAFTS.delete(key);
           };
-          return el("div", {}, [attachBox(ta, () => item.repo).node, deafNote(ta, item)]);
+          deaf = deafNote(ta, item);
+          return el("div", {}, [attachBox(ta, () => item.repo).node, deaf.node]);
         },
       });
 
+    /* Set by `compose`'s decorate, read after it resolves: the dialog hands back text and
+       nothing else, and whether to also ask is part of the same answer. */
+    let deaf = null;
+
     /**
-     * "You typed a name nobody here answers to."
+     * "You typed a name nobody here answers to." And then an offer to fix it.
      *
      * The `@` list offers every staff member in every box, and posting one on a product repo
      * looks exactly like posting one on a tracker: it goes up, it renders as a chip, and
-     * nothing happens. This is the only thing on the page that distinguishes the two, and it
-     * appears only once you have actually typed one.
+     * nothing happens.
+     *
+     * Saying so is not enough. The first version of this told you to post the comment and then
+     * go and use Ask, which is the same round trip the Ask button exists to remove, only now
+     * with a lecture in front of it. If the box already knows who you meant and knows a comment
+     * here will not reach them, it should offer to reach them. So it does, ticked, and one
+     * press of Comment does both.
      */
     function deafNote(ta, on) {
-      const note = el("p", { className: "meta err", style: "margin:8px 0 0" });
+      const line = el("span", {});
+      const box = el("input", { type: "checkbox", checked: true, id: "reply-alsoask" });
+      const offer = el("label", { className: "meta", htmlFor: "reply-alsoask" }, [
+        box,
+        el("span", { textContent: " open it on their tracker too, so they see it" }),
+      ]);
+      const note = el("div", { className: "meta err", style: "margin:8px 0 0" }, [line, offer]);
+
+      let deaf = [];
       const check = () => {
-        const deaf = listener(on.repo) ? [] : mentioned(ta.value);
+        deaf = listener(on.repo) ? [] : mentioned(ta.value);
         note.hidden = !deaf.length;
-        note.textContent = deaf.length
+        line.textContent = deaf.length
           ? deaf.map((s) => s.mention ?? "@" + s.handle).join(" and ") +
-            " will not be woken by a comment on " + on.repo + " — it is not their tracker. " +
-            "Post this, then use Ask to reach them."
+            " is not woken by a comment on " + on.repo + ": it is not their tracker. "
           : "";
       };
       ta.addEventListener("input", check);
       check();
-      return note;
+      /* Only whether the offer was declined. *Who* is worked out from the text that was
+         actually submitted, not from what was in the box while you were typing it: a handle
+         you typed and then deleted would otherwise still be asked. */
+      return { node: note, declined: () => !box.checked };
     }
 
     const reply = el("button", { className: "ghbtn primary", textContent: "Reply" });
@@ -619,9 +639,43 @@ function inboxScreen(m, opts) {
         confirm: "Comment",
       });
       if (!body) return;
-      busy(true, "posting…");
+
+      /* One press, both writes. `ask` posts the comment itself when asked to, so this is not
+         two requests racing: the tracker issue goes up first because it is the half that
+         actually reaches anybody, and the comment carries a link to it. */
+      const reaching = listener(item.repo) ? [] : mentioned(body);
+      const to = deaf?.declined() ? null : reaching[0];
+      busy(true, to ? "posting, and asking " + (to.mention ?? "@" + to.handle) + "…" : "posting…");
       try {
-        await post({ action: "comment", repo: item.repo, number: item.number, body });
+        if (to) {
+          await post({
+            action: "ask",
+            repo: to.brain,
+            ask: {
+              staff: {
+                handle: to.handle,
+                name: to.name,
+                mention: to.mention ?? "@" + to.handle,
+                brain: to.brain,
+              },
+              pr: {
+                repo: item.repo,
+                number: item.number,
+                title: item.title ?? "",
+                url: item.url ?? "",
+                kind: item.kind,
+                // The branch names only. The rest of the detail is commits and every file's
+                // patch, and none of it belongs in a request that is about a sentence.
+                head: PRS.get(key)?.head,
+                base: PRS.get(key)?.base,
+              },
+              body,
+            },
+            alsoOnPr: true,
+          });
+        } else {
+          await post({ action: "comment", repo: item.repo, number: item.number, body });
+        }
         DRAFTS.delete(key);
         await reloadThread(item);
       } catch (e) { failed(e); }

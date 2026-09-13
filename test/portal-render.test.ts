@@ -1851,6 +1851,90 @@ test("asking sends the pull request with it, and says who it is for", async () =
   assert.equal(sent?.alsoOnPr, true, "and the thread it was asked in is told, by default");
 });
 
+test("a reply that mentions somebody who is not listening reaches them anyway", async () => {
+  /* The whole point of the product-repo lane. Typing `@cto` on a pull request posts a comment
+     nobody is woken by, and the first version of this told you so and then asked you to go and
+     press a different button. One press now does both. */
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+
+  let sent: any = null;
+  s.fetch = async (u: string, init: any) => {
+    if (String(u) === "/api/act") sent = JSON.parse(init.body);
+    return { ok: true, json: async () => ({ ok: true, url: "u" }), text: async () => "" };
+  };
+
+  const cto = (ORG as any).staff[0];
+  const g = globalThis as any;
+  const was = g.prompt;
+  g.prompt = () => `${cto.mention} the kicker comparison is wrong`;
+  try {
+    const head = walkNodes(s._byId.main).find((n: any) => String(n.className ?? "") === "thead");
+    button(head, "Reply").onclick();
+    await new Promise((r) => setTimeout(r, 20));
+  } finally {
+    g.prompt = was;
+  }
+
+  assert.equal(sent?.action, "ask", "a plain comment would reach nobody");
+  assert.equal(sent?.repo, cto.brain, "it goes to their tracker");
+  assert.equal(sent?.ask?.pr?.repo, "acme/product", "and says which thread it came from");
+  assert.equal(sent?.ask?.pr?.kind, "pr");
+  assert.equal(sent?.alsoOnPr, true, "the thread it was asked in is told too");
+  assert.match(sent?.ask?.body, /kicker comparison/, "carrying what was typed");
+});
+
+test("a reply on somebody's own tracker is just a comment", async () => {
+  // `acme/brain` is nobody's tracker in this org, so point one staff member at it.
+  const s = await renderAll("#/x/inbox", {
+    ...ORG,
+    staff: (ORG as any).staff.map((p: any, i: number) =>
+      i === 0 ? { ...p, brain: "acme/brain" } : p,
+    ),
+  });
+  await new Promise((r) => setTimeout(r, 20));
+  openInbox(s);
+
+  let sent: any = null;
+  s.fetch = async (u: string, init: any) => {
+    if (String(u) === "/api/act") sent = JSON.parse(init.body);
+    return { ok: true, json: async () => ({ ok: true }), text: async () => "" };
+  };
+
+  const g = globalThis as any;
+  const was = g.prompt;
+  g.prompt = () => "@cto the kicker comparison is wrong";
+  try {
+    const head = walkNodes(s._byId.main).find((n: any) => String(n.className ?? "") === "thead");
+    button(head, "Reply").onclick();
+    await new Promise((r) => setTimeout(r, 20));
+  } finally {
+    g.prompt = was;
+  }
+
+  assert.equal(sent?.action, "comment", "the mention already wakes them here");
+});
+
+test("a reply with no mention at all is just a comment, wherever it is", async () => {
+  const s = await renderAll("#/x/inbox");
+  await new Promise((r) => setTimeout(r, 20));
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+
+  let sent: any = null;
+  s.fetch = async (u: string, init: any) => {
+    if (String(u) === "/api/act") sent = JSON.parse(init.body);
+    return { ok: true, json: async () => ({ ok: true }), text: async () => "" };
+  };
+  const head = walkNodes(s._byId.main).find((n: any) => String(n.className ?? "") === "thead");
+  button(head, "Reply").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+
+  assert.equal(sent?.action, "comment", "nobody was named, so nobody is asked");
+});
+
 test("an issue is not offered a Merge button; an open pull request is", async () => {
   const s = await renderAll("#/x/inbox");
   await new Promise((r) => setTimeout(r, 20));

@@ -10,6 +10,29 @@ import { el, grow } from "./dom.js";
 import { attachMentions } from "./mention.js";
 
 /**
+ * Whether a click was on the backdrop, which is not the same question as "is the target the
+ * dialog".
+ *
+ * Picking a name from the `@` list used to close the whole dialog and throw away what you had
+ * typed. The list hides itself on mousedown so the caret survives the pick, so by the time the
+ * `click` lands the row is gone and the event retargets to the nearest thing still under the
+ * pointer, which is the dialog. A target test alone reads that as a backdrop click.
+ *
+ * So the pointer has to actually be outside the dialog's own box. `detail` of 0 is a click
+ * synthesised by the keyboard, which reports 0,0 and would otherwise look like the top corner
+ * of the page.
+ */
+export function onBackdrop(e, rect) {
+  if (!rect || e.currentTarget !== e.target || !e.detail) return false;
+  return (
+    e.clientX < rect.left ||
+    e.clientX > rect.right ||
+    e.clientY < rect.top ||
+    e.clientY > rect.bottom
+  );
+}
+
+/**
  * @param decorate  given the textarea, returns a node to sit under it. This is how the reply
  *   box carries its attachments: the control has to write into the box it is beside.
  * @param allowEmpty  saying nothing is an answer for some of these. Closing an issue without
@@ -76,7 +99,7 @@ export function askText({
       resolve(answer);
     });
     box.addEventListener("click", (e) => {
-      if (e.target === box) done(null);
+      if (onBackdrop(e, box.getBoundingClientRect?.())) done(null);
     });
 
     document.body.append(box);
