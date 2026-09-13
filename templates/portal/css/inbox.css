@@ -93,6 +93,29 @@
 .chip.pick[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,transparent);
       border-color:var(--accent-dim);color:var(--ink)}
 
+/* ---------- the @ list ----------
+   A mention is the mechanism: a staff member's workflow gates on their handle, so a misspelled
+   one is a message nobody is woken by. The roster is small and already on the page, so typing
+   `@` offers it. Each row says what mentioning it actually does, because a handle, a person and
+   an App all look equally mentionable and only two of them notify anybody. */
+.mentions{position:absolute;z-index:30;min-width:280px;max-width:min(420px,90%);max-height:238px;
+      overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+      padding:4px;box-shadow:0 14px 34px rgba(0,0,0,.28)}
+.mrow{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;width:100%;text-align:left;
+      background:none;border:0;border-radius:6px;padding:6px 8px;cursor:pointer;font:inherit}
+.mrow:hover{background:var(--panel-2)}
+.mrow[aria-selected="true"]{background:var(--panel-2);box-shadow:inset 2px 0 0 var(--accent)}
+.mrow .mat{font:12px var(--mono);color:var(--accent)}
+.mrow .mname{font:12.5px var(--sans);color:var(--ink);overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap}
+.mrow .mnote{grid-column:1/-1;font:10.5px var(--sans);color:var(--ink-faint)}
+/* An App notifies nobody. It is listed to be recognised, not addressed. */
+.mrow.bot .mat{color:var(--ink-dim)}
+.mrow.human .mat{color:var(--will)}
+/* The measuring copy of a textarea, for finding the caret. Never seen. */
+.mmirror{position:absolute;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;
+      pointer-events:none;top:0;left:0}
+
 .attach{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap}
 .attach .ghbtn{display:inline-flex;align-items:center;gap:6px;--ic:13px}
 /* The whole textarea is the drop target, because that is where a person aims. */

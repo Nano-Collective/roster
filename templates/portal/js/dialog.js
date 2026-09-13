@@ -7,6 +7,7 @@
  */
 
 import { el, grow } from "./dom.js";
+import { attachMentions } from "./mention.js";
 
 /**
  * @param decorate  given the textarea, returns a node to sit under it. This is how the reply
@@ -37,6 +38,10 @@ export function askText({
 
   const ta = el("textarea", { value, placeholder, rows: 5 });
   box.append(ta);
+  /* Before the ⌘⏎ handler below, so that when the `@` list is open its own Enter wins. Every
+     dialog this function opens is prose that may need to reach somebody, and a mention is how
+     it reaches them. */
+  attachMentions(ta);
   const under = decorate?.(ta);
   if (under) box.append(under);
 

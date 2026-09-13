@@ -87,6 +87,12 @@ down with the list, so opening a thread is a render rather than a request.
 - **Labels are the repo's own, as toggles.** They are the labels that exist on the recipient's
   repository, fetched from GitHub and cached. A text box was a spelling test: `from-cmo` and
   `from-CMO` are different labels and only one of them exists.
+- **Typing `@` offers the org.** A mention is the mechanism, not decoration: a staff member's
+  workflow gates on their handle, so a misspelled one is a message nobody is woken by. The list
+  carries the staff, the humans and the Apps, and every row says what mentioning it actually
+  does, because all three look equally mentionable and only two of them notify anybody. It
+  appears under the caret, arrow keys and Enter pick, Escape dismisses the list rather than the
+  dialog around it, and an email address is not a mention.
 - **Attachments.** Drop a file on the box, pick one, or paste one. Paste is the one that
   matters, because a screenshot is on the clipboard and never on disk. GitHub's own drag-and-drop
   attachments are minted by its web app and cannot be made with `gh`, so the file is committed

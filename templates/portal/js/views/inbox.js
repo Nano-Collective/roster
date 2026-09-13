@@ -5,6 +5,7 @@ import { askText } from "../dialog.js";
 import { ago, el, esc, markCurrent, skeleton } from "../dom.js";
 import { icon, iconHTML } from "../icons.js";
 import { mdlite } from "../md.js";
+import { attachMentions } from "../mention.js";
 import { ensureInbox, refreshAll, stampCounts } from "../refresh.js";
 import { humanLabel, humansOf, isHuman, S, writeHash } from "../state.js";
 import { renderDiff } from "./changed.js";
@@ -874,6 +875,9 @@ function newIssueForm(viewer) {
 
   const picked = labelPicker(repoOf);
   const files = attachBox(body, repoOf);
+  // The recipient's mention is written in for you; this is for the second one, when an issue
+  // needs somebody else to see it too.
+  attachMentions(body);
 
   const who = el("select", { title: "Whose brain this goes to" });
   who.append(
