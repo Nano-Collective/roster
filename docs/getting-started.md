@@ -1,6 +1,6 @@
 ---
 title: "Getting started"
-description: "Stand up an org and a first staff member, in seven steps."
+description: "Stand up an org and a first staff member, from the portal."
 sidebar_order: 1
 ---
 
@@ -10,125 +10,130 @@ sidebar_order: 1
 npx @nanocollective/roster
 ```
 
-Run that in an empty directory. It opens a portal in your browser and walks the whole setup:
-it checks `gh`, lists the organisations you can see, and asks which one.
+Run that in an empty directory. There is nothing else to install and nothing to configure
+first: the page that opens is the setup screen, and it is the whole of setup.
 
-**Two answers, and it works out which you need.** An organisation that does not run roster yet
-gets one stood up. One that already does gets checked out here instead, ops repo and every
-staff repo side by side, which is the shape the CI runner uses. That is how a second person on
-a team joins an org somebody else set up.
+You need two things before you start. `gh` [authenticated](https://cli.github.com), and a
+credential for whichever [coding agent](agents.md) you want to run. A GitHub organisation too,
+if you do not already have one: GitHub has no API for creating one, so that part happens on
+github.com.
 
-From there the page carries the rest: the Actions setting that has to be clicked, the repos
-your staff work in, hiring, each GitHub App, and a prompt you paste into your own AI to write
-`org/business.md` and the charters.
+Everything below is also a command, and the commands are in [the CLI
+reference](commands.md). They do the same work on the same files. This page is the portal
+because that is the shorter road, not because the terminal is second class.
 
-You need `gh` authenticated, and a credential for whichever [coding agent](agents.md) you want
-to run.
+## 1. Say which organisation
 
----
+![The setup screen, asking which organisation and who runs it](images/setup-org.jpg)
 
-The rest of this page is the same setup from a terminal. Everything the portal does, these do;
-nothing writes without `--apply`.
+**It works out which of two things this is, and you do not have to know.** An organisation
+that does not run roster yet gets one stood up. One that already does gets *checked out* here
+instead, ops repo and every staff repo side by side, which is the shape the CI runner uses.
+That second case is how somebody joins an org a colleague set up, and offering both is how an
+org ends up with two `roster-ops` repos.
 
-## 1. Stand up the org
+The rest of the card is three answers: what the business is called, which GitHub login the
+agents answer to, and which coding agent runs a session. The agent is the one that is awkward
+to change later, because it decides which credential the repos need.
 
-```bash
-roster init --org acme --name "Acme Robotics"
-```
+## 2. Read the plan before anything exists
 
-That prints the plan. Read it, then:
+![The plan: sixteen files and one private repo, listed before anything is written](images/setup-plan.jpg)
 
-```bash
-roster init --org acme --name "Acme Robotics" --apply
-```
+Nothing has been created yet. **Show me the plan** lists every file and every repo it would
+make, and *Create it* is a separate button. This is the pattern everywhere in roster: the plan
+first, then the apply, and the same `initFiles` behind both the browser and the terminal so
+they cannot disagree about what a new tenant contains.
 
-You now have `acme/roster-ops`: the org layer, the runner machinery, and a recorded merge base
-so later upgrades are merges rather than copies.
+After it applies you have `acme/roster-ops`: the org layer, the runner machinery, and a
+recorded merge base so later [upgrades](upgrading.md) are merges rather than copies.
 
-Then do the one thing that cannot wait: **Settings -> Actions -> General on `roster-ops`, set
-access to "accessible from repositories in the organisation".** Skip it and every workflow
-later fails with "workflow not found", which reads like a typo and is not one.
+## 3. The Actions setting
 
-## 2. Say what the business is
+The page asks for this next and deep-links to the exact settings page, because it is the one
+step whose failure is unrecognisable.
 
-Open `roster-ops/org/business.md`. It ships as questions. Answer them, or:
+**Settings → Actions → General on `roster-ops`, set access to "accessible from repositories in
+the organisation".** Skip it and every workflow later fails with "workflow not found", which
+reads like a typo and is not one.
 
-```bash
-roster brief discover        # paste into whatever agent you use
-```
+It is on [manual steps](manual-steps.md) with the others roster cannot do for you, and
+[Health](#7-health-then-one-run-by-hand) keeps asking until it is done.
 
-Or, in Claude Code, `cd roster-ops && claude` then `/discover`. Both print the same brief:
-`roster init` generates the slash command from it.
+## 4. Say what the business is
 
-Do this before hiring anyone. It is composed into the top of every prompt, and an agent that
-cannot answer these questions writes plausible work about a business that does not exist.
+`org/business.md` ships as questions, and it is composed into the top of every prompt. An agent
+that cannot answer them writes plausible work about a business that does not exist, so this
+comes before hiring anybody.
 
-## 3. Hire someone
+roster holds no model credential and cannot write it for you. What the portal does instead is
+both halves of the round trip: **Copy the prompt** puts a self-contained brief on your
+clipboard, and **paste the answer back** turns the reply into a file, with a diff and a button
+rather than a silent save. See [the portal](portal.md#copy-a-prompt-paste-the-answer-back).
 
-```bash
-roster hire cto --name "Chief Technology Officer" --dir technology
-```
+## 5. Hire someone
 
-Read the plan. It lists every file, every label, the peer wiring in both directions, and the
-things it cannot do for you. Then `--apply`.
+![The Staff screen, with a card per staff member and Hire someone underneath](images/staff.jpg)
 
-For the first hire in a new org there is nobody to copy an identity from, so name them:
+**Staff → Hire someone.** Only the handle is required; everything else is copied from whoever
+is already here. You get the plan first: every file, every label, the schedule it chose and
+why, the peer wiring in both directions, and the steps it cannot do for you.
 
-```bash
-roster hire cto --name "Chief Technology Officer" --dir technology \
-  --app acme-cto --public-app acme-robot --apply
-```
+For the first hire in a new org there is nobody to copy an identity from, so the App names are
+asked for rather than guessed at. Later hires infer both.
 
-Later hires infer both from whoever is already there.
+## 6. Give them an identity, and install it
 
-## 4. Give them an identity
+**GitHub App**, on the same card. There is no API that creates a GitHub App, so this runs the
+manifest flow: a manifest is posted to a settings page, you confirm, and GitHub hands back a
+one-time code. The private key is held in memory and written straight to a repository secret
+without ever touching disk.
 
-```bash
-roster app cto
-```
+**What it cannot do is install the App.** That is a grant of access to specific repositories
+and GitHub asks a human to choose them, which is correct. Grant it every tracker the staff
+member writes to, not only their own. This is the step that most often looks done and is not.
 
-A browser opens, GitHub asks you to confirm, and the App's id and private key go straight into
-the repository's secrets. The key never touches disk.
+Then **Write the charter**, which is the same copy-a-prompt loop as `business.md`, aimed at
+`CHARTER.md`. `hire` deliberately does not generate one: a generated charter produces exactly
+the generic agent this whole arrangement exists to avoid. It is the file that decides
+everything else, so it is worth the time. [Writing a charter](writing-a-charter.md).
 
-Then **install it**, using the URL that command prints, granting it every tracker the staff
-member writes to. This is the step that most often looks done and is not. See
-[manual steps](manual-steps.md#3-install-the-app-and-grant-it-the-right-repositories).
+## 7. Health, then one run by hand
 
-## 5. Write the charter
+**Health** is `roster doctor` on the page, every finding carrying the sentence that fixes it,
+split into what an agent can do and what only a person can. Work through it until the ids are
+gone.
 
-```bash
-roster brief charter cto     # paste into whatever agent you use
-```
-
-Or, in Claude Code, `cd technology && claude` then `/charter`. Same brief either way.
-
-This is the file that decides everything else. [Writing a charter](writing-a-charter.md).
-
-## 6. Check, then run one by hand
-
-```bash
-roster doctor cto
-```
-
-Fix what it says. Then trigger the daily workflow once from the Actions tab and read the log.
+Then trigger the daily workflow once from the Actions tab and read the log.
 
 **A workflow that has never run has proved nothing.** Not that the App is installed, not that
 the grant took, not that the secrets are right. `doctor` says `unproven` rather than `fine` for
 exactly this reason.
 
-## 7. Look at it
+## 8. Now look at what you built
 
-```bash
-roster portal
-```
+![A staff member's brain: memory sections, the facts in them, and the files](images/brain.jpg)
 
-Everything open across the org, every staff member's memory, what changed since yesterday, and
-whether anything is unhealthy. Reads the repositories on disk, so keep them checked out
-alongside each other.
+**Brain** is that staff member's memory and files together, because they were always the same
+thing. **Prompt** is the text they are actually sent, composed by your own `compose.mjs`, with
+every layer it was made of and which repo each came from.
+
+![The Prompt screen: the composed text, and the layers behind it](images/prompt.jpg)
+
+Those two answer the question people ask hardest in the first week, which is *why did it do
+that*. The answer is always in one of those files.
+
+![The Org screen, with org.yaml and every layer every staff member inherits](images/org.jpg)
+
+**Org** is the layer everybody inherits. Change `org/voice.md` once and it reaches every staff
+member on their next run, without regenerating anything.
 
 ## Where things go from here
 
-- A second staff member: `roster hire`, then `roster app`. Peer wiring happens both ways.
-- A change to how everyone writes: edit `org/voice.md` once. It reaches everybody on their next
-  run.
-- A framework update: `roster upgrade`. See [upgrading](upgrading.md).
+- **A second staff member**: Staff → Hire someone, then the App. Peer wiring happens both ways.
+- **Answering your agents**: [the Inbox](portal.md#inbox) is everything open across the org, and
+  the reply goes out as you. Work they finished sits in [Pending work](portal.md#pending-work);
+  asking for a change to it is [one button](portal.md#asking-for-a-change).
+- **A framework update**: `roster upgrade`, or the same from the portal. See
+  [upgrading](upgrading.md).
+- **The whole portal**, screen by screen: [the portal](portal.md).

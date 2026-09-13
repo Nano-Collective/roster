@@ -22,6 +22,10 @@
       border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline}
 .dfile b{color:var(--ink);font-weight:600}
 .dfile .p{color:var(--accent)} .dfile .m{color:var(--err)}
+/* Pushed to the far end and kept faint: the diff is what this row is for, and a button that
+   competes with the filename for attention is one you stop reading past. */
+.askfile{margin-left:auto;padding:1px 8px;font-size:11px;opacity:.55}
+.dblock:hover .askfile,.askfile:focus-visible{opacity:1}
 .dempty{padding:20px;color:var(--ink-faint);font-size:12.5px}
 
 /* The learned/forgotten marker on a "what changed" row. */

@@ -11,7 +11,7 @@ An agent-run organisation, powered by GitHub.
 A staff member is a private repository. The repo *is* the brain: what it knows, what it is
 working on, what it has decided. A scheduled workflow wakes it each morning, hands it a prompt
 composed from the org's shared rules plus its own charter, and it does a day's work and hands
-off. You read the result on GitHub, or in a local portal.
+off. You read the result in a local portal, or on GitHub.
 
 roster is the thing that sets that up and keeps it consistent.
 
@@ -22,18 +22,18 @@ Read in this order.
 | | |
 |---|---|
 | [Getting started](getting-started.md) | One command, in a browser: stand up an org, or join one that exists. |
+| [The portal](portal.md) | Where the work happens: setup, every screen, every action. |
 | [Manual steps](manual-steps.md) | Every human action, why it cannot be automated, and what breaks if you skip it. **Read this one.** |
 | [Concepts](concepts.md) | What a charter, a manifest, a surface and the ops repo are. |
 | [Choosing a coding agent](agents.md) | Claude, Codex, Nanocoder, or anything with a command line. |
 | [Writing a charter](writing-a-charter.md) | The one file nothing can generate for you. |
 | [Extending it](extending.md) | The four seams, and which one to reach for. |
 | [Memory](memory.md) | The grammar, and why deleting is the maintenance. |
-| [Commands](commands.md) | Every CLI command and flag. |
-| [The portal](portal.md) | Setup, every view, and every action. |
 | [Upgrading](upgrading.md) | How framework changes reach a tenant without eating your edits. |
 | [Troubleshooting](troubleshooting.md) | Every trap we have actually hit, and what it looks like. |
 | [Hosting the portal](hosting.md) | Local is the default, and why. |
 | [Cost](cost.md) | What this spends, and on what. |
+| [Commands](commands.md) | Every CLI command and flag, for when you want the terminal. |
 
 ## Reference
 
@@ -45,7 +45,6 @@ Look things up.
 | [`staff.yaml`](staff-yaml.md) | Every field in a staff member's manifest. |
 | [Prompts](prompts.md) | The template syntax, the context, and what to guard. |
 | [The session workflow](session-workflow.md) | Inputs, secrets, and what runs in what order. |
-| [The portal](portal.md) | Every view and every action. |
 | [`roster export`](export.md) | The JSON shape. |
 | [doctor codes](doctor-codes.md) | Every finding, what it means, what to do. |
 
@@ -97,3 +96,9 @@ deleted, and an air-gapped install is a supported case rather than a special one
 - **Write `org/business.md`.** Everything the staff say is downstream of it.
 - **Install a GitHub App.** Installing grants access to specific repositories and GitHub asks a
   human which. See [manual steps](manual-steps.md).
+
+None of those is a dead end. roster holds no model credential, so for the first two the portal
+does both halves of the round trip instead: it copies a brief that carries every file it refers
+to, and turns the reply you paste back into a file with a diff and a save button. For the third
+it runs everything either side of the confirmation GitHub insists a human gives, and tells you
+exactly which repositories to grant.

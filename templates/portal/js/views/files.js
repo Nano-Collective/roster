@@ -25,7 +25,12 @@ export async function showFile(viewer, s, f, pick) {
   head.textContent = stamp(f.bytes);
 
   if (IMG.includes(f.ext)) {
-    viewer.replaceChildren(head, el("img", { src: fileUrl(path), alt: f.path }));
+    /* `zoomable` is the opt-in the lightbox looks for. The gallery tiles above are not
+       marked, because their click already means "open this file", and this is where it lands. */
+    viewer.replaceChildren(
+      head,
+      el("img", { className: "zoomable", src: fileUrl(path), alt: f.path }),
+    );
     return;
   }
 

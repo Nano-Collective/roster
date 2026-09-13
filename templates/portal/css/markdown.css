@@ -65,3 +65,10 @@ pre.yaml{color:var(--ink)}
 .at:hover{color:var(--ink);border-color:var(--ink-faint)}
 .at.you{color:var(--derived);border-color:color-mix(in srgb,var(--derived) 40%,transparent)}
 .at.you:hover{background:color-mix(in srgb,var(--derived) 14%,transparent);border-color:var(--derived)}
+
+/* A screenshot on a doc page.
+   Bordered and inset so it reads as a figure rather than the page bleeding into another one:
+   these are pictures of this same UI, and without a frame the two run together. */
+.md img{display:block;max-width:100%;height:auto;margin:14px 0;
+        border:1px solid var(--line);border-radius:8px}
+.md img+em,.md p>img+em{display:block}

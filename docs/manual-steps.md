@@ -14,7 +14,9 @@ that deep-links item 1, runs items 2 and 3 for you as far as GitHub allows, and 
 for items 5 and 6. This page is still the *why*: it is what to read when one of them bites, and
 what to check when the page says something is not done.
 
-`roster doctor` checks most of these. Run it after each one.
+The portal's **Health** screen checks most of these, per staff member and for the org, with
+every finding carrying the sentence that fixes it. `roster doctor` prints the same from a
+terminal. Look after each step.
 
 ---
 
@@ -31,7 +33,7 @@ it and tells you, but setting it is one click and it is yours.
 a path, or a missing file, or a bad branch reference. You will check all three. It is none of
 them, it is this.
 
-**Check:** `roster doctor` reports `roster-ops is callable from the whole org`.
+**Check:** Health, or `roster doctor`, reports `roster-ops is callable from the whole org`.
 
 ---
 
@@ -79,7 +81,8 @@ chain (App created, installed, granted, secrets right, workflow reachable) is a 
 finished. `roster doctor` reads a window of recent runs for exactly this reason, and reports a
 workflow that has never run as **unproven** rather than as fine.
 
-**Check:** `roster doctor <handle>`, then trigger one run and look again.
+**Check:** that staff member's Health screen, or `roster doctor <handle>`. Then trigger one run
+and look again.
 
 ---
 
@@ -95,17 +98,20 @@ credential: `CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_API_KEY`, and so on. See
 That check exists so it fails there rather than forty lines later inside the agent, after the
 checkouts have already happened.
 
-**Check:** `roster doctor` lists the secrets each caller references and whether they exist.
+**Check:** Health, or `roster doctor`, lists the secrets each caller references and whether
+they exist.
 
 ---
 
 ## 5. Write `org/business.md`
 
-**Do:** answer the questions `roster init` leaves in it. The setup screen has a **Copy the
-prompt** button that carries every file it refers to, and a box to paste the answer back into;
-`roster brief discover` prints the same brief for a terminal.
+**Do:** the setup screen does both halves of this. **Copy the prompt** puts a brief on your
+clipboard with every file it refers to inlined, so a chat window with no filesystem is as useful
+as an agent standing in the repo; the box beneath it takes the reply, shows you a diff, and
+saves only when you press the button. `roster brief discover` prints the same brief for a
+terminal, and you can always just answer the questions in the file by hand.
 
-`roster doctor` reports `business.stub` while it is still the questions.
+Health reports `business.stub` while it is still the questions.
 
 **Why not automated:** an agent that does not know the business writes work that is plausible
 and generic. That is worse than no work, because it takes longer to notice. This file is
@@ -118,9 +124,11 @@ a business that does not exist.
 
 ## 6. Write each staff member's `CHARTER.md`
 
-**Do:** **Write the charter** on that staff member's card in the portal, or
-`roster brief charter <handle>` and paste it into your agent. Or write it by hand;
-[writing a charter](writing-a-charter.md) has the shape.
+**Do:** **Write the charter** on that staff member's card, which is the same copy-a-prompt,
+paste-the-answer-back round trip as item 5, aimed at `CHARTER.md`. The brief it copies carries
+the org layer, `business.md` and **the peers' charters**, because without those the model writes
+a second copy of whoever it was shown. `roster brief charter <handle>` prints the same brief, and
+[writing a charter](writing-a-charter.md) has the shape if you would rather write it yourself.
 
 **Why not automated:** same reason, one level down. The charter is what makes a staff member
 different from the others.
@@ -133,7 +141,11 @@ whatever the shared layer implies.
 
 ## 7. Commit and push what roster wrote into other repos
 
-**Do:** `roster hire` and `roster upgrade` write into brain repos on disk. Review, commit, push.
+**Do:** hiring writes a whole brain repo and pushes it, so this is mostly about `roster
+upgrade`, which writes into repos on disk and leaves them for you. Review, commit, push.
+
+Hiring from the Staff screen still edits the *other* staff members' manifests on disk to wire the
+peers both ways, and those are yours to commit.
 
 **Why not automated:** roster does not commit on your behalf into repositories it did not
 create in that command. And **App tokens cannot push a change under `.github/workflows/` in any
@@ -149,7 +161,18 @@ as still pending next time, which is the intended behaviour.
 
 For a new organisation:
 
-In the portal, this order is the screen you are looking at. From a terminal:
+In the portal it is the screen you are looking at, in this order:
+
+```
+the setup screen                         1 is deep-linked from it, and 5 is on it
+Staff -> Hire someone                    then 7
+GitHub App, on the new staff card        2, then 3
+Write the charter, on the same card      6
+                                         4 is yours: a secret on the brain repo
+Health                                   until the ids are gone
+```
+
+From a terminal:
 
 ```
 roster init --org <org> --apply          # 1 applies here

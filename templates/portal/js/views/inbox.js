@@ -37,6 +37,30 @@ function tone(label) {
     : "";
 }
 
+/**
+ * The staff member this repo is the tracker for, or null.
+ *
+ * A staff member's caller workflow lives in their own brain repo and gates on their `@handle`
+ * appearing there. So a mention is a mechanism in exactly one repository per person, and
+ * decoration in every other — including the product repos, where the pull requests are.
+ *
+ * That asymmetry is invisible on the page otherwise: the reply box takes `@cto` anywhere and
+ * posts it anywhere, and the difference between "asked the CTO" and "typed their name" is a
+ * workflow file in another repository. This is what the two things below use to say so.
+ */
+function listener(repo) {
+  return S.data.staff.find((s) => s.brain && s.brain === repo) ?? null;
+}
+
+/** The handles mentioned in some text, as staff members. */
+function mentioned(text) {
+  const said = String(text ?? "");
+  return S.data.staff.filter((s) => {
+    const at = String(s.mention ?? "@" + s.handle);
+    return new RegExp("(^|\\s)" + at.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(\\s|$)", "i").test(said);
+  });
+}
+
 /** Half-written replies, by thread, for as long as the page is open. */
 const DRAFTS = new Map();
 
@@ -394,7 +418,7 @@ function inboxScreen(m, opts) {
     const tabs = [
       ["conversation", "Conversation", () => { pane.replaceChildren(); conversation(pane, item); }],
       ["commits", "Commits", () => paintCommits(pane, detail)],
-      ["files", "Files", () => paintFiles(pane, detail)],
+      ["files", "Files", () => paintFiles(pane, detail, item)],
     ];
 
     const pick = async (id) => {
@@ -451,7 +475,7 @@ function inboxScreen(m, opts) {
     }
   }
 
-  function paintFiles(pane, d) {
+  function paintFiles(pane, d, item) {
     pane.replaceChildren(
       el("p", { className: "meta", style: "margin:14px 0 10px",
         textContent: d.changedFiles + " files · +" + d.additions + " −" + d.deletions }),
@@ -473,10 +497,41 @@ function inboxScreen(m, opts) {
         pane.append(wrap);
         continue;
       }
-      for (const block of renderDiff("diff --git a/" + f.path + " b/" + f.path + "\n" + f.patch)) {
-        pane.append(block);
+      const blocks = renderDiff("diff --git a/" + f.path + " b/" + f.path + "\n" + f.patch);
+      /* The ask goes in the file's own heading, because "this file is wrong" is the thing you
+         want to say while looking at one file, and the alternative is describing in prose which
+         of thirty files you meant. The hunk goes with it, so the agent gets the part you were
+         reading rather than the whole diff and a guess. */
+      const head = blocks[0]?.children?.[0];
+      /* Same rule as the button at the top of the thread: only where a reply reaches nobody.
+         Asking a *different* staff member about a pull request on somebody's own tracker is a
+         real thing to want, and it is what the Inbox's own "Ask a staff member" form is for —
+         putting a second route to it here would cost more in explaining than it saves. */
+      if (item && !listener(item.repo) && head && String(head.className ?? "").includes("dfile")) {
+        head.append(askFileButton(item, d, f));
       }
+      for (const block of blocks) pane.append(block);
     }
+  }
+
+  /** "Ask about this file", in a diff heading. Quiet until you want it. */
+  function askFileButton(item, detail, f) {
+    const b = el("button", {
+      className: "ghbtn askfile",
+      textContent: "Ask",
+      title: "Ask a staff member about " + f.path,
+    });
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await askAbout(item, detail, f);
+        if (r) b.textContent = r.warning ? "asked, with a warning" : "asked";
+      } catch (e) {
+        b.textContent = e.message;
+      }
+      b.disabled = false;
+    };
+    return b;
   }
 
   /**
@@ -528,9 +583,33 @@ function inboxScreen(m, opts) {
             if (ta.value) DRAFTS.set(key, ta.value);
             else DRAFTS.delete(key);
           };
-          return attachBox(ta, () => item.repo).node;
+          return el("div", {}, [attachBox(ta, () => item.repo).node, deafNote(ta, item)]);
         },
       });
+
+    /**
+     * "You typed a name nobody here answers to."
+     *
+     * The `@` list offers every staff member in every box, and posting one on a product repo
+     * looks exactly like posting one on a tracker: it goes up, it renders as a chip, and
+     * nothing happens. This is the only thing on the page that distinguishes the two, and it
+     * appears only once you have actually typed one.
+     */
+    function deafNote(ta, on) {
+      const note = el("p", { className: "meta err", style: "margin:8px 0 0" });
+      const check = () => {
+        const deaf = listener(on.repo) ? [] : mentioned(ta.value);
+        note.hidden = !deaf.length;
+        note.textContent = deaf.length
+          ? deaf.map((s) => s.mention ?? "@" + s.handle).join(" and ") +
+            " will not be woken by a comment on " + on.repo + " — it is not their tracker. " +
+            "Post this, then use Ask to reach them."
+          : "";
+      };
+      ta.addEventListener("input", check);
+      check();
+      return note;
+    }
 
     const reply = el("button", { className: "ghbtn primary", textContent: "Reply" });
     reply.onclick = async () => {
@@ -548,6 +627,37 @@ function inboxScreen(m, opts) {
       } catch (e) { failed(e); }
     };
     buttons.push(reply);
+
+    /* Only where a reply reaches nobody. On a staff member's own tracker an `@handle` already
+       wakes them, and a second button for the same thing would be teaching a rule that does not
+       exist. This is the product-repo lane, and the button is how you get out of it. */
+    if (!listener(item.repo)) {
+      const ask = el("button", { className: "ghbtn", textContent: "Ask a staff member" });
+      ask.onclick = async () => {
+        let r;
+        try {
+          busy(true, "asking…");
+          r = await askAbout(item, PRS.get(item.repo + "#" + item.number) ?? null, null);
+        } catch (e) {
+          failed(e);
+          return;
+        }
+        busy(false, "");
+        if (!r) return;
+        /* Repaint only when something was said on this thread, because a repaint costs the
+           status line — and when the copy was skipped or failed, that line is the only thing
+           on the page saying the ask happened at all. */
+        if (r.prUrl) {
+          await reloadThread(item);
+          return;
+        }
+        status.className = r.warning ? "meta err" : "meta";
+        status.innerHTML =
+          'asked · <a href="' + esc(r.url ?? "") + '" target="_blank" rel="noopener">the ask</a>' +
+          (r.warning ? " · " + esc(r.warning) : "");
+      };
+      buttons.push(ask);
+    }
 
     const closeBtn = el("button", {
       className: "ghbtn",
@@ -583,34 +693,22 @@ function inboxScreen(m, opts) {
 
     const row = el("div", { className: "row tacts" }, buttons);
 
-    /* Merging cannot be undone with another click, so it asks first and says exactly what it
-       is about to do. The method is a choice because these repos use all three: a squash for a
-       build, a merge for a branch worth keeping. */
+    /* Merging cannot be undone with another click, so it asks first and names what it is about
+       to merge. It does not ask *how*: squash, merge commit or rebase is a question about git
+       rather than about this pull request, and the repository has already answered it in its
+       own settings. The server reads it from there. */
     if (item.kind === "pr" && item.state === "OPEN") {
-      const how = el("select", { title: "How to merge" });
-      how.append(
-        el("option", { value: "squash", textContent: "Squash" }),
-        el("option", { value: "merge", textContent: "Merge commit" }),
-        el("option", { value: "rebase", textContent: "Rebase" }),
-      );
       const merge = el("button", { className: "ghbtn", textContent: "Merge" });
       merge.onclick = async () => {
-        if (!confirm(how.value + " " + item.repo + " #" + item.number + " into its base branch?")) {
-          return;
-        }
+        if (!confirm("Merge " + item.repo + " #" + item.number + " into its base branch?")) return;
         busy(true, "merging…");
         try {
-          await post({
-            action: "merge",
-            repo: item.repo,
-            number: item.number,
-            mergeMethod: how.value,
-          });
+          await post({ action: "merge", repo: item.repo, number: item.number });
           await refreshAll(false);
         } catch (e) { failed(e); }
       };
       buttons.push(merge);
-      row.append(how, merge);
+      row.append(merge);
     }
 
     row.append(status);
@@ -645,6 +743,99 @@ function inboxScreen(m, opts) {
     // The thread is newest first, so what you just wrote is the first thing on it.
     openThread({ repo: item.repo, number: item.number, kind: item.kind });
   }
+}
+
+/* --------------------------- asking, from a diff -------------------------- */
+
+/**
+ * Hand this pull request to a staff member, without leaving it.
+ *
+ * The pull request is on the product repo and nothing there wakes anybody — see `listener`
+ * above, and docs/concepts.md for why the forwarder that once did was removed. What was left
+ * behind was a round trip: read the diff, leave the thread, open an issue on the right tracker,
+ * retype the context, paste the link. This is that round trip, in one dialog.
+ *
+ * It writes to the staff member's tracker, because that is the only thing that reaches them,
+ * and optionally leaves the same words on the pull request, because a thread that goes silent
+ * while an answer is being written somewhere else reads as having been ignored.
+ *
+ * @param file  the file they were looking at, when they asked from the Files tab.
+ */
+async function askAbout(item, detail, file) {
+  const staff = S.data.staff.filter((s) => s.brain);
+  if (!staff.length) {
+    alert("Nobody has been hired yet, so there is nobody to ask.");
+    return null;
+  }
+
+  const who = el("select", { title: "Whose tracker this goes to" });
+  who.append(...staff.map((s) => el("option", { value: s.handle, textContent: s.name })));
+  who.value = S.inboxStaff && staff.some((s) => s.handle === S.inboxStaff)
+    ? S.inboxStaff
+    : staff[0].handle;
+  const chosen = () => staff.find((s) => s.handle === who.value) ?? staff[0];
+
+  /* On by default. The question was asked while looking at a diff, and the next person to read
+     that diff should be able to tell it was asked at all. */
+  const also = el("input", { type: "checkbox", checked: true, id: "ask-also" });
+
+  const where = el("p", { className: "meta", style: "margin:8px 0 0" });
+  const say = () => {
+    const s = chosen();
+    where.textContent =
+      "Goes to " + s.brain + " as a new issue. " +
+      (s.mention ?? "@" + s.handle) + " is written in for you, with a link to this pull request" +
+      (file ? " and the diff for " + file.path : "") + ", and they are told to answer here.";
+  };
+  who.onchange = say;
+  say();
+
+  const text = await askText({
+    title: "Ask about " + item.repo + " #" + item.number,
+    hint: item.title,
+    confirm: "Ask",
+    placeholder: "What do you want them to do about this?",
+    decorate: () =>
+      el("div", {}, [
+        el("div", { className: "row", style: "margin-top:9px" }, [
+          el("label", { className: "meta", textContent: "Ask", htmlFor: "ask-who" }),
+          Object.assign(who, { id: "ask-who" }),
+          el("label", { className: "meta", htmlFor: "ask-also" }, [
+            also,
+            el("span", { textContent: " say so on the pull request too" }),
+          ]),
+        ]),
+        where,
+      ]),
+  });
+  if (!text) return null;
+
+  const s = chosen();
+  return post({
+    action: "ask",
+    repo: s.brain,
+    ask: {
+      staff: {
+        handle: s.handle,
+        name: s.name,
+        mention: s.mention ?? "@" + s.handle,
+        brain: s.brain,
+      },
+      pr: {
+        repo: item.repo,
+        number: item.number,
+        title: item.title ?? "",
+        url: item.url ?? "",
+        // Only known once the Commits or Files tab has been opened. The body says "the pull
+        // request's branch" rather than naming one it is guessing at.
+        head: detail?.head,
+        base: detail?.base,
+      },
+      body: text,
+      anchor: file ? { path: file.path, patch: file.patch } : undefined,
+    },
+    alsoOnPr: !!also.checked,
+  });
 }
 
 /* ------------------------------- the thread ------------------------------ */

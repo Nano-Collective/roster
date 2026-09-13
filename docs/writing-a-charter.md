@@ -15,26 +15,27 @@ particular, which takes longer to notice than no work at all.
 
 ## Write it with your own AI
 
+**Write the charter**, on that staff member's card on the [Staff screen](portal.md#staff), does
+the whole round trip. It copies a brief with every file it refers to already inside it, so a chat
+window with no filesystem is as useful as an agent standing in the repo. Paste the reply back
+into the box and you get a diff and a save button, never a silent write.
+
+It runs about 19,000 characters, on purpose: one paste into a large-context model beats six
+rounds of it asking for files it will never get.
+
+**The peers' charters are in there**, along with `org/business.md` and the shared operating
+layer. That is the part that matters most, because without them the model writes a second copy
+of whoever it was shown. The brief then interviews you, drafts from your answers, and tells you
+what it cut and why.
+
+From a terminal, the same brief:
+
 ```bash
-roster brief charter <handle>
+roster brief charter <handle>            # or: roster brief charter cto | pbcopy
 ```
 
-That prints a self-contained brief. Paste it into whatever agent you use, or pipe it:
-`roster brief charter cto | pbcopy`. In Claude Code, `cd <staff-dir> && claude` then
-`/charter` runs the same text, because `roster hire` generates the slash command from it.
-
-**Or do the whole round trip in the portal.** *Write the charter* on that staff member's card
-copies the same brief with every file it refers to already inside it, including the peers'
-charters, so a chat window with no filesystem can do it. Paste the reply back and you get a diff
-and a save. See [the portal](portal.md).
-
-The brief tells the agent to read `org/business.md`, the shared operating
-layer, and every peer's charter, then interviews you and drafts from your answers. It also tells
-you what it cut and why.
-
-There is nothing agent-specific in it. Claude Code gets a slash command because it is the
-reference runner and the shape happens to fit; everything else gets the same words from
-`roster brief`.
+In Claude Code, `cd <staff-dir> && claude` then `/charter` runs the same text, because `roster
+hire` generates the slash command from it. There is nothing agent-specific in any of it.
 
 ## What goes in it, and what does not
 
@@ -73,7 +74,7 @@ status issue, and the surfaces the manifest declares.
 
 ## Keep it agreeing with the manifest
 
-`roster lint` fails if the charter and `staff.yaml` disagree. The manifest is the
+Health, and `roster lint`, fail if the charter and `staff.yaml` disagree. The manifest is the
 machine-readable half of the same document: handle, schedule, peers, surfaces, identities. If
 the charter says it reviews pull requests on the product repo, `works_in` had better include it.
 

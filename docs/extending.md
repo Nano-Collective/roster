@@ -12,6 +12,11 @@ Four seams, in the order you are likely to reach for them.
 
 Edit `org/*.md` in the ops repo. It reaches every staff member on their next run.
 
+The [Org screen](portal.md#org) is exactly this seam: every one of these files listed off disk
+with a line saying what it is for, an Edit button, and a save that commits and pushes. The list
+comes off disk rather than being written into the page, so a file you add yourself is editable
+there too.
+
 | File | For |
 |---|---|
 | `business.md` | what the business is. The one everything else is downstream of. |
@@ -53,7 +58,12 @@ A staff member can override a fragment for themselves. `{{>? staff:prompts/work.
 `daily.md` renders `prompts/work.md` from their own brain repo if it exists, and nothing if it
 does not. That is how one role gets a different working ritual without changing anybody else's.
 
-See what you actually built:
+See what you actually built on the [Prompt screen](portal.md#prompt), which walks the includes
+rather than listing them from memory, so a fragment you just added shows up on it, marked with
+the repo it came from. An optional fragment a role does not have is shown as absent rather than
+hidden. The layers are editable there too, subject to the writable list on that page.
+
+From a terminal:
 
 ```bash
 roster prompt cto --kind daily

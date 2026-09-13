@@ -14,7 +14,7 @@ import {
 } from "../lib/appmanifest.js";
 import { attach, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
-import { docPages, docsDir, searchDocs } from "../lib/docs.js";
+import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
 import { api, ghJson } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
@@ -476,6 +476,23 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* A screenshot on a doc page. Separate from /api/file, which resolves inside the
+         workspace: these live in the framework's own docs directory, and this route can reach
+         nothing else. Cached hard — the file only changes when roster is upgraded. */
+      if (url.pathname === "/api/docasset") {
+        const asset = docAsset(url.searchParams.get("path") ?? "");
+        if (!asset) {
+          res.writeHead(404).end("not found");
+          return;
+        }
+        res.writeHead(200, {
+          "content-type": asset.type,
+          "cache-control": "public, max-age=86400",
+        });
+        res.end(readFileSync(asset.path));
+        return;
+      }
+
       /* The manifest hand-off, and GitHub's redirect back. Plain pages rather than JSON:
          a browser is the client for both, and the second one is a redirect we do not control. */
       if (url.pathname === "/setup/app/start") {
@@ -920,6 +937,14 @@ export async function portalCommand(argv: string[]): Promise<number> {
             const known = (org.repos ?? []).map((r: any) => `${org.org}/${r.name}`);
             if (!known.includes(payload.repo))
               throw new Error(`${payload.repo} is not a repo in org.yaml`);
+            /* An ask is the one action that touches two repositories: the tracker it lands on
+               and the pull request it is about. `repo` above is the first; the second reaches a
+               command line too, so it is checked by the same rule rather than trusted because
+               it arrived alongside one that passed. */
+            if (payload.action === "ask") {
+              const prRepo = payload.ask?.pr?.repo ?? "";
+              if (!known.includes(prRepo)) throw new Error(`${prRepo} is not a repo in org.yaml`);
+            }
             const result = await act(payload);
             cache = null; // the inbox is now wrong
             res.writeHead(200, {

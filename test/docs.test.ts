@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { docPages, searchDocs } from "../src/lib/docs.js";
+import { docAsset, docPages, searchDocs } from "../src/lib/docs.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**
@@ -136,6 +136,38 @@ test("the agent presets the docs describe are the ones that ship", async () => {
       `agents.md quotes an install command for ${id} that is not the one in agents.mjs`,
     );
   }
+});
+
+/* ------------------------------- screenshots ------------------------------ */
+
+test("every screenshot a page references is one that ships", () => {
+  /* `files` in package.json ships `docs/`, so an image that exists locally and was never
+     committed is a broken page for everybody who installs it, and works perfectly here. */
+  for (const page of pages) {
+    for (const m of read(page).matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
+      const src = m[1]!;
+      if (/^https?:/.test(src)) continue;
+      assert.ok(existsSync(join(DOCS, src)), `${page} shows ${src}, which is not in docs/`);
+    }
+  }
+});
+
+test("a screenshot has alt text, because it is carrying an instruction", () => {
+  for (const page of pages) {
+    for (const m of read(page).matchAll(/!\[([^\]]*)\]\(([^)\s]+)\)/g)) {
+      assert.ok(m[1]!.trim().length > 8, `${page}: ${m[2]} has no useful alt text`);
+    }
+  }
+});
+
+test("docAsset serves what the docs reference, and nothing else", () => {
+  // The name reaches the disk, so the guard is the listing rather than sanitising.
+  assert.ok(docAsset("images/staff.jpg"), "a real screenshot is served");
+  assert.ok(docAsset("staff.jpg"), "with or without the images/ prefix");
+  assert.equal(docAsset("../package.json"), null, "nothing above the docs directory");
+  assert.equal(docAsset("images/../../package.json"), null, "and not by walking back down");
+  assert.equal(docAsset("images/nope.jpg"), null, "a name that is not on the listing");
+  assert.equal(docAsset(""), null);
 });
 
 test("the docs do not use em-dashes", () => {

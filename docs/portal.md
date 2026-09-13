@@ -145,10 +145,45 @@ Both are fetched when you open the tab, not carried by the inbox. A diff is the 
 on this screen by an order of magnitude, and paying for every open PR's diff on every refresh
 of every repo to show one of them is the wrong trade.
 
-**Merge** sits beside Close, with squash, merge commit or rebase, and asks before it goes. It
-never deletes the branch: that is a second decision and not this button's to make. It runs
-`gh pr merge` as you, so a protected branch, a failing required check or a merge queue behaves
-exactly as it would on the site.
+**Merge** sits beside Close and asks before it goes. It never deletes the branch: that is a
+second decision and not this button's to make. It runs `gh pr merge` as you, so a protected
+branch, a failing required check or a merge queue behaves exactly as it would on the site.
+
+**It does not ask how.** There used to be a squash / merge commit / rebase dropdown beside it.
+That is a question about git rather than about the pull request in front of you, the repository
+has already answered it in its own settings, and on any given repository most of the answers are
+wrong. So the repository is asked instead: squash where it is allowed, then a merge commit, then
+rebase.
+
+### Asking for a change
+
+**`@cto` on a pull request wakes nobody.** A staff member's caller workflow lives in their own
+brain repo and gates on their handle appearing *there*; on a product repo the same mention
+posts, renders as a chip, and does nothing. That is deliberate, for the reasons in
+[security](security.md#trust-in-a-prompt), and it used to be silent, which is worse than the
+restriction itself. Type one into a reply where nothing is listening and the box now says so.
+
+**Ask a staff member** is the way out. It appears beside Reply on any thread in a repo that is
+nobody's tracker, and in the heading of each file on the **Files** tab, which is where "this
+file is wrong" is usually what you want to say. It asks one question, who, and then opens the
+request on that person's own tracker, carrying:
+
+- the pull request, its link and its branch
+- the diff for the file you asked from, clipped: it is there to say *which part*, not to be a
+  copy of the diff that goes stale on the next push
+- their `@handle`, which is what actually wakes them
+- an instruction to **answer on the pull request**, because `prompts/mention.md` otherwise tells
+  them to answer where the request came from, which here is the tracker, leaving the diff silent
+  and you watching the wrong page
+
+By default it also leaves your words on the pull request with a link to what it opened, so the
+thread does not go quiet while the answer is being written somewhere else. Untick that and the
+ask is private.
+
+Both writes go through your own `gh`, as you. Nothing is dispatched between repositories and no
+credential is put on a public repo. The tracker issue goes first, because it is the half that
+reaches anybody; if the copy on the pull request then fails you are told, rather than being
+shown an error that invites you to ask the same person the same thing twice.
 
 ## Org
 
@@ -399,6 +434,31 @@ than retype it. "Open the file" takes you to that layer on the Prompt screen.
 **Memory problems** are the same checks `roster lint` runs. Each one has a button that opens an
 issue in that staff member's own repo asking them to fix it, which is usually right, because
 they wrote it.
+
+## Any image opens
+
+**Click a picture and it opens over the page, fitted to the window.** Bottom right there is a
+`-`, the current zoom, and a `+`. The percentage is a button too: it refits. Scrolling zooms,
+dragging moves, clicking the picture goes between fitted and actual size, and `+`, `-`, `0` and
+Escape do the same from the keyboard. Zooming is anchored on the pointer, so the thing you
+aimed at stays where you aimed.
+
+The percentage is of **actual size**, not of fitted, so 100% means one image pixel per screen
+pixel. How far in it will go depends on the picture: a scaled image is a composited layer and
+the browser allocates it at the rendered size, so the ceiling is whatever keeps that within
+budget. Actual size is always reachable, however large the original is.
+
+This is every image the portal renders as content: a screenshot on a doc page, a picture inside
+a brain document, a file open in the Brain screen's viewer. A screenshot laid out for the column
+it sits in is unreadable exactly when it matters, which is when it is a picture of an interface
+and the part you need is the small print.
+
+Gallery tiles are the exception, and deliberately: their click already means "open this file",
+and the file's own view is one of the things that does open.
+
+Fitted, the picture is inset from the window edges and framed. That is not decoration. Most of
+these are screenshots *of this interface*, and one fitted edge to edge reads as the app having
+navigated rather than as a picture of it.
 
 ## Docs
 

@@ -11,9 +11,10 @@ sidebar_order: 3
 `<org>/roster-ops` holds two different kinds of thing, and the split matters.
 
 **`org/` is yours.** `business.md`, `voice.md`, `guardrails.md`, `operating.md`. This is the
-business truth and the shared half of every staff member's instructions. Edit it freely. A
-change here reaches everybody on their next run, which is the point: a concision rule that used
-to mean editing twelve files is now one file.
+business truth and the shared half of every staff member's instructions. Edit it freely: the
+[Org screen](portal.md#org) lists every one of these off disk with an Edit button, and saving
+commits and pushes. A change here reaches everybody on their next run, which is the point: a
+concision rule that used to mean editing twelve files is now one file.
 
 **Everything else is machinery** and belongs to the framework: `compose.mjs`, `agents.mjs`,
 `runner-plan.mjs`, `.github/workflows/session.yaml`. Editing these works right up until the
@@ -39,7 +40,7 @@ A staff member's repository *is* their memory. There is no database.
 ## Charter and manifest
 
 Two halves of one thing. The charter is prose for the agent; the manifest is fields for the
-machinery. `roster lint` fails if they disagree.
+machinery. [Health](portal.md#health), and `roster lint`, fail if they disagree.
 
 The charter is the only file roster refuses to generate. A generated charter produces a generic
 agent, and a generic agent produces work that is plausible, competent-looking and about nothing
@@ -67,7 +68,9 @@ org/operating.md + org/guardrails.md + org/voice.md + org/business.md
                  + <staff>/CHARTER.md + prompts/<kind>.md
 ```
 
-Built at run time by `compose.mjs` in the tenant's own repo. See it for yourself:
+Built at run time by `compose.mjs` in the tenant's own repo. See it for yourself on the
+[Prompt screen](portal.md#prompt), which shows the composed text and every layer that went into
+it, or from a terminal:
 
 ```bash
 roster prompt cto --kind daily
@@ -91,7 +94,17 @@ There used to be a third, `pr-mention`: a review comment on the public product r
 into the brain by a workflow in that repo. It was removed. Two repos, a dispatch, a forwarder
 with its own author gate and a second reaction path bought one thing: asking for a change
 without leaving the diff. It cost more than that was worth, in explaining and in debugging.
-Ask in the tracker instead, or from the portal.
+
+What replaced it is one button. A pull request is on the product repo, and **nothing in a
+product repo wakes anybody**: a staff member's caller workflow is in their own brain repo and
+gates on their `@handle` appearing *there*. So the portal's **Ask a staff member**, on a pull
+request thread or on a single file's diff, opens the request on that person's tracker for you,
+carrying the pull request, the branch, the hunk you were looking at, and an instruction to
+answer on the pull request rather than in the tracker it arrived in. Optionally it says so on
+the pull request too, so the thread does not go quiet while the answer is written elsewhere.
+
+It is two `gh` calls as you, rather than a workflow, a dispatch and a second gate, which is the
+difference that got the forwarder deleted. See [the portal](portal.md#asking-for-a-change).
 
 ## Identities
 

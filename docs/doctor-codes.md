@@ -6,6 +6,9 @@ sidebar_order: 19
 
 # doctor codes
 
+The portal's [Health](portal.md#health) screen shows these same findings, each with its fix, and
+turns the ones an agent could fix into a single brief. This page is the reference behind both.
+
 Every finding `roster doctor` can emit. Each carries a stable `id`, which is what
 `--json` reports and what to quote in an issue.
 

@@ -159,7 +159,7 @@ section: [wiring up nanocoder](#wiring-up-nanocoder).
 ## Setting one up, end to end
 
 The preset only says how to invoke the agent. Three more things have to be true before a run
-works, and `roster doctor` checks all three.
+works, and Health, or `roster doctor`, checks all three.
 
 ### 1. The credential exists, and you have it
 

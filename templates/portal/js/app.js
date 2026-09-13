@@ -3,6 +3,7 @@
 import { getOrg } from "./api.js";
 import { $, el, store } from "./dom.js";
 import { icon, iconHTML } from "./icons.js";
+import { installLightbox } from "./lightbox.js";
 import { setPeople } from "./md.js";
 import {
   countInBackground,
@@ -51,6 +52,9 @@ const NEEDS = ["org", "name", "opsName", "staff"];
 
 export async function boot() {
   initTheme();
+  /* Before the first render, and once: it is delegated, so it covers every image any screen
+     draws from here on, including the setup screen. */
+  installLightbox();
 
   /* Before there is a tenant the server answers every data route with `mode: setup`. That is
      not an error state: it is the first thing a new user ever sees, and the whole page becomes

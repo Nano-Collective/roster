@@ -312,6 +312,11 @@ export function compose({ opsDir, brainsDir, staff, kind }) {
     }
   }
 
+  // The `issues` route carries no comment: the ask is the body of a new issue. There is no
+  // `{{#unless}}`, and a prompt that tells an agent to read comment `` as its first instruction
+  // sends it to a 404 before it has read anything. So the absence is a value of its own.
+  if (Object.keys(event).length) event = { ...event, no_comment: !event.comment_id };
+
   const humans = readHumans(org);
   const ctx = {
     org,

@@ -42,7 +42,8 @@ workflows that constrain them.
 misconfiguration and it fails at run time. Over-granting is the risk: an App installed on the
 whole organisation can reach anything in it.
 
-Install narrowly. `roster app` prints the list it actually needs.
+Install narrowly. The Staff card's **GitHub App** panel prints the list it actually needs, and
+so does `roster app`.
 
 ## Permissions a new App asks for
 
@@ -86,6 +87,8 @@ constrained rather than sanitised:
 - `/api/file` resolves the path and refuses anything outside the workspace root.
 - `/api/diff` requires the directory to be a known staff repo and the sha to look like a sha.
 - `/api/doc` requires the page to be one the listing offered.
+- `/api/docasset` requires the screenshot to be one sitting in `docs/images/`, matched by name
+  against that listing. `..` is not a case to get wrong; it is simply a name not on it.
 
 `--host` overrides the bind address and prints a warning. It exists for people who know what
 they are doing on a network they control. See [hosting the portal](hosting.md).
@@ -96,12 +99,21 @@ Everything composed into a prompt is content you or your agents wrote: `org/`, t
 memory index. A `mention` run additionally carries the text of a comment.
 
 **On a private tracker that is you.** On the public product repo it is not, which is exactly
-why the product lane is split: a mention on a public PR is caught by a forwarder in that repo
-which does no work of its own, and dispatches to the private lane. The run that prints a
-charter and a chain of reasoning happens where the logs are not world-readable.
+why **nothing in a product repo wakes an agent at all**. There is no caller workflow there, by
+design: anyone can comment on a public pull request, a run started from a comment executes with
+repository secrets, and a run that prints a charter and a chain of reasoning would print it
+into a world-readable log.
 
-The forwarder has an author gate, and it is load-bearing: anyone can comment on a public PR,
-and a run started from a comment executes with repository secrets. Do not relax it.
+So a mention on a public pull request is decoration. It posts, it renders as a chip, and
+nothing happens, which is safe and also invisible. The portal is what makes it visible and what
+gets you out of it: replying with an `@handle` where nothing listens says so, and **Ask a staff
+member** opens the request on that person's own private tracker instead, carrying the pull
+request and the hunk. It writes through your own `gh`, as you, so no credential lives on the
+public repo and nothing is dispatched across a boundary.
+
+There was once a forwarder in the product repo that bridged this automatically. It was removed;
+see [concepts](concepts.md#kinds-of-run). If you reinstate one, its author gate is
+load-bearing. Do not relax it.
 
 ## The loop guard
 

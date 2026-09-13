@@ -9,8 +9,10 @@ sidebar_order: 10
 Every trap on this page has actually been hit. Most of them fail in a way that points somewhere
 else, which is why they are worth writing down.
 
-Start with `roster doctor`. It groups by staff member and every finding that is not `ok` says
-what to do about it.
+Start with the portal's [Health](portal.md#health) screen. It groups by staff member, every
+finding that is not `ok` says what to do about it, and a button turns the lot into one brief for
+a coding agent, split into what an agent can fix and what only a person can. `roster doctor` and
+`roster fix` are the same two things from a terminal.
 
 ---
 
@@ -20,8 +22,8 @@ what to do about it.
 
 **Is:** the ops repo's Actions access is not set to organisation-wide.
 
-Settings -> Actions -> General on `roster-ops`. `roster doctor` checks this explicitly, and the
-portal's setup screen links straight to the page.
+Settings -> Actions -> General on `roster-ops`. The setup screen deep-links that exact page,
+which is the fastest way to fix it; Health and `roster doctor` both check it explicitly.
 
 ---
 
@@ -31,7 +33,7 @@ portal's setup screen links straight to the page.
 `timeout-minutes` as `cancelled`, which reads as though somebody pressed a button.
 
 Tell them apart by duration. Several cancelled runs all stopping at the same minute is a
-ceiling, not a coincidence. `roster doctor` does this for you and names the number:
+ceiling, not a coincidence. Health does this for you and names the number:
 
 ```
 ✗ cto-daily.yaml: 5 of the last 10 ran to a 60m ceiling and were killed
@@ -49,8 +51,8 @@ so old timeouts keep being reported as timeouts.
 gated run still appears in the list with conclusion `skipped`. Most of a mention workflow's
 history is skipped runs.
 
-`roster doctor` ignores them. A workflow whose runs are *all* skipped is reported differently,
-because nothing has exercised the credentials.
+Health ignores them. A workflow whose runs are *all* skipped is reported differently, because
+nothing has exercised the credentials.
 
 ---
 
@@ -63,11 +65,12 @@ been **installed** on the repository in question, or which repositories the inst
 granted. The two are reported separately and they disagree exactly when you care.
 
 Do not verify an installation by reading the API. The only proof of the whole chain is a run
-that finished. `roster doctor` reads recent runs for this reason and calls a workflow that has
-never run **unproven** rather than fine.
+that finished. Health reads recent runs for this reason and calls a workflow that has never run
+**unproven** rather than fine.
 
 Fix: open the App's installation settings and check the repository list includes every tracker
-the staff member writes to, not just its own. `roster app` prints that list.
+the staff member writes to, not just its own. The **GitHub App** panel on that staff member's
+card says so loudly, and prints the list.
 
 ---
 
@@ -107,8 +110,9 @@ first entry in `works_in`, and a staff member who contributes to no other reposi
 The shipped prompts guard these. A prompt fragment you have written yourself needs
 `{{#if staff.product}}` around anything that assumes one. Conditionals do not nest.
 
-Similarly `{{staff.status_issue}}` is empty until `roster hire --apply` has opened the pinned
-issue.
+Similarly `{{staff.status_issue}}` is empty until hiring has actually been applied and opened
+the pinned issue. Health's prompt audit has this check ("a placeholder never resolved"), and the
+[Prompt screen](portal.md#prompt) shows you the composed text with the braces still in it.
 
 ---
 

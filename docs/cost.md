@@ -22,7 +22,8 @@ words to about 6,000 by moving from a narrative status file to one line per fact
 direct, repeated saving on every run of every staff member.
 
 **Watch for sessions growing into their ceiling.** A run that gets killed at
-`timeout_minutes` has been paid for and produced nothing. `roster doctor` reports the ratio.
+`timeout_minutes` has been paid for and produced nothing. Health, and `roster doctor`, report
+the ratio.
 
 ## GitHub Actions minutes
 
@@ -57,5 +58,5 @@ on your machine when you ask it to, and the machinery is vendored into the tenan
   being raised is a session that has stopped fitting its job.
 - **Give a mention workflow a shorter ceiling than a daily one.** A focused task that runs for
   an hour has gone wrong, and the ceiling is the only thing that stops it.
-- **Check the ratio, not the last run.** `roster doctor` reports how many of the last ten runs
+- **Check the ratio, not the last run.** Health reports how many of the last ten runs
   succeeded. One bad run is noise; four is a bill.

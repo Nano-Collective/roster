@@ -38,6 +38,34 @@ export function docPages(): DocPage[] {
   return [{ file: "README.md", title: "Overview" }, ...ordered, ...rest];
 }
 
+/** What a screenshot in the docs may be, and what it is served as. */
+const ASSET_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+};
+
+/**
+ * A screenshot referenced by a doc page, resolved for serving.
+ *
+ * The same rule `docPages` uses, for the same reason: the path is attacker-controlled and
+ * reaches the disk. Rather than sanitising it, this only ever answers with a file that is
+ * actually sitting in `docs/images/` — the name is matched against that listing, so `..` and an
+ * absolute path are not special cases to get wrong, they are simply names that are not on it.
+ */
+export function docAsset(name: string): { path: string; type: string } | null {
+  const dir = join(docsDir(), "images");
+  if (!existsSync(dir)) return null;
+  const wanted = String(name ?? "").replace(/^images\//, "");
+  const found = readdirSync(dir).find((f) => f === wanted);
+  if (!found) return null;
+  const type = ASSET_TYPES[found.slice(found.lastIndexOf(".")).toLowerCase()];
+  return type ? { path: join(dir, found), type } : null;
+}
+
 export interface DocHit extends DocPage {
   /** Higher is a better answer. Ordering only; the number itself means nothing. */
   score: number;

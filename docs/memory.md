@@ -59,13 +59,16 @@ will disagree with itself within a month.
 
 ## Checking it
 
+**Health**, per staff member, has a **Memory problems** section. Each finding has a button that
+opens an issue in that staff member's own repository asking them to fix it, which is usually the
+right move: they wrote it, and an issue on their tracker is a thing that wakes them.
+
+It catches: a missing `So:`, a duplicate slug, a note nothing links to, a link to a note that
+does not exist, an over-long line, a `[measured]` fact with no `n`, and an "updated:" chain.
+
+The same checks, for a terminal or for CI:
+
 ```bash
 roster lint          # everyone
 roster lint cto      # one staff member
 ```
-
-Lint catches: a missing `So:`, a duplicate slug, a note nothing links to, a link to a note that
-does not exist, an over-long line, a `[measured]` fact with no `n`, and an "updated:" chain.
-
-The portal's **Health** screen shows the same findings and will open an issue in the staff
-member's own repository asking them to fix it, which is usually the right move: they wrote it.

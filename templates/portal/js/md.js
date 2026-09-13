@@ -352,7 +352,12 @@ function mdPath(href, opts) {
 }
 
 function mdAsset(src, opts) {
-  const path = /^(https?:|data:)/.test(src) ? null : mdPath(src, opts);
+  if (/^(https?:|data:)/.test(src)) return src;
+  /* A screenshot in the docs is not in anybody's brain repo, so it cannot go through
+     /api/file, which resolves inside the workspace. It comes off the framework's own docs
+     directory instead, through a route that serves nothing else. */
+  if (opts.docs) return "/api/docasset?path=" + encodeURIComponent(src.replace(/^\.?\//, ""));
+  const path = mdPath(src, opts);
   return path ? "/api/file?path=" + encodeURIComponent(opts.file.staffDir + "/" + path) : src;
 }
 
