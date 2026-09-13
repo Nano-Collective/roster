@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { buildExport } from "../src/lib/export.js";
@@ -2483,5 +2484,49 @@ test("the repo picker offers what org.yaml does not already list", async () => {
     assert.match(text, /acme-web/, "a repo gh can see and org.yaml lacks should be offered");
   } finally {
     (SETUP_FIXTURE as any).tenant = saved;
+  }
+});
+
+/* ------------------------------ nothing is one tenant's ----------------------------- */
+
+/**
+ * roster is a framework: an org has whatever staff its `org.yaml` names, and whatever human
+ * markers it chose. The portal had two places that quietly disagreed — a provenance tag styled
+ * by the literal word `will`, and a label tone keyed on the same — so every org but the one
+ * this was written in lost the colour that says "a person decided this". Neither failed
+ * loudly, which is why they are held here rather than remembered.
+ */
+
+test("a fact's provenance is coloured by what kind it is, not by whose name it is", async () => {
+  const { provenanceKind } = (await import(
+    new URL("../templates/portal/js/views/memory.js", import.meta.url).href
+  )) as { provenanceKind(p: string): string };
+
+  assert.equal(provenanceKind("measured"), "measured");
+  assert.equal(provenanceKind("derived"), "derived");
+  // Any marker at all is a human ruling, and the stylesheet has one class for that.
+  for (const marker of ["will", "ada", "grace", "j-lo"]) {
+    assert.equal(provenanceKind(marker), "ruled", marker + " is a person ruling on something");
+  }
+});
+
+test("no stylesheet is keyed on one tenant's names", () => {
+  /* A selector like `.tag.will` works for exactly one org and silently does nothing for every
+     other one. Colour has to come from what a thing *is*. */
+  const css = readdirSync(join(ROOT, "templates", "portal", "css"))
+    .map((f) => readFileSync(join(ROOT, "templates", "portal", "css", f), "utf8"))
+    .join("\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  const org = ORG as any;
+  const names = [
+    ...(org.humans ?? []).flatMap((h: any) => [h.marker, h.github, h.name]),
+    ...org.staff.map((s: any) => s.handle),
+  ].filter((n) => n && String(n).length > 2);
+
+  for (const name of names) {
+    assert.ok(
+      !new RegExp("[.#-]" + String(name).toLowerCase() + "\\b").test(css.toLowerCase()),
+      `a stylesheet is keyed on "${name}", which is this tenant's and nobody else's`,
+    );
   }
 });

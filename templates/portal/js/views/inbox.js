@@ -10,10 +10,32 @@ import { ensureInbox, refreshAll, stampCounts } from "../refresh.js";
 import { humanLabel, humansOf, isHuman, S, writeHash } from "../state.js";
 import { renderDiff } from "./changed.js";
 
+/* The labels roster itself creates, and what each one means about urgency. Everything else is
+   the org's own vocabulary and stays plain: colouring a word this file has never heard of
+   would be guessing. */
 const LABEL_TONE = {
-  decision: "hot", blocked: "hot", will: "hot", review: "warm", submit: "warm",
+  decision: "hot", blocked: "hot", review: "warm", submit: "warm",
   idea: "cool", build: "cool", setup: "cool", data: "cool",
 };
+
+/**
+ * A label's tone.
+ *
+ * `roster hire` puts a label on every tracker named after the human's marker, so "this is on a
+ * person" is a label like `will` or `sam` — it used to be spelled `will` in the map above,
+ * which coloured exactly one org's and left every other org's looking like an ordinary tag.
+ * It comes off org.yaml now, so it is right wherever this runs.
+ */
+function tone(label) {
+  if (LABEL_TONE[label]) return LABEL_TONE[label];
+  const name = String(label).toLowerCase();
+  return humansOf().some(
+    (h) => String(h.marker ?? "").toLowerCase() === name ||
+      String(h.github ?? "").toLowerCase() === name,
+  )
+    ? "hot"
+    : "";
+}
 
 /** Half-written replies, by thread, for as long as the page is open. */
 const DRAFTS = new Map();
@@ -263,7 +285,7 @@ function inboxScreen(m, opts) {
       const yours = onAHuman(i);
       const chips = i.labels
         .slice(0, 3)
-        .map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>")
+        .map((l) => '<span class="chip ' + tone(l) + '">' + esc(l) + "</span>")
         .join("");
       b.innerHTML =
         '<div class="ititle">' +
@@ -321,7 +343,7 @@ function inboxScreen(m, opts) {
       "<h3>" + esc(item.title) + "</h3>" +
       (item.labels.length
         ? '<div class="row tlabels">' +
-          item.labels.map((l) => '<span class="chip ' + (LABEL_TONE[l] ?? "") + '">' + esc(l) + "</span>").join("") +
+          item.labels.map((l) => '<span class="chip ' + tone(l) + '">' + esc(l) + "</span>").join("") +
           "</div>"
         : "");
     head.append(threadActions(item));
@@ -1014,7 +1036,7 @@ function labelPicker(repoOf) {
       return;
     }
     for (const name of labels) {
-      const b = el("button", { className: "chip pick " + (LABEL_TONE[name] ?? ""), textContent: name });
+      const b = el("button", { className: "chip pick " + tone(name), textContent: name });
       b.type = "button";
       b.setAttribute("aria-pressed", String(chosen.has(name)));
       b.onclick = () => {

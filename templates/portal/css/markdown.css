@@ -21,7 +21,7 @@
       padding:11px 13px;font:12px/1.62 var(--mono);margin:10px 0;color:var(--ink-dim);
       overflow-x:auto;white-space:pre}
 .md pre code{background:none;padding:0;color:inherit;font-size:inherit}
-.md a{color:var(--will)}
+.md a{color:var(--ruled)}
 .md blockquote{margin:10px 0;padding:2px 0 2px 12px;border-left:2px solid var(--line);color:var(--ink-dim)}
 .md hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 .md img{max-width:100%;border-radius:6px;background:var(--panel-2)}
@@ -40,7 +40,7 @@
    finding a key in one a matter of reading every line. Structure is what YAML has that prose
    does not; these five colours are it, and nothing else is coloured. Tokens from the theme,
    so light and dark both work without a second palette. */
-.yk{color:var(--will)}          /* keys */
+.yk{color:var(--ruled)}          /* keys */
 .ys{color:var(--accent)}        /* quoted strings */
 .yn{color:var(--derived)}       /* numbers */
 .yb{color:var(--derived)}       /* true, false, null */
@@ -50,10 +50,10 @@ pre.yaml{color:var(--ink)}
 
 /* A reference to another issue or PR, as a chip rather than a raw link: half of a status
    issue is #113, and a wall of blue URLs is the thing that makes them unreadable. */
-.ref{display:inline-block;font:11.5px var(--mono);color:var(--will);background:var(--panel-2);
+.ref{display:inline-block;font:11.5px var(--mono);color:var(--ruled);background:var(--panel-2);
      border:1px solid var(--line);border-radius:20px;padding:0 7px;text-decoration:none;
      white-space:nowrap;line-height:1.65}
-.ref:hover{border-color:var(--will);background:color-mix(in srgb,var(--will) 14%,transparent)}
+.ref:hover{border-color:var(--ruled);background:color-mix(in srgb,var(--ruled) 14%,transparent)}
 .ref.pr{color:var(--measured)}
 .ref.pr:hover{border-color:var(--measured);background:color-mix(in srgb,var(--measured) 14%,transparent)}
 

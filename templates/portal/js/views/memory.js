@@ -13,6 +13,19 @@ import { inline } from "../md.js";
 import { S } from "../state.js";
 import { matchesFact } from "./brain.js";
 
+/**
+ * Which of the three kinds of provenance a tag is, as a class the stylesheet knows.
+ *
+ * A fact is measured, derived, or ruled on by a human — and the third one is written with that
+ * human's own marker, `[will]` or `[sam]` or whatever the org chose. The class used to be the
+ * marker itself against a stylesheet that knew one word, so every org but the one this was
+ * written in lost the "a person decided this" colour, which is the one that matters most.
+ */
+export function provenanceKind(provenance) {
+  const word = String(provenance).toLowerCase();
+  return word === "measured" || word === "derived" ? word : "ruled";
+}
+
 export function showMemory(viewer, s, key, pick) {
   const section = key.startsWith("mem:") ? key.slice(4) : null;
   const slug = key.startsWith("fact:") ? key.slice(5) : null;
@@ -61,7 +74,9 @@ export function showMemory(viewer, s, key, pick) {
     d.innerHTML =
       '<span class="slug" data-goto="' + esc(f.slug) + '" title="Show just this fact">' +
         esc(f.slug) + "</span>" +
-      (f.provenance ? '<span class="tag ' + esc(f.provenance) + '">' + esc(f.provenance) + "</span>" : "") +
+      (f.provenance
+        ? '<span class="tag ' + provenanceKind(f.provenance) + '">' + esc(f.provenance) + "</span>"
+        : "") +
       (f.note ? '<span class="notelink" data-note="' + esc(f.note) + '">' + esc(f.note) + "</span>" : "") +
       '<p class="stmt">' + inline(f.statement) + "</p>" +
       (f.consequence

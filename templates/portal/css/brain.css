@@ -47,7 +47,7 @@
 .factsub{color:var(--ink-faint);font-size:12.5px;margin:0 0 14px}
 .tag{display:inline-block;font:10.5px var(--mono);padding:1px 6px;border-radius:20px;
      border:1px solid var(--line);color:var(--ink-faint);margin-left:6px;vertical-align:1px}
-.tag.will{color:var(--will);border-color:var(--will)}
+.tag.ruled{color:var(--ruled);border-color:var(--ruled)}
 .tag.measured{color:var(--measured);border-color:var(--measured)}
 .tag.derived{color:var(--derived);border-color:var(--derived)}
 .notelink{font:11.5px var(--mono);color:var(--ink-faint);cursor:pointer;margin-left:6px}

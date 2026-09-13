@@ -15,17 +15,24 @@ import { el, esc } from "./dom.js";
 import { humansOf, S } from "./state.js";
 
 /**
- * Everyone who can be mentioned, in the order they are worth offering.
+ * Everyone a mention actually reaches, in the order they are worth offering.
  *
- * Staff first: waking one is the reason to type `@` in this app at all. Then the humans, then
- * the Apps, which are mostly here so an unfamiliar `playpip-robot` in a thread has a name you
- * can look up.
+ * Staff first: waking one is the reason to type `@` in this app at all. Then the humans, who
+ * get a notification.
+ *
+ * **The Apps are deliberately not here.** `@some-org-cto` is a login, not an inbox: GitHub
+ * delivers nothing for mentioning a GitHub App, and an agent wakes on its own handle and not
+ * on the name of the identity it posts as. A list you pick from should contain only things
+ * that do something; an entry that says "notifies nobody" is a trap with a label on it, and it
+ * pushed the entries that work off the bottom of the box.
+ *
+ * Nothing here knows what any of these people are called. Every row comes off `org.yaml` and
+ * the manifests, so an org with a head of ops and a designer gets a head of ops and a designer.
  */
 export function mentionable() {
   const out = [];
-  const staff = S.data?.staff ?? [];
 
-  for (const s of staff) {
+  for (const s of S.data?.staff ?? []) {
     const at = String(s.mention ?? "@" + s.handle);
     out.push({
       text: at,
@@ -47,26 +54,6 @@ export function mentionable() {
     });
   }
 
-  /* An App is a login, not a person: GitHub delivers no notification for mentioning one, and
-     an agent only wakes on its own handle. Said out loud on the row, because the name looks
-     exactly as mentionable as the others. */
-  const seen = new Set(out.map((o) => o.text.toLowerCase()));
-  for (const s of staff) {
-    for (const bot of s.bots ?? []) {
-      const at = "@" + bot;
-      if (seen.has(at.toLowerCase())) continue;
-      seen.add(at.toLowerCase());
-      out.push({
-        text: at,
-        label: bot,
-        note: (s.sharedBots ?? []).includes(bot)
-          ? "the shared robot · notifies nobody"
-          : s.name + "'s app · notifies nobody",
-        kind: "bot",
-        terms: [bot],
-      });
-    }
-  }
   return out;
 }
 
@@ -229,6 +216,7 @@ export function attachMentions(ta) {
     const under = ta.offsetTop + ta.offsetHeight;
     let top = under;
     let left = ta.offsetLeft;
+    let line = 18;
     if (typeof getComputedStyle === "function" && ta.parentElement) {
       const style = getComputedStyle(ta);
       const mirror = el("div", { className: "mmirror" });
@@ -246,7 +234,7 @@ export function attachMentions(ta) {
       const mark = el("span", { textContent: "​" });
       mirror.append(mark);
       ta.parentElement.append(mirror);
-      const line = Number.parseFloat(style.lineHeight) || 18;
+      line = Number.parseFloat(style.lineHeight) || 18;
       top = ta.offsetTop + mark.offsetTop - (ta.scrollTop ?? 0) + line;
       left = ta.offsetLeft + mark.offsetLeft;
       mirror.remove();
@@ -255,12 +243,22 @@ export function attachMentions(ta) {
     }
     pop.style.top = Math.round(top) + "px";
     pop.style.left = Math.round(left) + "px";
-    /* Typing near the right-hand edge is ordinary — a mention usually comes at the end of a
-       sentence — and a list that hangs off the dialog there is a list with half its names
-       cut off. Measured after placing, because until it is placed it has no width. */
-    const room = (pop.offsetParent ?? pop.parentElement)?.clientWidth ?? 0;
-    if (room && left + pop.offsetWidth > room - 8) {
-      pop.style.left = Math.max(0, Math.round(room - pop.offsetWidth - 8)) + "px";
+
+    /* Both edges, measured after placing, because until it is placed it has no size.
+       A `<dialog>` scrolls its own box, so anything hanging outside it is not merely ugly:
+       it is clipped, and the entries you were about to pick are the ones that go missing. */
+    const host = pop.offsetParent ?? pop.parentElement;
+    const wide = host?.clientWidth ?? 0;
+    if (wide && left + pop.offsetWidth > wide - 8) {
+      pop.style.left = Math.max(0, Math.round(wide - pop.offsetWidth - 8)) + "px";
+    }
+    const tall = host?.clientHeight ?? 0;
+    if (tall && top + pop.offsetHeight > tall - 8) {
+      // Above the line being typed if it fits there, which is where an editor would put it.
+      // Otherwise as low as it can sit and still be whole.
+      const above = top - line - pop.offsetHeight;
+      pop.style.top =
+        Math.round(above >= 0 ? above : Math.max(0, tall - pop.offsetHeight - 8)) + "px";
     }
   }
 }
