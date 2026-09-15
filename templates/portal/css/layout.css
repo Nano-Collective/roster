@@ -20,6 +20,17 @@
 
 .sect{padding:14px 20px 6px;font:600 10.5px var(--sans);letter-spacing:.09em;
       text-transform:uppercase;color:var(--ink-faint)}
+/* The Staff heading is also the fold for the list under it, so it is a button — and has to
+   go on reading as a heading rather than as a control. The caret and the 20px left padding
+   are the staff rows' own, so the two carets line up in one column. */
+.sectfold{display:flex;align-items:center;gap:7px;width:100%;background:none;border:0;
+      cursor:pointer;text-align:left;font:600 10.5px var(--sans);letter-spacing:.09em;
+      text-transform:uppercase;color:var(--ink-faint)}
+.sectfold:hover{color:var(--ink-dim)}
+.sectfold .caret{display:inline-flex;--ic:12px;flex:none;transition:transform .12s ease}
+.sectfold[aria-expanded="false"] .caret{transform:rotate(-90deg)}
+/* The count is a number, not a heading: mono, and none of the heading's letterspacing. */
+.sectfold .n{font:10.5px var(--mono);letter-spacing:0;text-transform:none;color:var(--ink-faint)}
 /* Flex, not block with a float. The icons are block-level SVGs and the trailing count has to
    sit hard right; `float` does neither of those inside a flex row, and did neither of them
    outside one once the icons arrived. */

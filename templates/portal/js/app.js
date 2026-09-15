@@ -89,6 +89,7 @@ export async function boot() {
   }
   onRender(render);
   applyHash();
+  initStaffFold();
   paintSidebar();
 
   $("#inboxnav").onclick = () => { S.view = "inbox"; render(); };
@@ -180,6 +181,42 @@ function learnPeople() {
  */
 let paintedRoster = null;
 
+/**
+ * The Staff heading is a fold, and folded it carries the count.
+ *
+ * It starts folded, so the count is not decoration: a bare "STAFF" heading over nothing is how
+ * a loaded org would look if the export came back empty, and those two states have to be
+ * tellable apart at a glance. The count sits on the heading rather than beside it so there is
+ * one thing to click.
+ */
+let staffOpen = true;
+
+function paintStaffFold() {
+  const b = $("#stafffold");
+  if (b) b.setAttribute("aria-expanded", String(staffOpen));
+  const list = $("#stafflist");
+  if (list) list.hidden = !staffOpen;
+  const n = $("#staffcount");
+  if (n) {
+    n.textContent = "(" + (S.data?.staff?.length ?? 0) + ")";
+    n.hidden = staffOpen;
+  }
+}
+
+function initStaffFold() {
+  // Folded until you say otherwise: the count on the heading is enough to know the roster is
+  // there, and the four org-wide screens above it are where a session starts.
+  staffOpen = store("roster.staffopen") === "1";
+  paintStaffFold();
+  const b = $("#stafffold");
+  if (!b) return;
+  b.onclick = () => {
+    staffOpen = !staffOpen;
+    store("roster.staffopen", staffOpen ? "1" : "0");
+    paintStaffFold();
+  };
+}
+
 function paintSidebar() {
   const host = $("#stafflist");
   host.replaceChildren();
@@ -228,6 +265,9 @@ function paintSidebar() {
 
     host.append(head, views);
   }
+
+  // A refresh can hire or retire someone, and the folded heading is where that number shows.
+  paintStaffFold();
 }
 
 /** Which rows are lit, and which staff member is unfolded. */

@@ -113,7 +113,7 @@ function inboxScreen(m, opts) {
     className: "sub",
     textContent: opts.prs
       ? "Work the staff have finished and cannot land themselves."
-      : "Everything open across the org.",
+      : "Everything open across the org. Pull requests are in Pending work.",
   });
   m.append(sub);
 
@@ -126,13 +126,8 @@ function inboxScreen(m, opts) {
   scope.append(
     el("option", { value: "", textContent: "Everything" }),
     el("option", { value: "mine", textContent: "On " + humanLabel() }),
-    // Scoping pull requests to pull requests is not a filter, and a decision is not a PR.
-    ...(opts.prs
-      ? []
-      : [
-          el("option", { value: "decision", textContent: "Decisions" }),
-          el("option", { value: "pr", textContent: "Open work (PRs)" }),
-        ]),
+    // A decision is not a PR, so this one is only ever worth offering on the inbox.
+    ...(opts.prs ? [] : [el("option", { value: "decision", textContent: "Decisions" })]),
   );
   scope.value = opts.prs && S.inboxFilter !== "mine" ? "" : S.inboxFilter;
 
@@ -187,9 +182,9 @@ function inboxScreen(m, opts) {
       acted on, because only the already-loaded branch opened one. */
   function restore() {
     if (!S.inboxOpen) return;
-    // The two screens share one open thread. An issue carried over from the inbox is not on
-    // this one, so it is dropped rather than opened beside a list it is not in.
-    if (opts.prs && S.inboxOpen.kind !== "pr") {
+    // The two screens share one open thread, and each holds half the org. Whatever was open on
+    // the other one is not in this list, so it is dropped rather than opened beside it.
+    if (!!opts.prs !== (S.inboxOpen.kind === "pr")) {
       S.inboxOpen = null;
       writeHash(false);
       return;
@@ -251,9 +246,12 @@ function inboxScreen(m, opts) {
     const onAHuman = (i) => (i.assignees ?? []).some(isHuman);
 
     const whoseStaff = S.inboxStaff ? S.data.staff.find((s) => s.handle === S.inboxStaff) : null;
+    /* The two screens partition the org rather than overlap on it. Pending work is every pull
+       request; the inbox is everything else. An inbox that also listed the PRs said the same
+       thing twice and made the badge beside it a number you could not act on. */
     const mine = S.inbox.items
       .filter((i) => belongsTo(i, whoseStaff))
-      .filter((i) => !opts.prs || i.kind === "pr");
+      .filter((i) => (i.kind === "pr") === !!opts.prs);
     const isOpen = (i) => i.state === "OPEN";
     const scoped = mine.filter(
       S.inboxState === "closed" ? (i) => !isOpen(i) : S.inboxState === "all" ? () => true : isOpen,
@@ -265,12 +263,17 @@ function inboxScreen(m, opts) {
     );
     if (S.inboxFilter === "mine") items = items.filter(onAHuman);
     else if (S.inboxFilter === "decision") items = items.filter((i) => i.labels.includes("decision"));
-    else if (S.inboxFilter === "pr") items = items.filter((i) => i.kind === "pr");
+    /* `s=pr` was the inbox's "Open work (PRs)" scope, and Pending work is now that screen. An
+       old bookmark carrying it is ignored rather than honoured into an empty list. */
 
     const open = mine.filter(isOpen);
     const onYou = open.filter(onAHuman).length;
-    const prs = open.filter((i) => i.kind === "pr").length;
     const shut = mine.length - open.length;
+    /* Pending work owns the pull requests now, so this is a pointer to that screen rather than
+       a count of anything on this list. Scoped the same way, or the two would not add up. */
+    const prs = S.inbox.items.filter(
+      (i) => i.kind === "pr" && isOpen(i) && belongsTo(i, whoseStaff),
+    ).length;
     const where = whoseStaff
       ? " for <b>" + esc(whoseStaff.name) + "</b>"
       : " across " + (S.inbox.repos ?? []).length + " repos";
@@ -286,7 +289,7 @@ function inboxScreen(m, opts) {
             (failing ? " · " + failing + " failing" : "") +
             (S.inboxState === "all" ? " · " + shut + " closed or merged" : "")
           : open.length + " open" + where + " · <b>" + onYou + " on " +
-            esc(humanLabel()) + "</b> · " + prs + " waiting on a merge" +
+            esc(humanLabel()) + "</b> · " + prs + " in Pending work" +
             (S.inboxState === "all" ? " · " + shut + " closed" : "")) +
       (S.inbox.fetchedAt ? ' <span class="meta">· checked ' + ago(S.inbox.fetchedAt) + "</span>" : "");
 
@@ -324,6 +327,12 @@ function inboxScreen(m, opts) {
           '<span class="num">' + (i.kind === "pr" ? "PR " : "") + "#" + i.number + "</span>" +
           (i.checks && i.checks !== "none"
             ? '<span class="ck ' + i.checks + '">' + checkGlyph(i.checks) + "</span>" : "") +
+          /* Green checks on a branch that no longer applies is the one case where the row
+             reads as ready and is not. It has to say so here, not three clicks in. */
+          (i.mergeable === "CONFLICTING"
+            ? '<span class="chip conflict" title="This branch conflicts with its base">' +
+              "conflicts</span>"
+            : "") +
           // How much conversation is on a thread, which is most of what tells a live one from
           // something that was filed and never answered.
           (i.comments.length
@@ -365,6 +374,10 @@ function inboxScreen(m, opts) {
         ' · <span class="' + (item.state === "OPEN" ? "ok" : "") + '">' + esc(item.state) + "</span>" +
         " · " + esc(item.author) + " · " + ago(item.updatedAt) + "</div>" +
       "<h3>" + esc(item.title) + "</h3>" +
+      (item.mergeable === "CONFLICTING"
+        ? '<p class="tconflict">This branch conflicts with its base and cannot be merged ' +
+          "until someone rebases or merges the base into it.</p>"
+        : "") +
       (item.labels.length
         ? '<div class="row tlabels">' +
           item.labels.map((l) => '<span class="chip ' + tone(l) + '">' + esc(l) + "</span>").join("") +
@@ -651,6 +664,12 @@ function inboxScreen(m, opts) {
        own settings. The server reads it from there. */
     if (item.kind === "pr" && item.state === "OPEN") {
       const merge = el("button", { className: "ghbtn", textContent: "Merge" });
+      /* A conflicted branch cannot be merged by anyone, so the button says why instead of
+         spending a round trip to come back with GitHub's version of the same sentence. */
+      if (item.mergeable === "CONFLICTING") {
+        merge.disabled = true;
+        merge.title = "This branch conflicts with its base";
+      }
       merge.onclick = async () => {
         if (!confirm("Merge " + item.repo + " #" + item.number + " into its base branch?")) return;
         busy(true, "merging…");

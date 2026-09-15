@@ -46,7 +46,11 @@
       <span class="ic" data-icon="docs"></span> Docs
     </button>
 
-    <div class="sect">Staff</div>
+    <!-- The heading is the fold. Collapsed, it carries the count, because a hidden list still
+         has to say how much it is hiding. -->
+    <button class="sect sectfold" id="stafffold" aria-expanded="false" aria-controls="stafflist">
+      <span class="caret" data-icon="chevron"></span>Staff<span class="n" id="staffcount" hidden></span>
+    </button>
     <div id="stafflist"></div>
 
     <div class="sidefoot">

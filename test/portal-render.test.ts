@@ -180,6 +180,27 @@ const INBOX_FIXTURE = {
         },
       ],
     },
+    /* A second open issue, so the inbox has a list rather than a single row. It carries no
+       replies, which is what "a row says how much conversation is on it" reads as the quiet
+       case — that used to be a pull request, and pull requests are not on this screen. */
+    {
+      repo: "acme/brain",
+      role: "brain",
+      kind: "issue",
+      number: 4,
+      title: "A quiet question",
+      labels: [],
+      assignees: [],
+      author: "bot",
+      updatedAt: "2026-05-25T00:00:00Z",
+      url: "https://example.invalid/4",
+      state: "OPEN",
+      createdAt: "2026-05-25T00:00:00Z",
+      body: "nobody has answered this",
+      comments: [],
+      reactions: [],
+      events: [],
+    },
     {
       repo: "acme/brain",
       role: "brain",
@@ -211,6 +232,27 @@ const INBOX_FIXTURE = {
       state: "MERGED",
       createdAt: "2026-04-01T00:00:00Z",
       body: "shipped",
+      comments: [],
+      events: [],
+    },
+    /* Green checks and a branch that no longer applies: the state the screen used to render
+       as ready to merge, because nothing on it read `mergeable`. */
+    {
+      repo: "acme/product",
+      role: "product",
+      kind: "pr",
+      number: 8,
+      title: "A pull request that no longer applies",
+      labels: [],
+      assignees: [],
+      author: "bot",
+      updatedAt: "2026-06-02T00:00:00Z",
+      url: "https://example.invalid/8",
+      checks: "passing",
+      mergeable: "CONFLICTING",
+      state: "OPEN",
+      createdAt: "2026-06-01T00:00:00Z",
+      body: "conflicted",
       comments: [],
       events: [],
     },
@@ -608,7 +650,7 @@ const DEFAULTS = {
   sync: null,
   loadedAt: null,
   staffHandle: null,
-  view: "brain",
+  view: "inbox",
   query: "",
   openFile: null,
   fileQuery: "",
@@ -705,6 +747,30 @@ test("boot renders without throwing and populates the sidebar", async () => {
   assert.match(s._byId.orgname.textContent, /staff/);
 });
 
+test("the Staff heading folds the list away and says how many it is hiding", async () => {
+  const s = await renderAll();
+  const fold = s._byId.stafffold;
+  const count = s._byId.staffcount;
+
+  assert.equal(fold.getAttribute("aria-expanded"), "false", "the roster starts folded");
+  assert.equal(s._byId.stafflist.hidden, true);
+  // The whole point of the fold: hidden, the heading still has to say how much is behind it,
+  // or a loaded org is indistinguishable from an empty one.
+  assert.equal(count.hidden, false);
+  assert.equal(count.textContent, `(${ORG.staff.length})`);
+
+  fold.onclick();
+  assert.equal(fold.getAttribute("aria-expanded"), "true");
+  assert.equal(s._byId.stafflist.hidden, false, "and it unfolds");
+  assert.equal(count.hidden, true, "a list you can see counts itself");
+  assert.deepEqual(s._saved.at(-1), ["roster.staffopen", "1"], "and the choice is remembered");
+
+  fold.onclick();
+  assert.equal(s._byId.stafflist.hidden, true, "and folds away again");
+  assert.equal(count.hidden, false);
+  assert.deepEqual(s._saved.at(-1), ["roster.staffopen", "0"]);
+});
+
 test("every view renders and produces content", async () => {
   const s = await renderAll();
   for (const view of ["brain", "prompt", "graph", "changed", "health", "roster"]) {
@@ -750,7 +816,9 @@ test("the theme toggle cycles system → light → dark and persists", async () 
 
 test("the URL carries the state, so a refresh lands where you were", async () => {
   const s = await renderAll();
-  assert.match(s.location.hash, /^#\/[a-z]+\/brain$/, "boot should record staff and view");
+  // The inbox is the default view, and the staff handle is recorded even on an org-wide screen
+  // so that unfolding someone later lands on a person rather than on nobody.
+  assert.match(s.location.hash, /^#\/[a-z]+\/inbox$/, "boot should record staff and view");
 
   s.view = "graph";
   s.render();
@@ -777,7 +845,7 @@ test("the inbox renders and holds every open item", async () => {
   assert.equal(s.view, "inbox");
   await new Promise((r) => setTimeout(r, 20));
   assert.ok(s._byId.main.children.length > 0, "inbox rendered nothing");
-  assert.equal(s.INBOX.items.length, 4, "two open, one closed, one merged");
+  assert.equal(s.INBOX.items.length, 6, "four open, one closed, one merged");
 });
 
 test("selecting a row deselects the previous one", async () => {
@@ -819,10 +887,10 @@ test("the inbox renders newest first", async () => {
   };
   walk(s._byId.main);
 
-  assert.equal(rows.length, 2, "expected both fixture rows to render");
+  assert.equal(rows.length, 2, "expected both open issues to render");
   const [first, second] = rows as [string, string];
   assert.ok(first.includes("Needs a ruling"), "the newer item must come first");
-  assert.ok(second.includes("An older pull request"));
+  assert.ok(second.includes("A quiet question"));
   assert.ok(first.includes("brain"), "each row should name its project");
 });
 
@@ -851,7 +919,8 @@ test("refreshAll re-fetches and re-renders, so a run that lands is visible", asy
   let calls = 0;
   const first = s.DATA;
   s.fetch = async (u: string) => {
-    if (String(u).startsWith("/api/org")) calls++;
+    if (!String(u).startsWith("/api/org")) return fixtureFetch(u);
+    calls++;
     return {
       ok: true,
       json: async () => ({ ...first, generatedAt: "2030-01-01T00:00:00Z" }),
@@ -874,10 +943,14 @@ test("coming back to the tab costs nothing when nothing has changed", async () =
   const first = s.DATA;
   const loaded = { items: [{ repo: "acme/brain" }], repos: [], errors: [] };
   s.INBOX = loaded;
+  /* Only sync and the export are scripted here; the default view is the inbox, so the repaint
+     this triggers asks for one and has to get an inbox back rather than the export again. */
   s.fetch = async (u: string) =>
     String(u).startsWith("/api/sync")
       ? { ok: true, json: async () => ({ results: [{ dir: "brain", pulled: false }] }) }
-      : { ok: true, json: async () => ({ ...first, generatedAt: "2030-01-01T00:00:00Z" }) };
+      : String(u).startsWith("/api/org")
+        ? { ok: true, json: async () => ({ ...first, generatedAt: "2030-01-01T00:00:00Z" }) }
+        : fixtureFetch(u);
 
   await s.refreshQuietly();
   assert.equal(s.INBOX, loaded, "the loaded inbox is kept, so nothing re-reads GitHub");
@@ -886,7 +959,9 @@ test("coming back to the tab costs nothing when nothing has changed", async () =
   s.fetch = async (u: string) =>
     String(u).startsWith("/api/sync")
       ? { ok: true, json: async () => ({ results: [{ dir: "brain", pulled: true }] }) }
-      : { ok: true, json: async () => ({ ...first, generatedAt: "2030-01-02T00:00:00Z" }) };
+      : String(u).startsWith("/api/org")
+        ? { ok: true, json: async () => ({ ...first, generatedAt: "2030-01-02T00:00:00Z" }) }
+        : fixtureFetch(u);
   await s.refreshQuietly();
   assert.equal(s.INBOX, null, "a pull invalidates it");
 });
@@ -899,7 +974,9 @@ test("a change to the export repaints even when nothing was pulled", async () =>
   s.fetch = async (u: string) =>
     String(u).startsWith("/api/sync")
       ? { ok: true, json: async () => ({ results: [] }) }
-      : { ok: true, json: async () => ({ ...s.DATA, name: "A different name" }) };
+      : String(u).startsWith("/api/org")
+        ? { ok: true, json: async () => ({ ...s.DATA, name: "A different name" }) }
+        : fixtureFetch(u);
   await s.refreshQuietly();
   assert.equal(s.INBOX, null, "something moved, so the inbox is stale too");
 });
@@ -1626,7 +1703,7 @@ test("a row says how much conversation is on it", async () => {
   const rows = walkNodes(s._byId.main).filter((n) => String(n.className ?? "").startsWith("irow"));
   const talked = rows.find((r: any) => /Needs a ruling/.test(r.innerHTML));
   assert.match(talked.innerHTML, /class="cc" title="1 comments"/, "the one with a reply says so");
-  const quiet = rows.find((r: any) => /An older pull request/.test(r.innerHTML));
+  const quiet = rows.find((r: any) => /A quiet question/.test(r.innerHTML));
   assert.ok(!/class="cc"/.test(quiet.innerHTML), "and one with none says nothing at all");
 });
 
@@ -1714,9 +1791,9 @@ test("a pull request opens onto its commits and its diff", async () => {
   /* Both are fetched when asked for rather than carried by the inbox: a diff is the biggest
      thing on this screen, and paying for every open PR's diff on every refresh to show one of
      them is the wrong trade. */
-  const s = await renderAll("#/x/inbox");
+  const s = await renderAll("#/-/prs");
   await new Promise((r) => setTimeout(r, 20));
-  s.view = "inbox";
+  s.view = "prs";
   s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
   s.render();
 
@@ -1749,8 +1826,8 @@ test("Pull requests is its own screen, and only lists pull requests", async () =
   const titles = nodes
     .filter((n) => String(n.className ?? "").startsWith("irow"))
     .map((n: any) => String(n.innerHTML));
-  assert.equal(titles.length, 1, "one open PR in the fixture");
-  assert.ok(String(titles[0]).includes("An older pull request"));
+  assert.equal(titles.length, 2, "two open PRs in the fixture");
+  assert.ok(titles.some((t) => t.includes("An older pull request")));
   assert.ok(
     !titles.some((t) => t.includes("Needs a ruling")),
     "an issue does not belong on this screen",
@@ -1761,8 +1838,41 @@ test("Pull requests is its own screen, and only lists pull requests", async () =
 
   // And the count under the title is about merging, not about who owes a reply.
   const sub = String(nodes.find((n) => String(n.className ?? "") === "sub")?._html ?? "");
-  assert.match(sub, /1 open/);
+  assert.match(sub, /2 open/);
   assert.match(sub, /with checks passing/);
+});
+
+test("a pull request that conflicts with its base says so before you open it", async () => {
+  /* Both fixture PRs have green checks. Without this the conflicted one is indistinguishable
+     from the mergeable one until you click Merge and GitHub refuses. */
+  const s = await renderAll("#/-/prs");
+  await new Promise((r) => setTimeout(r, 30));
+
+  const rows = walkNodes(s._byId.main).filter((n) =>
+    String(n.className ?? "").startsWith("irow"),
+  );
+  const bad = rows.find((r: any) => /no longer applies/.test(r.innerHTML));
+  const good = rows.find((r: any) => /An older pull request/.test(r.innerHTML));
+  assert.match(bad.innerHTML, /class="chip conflict"/, "the conflicted row is marked");
+  assert.ok(!/chip conflict/.test(good.innerHTML), "and a mergeable one is not");
+
+  // Opening it says the whole sentence, and takes the Merge button away: a conflicted branch
+  // cannot be merged by anyone, so offering the click is offering a round trip to an error.
+  s.inboxOpen = { repo: "acme/product", number: 8, kind: "pr" };
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const head = walkNodes(s._byId.main).find((n) => String(n.className ?? "") === "thead");
+  assert.match(String(head._html), /conflicts with its base/);
+  assert.equal(button(s._byId.main, "Merge").disabled, true);
+});
+
+test("a mergeable pull request still offers the Merge button", async () => {
+  const s = await renderAll("#/-/prs");
+  await new Promise((r) => setTimeout(r, 30));
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(!button(s._byId.main, "Merge").disabled, "nothing is wrong with this one");
 });
 
 test("replying is a dialog on the header, not a box at the end of the thread", async () => {
@@ -1810,7 +1920,7 @@ test("replying is a dialog on the header, not a box at the end of the thread", a
 test("there is one composer, not two", async () => {
   /* Two buttons that both post on the thread and both can open a request on somebody's tracker
      is two ways to do one thing, and the page never said which you wanted. */
-  const s = await renderAll("#/x/inbox");
+  const s = await renderAll("#/-/prs");
   await new Promise((r) => setTimeout(r, 20));
   s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
   s.render();
@@ -1824,7 +1934,7 @@ test("a reply that mentions somebody who is not listening reaches them anyway", 
   /* The whole point of the product-repo lane. Typing `@cto` on a pull request posts a comment
      nobody is woken by, and the first version of this told you so and then asked you to go and
      press a different button. One press now does both. */
-  const s = await renderAll("#/x/inbox");
+  const s = await renderAll("#/-/prs");
   await new Promise((r) => setTimeout(r, 20));
   s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
   s.render();
@@ -1887,7 +1997,7 @@ test("a reply on somebody's own tracker is just a comment", async () => {
 });
 
 test("a reply with no mention at all is just a comment, wherever it is", async () => {
-  const s = await renderAll("#/x/inbox");
+  const s = await renderAll("#/-/prs");
   await new Promise((r) => setTimeout(r, 20));
   s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
   s.render();
@@ -1910,6 +2020,8 @@ test("an issue is not offered a Merge button; an open pull request is", async ()
   openInbox(s);
   assert.throws(() => button(s._byId.main, "Merge"), /no button called/);
 
+  // The other half of the org, on the screen that holds it.
+  s.view = "prs";
   s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
   s.render();
   assert.ok(button(s._byId.main, "Merge"), "an open PR can be merged from here");
@@ -2163,27 +2275,26 @@ test("the inbox lists open work by default, and closed only when asked", async (
   let titles = inboxTitles(s).join(" ");
   assert.ok(titles.includes("Needs a ruling"), "open work is listed");
   assert.ok(!titles.includes("Something already settled"), "a closed issue is not");
-  assert.ok(!titles.includes("A pull request that landed"), "nor a merged PR");
+  // Pending work is the screen for these. Listing them here too said the same thing twice.
+  assert.ok(!titles.includes("An older pull request"), "and an open PR is not either");
 
   s.inboxState = "closed";
   s.render();
   await new Promise((r) => setTimeout(r, 20));
   titles = inboxTitles(s).join(" ");
   assert.ok(titles.includes("Something already settled"), "closed shows the closed issue");
-  assert.ok(titles.includes("A pull request that landed"), "and the merged PR");
   assert.ok(!titles.includes("Needs a ruling"), "and nothing that is still open");
+  // The state filter widens what is listed; it does not pull the other screen's half back in.
+  assert.ok(!titles.includes("A pull request that landed"), "a merged PR is still not here");
 
   s.inboxState = "all";
   s.render();
   await new Promise((r) => setTimeout(r, 20));
   titles = inboxTitles(s).join(" ");
-  for (const want of [
-    "Needs a ruling",
-    "Something already settled",
-    "A pull request that landed",
-  ]) {
+  for (const want of ["Needs a ruling", "A quiet question", "Something already settled"]) {
     assert.ok(titles.includes(want), want + " should be listed under open and closed");
   }
+  assert.ok(!titles.includes("A pull request that landed"), "and pull requests still are not");
 });
 
 test("a closed row is marked as closed rather than looking open", async () => {
@@ -2195,7 +2306,7 @@ test("a closed row is marked as closed rather than looking open", async () => {
       .includes("irow"),
   );
   const shut = rows.filter((r) => String(r.className).includes("shut"));
-  assert.equal(shut.length, 2, "the closed issue and the merged PR");
+  assert.equal(shut.length, 1, "the closed issue; the merged PR is on the other screen");
   assert.match(shut[0].innerHTML, /class="ist /, "with a state marker on the row");
   assert.equal(
     rows.filter((r) => !String(r.className).includes("shut")).length,
@@ -2208,8 +2319,11 @@ test("the sidebar badge counts what is open, not what is loaded", async () => {
   // 135 in a badge when 34 things need you is worse than no badge.
   const s = await renderAll("#/x/inbox?x=all");
   await new Promise((r) => setTimeout(r, 30));
-  assert.equal(s.INBOX.items.length, 4, "the fixture holds open and closed");
+  assert.equal(s.INBOX.items.length, 6, "the fixture holds open and closed");
+  // Two open issues. The two open PRs are Pending work's, and counting them in both places
+  // would bill you twice for the same pile.
   assert.equal(s._byId.inboxcount.textContent, "2", "but the badge counts the open ones");
+  assert.equal(s._byId.prcount.textContent, "2", "and the PR badge counts its own");
 });
 
 test("every state field is reachable through the harness", async () => {

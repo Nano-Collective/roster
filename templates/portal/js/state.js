@@ -36,7 +36,9 @@ export const S = {
   loadedAt: null,
 
   staffHandle: null,
-  view: "brain",
+  /* What is waiting on you, not whose brain you read last. The org-wide screens are where a
+     session starts, which is also why the Staff list below them opens folded. */
+  view: "inbox",
   /** The inbox filter box. Brain and "what changed" keep their own, below. */
   query: "",
 
@@ -73,9 +75,10 @@ export const S = {
 
 /* The sidebar badge counts open items, not everything loaded. Once the inbox could show
    closed work the two stopped being the same number, and a badge that says 135 when 34 things
-   need you is worse than no badge. */
+   need you is worse than no badge. Pull requests are excluded for the same reason: they are
+   Pending work's, and counting them here would bill you twice for the same pile. */
 export const openCount = () =>
-  (S.inbox?.items ?? []).filter((i) => i.state === "OPEN").length;
+  (S.inbox?.items ?? []).filter((i) => i.state === "OPEN" && i.kind !== "pr").length;
 
 /** The same, for the screen that is only pull requests. */
 export const openPrCount = () =>

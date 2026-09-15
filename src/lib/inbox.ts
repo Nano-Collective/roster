@@ -101,6 +101,15 @@ export interface InboxItem {
   state: string;
   draft?: boolean;
   checks?: "passing" | "failing" | "pending" | "none";
+  /**
+   * Whether this PR still applies to its base.
+   *
+   * GitHub computes this in the background, so a freshly pushed branch honestly answers
+   * `UNKNOWN`. Carried through as it comes rather than folded into a boolean: "not known yet"
+   * and "conflicts" are different answers, and only one of them is worth interrupting someone
+   * about.
+   */
+  mergeable?: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
   /** Kept because a count of replies is worth having without walking the timeline. */
   comments: Comment[];
   events: TimelineEvent[];
@@ -197,7 +206,7 @@ query($owner:String!, $name:String!) {
     }
     pullRequests(states:OPEN, first:60, orderBy:{field:UPDATED_AT, direction:DESC}) {
       nodes {
-        number title body url state createdAt updatedAt isDraft
+        number title body url state createdAt updatedAt isDraft mergeable
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
@@ -257,6 +266,7 @@ export async function fetchInbox(
           const item = shape(n, full, r.role, "pr");
           item.draft = n.isDraft;
           item.checks = rollup(n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state);
+          item.mergeable = n.mergeable;
           items.push(item);
         }
 

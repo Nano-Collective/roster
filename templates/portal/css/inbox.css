@@ -40,10 +40,22 @@
 .ist{display:inline-flex;--ic:12px}
 .ist.closed{color:var(--derived)} .ist.merged{color:var(--derived)}
 .ck.passing{color:var(--accent)} .ck.failing{color:var(--err)} .ck.pending{color:var(--warn)}
+/* Filled rather than outlined like the label chips beside it. A branch that no longer applies
+   to its base is the one state where a row can show green checks and still not be mergeable,
+   so it has to win the row it is in. */
+.chip.conflict{color:var(--err);border-color:color-mix(in srgb,var(--err) 50%,transparent);
+      background:color-mix(in srgb,var(--err) 14%,transparent)}
 
 /* ---------- thread ---------- */
 .thead{border-bottom:1px solid var(--line);padding-bottom:16px}
 .thead h3{margin:8px 0 0;font:600 17px/1.35 var(--sans);letter-spacing:-.012em;color:var(--ink)}
+/* The same fact as the chip, said in full, once, at the top of the thread it applies to.
+   Tight to the title and a clear gap above the buttons: it is a statement about this pull
+   request, not a caption on the controls. At an even 10/16 it read as the latter. */
+.tconflict{margin:4px 0 0;font:12.5px/1.5 var(--sans);color:var(--err)}
+/* A bottom margin here would collapse against the row's own 16px and change nothing, so the
+   extra room is put on the row. General sibling, not adjacent: labels can sit between them. */
+.tconflict ~ .tacts{margin-top:24px}
 .tlabels{margin-top:10px}
 .cmt{border-top:1px solid var(--line);padding:16px 0}
 .cmt.first{border-top:0}
