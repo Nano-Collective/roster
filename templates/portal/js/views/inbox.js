@@ -540,8 +540,11 @@ function inboxScreen(m, opts) {
     b.onclick = async () => {
       b.disabled = true;
       try {
-        const r = await openReply(item, f);
-        if (r) b.textContent = r.warning ? "sent, with a warning" : "sent";
+        // Same reason as the header's Reply: the wait is after the box closes, not during it.
+        const r = await openReply(item, f, () => {
+          b.textContent = "Replying…";
+        });
+        b.textContent = r ? (r.warning ? "sent, with a warning" : "sent") : "Reply";
       } catch (e) {
         b.textContent = e.message;
       }
@@ -603,24 +606,43 @@ function inboxScreen(m, opts) {
     /* One button, because there was no way to tell the two apart. Reply reaches whoever you
        named in it; see `openReply`. */
     const reply = el("button", { className: "ghbtn primary", textContent: "Reply" });
+
+    /* Posting a comment is a round trip to GitHub through `gh`, and on a cold connection that
+       is seconds of a button that still says "Reply" and still takes clicks. Saying nothing
+       reads as a page that ignored you, which is how the same comment gets sent twice. */
+    const sending = (on) => {
+      busy(on, on ? "sending…" : "");
+      reply.textContent = on ? "Replying…" : "Reply";
+    };
+
     reply.onclick = async () => {
       let r;
       try {
-        r = await openReply(item, null);
+        r = await openReply(item, null, () => sending(true));
       } catch (e) {
+        sending(false);
         failed(e);
         return;
       }
-      if (!r) return;
+      // Closed the box without sending: nothing ever started, so there is nothing to put back.
+      if (!r) {
+        sending(false);
+        return;
+      }
       /* Repaint only when something was said on this thread, which is always true here: `ask`
          posts the comment too. A warning means the tracker issue went up and the comment did
          not, and then the status line is the only thing that says so. */
       if (r.warning) {
+        sending(false);
         status.className = "meta err";
         status.textContent = r.warning;
         return;
       }
+      /* Held across the reload as well as the post. The reply is not on screen until the
+         thread repaints, and a button that said "Reply" again before then would be claiming
+         it was done over a thread that still did not show it. */
       await reloadThread(item);
+      sending(false);
     };
     buttons.push(reply);
 
@@ -733,7 +755,15 @@ function inboxScreen(m, opts) {
  * @param anchor  the file this is about, when it was opened from a diff. Its hunk rides along.
  * @returns the result of the write, or null if nothing was written.
  */
-async function openReply(item, anchor) {
+/**
+ * @param onSend Called once, the moment the box is submitted and the writing starts.
+ *
+ * The dialog and the send are one `await` to whoever called this, so a caller cannot tell the
+ * two apart by itself — and the two want opposite things from a button. While the box is open
+ * you are still typing and the button has to stay as it was; once it closes there is a request
+ * in flight against GitHub that can take seconds, and that is what needs saying.
+ */
+async function openReply(item, anchor, onSend) {
   const key = item.repo + "#" + item.number + (anchor ? " · " + anchor.path : "");
   let deaf = null;
 
@@ -756,6 +786,7 @@ async function openReply(item, anchor) {
     },
   });
   if (!body) return null;
+  onSend?.();
 
   /* One press, both writes. `ask` posts the comment itself when told to, so these are not two
      requests racing: the tracker issue goes up first because it is the half that actually

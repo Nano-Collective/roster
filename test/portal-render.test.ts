@@ -1848,9 +1848,7 @@ test("a pull request that conflicts with its base says so before you open it", a
   const s = await renderAll("#/-/prs");
   await new Promise((r) => setTimeout(r, 30));
 
-  const rows = walkNodes(s._byId.main).filter((n) =>
-    String(n.className ?? "").startsWith("irow"),
-  );
+  const rows = walkNodes(s._byId.main).filter((n) => String(n.className ?? "").startsWith("irow"));
   const bad = rows.find((r: any) => /no longer applies/.test(r.innerHTML));
   const good = rows.find((r: any) => /An older pull request/.test(r.innerHTML));
   assert.match(bad.innerHTML, /class="chip conflict"/, "the conflicted row is marked");
@@ -1994,6 +1992,66 @@ test("a reply on somebody's own tracker is just a comment", async () => {
   }
 
   assert.equal(sent?.action, "comment", "the mention already wakes them here");
+});
+
+test("the Reply button says it is replying, until the reply is on the thread", async () => {
+  /* Posting goes out through `gh`, which is seconds on a cold connection. The button used to
+     sit there saying "Reply" and taking clicks the whole time, so you could not tell a send in
+     flight from one the page had ignored — and the cure for that is sending it twice. */
+  const s = await renderAll("#/-/prs");
+  await new Promise((r) => setTimeout(r, 20));
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+
+  const head = walkNodes(s._byId.main).find((n: any) => String(n.className ?? "") === "thead");
+  const reply = button(head, "Reply");
+
+  let labelDuringSend: string | null = null;
+  let disabledDuringSend: boolean | null = null;
+  s.fetch = async (u: string) => {
+    if (String(u) === "/api/act") {
+      labelDuringSend = String(reply.textContent);
+      disabledDuringSend = reply.disabled === true;
+    }
+    return { ok: true, json: async () => ({ ok: true }), text: async () => "" };
+  };
+
+  const g = globalThis as any;
+  const was = g.prompt;
+  g.prompt = () => "looks right to me";
+  try {
+    reply.onclick();
+    await new Promise((r) => setTimeout(r, 20));
+  } finally {
+    g.prompt = was;
+  }
+
+  assert.equal(labelDuringSend, "Replying…", "while the request is in flight");
+  assert.equal(disabledDuringSend, true, "and it does not take a second click");
+});
+
+test("a cancelled reply leaves the button alone", async () => {
+  // The box is open while you type, and you are not replying yet. Nothing should have moved.
+  const s = await renderAll("#/-/prs");
+  await new Promise((r) => setTimeout(r, 20));
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+
+  const head = walkNodes(s._byId.main).find((n: any) => String(n.className ?? "") === "thead");
+  const reply = button(head, "Reply");
+
+  const g = globalThis as any;
+  const was = g.prompt;
+  g.prompt = () => "";
+  try {
+    reply.onclick();
+    await new Promise((r) => setTimeout(r, 20));
+  } finally {
+    g.prompt = was;
+  }
+
+  assert.equal(String(reply.textContent), "Reply");
+  assert.ok(!reply.disabled, "and it is still clickable");
 });
 
 test("a reply with no mention at all is just a comment, wherever it is", async () => {
