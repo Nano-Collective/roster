@@ -293,31 +293,37 @@ test("a scaffolded hire is coherent: doctor passes and both prompts compose", as
       filter: (s) => !s.includes("/.git/"),
     });
 
-    // Enough of the existing staff for the inference and peer wiring to be real, without
-    // copying two brain repos and 16MB of brand assets into a temp directory.
-    for (const [dir, handle, app] of [
-      ["technology", "cto", "acme-cto"],
-      ["marketing", "cmo", "acme-cmo"],
-    ]) {
-      mkdirSync(join(root, dir!), { recursive: true });
+    /* Enough of the existing staff for the inference and peer wiring to be real, without
+       copying two brain repos and 16MB of brand assets into a temp directory.
+
+       The handles and directories come off the org that was just copied in, not from a list
+       written down here. Hardcoded, they silently stopped matching the moment a brain repo was
+       renamed, and the app-slug inference then had nothing to read — which failed this test
+       for a reason that had nothing to do with hiring. */
+    const sandbox = findWorkspace(join(root, "roster-ops"));
+    const sandboxOrg = readOrg(sandbox.opsDir, parseYaml) as any;
+
+    for (const s of (sandboxOrg.staff ?? []).slice(0, 2) as Array<{
+      handle: string;
+      dir?: string;
+    }>) {
+      const dir = s.dir ?? s.handle;
+      mkdirSync(join(root, dir), { recursive: true });
       writeFileSync(
-        join(root, dir!, "staff.yaml"),
+        join(root, dir, "staff.yaml"),
         [
-          `handle: ${handle}`,
+          `handle: ${s.handle}`,
           `brain: acme/${dir}`,
           `schedule: "0 7 * * 1-5"`,
           `public_token_env: PIPWEB_TOKEN`,
           `identities:`,
-          `  - { app: ${app}, secret_prefix: ${handle!.toUpperCase()}, scope: private }`,
+          `  - { app: acme-${s.handle}, secret_prefix: ${s.handle.toUpperCase()}, scope: private }`,
           `  - { app: acme-robot, secret_prefix: BOT, scope: public }`,
           `peers:`,
           ``,
         ].join("\n"),
       );
     }
-
-    const sandbox = findWorkspace(join(root, "roster-ops"));
-    const sandboxOrg = readOrg(sandbox.opsDir, parseYaml) as any;
     // statusIssue is what --apply learns from GitHub; everything else is offline.
     const p = buildPlan(
       sandbox,

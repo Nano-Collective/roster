@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { isWritable, promptView, saveFile } from "../src/lib/prompt.js";
-import { findWorkspace, loadComposer } from "../src/lib/workspace.js";
+import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**
@@ -18,10 +18,24 @@ import { testWorkspace } from "./helpers/workspace.js";
 
 const ROOT = join(import.meta.dirname, "..");
 const ws = await testWorkspace();
-const { compose } = await loadComposer(ws.opsDir);
+const { compose, parseYaml } = await loadComposer(ws.opsDir);
+
+/* Who to compose for, read off the org rather than written down here.
+ *
+ * A handle and the directory its brain sits in are the same word in some orgs and different
+ * words in others, and this file used to assume the CTO's was `technology/`. When that repo
+ * was renamed these tests failed for a reason that had nothing to do with what they check —
+ * and worse, the one that only passed the directory as a hint went on passing while silently
+ * composing without any of the staff member's own layers. */
+const ORG = readOrg(ws.opsDir, parseYaml) as {
+  staff?: Array<{ handle: string; dir?: string }>;
+};
+const FIRST = ORG.staff?.[0];
+const HANDLE = FIRST?.handle ?? "cto";
+const BRAIN = FIRST?.dir ?? HANDLE;
 
 test("the layers are walked out of the includes, not written down", async () => {
-  const view = promptView(ws, compose, "cto", join(ws.root, "technology"), "daily");
+  const view = promptView(ws, compose, HANDLE, join(ws.root, BRAIN), "daily");
 
   assert.ok(view.composed.length > 1000, "a daily prompt is not a stub");
   const rels = view.layers.map((l) => l.rel);
@@ -46,12 +60,12 @@ test("the layers are walked out of the includes, not written down", async () => 
 });
 
 test("a staff override resolves inside that staff member's own repo", async () => {
-  const view = promptView(ws, compose, "cto", join(ws.root, "technology"), "daily");
+  const view = promptView(ws, compose, HANDLE, join(ws.root, BRAIN), "daily");
   const own = view.layers.filter((l) => l.rel.startsWith("staff:"));
   assert.ok(own.length, "the CTO has prompt fragments of its own");
   for (const l of own) {
-    assert.ok(l.path.startsWith("technology/"), l.rel + " resolved to " + l.path);
-    assert.equal(l.repo, "technology");
+    assert.ok(l.path.startsWith(BRAIN + "/"), l.rel + " resolved to " + l.path);
+    assert.equal(l.repo, BRAIN);
   }
 });
 
@@ -59,7 +73,7 @@ test("the charter is named by the prompt, not pasted into it", async () => {
   /* AGENT-ORG-PLAN.md reads as though the charter is part of the composed prompt. It is not:
      the prompt tells the agent to open it. The screen makes that distinction, so the data
      behind it has to hold. */
-  const view = promptView(ws, compose, "cto", join(ws.root, "technology"), "daily");
+  const view = promptView(ws, compose, HANDLE, join(ws.root, BRAIN), "daily");
   const charter = view.runtime.find((l) => l.rel === "CHARTER.md");
   assert.ok(charter, "the charter belongs in the runtime list");
   assert.ok(charter.bytes > 0);
