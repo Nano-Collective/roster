@@ -63,12 +63,30 @@ async function syncOne(path: string, dir: string): Promise<SyncResult> {
        tell you a repo it had just brought up to date was "still 1 behind", every time. */
     return { ...base, ahead, behind: 0, dirty, pulled: true };
   } catch (err) {
-    return { ...base, error: firstLine(err) };
+    return { ...base, error: reason(err) };
   }
 }
 
-function firstLine(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e);
-  const line = msg.split("\n").find((l) => l.trim()) ?? msg;
+/**
+ * Why it stopped, rather than what was run.
+ *
+ * `execFile` builds its message as "Command failed: <the whole command line>" and puts git's
+ * own words on the lines below it. Taking the first line therefore read the command back to
+ * you and dropped the reason — so every sync failure in the portal said
+ * "Command failed: git -C /…/cto fetch --quiet --prune" and nothing about authentication, the
+ * network, or a lock, which is the only part anyone can act on.
+ *
+ * git writes the reason to stderr, so that is preferred; the message is the fallback, minus
+ * the boilerplate line.
+ */
+export function reason(e: unknown): string {
+  const err = e as { stderr?: unknown; message?: unknown };
+  const text = String(err?.stderr ?? "").trim() || String(err?.message ?? e);
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  // `fatal:`/`error:` are git's own prefixes and are kept: they are the sentence, not noise.
+  const line = lines.find((l) => !/^Command failed:/i.test(l)) ?? lines[0] ?? String(e);
   return line.length > 180 ? line.slice(0, 179) + "…" : line;
 }
