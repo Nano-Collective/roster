@@ -3,10 +3,11 @@
 /* ---------- navigator ----------
    Memory and Files are two kinds of thing, so they are two boxes rather than one flat list
    where a parsed section and a markdown file are told apart only by their typeface. */
-.navgroup{border:1px solid var(--line);border-radius:7px;margin-bottom:8px;padding:4px 3px 5px}
+.navgroup{border:0;border-radius:var(--r);margin-bottom:6px;padding:2px 2px 4px}
+.navgroup + .navgroup{border-top:1px solid var(--line);border-radius:0;padding-top:6px}
 .navgroup:last-child{margin-bottom:0}
 .ghead{display:flex;align-items:baseline;gap:8px;padding:6px 8px 6px;
-       font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint)}
+       font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
 .ghead i{font-style:normal;font:10.5px var(--mono);letter-spacing:0;text-transform:none;
        margin-left:auto;color:var(--ink-faint)}
 
@@ -20,12 +21,12 @@
 /* The section a focused fact belongs to stays lit, so opening one fact never loses your
    place in the list. */
 .tfile[data-within="true"] span.t{color:var(--ink)}
-.tfile[data-within="true"]{background:color-mix(in srgb,var(--panel-2) 60%,transparent)}
+.tfile[data-within="true"]{background:var(--hover)}
 
 .tsurface{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:none;
-      border:0;color:var(--ink-dim);font:11.5px var(--mono);padding:5px 8px;border-radius:5px;
-      cursor:pointer}
-.tsurface:hover{background:var(--panel-2);color:var(--ink)}
+      border:0;color:var(--ink-dim);font:11.5px var(--mono);padding:5px 8px;border-radius:6px;
+      cursor:pointer;transition:background .12s var(--ease),color .12s var(--ease)}
+.tsurface:hover{background:var(--hover);color:var(--ink)}
 .tsurface .caret{color:var(--ink-faint);--ic:12px;flex:none;transition:transform .12s ease}
 .tsurface[aria-expanded="false"] .caret{transform:rotate(-90deg)}
 .tsurface .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -35,21 +36,22 @@
 .tsfiles .tfile{font-size:12px}
 
 /* ---------- memory cards ---------- */
-.fact{border-bottom:1px solid var(--line);padding:13px 2px;scroll-margin-top:12px}
+.fact{border-bottom:1px solid var(--line);padding:15px 2px;scroll-margin-top:12px}
 .fact:last-child{border-bottom:0}
-.fact.lit{background:color-mix(in srgb,var(--warn) 10%,transparent);
-     box-shadow:inset 3px 0 0 var(--warn);border-radius:0 6px 6px 0;padding-left:11px}
-.slug{font:12px var(--mono);color:var(--accent);cursor:pointer}
+.fact.lit{background:color-mix(in srgb,var(--warn) 9%,transparent);
+     border-radius:8px;padding-left:12px}
+.slug{font:500 12px var(--mono);color:var(--accent);cursor:pointer}
 .slug:hover{text-decoration:underline}
-.stmt{margin:3px 0 0}
+.stmt{margin:4px 0 0;font-size:14px;color:var(--ink);letter-spacing:-.003em}
 .so{margin:4px 0 0;color:var(--ink-dim);font-size:13.2px}
 .so b{color:var(--ink);font-weight:600}
 .factsub{color:var(--ink-faint);font-size:12.5px;margin:0 0 14px}
-.tag{display:inline-block;font:10.5px var(--mono);padding:1px 6px;border-radius:20px;
-     border:1px solid var(--line);color:var(--ink-faint);margin-left:6px;vertical-align:1px}
-.tag.ruled{color:var(--ruled);border-color:var(--ruled)}
-.tag.measured{color:var(--measured);border-color:var(--measured)}
-.tag.derived{color:var(--derived);border-color:var(--derived)}
+.tag{display:inline-block;font:500 10px/1.6 var(--sans);padding:0 7px;border-radius:999px;
+     border:0;color:var(--ink-dim);margin-left:6px;vertical-align:1px;
+     background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.tag.ruled{color:var(--ruled);background:color-mix(in srgb,var(--ruled) 12%,transparent)}
+.tag.measured{color:var(--measured);background:color-mix(in srgb,var(--accent-fill) 14%,transparent)}
+.tag.derived{color:var(--derived);background:color-mix(in srgb,var(--derived) 12%,transparent)}
 .notelink{font:11.5px var(--mono);color:var(--ink-faint);cursor:pointer;margin-left:6px}
 .notelink:hover{color:var(--accent)}
 
@@ -57,8 +59,8 @@
    a way out, that read as the page breaking. */
 .focusbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;
       background:color-mix(in srgb,var(--warn) 10%,transparent);
-      border:1px solid color-mix(in srgb,var(--warn) 34%,transparent);
-      border-radius:7px;padding:7px 8px 7px 11px;font:12px var(--sans);color:var(--ink-dim)}
+      border:1px solid transparent;
+      border-radius:var(--r);padding:7px 8px 7px 11px;font:12px var(--sans);color:var(--ink-dim)}
 .focusbar .crumb{background:none;border:0;color:var(--ink-dim);cursor:pointer;
       font:12px var(--sans);padding:0;text-align:left}
 .focusbar .crumb:hover{color:var(--ink);text-decoration:underline}
@@ -98,7 +100,8 @@
 
 /* A prompt audit finding. Not a tree row: it carries an explanation and two buttons, and
    squeezing that into the navigator's row shape is how it would get ignored. */
-.prob{border:1px solid var(--line);border-radius:7px;padding:9px 10px;margin:0 3px 6px}
+.prob{border:1px solid var(--line);border-radius:var(--r);padding:10px 11px;margin:0 3px 6px;
+      background:var(--bg-elev)}
 .prob .ptitle{font:600 12.5px var(--sans);color:var(--ink)}
 .prob .pdetail{margin-top:3px;font:11.5px/1.5 var(--sans);color:var(--ink-faint)}
 .prob.error{border-color:color-mix(in srgb,var(--err) 45%,transparent)}
@@ -110,4 +113,4 @@
 /* What an edit did to the composed prompt, which is the question you were actually asking. */
 .effect{border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
       background:color-mix(in srgb,var(--accent) 7%,transparent);
-      border-radius:8px;padding:10px 12px;margin-bottom:14px}
+      border-radius:var(--r);padding:11px 13px;margin-bottom:14px}

@@ -5,15 +5,16 @@
    the inbox hard to scan. The line is dropped either side of the selected row, whose own
    background is already doing the separating. */
 .irow{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;
-      padding:11px 10px;border-radius:7px;color:var(--ink-dim);
-      border-top:1px solid transparent}
+      padding:11px 12px;border-radius:var(--r);color:var(--ink-dim);
+      border-top:1px solid transparent;transition:background .12s var(--ease)}
 .irow + .irow{border-top-color:var(--line)}
 .irow[aria-current="true"],.irow[aria-current="true"] + .irow{border-top-color:transparent}
-.irow:hover{background:var(--panel-2)}
+.irow:hover{background:var(--hover)}
+.irow:hover + .irow,.irow:hover{border-top-color:transparent}
 .irow:focus{outline:none}
-.irow:focus-visible{outline:2px solid var(--accent-dim);outline-offset:-2px}
-.irow[aria-current="true"]{background:var(--panel-2);box-shadow:inset 2px 0 0 var(--accent)}
-.ititle{font:13.5px/1.4 var(--sans);color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;
+.irow:focus-visible{box-shadow:inset 0 0 0 1px var(--accent-dim)}
+.irow[aria-current="true"]{background:var(--accent-soft)}
+.ititle{font:500 13.5px/1.4 var(--sans);letter-spacing:-.005em;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;
         -webkit-box-orient:vertical;overflow:hidden}
 .irow[aria-current="true"] .ititle{color:var(--accent)}
 /* The rest of the row follows the title. The project label kept the flat grey it has when
@@ -25,7 +26,7 @@
 .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);
      margin-right:6px;vertical-align:2px}
 .imeta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px}
-.imeta .repo{font:10px var(--sans);letter-spacing:.03em;text-transform:uppercase;
+.imeta .repo{font:600 10px var(--sans);letter-spacing:.06em;text-transform:uppercase;
       color:var(--ink-faint);border-right:1px solid var(--line);padding-right:7px}
 .imeta .num{font:10.5px var(--mono);color:var(--ink-faint)}
 .imeta .when{font:10.5px var(--sans);color:var(--ink-faint);margin-left:auto}
@@ -48,7 +49,7 @@
 
 /* ---------- thread ---------- */
 .thead{border-bottom:1px solid var(--line);padding-bottom:16px}
-.thead h3{margin:8px 0 0;font:600 17px/1.35 var(--sans);letter-spacing:-.012em;color:var(--ink)}
+.thead h3{margin:8px 0 0;font:600 19px/1.3 var(--sans);letter-spacing:-.02em;color:var(--ink)}
 /* The same fact as the chip, said in full, once, at the top of the thread it applies to.
    Tight to the title and a clear gap above the buttons: it is a statement about this pull
    request, not a caption on the controls. At an even 10/16 it read as the latter. */
@@ -65,7 +66,7 @@
 /* Reactions. Small, under the comment they belong to, the way GitHub puts them — an agent's
    👀 is an acknowledgement and it should be readable at a glance rather than counted. */
 .reacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.react{font:11px var(--sans);border:1px solid var(--line);border-radius:20px;padding:2px 9px;
+.react{font:11px var(--sans);border:1px solid var(--line);border-radius:999px;padding:2px 9px;
        color:var(--ink-dim);background:var(--panel-2);cursor:default}
 /* Reply, close and merge, beside the title rather than under the last comment. A thread is
    read newest-first and answered from the top, so nothing here is worth scrolling to. */
@@ -79,10 +80,11 @@
    rather than three places to navigate to. */
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:2px 0 0}
 .tab{background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;
-     font:12.5px var(--sans);color:var(--ink-faint);padding:9px 12px;margin-bottom:-1px}
+     font:500 12.5px var(--sans);color:var(--ink-faint);padding:9px 12px;margin-bottom:-1px;
+     transition:color .15s var(--ease),border-color .15s var(--ease)}
 .tab:hover{color:var(--ink)}
 .tab[aria-current="true"]{color:var(--ink);border-bottom-color:var(--accent)}
-.tab:focus-visible{outline:2px solid var(--accent-dim);outline-offset:-2px}
+.tab:focus-visible{box-shadow:inset 0 0 0 1px var(--accent-dim);border-radius:6px 6px 0 0}
 
 .prcommit{display:flex;gap:10px;align-items:baseline;padding:8px 0;
           border-top:1px solid var(--line);font-size:12.5px}
@@ -101,9 +103,9 @@
 .labelpick .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .chip.pick{background:none;cursor:pointer;padding:3px 9px;font-size:11px;color:var(--ink-dim)}
 .chip.pick:hover{border-color:var(--ink-faint);color:var(--ink)}
-.chip.pick:focus-visible{outline:2px solid var(--accent-dim);outline-offset:1px}
-.chip.pick[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,transparent);
-      border-color:var(--accent-dim);color:var(--ink)}
+.chip.pick:focus-visible{box-shadow:0 0 0 3px var(--accent-soft);border-color:var(--accent)}
+.chip.pick[aria-pressed="true"]{background:var(--accent-soft);
+      border-color:var(--accent-dim);color:var(--accent)}
 
 /* ---------- the @ list ----------
    A mention is the mechanism: a staff member's workflow gates on their handle, so a misspelled
@@ -113,12 +115,12 @@
    The height is capped well under a dialog's, because it is placed inside one and a dialog
    scrolls its own box: anything taller is not long, it is cut off. */
 .mentions{position:absolute;z-index:30;min-width:280px;max-width:min(420px,90%);max-height:196px;
-      overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;
-      padding:4px;box-shadow:0 14px 34px rgba(0,0,0,.28)}
+      overflow-y:auto;background:var(--bg-elev);border:1px solid var(--border-strong);border-radius:var(--r);
+      padding:4px;box-shadow:var(--shadow-lg)}
 .mrow{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;width:100%;text-align:left;
       background:none;border:0;border-radius:6px;padding:6px 8px;cursor:pointer;font:inherit}
-.mrow:hover{background:var(--panel-2)}
-.mrow[aria-selected="true"]{background:var(--panel-2);box-shadow:inset 2px 0 0 var(--accent)}
+.mrow:hover{background:var(--hover)}
+.mrow[aria-selected="true"]{background:var(--accent-soft)}
 .mrow .mat{font:12px var(--mono);color:var(--accent)}
 .mrow .mname{font:12.5px var(--sans);color:var(--ink);overflow:hidden;text-overflow:ellipsis;
       white-space:nowrap}
@@ -156,9 +158,10 @@ textarea.dropping{border-color:var(--accent);background:color-mix(in srgb,var(--
 /* An item this thread points at, as a row you can open here rather than a link that throws
    you out to GitHub. Open and closed read at a glance, which is the whole reason to show it. */
 .xref{display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;background:none;
-      border:1px solid var(--line);border-radius:7px;padding:6px 10px;margin-top:5px;
-      cursor:pointer;color:var(--ink-dim);font:12.5px var(--sans)}
-.xref:hover{border-color:var(--accent-dim);background:var(--panel-2);color:var(--ink)}
+      border:1px solid var(--line);border-radius:var(--r);padding:7px 11px;margin-top:6px;
+      cursor:pointer;color:var(--ink-dim);font:12.5px var(--sans);background:var(--bg-elev);
+      transition:border-color .15s var(--ease),background .15s var(--ease),color .15s var(--ease)}
+.xref:hover{border-color:var(--border-strong);background:var(--surface-2);color:var(--ink)}
 .xref .st{flex:none;display:inline-flex;--ic:14px;position:relative;top:2px}
 .xref .st.open{color:var(--accent)} .xref .st.closed{color:var(--derived)}
 .xref .st.merged{color:var(--derived)} .xref .st.draft{color:var(--ink-faint)}

@@ -1,30 +1,64 @@
 /* Tokens, reset, and the primitives every screen uses: buttons, inputs, chips, meta text. */
 
 :root{
-  --bg:#0e1013; --panel:#15181d; --panel-2:#1b1f26; --line:#252a33;
-  --ink:#e6e9ef; --ink-dim:#9aa3b2; --ink-faint:#6b7484;
-  --accent:#7cc7a4; --accent-dim:#3d6b56;
-  --warn:#d8a657; --err:#e07b7b;
-  --ruled:#7aa2f7; --measured:#7cc7a4; --derived:#c99bd6;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+  /* iOS system colours, shared with the website, so the portal and the page that introduces
+     it are one product. The older names below are aliases, kept so every screen's stylesheet
+     reads the same tokens it always has. `--accent` is for text and lines; `--accent-fill`
+     is for solid fills, which on a light background want the brighter green. */
+  --bg:#000000; --bg-elev:#1c1c1e; --surface:#1c1c1e; --surface-2:#2c2c2e;
+  --border:rgba(255,255,255,.10); --border-strong:rgba(255,255,255,.16);
+  --text:#f5f5f7; --text-muted:#98989d; --text-faint:#636366;
+  --accent:#30d158; --accent-fill:#30d158; --accent-strong:#30d158;
+  --accent-soft:rgba(48,209,88,.15); --accent-ink:#000000; --accent-dim:rgba(48,209,88,.45);
+  --blue:#0a84ff; --amber:#ff9f0a; --red:#ff453a; --violet:#bf5af2;
+  --side:#161618; --sel:rgba(255,255,255,.10);
+  --hover:rgba(255,255,255,.05); --active:rgba(255,255,255,.10);
+  --shadow-sm:none; --shadow:none;
+  --shadow-lg:0 20px 48px rgba(0,0,0,.6);
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --r-sm:6px; --r:10px; --r-lg:14px;
+  --scroll:rgba(255,255,255,.18); --scroll-hover:rgba(255,255,255,.3);
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",system-ui,sans-serif;
+
+  --panel:var(--surface); --panel-2:var(--surface-2); --line:var(--border);
+  --ink:var(--text); --ink-dim:var(--text-muted); --ink-faint:var(--text-faint);
+  --warn:var(--amber); --err:var(--red);
+  --ruled:var(--blue); --measured:var(--accent); --derived:var(--violet);
+  color-scheme:dark;
 }
 /* System preference wins unless the toggle has stamped data-theme on the root. */
 @media (prefers-color-scheme:light){
   :root:not([data-theme="dark"]){
-    --bg:#fbfbfa; --panel:#fff; --panel-2:#f4f5f7; --line:#e3e5ea;
-    --ink:#1b1f26; --ink-dim:#5b6472; --ink-faint:#8b95a5;
-    --accent:#2f7d5b; --accent-dim:#a8d5bf;
-    --warn:#a5701d; --err:#b34a4a;
-    --ruled:#3b5fa8; --measured:#2f7d5b; --derived:#8a52a8;
+    --bg:#f5f5f7; --bg-elev:#ffffff; --surface:#ffffff; --surface-2:#f2f2f7;
+    --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.14);
+    --text:#1d1d1f; --text-muted:#6e6e73; --text-faint:#aeaeb2;
+    --accent:#248a3d; --accent-fill:#34c759; --accent-strong:#248a3d;
+    --accent-soft:rgba(52,199,89,.12); --accent-ink:#ffffff; --accent-dim:rgba(52,199,89,.45);
+    --blue:#007aff; --amber:#c77700; --red:#ff3b30; --violet:#af52de;
+    --side:#ebebf0; --sel:rgba(0,0,0,.07);
+    --hover:rgba(0,0,0,.04); --active:rgba(0,0,0,.07);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
+    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.05);
+    --shadow-lg:0 4px 12px rgba(0,0,0,.06),0 20px 48px rgba(0,0,0,.12);
+    --scroll:rgba(0,0,0,.18); --scroll-hover:rgba(0,0,0,.3);
+    color-scheme:light;
   }
 }
 :root[data-theme="light"]{
-    --bg:#fbfbfa; --panel:#fff; --panel-2:#f4f5f7; --line:#e3e5ea;
-    --ink:#1b1f26; --ink-dim:#5b6472; --ink-faint:#8b95a5;
-    --accent:#2f7d5b; --accent-dim:#a8d5bf;
-    --warn:#a5701d; --err:#b34a4a;
-    --ruled:#3b5fa8; --measured:#2f7d5b; --derived:#8a52a8;
+    --bg:#f5f5f7; --bg-elev:#ffffff; --surface:#ffffff; --surface-2:#f2f2f7;
+    --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.14);
+    --text:#1d1d1f; --text-muted:#6e6e73; --text-faint:#aeaeb2;
+    --accent:#248a3d; --accent-fill:#34c759; --accent-strong:#248a3d;
+    --accent-soft:rgba(52,199,89,.12); --accent-ink:#ffffff; --accent-dim:rgba(52,199,89,.45);
+    --blue:#007aff; --amber:#c77700; --red:#ff3b30; --violet:#af52de;
+    --side:#ebebf0; --sel:rgba(0,0,0,.07);
+    --hover:rgba(0,0,0,.04); --active:rgba(0,0,0,.07);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
+    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.05);
+    --shadow-lg:0 4px 12px rgba(0,0,0,.06),0 20px 48px rgba(0,0,0,.12);
+    --scroll:rgba(0,0,0,.18); --scroll-hover:rgba(0,0,0,.3);
+    color-scheme:light;
 }
 
 *{box-sizing:border-box}
@@ -34,47 +68,75 @@
    just stayed on screen. Said once, here. */
 [hidden]{display:none!important}
 
+html{background:var(--bg)}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans);
-     -webkit-font-smoothing:antialiased}
+     font-feature-settings:"cv11","ss01","ss03";-webkit-font-smoothing:antialiased;
+     -moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 a{color:inherit}
+::selection{background:color-mix(in srgb,var(--accent) 28%,transparent)}
+:focus-visible{outline:none}
 
-h1{font:600 21px var(--sans);margin:0 0 4px;letter-spacing:-.015em}
-.sub{color:var(--ink-dim);margin:0 0 24px;font-size:13px}
+/* Scrollbars that belong to the page rather than to the operating system of 2009. */
+*{scrollbar-width:thin;scrollbar-color:var(--scroll) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:10px;
+      border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-hover);background-clip:padding-box;
+      border:3px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
+
+h1{font:600 22px/1.25 var(--sans);margin:0 0 6px;letter-spacing:-.022em;color:var(--ink)}
+.sub{color:var(--ink-dim);margin:0 0 26px;font-size:13.5px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.meta{color:var(--ink-faint);font:11.5px var(--mono)}
-.empty{color:var(--ink-faint);padding:26px 0;text-align:center;font-size:13px}
+.meta{color:var(--ink-faint);font:11.5px var(--mono);font-variant-numeric:tabular-nums}
+.empty{color:var(--ink-faint);padding:32px 0;text-align:center;font-size:13px}
 .err{color:var(--err)} .warn{color:var(--warn)} .ok{color:var(--accent)}
 
-.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:15px 17px;margin-bottom:11px}
-.card h3{margin:0 0 3px;font:600 14px var(--sans)}
-.grid{display:grid;gap:11px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+      padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow-sm);
+      transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+.card h3{margin:0 0 4px;font:600 14px var(--sans);letter-spacing:-.01em}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
 
 /* ---------- controls ---------- */
-input[type=search],input[type=time],select{background:var(--panel-2);
-  border:1px solid var(--line);color:var(--ink);
-  border-radius:7px;padding:7px 11px;font:13px var(--sans);outline:none}
+input[type=search],input[type=time],input[type=text],select{background:var(--bg-elev);
+  border:1px solid var(--border-strong);color:var(--ink);
+  border-radius:var(--r);padding:7px 11px;font:13px var(--sans);outline:none;
+  transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
 input[type=search]{width:280px}
-input[type=search]:focus,input[type=time]:focus,select:focus{border-color:var(--accent-dim)}
-textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);
-      border-radius:8px;padding:10px 12px;font:13px/1.55 var(--sans);outline:none;resize:vertical}
-textarea:focus{border-color:var(--accent-dim)}
+input::placeholder,textarea::placeholder{color:var(--ink-faint)}
+input[type=search]:hover,input[type=time]:hover,input[type=text]:hover,select:hover,
+textarea:hover{border-color:color-mix(in srgb,var(--ink) 20%,transparent)}
+input[type=search]:focus,input[type=time]:focus,input[type=text]:focus,select:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{width:100%;background:var(--bg-elev);border:1px solid var(--border-strong);color:var(--ink);
+      border-radius:var(--r);padding:10px 12px;font:13px/1.6 var(--sans);outline:none;resize:vertical;
+      transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
 /* One size, whether it is a button or a link. They sit in rows together, and `a` taking its
    line-height from the font shorthand while `button` set its own made every such row a set of
    controls at two different heights. */
-.ghbtn{display:inline-flex;align-items:center;justify-content:center;min-height:28px;
-       padding:5px 11px;border:1px solid var(--line);border-radius:7px;
-       font:12px/1.4 var(--sans);color:var(--ink-dim);text-decoration:none;white-space:nowrap}
-.ghbtn:hover{color:var(--ink);border-color:var(--accent-dim);background:var(--panel-2)}
-button.ghbtn{cursor:pointer;font-family:var(--sans);background:transparent;
-      -webkit-appearance:none;appearance:none;font-size:12px;line-height:1.4}
-button.ghbtn:hover{background:var(--panel-2)}
-.ghbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
-.ghbtn.primary:hover{filter:brightness(1.08);background:var(--accent)}
-.ghbtn:disabled{opacity:.5;cursor:default}
-.iconbtn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);
-       border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:15px;line-height:1}
-.iconbtn:hover{color:var(--ink);border-color:var(--accent-dim)}
+.ghbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;
+       padding:5px 12px;border:1px solid transparent;border-radius:8px;
+       background:var(--surface-2);
+       font:500 12.5px/1.4 var(--sans);color:var(--ink);text-decoration:none;white-space:nowrap;
+       transition:background .15s var(--ease),color .15s var(--ease),opacity .15s var(--ease)}
+.ghbtn:hover{color:var(--ink);background:color-mix(in srgb,var(--surface-2) 88%,var(--ink) 12%)}
+.ghbtn:active{opacity:.8}
+.ghbtn:focus-visible,.btn:focus-visible,.iconbtn:focus-visible{
+       border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+button.ghbtn{cursor:pointer;font-family:var(--sans);
+      -webkit-appearance:none;appearance:none;font-size:12.5px;line-height:1.4}
+button.ghbtn:hover{background:color-mix(in srgb,var(--surface-2) 88%,var(--ink) 12%)}
+.ghbtn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink);font-weight:600}
+.ghbtn.primary:hover{background:var(--accent);color:var(--accent-ink);opacity:.88}
+.ghbtn:disabled{opacity:.45;cursor:default}
+.iconbtn{background:var(--surface-2);border:1px solid transparent;color:var(--ink-dim);
+       border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px;line-height:1;
+       transition:background .15s var(--ease),color .15s var(--ease)}
+.iconbtn:hover{color:var(--ink);background:color-mix(in srgb,var(--surface-2) 88%,var(--ink) 12%)}
 .iconbtn{display:inline-flex;align-items:center;justify-content:center}
 .iconbtn .sync{display:inline-flex;--ic:15px}
 .iconbtn.spin .sync{animation:spin .9s linear infinite}
@@ -87,15 +149,17 @@ svg.ic{width:var(--ic,15px);height:var(--ic,15px);display:block;flex:none}
 /* A slot that holds one, centred, wherever a text glyph used to sit on a baseline. */
 .icslot{display:inline-flex;align-items:center;justify-content:center;flex:none}
 
-.chip{font:10px var(--sans);letter-spacing:.02em;padding:1.5px 7px;border-radius:20px;
-      border:1px solid var(--line);color:var(--ink-faint);white-space:nowrap}
-.chip.hot{color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}
-.chip.warm{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
-.chip.cool{color:var(--ruled);border-color:color-mix(in srgb,var(--ruled) 40%,transparent)}
-.pill{font:11px var(--mono);color:var(--ink-faint);border:1px solid var(--line);
-      border-radius:20px;padding:2px 9px}
-kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
-    padding:1px 5px;color:var(--ink-dim)}
+.chip{display:inline-flex;align-items:center;font:500 10.5px/1.5 var(--sans);letter-spacing:.01em;
+      padding:1px 8px;border-radius:999px;border:1px solid transparent;color:var(--ink-dim);
+      background:color-mix(in srgb,var(--ink) 7%,transparent);white-space:nowrap}
+.chip.hot{color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent)}
+.chip.warm{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,transparent)}
+.chip.cool{color:var(--ruled);background:color-mix(in srgb,var(--ruled) 12%,transparent)}
+.pill{font:11px var(--mono);color:var(--ink-dim);border:1px solid transparent;
+      background:color-mix(in srgb,var(--ink) 4%,transparent);
+      border-radius:999px;padding:2px 9px;font-variant-numeric:tabular-nums}
+kbd{font:500 10.5px var(--mono);border:1px solid var(--border-strong);
+    border-radius:5px;padding:1px 5px;color:var(--ink-dim);background:var(--surface-2)}
 
 /* ---------- waiting ----------
    The inbox reads every repo in the org, which is seconds on a cold cache. What used to stand
@@ -103,15 +167,11 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
    which reads as a page that has failed rather than one that is working. These are the shape
    of what is coming: rows in the list, a title and paragraphs in the viewer. */
 .sk{--skbg:color-mix(in srgb,var(--ink) 7%,transparent);border-radius:6px;
-    background:linear-gradient(90deg,var(--skbg) 25%,
-      color-mix(in srgb,var(--ink) 12%,transparent) 37%,var(--skbg) 63%);
-    background-size:400% 100%;animation:shimmer 1.4s ease-in-out infinite}
+    background:var(--skbg);animation:pulse 1.4s ease-in-out infinite}
 .sk-row{background:none;animation:none;padding:11px 10px;border-top:1px solid var(--line)}
 .sk-row:first-of-type{border-top:0}
-.sk-row .skbar{height:11px;border-radius:6px;background:inherit;
-    background:linear-gradient(90deg,var(--skbg) 25%,
-      color-mix(in srgb,var(--ink) 12%,transparent) 37%,var(--skbg) 63%);
-    background-size:400% 100%;animation:shimmer 1.4s ease-in-out infinite}
+.sk-row .skbar{height:11px;border-radius:6px;
+    background:var(--skbg);animation:pulse 1.4s ease-in-out infinite}
 .sk-row .skbar.t{width:84%}
 .sk-row .skbar.m{width:38%;height:8px;margin-top:8px}
 /* Staggered, so the list reads as several things loading rather than one block flashing. */
@@ -125,7 +185,6 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
 .sk-line:last-child{width:42%}
 /* The word beside them. It is the only part a screen reader gets, so it stays real text. */
 .skhead{color:var(--ink-faint);font-size:12.5px;padding:4px 10px 8px}
-@keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
 /* A count that is still being fetched is not zero, and an empty badge reads as zero. */
 .nav .n.wait{display:inline-block;width:15px;height:8px;border-radius:5px;
     background:color-mix(in srgb,var(--ink) 10%,transparent);animation:pulse 1.3s ease-in-out infinite}
@@ -134,23 +193,24 @@ kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;b
   .sk,.sk-row .skbar,.nav .n.wait{animation:none}
 }
 
-.notice{background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid
-      color-mix(in srgb,var(--warn) 40%,transparent);color:var(--ink-dim);border-radius:8px;
-      padding:10px 13px;margin-bottom:16px;font-size:12.5px;line-height:1.6}
+.notice{background:color-mix(in srgb,var(--warn) 10%,transparent);border:1px solid transparent;color:var(--ink-dim);border-radius:var(--r);
+      padding:11px 14px;margin-bottom:16px;font-size:12.5px;line-height:1.6}
 .notice b{color:var(--ink)}
 
 /* ---------- a dialog that asks for more than a line ----------
    Native <dialog>, so the backdrop, the focus trap and Escape are the browser's job. */
-dialog.ask{border:1px solid var(--line);border-radius:11px;background:var(--panel);
-      color:var(--ink);padding:20px 22px;width:min(560px,92vw);
-      box-shadow:0 24px 60px rgba(0,0,0,.34)}
-dialog.ask::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
-dialog.ask h3{margin:0;font:600 15.5px var(--sans);letter-spacing:-.012em}
-dialog.ask .askhint{margin:6px 0 12px;font:12.5px/1.55 var(--sans);color:var(--ink-faint)}
+dialog.ask{border:1px solid var(--border-strong);border-radius:var(--r-lg);background:var(--bg-elev);
+      color:var(--ink);padding:22px 24px;width:min(560px,92vw);
+      box-shadow:var(--shadow-lg)}
+dialog.ask[open]{animation:dlgin .18s var(--ease)}
+@keyframes dlgin{from{opacity:0;transform:translateY(6px) scale(.985)}}
+dialog.ask::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(8px)}
+dialog.ask h3{margin:0;font:600 16px var(--sans);letter-spacing:-.018em}
+dialog.ask .askhint{margin:6px 0 14px;font:12.5px/1.55 var(--sans);color:var(--ink-dim)}
 dialog.ask textarea{font:13.5px/1.6 var(--sans);min-height:96px;max-height:44vh}
 /* The attach control, when the dialog is a reply rather than a question. */
 dialog.ask .attach{margin-top:9px}
-dialog.ask .askrow{margin-top:12px;justify-content:flex-end}
+dialog.ask .askrow{margin-top:14px;justify-content:flex-end}
 dialog.ask .askrow .meta{margin-right:auto}
 
 /* The lightbox: an image, over the page, that zooms.
@@ -159,7 +219,7 @@ dialog.ask .askrow .meta{margin-right:auto}
  * from ::backdrop. 60 puts it over the `@` mention list (30) and over the dialog, which is
  * correct: a picture opened from inside a reply box should still open. */
 .lightbox{position:fixed;inset:0;z-index:60;display:flex;
-          background:rgba(0,0,0,.82);backdrop-filter:blur(3px)}
+          background:rgba(0,0,0,.82)}
 /* The stage is inset rather than the whole window, and that is not decoration.
    Most images here are screenshots *of this interface*, and one fitted edge to edge reads as
    the app having navigated rather than as a picture of it. The margin of backdrop around it,

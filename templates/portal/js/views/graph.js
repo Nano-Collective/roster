@@ -53,7 +53,7 @@ function drawGraph(canvas, wrap, s) {
   }
   const groups = [...members.keys()].sort((a, b) => members.get(b).length - members.get(a).length);
 
-  const PALETTE = ["#7cc7a4","#7aa2f7","#c99bd6","#d8a657","#6fc3c9","#e07b7b","#b3c46b","#e0a1c0","#9d9ff5","#8fb0d9"];
+  const PALETTE = ["#30d158","#0a84ff","#bf5af2","#ff9f0a","#64d2ff","#ff453a","#ffcc00","#ff375f","#5e5ce6","#ac8e68"];
   const colour = new Map(groups.map((g, i) => [g, PALETTE[i % PALETTE.length]]));
 
   // The ring grows with the number of groups so they never crowd, and each group keeps its
