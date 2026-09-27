@@ -14,7 +14,8 @@
       "!pnpm-lock.yaml",
       "!templates",
       "!docs",
-      "!.nanocoder"
+      "!.nanocoder",
+      "!website"
     ]
   },
   "formatter": {

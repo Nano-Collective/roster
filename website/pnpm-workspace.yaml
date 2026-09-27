@@ -1,0 +1,7 @@
+# Its own workspace root, so installing here never reaches up into the CLI's lockfile, and the
+# CLI's `files` whitelist keeps this directory out of what `npx @nanocollective/roster` fetches.
+allowBuilds:
+  sharp: true
+  "@tailwindcss/oxide": true
+  esbuild: true
+  workerd: true

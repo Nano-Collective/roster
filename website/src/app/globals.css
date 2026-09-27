@@ -1,0 +1,375 @@
+@import "tailwindcss";
+
+/* iOS system colours. Light by default, dark when the system asks. The portal uses the same set. */
+:root {
+  --bg: #ffffff;
+  --bg-2: #f5f5f7;
+  --surface: #ffffff;
+  --fill: #f2f2f7;
+  --fill-2: #e9e9ee;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-2: rgba(0, 0, 0, 0.14);
+  --text: #1d1d1f;
+  --text-2: #6e6e73;
+  --text-3: #aeaeb2;
+  --accent: #248a3d;
+  --accent-fill: #34c759;
+  --accent-soft: rgba(52, 199, 89, 0.12);
+  --blue: #007aff;
+  --orange: #c93400;
+  --orange-fill: #ff9500;
+  --red: #ff3b30;
+  --purple: #af52de;
+  --invert: #1d1d1f;
+  --on-invert: #ffffff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 28px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.03), 0 24px 64px -12px rgba(0, 0, 0, 0.14);
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --bg-2: #0c0c0d;
+    --surface: #1c1c1e;
+    --fill: #1c1c1e;
+    --fill-2: #2c2c2e;
+    --line: rgba(255, 255, 255, 0.1);
+    --line-2: rgba(255, 255, 255, 0.16);
+    --text: #f5f5f7;
+    --text-2: #98989d;
+    --text-3: #636366;
+    --accent: #30d158;
+    --accent-fill: #30d158;
+    --accent-soft: rgba(48, 209, 88, 0.15);
+    --blue: #0a84ff;
+    --orange: #ff9f0a;
+    --orange-fill: #ff9f0a;
+    --red: #ff453a;
+    --purple: #bf5af2;
+    --invert: #f5f5f7;
+    --on-invert: #000000;
+    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 64px -12px rgba(0, 0, 0, 0.8);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-soft: var(--accent-soft);
+  --color-blue: var(--blue);
+  --color-orange: var(--orange);
+  --color-orange-fill: var(--orange-fill);
+  --color-red: var(--red);
+  --color-purple: var(--purple);
+  --color-invert: var(--invert);
+  --color-on-invert: var(--on-invert);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", var(--font-inter),
+    "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, var(--font-jetbrains), Menlo, monospace;
+}
+
+html {
+  background: var(--bg);
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+::selection {
+  background: rgba(0, 122, 255, 0.2);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+
+.window {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition:
+    opacity 150ms var(--ease),
+    background 150ms var(--ease);
+}
+.btn:active {
+  opacity: 0.7;
+}
+.btn-primary {
+  background: var(--invert);
+  color: var(--on-invert);
+}
+.btn-primary:hover {
+  opacity: 0.85;
+}
+.btn-secondary {
+  background: var(--fill);
+  color: var(--text);
+}
+.btn-secondary:hover {
+  background: var(--fill-2);
+}
+
+.link {
+  color: var(--blue);
+}
+.link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--accent);
+}
+
+/* ---------- motion: quiet, and only on the way in ---------- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fade-up 700ms var(--ease) both;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 800ms var(--ease),
+    transform 800ms var(--ease);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes notif-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.notif-in {
+  animation: notif-in 450ms var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- docs prose ---------- */
+
+.prose {
+  font-size: 16.5px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.prose > * + * {
+  margin-top: 1.1em;
+}
+.prose h2 {
+  margin-top: 2.6em;
+  padding-top: 0.2em;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  scroll-margin-top: 76px;
+}
+.prose h3 {
+  margin-top: 2em;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  scroll-margin-top: 76px;
+}
+.prose h4 {
+  margin-top: 1.6em;
+  font-size: 16.5px;
+  font-weight: 600;
+}
+.prose h2 + *,
+.prose h3 + *,
+.prose h4 + * {
+  margin-top: 0.6em;
+}
+.prose p,
+.prose li {
+  color: var(--text);
+}
+.prose strong {
+  font-weight: 600;
+}
+.prose a {
+  color: var(--blue);
+}
+.prose a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.3em;
+}
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose li + li {
+  margin-top: 0.35em;
+}
+.prose li::marker {
+  color: var(--text-3);
+}
+.prose blockquote {
+  border-left: 3px solid var(--line-2);
+  padding-left: 1em;
+  color: var(--text-2);
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 2.5em 0;
+}
+.prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--fill);
+  border-radius: 6px;
+  padding: 0.12em 0.4em;
+  overflow-wrap: break-word;
+}
+.prose a code {
+  color: inherit;
+}
+.prose pre {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.65;
+  background: var(--bg-2);
+  border-radius: 14px;
+  padding: 16px 20px;
+  overflow-x: auto;
+}
+.prose pre code {
+  font-family: inherit;
+}
+.prose [data-rehype-pretty-code-figure] {
+  margin: 1.4em 0;
+}
+.prose img {
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  margin: 1.8em 0;
+}
+.prose table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.prose th,
+.prose td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 16px 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.prose th {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+/* `| | |` tables in the docs have a header row with nothing in it; drop only those. */
+.prose thead:not(:has(th:not(:empty))) {
+  display: none;
+}
+.prose td code {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Shiki: both themes are in the markup; pick by the system appearance. */
+.prose pre [data-line] span {
+  color: var(--shiki-light);
+}
+@media (prefers-color-scheme: dark) {
+  .prose pre [data-line] span {
+    color: var(--shiki-dark);
+  }
+}
