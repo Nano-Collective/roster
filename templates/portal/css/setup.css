@@ -50,7 +50,7 @@
       word-break:break-word;margin:9px 0}
 
 .planout{margin-top:12px}
-.filelist{display:grid;gap:2px;margin:9px 0;max-height:240px;overflow-y:auto;
+.filelist{display:grid;gap:2px;margin:9px 0;
       background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
 .filelist code{font:11px var(--mono);color:var(--ink-dim)}
 
@@ -87,7 +87,7 @@
 .pastefile.saved{border-color:var(--accent-dim)}
 .pastefile b{font:600 13px var(--mono)}
 .pastefile .meta{margin-left:9px}
-.pastefile .diff{max-height:300px;overflow:auto;margin:9px 0}
+.pastefile .diff{margin:9px 0}
 
 /* ---------- the doctor checklist ---------- */
 

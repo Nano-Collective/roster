@@ -54,7 +54,7 @@
 .planline.todo .ic{color:var(--warn)}
 .planline.warn{color:var(--ink-faint)}
 .planline.warn .ic{color:var(--warn)}
-.planout{margin-top:14px;max-height:320px;overflow:auto;font-size:11.5px}
+.planout{margin-top:14px;font-size:11.5px}
 
 .ffield{margin-bottom:10px}
 .ffield label{display:block;font:600 11px var(--sans);letter-spacing:.05em;
