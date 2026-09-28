@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { buildExport } from "../src/lib/export.js";
-import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
+import { loadComposer, readOrg } from "../src/lib/workspace.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**

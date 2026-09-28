@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { isWritable, promptView, saveFile } from "../src/lib/prompt.js";
-import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
+import { loadComposer, readOrg } from "../src/lib/workspace.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**
@@ -17,7 +17,6 @@ import { testWorkspace } from "./helpers/workspace.js";
  * cannot walk.
  */
 
-const ROOT = join(import.meta.dirname, "..");
 const ws = await testWorkspace();
 const { compose, parseYaml } = await loadComposer(ws.opsDir);
 
