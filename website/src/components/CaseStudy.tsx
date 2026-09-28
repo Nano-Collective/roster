@@ -4,7 +4,7 @@ import { Section, SectionHead, Soft } from "./Section";
 const stats = [
   { n: "475", l: "profiles created" },
   { n: "91", l: "accounts" },
-  { n: "117", l: "pull requests merged" },
+  { n: "£0", l: "spent on marketing" },
 ];
 
 export function CaseStudy() {
@@ -17,7 +17,7 @@ export function CaseStudy() {
             Pip, two months in. <Soft>Run by a CTO and a CMO on Roster.</Soft>
           </>
         }
-        lede="A free poker web app with two staff and one person merging what they hand off. Here is what happened to the numbers, and what moved them."
+        lede="A free poker web app. Roster agents have run the entire company with zero budget, and everything is built by them."
       />
       <Reveal delay={80}>
         <a
