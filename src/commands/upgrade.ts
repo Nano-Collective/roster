@@ -250,8 +250,10 @@ function report(ws: { opsName: string }, plans: FilePlan[], opts: Flags) {
 export function apply(opsDir: string, seedDir: string, tplDir: string, plans: FilePlan[]): number {
   let wrote = 0;
   let left = 0;
+  let edited = 0;
 
   for (const p of plans) {
+    if (p.verdict === "edited-managed") edited++;
     if (p.verdict === "conflict") {
       // Deliberately not into the live file: an agent reads these every morning.
       const out = join(opsDir, p.rel + ".roster-merge");
@@ -282,7 +284,16 @@ export function apply(opsDir: string, seedDir: string, tplDir: string, plans: Fi
   process.stdout.write(`\n  ${wrote} file${wrote === 1 ? "" : "s"} written`);
   process.stdout.write(left ? `, ${left} left for you\n\n` : "\n\n");
   if (!left) writeFileSync(join(opsDir, ".roster-version"), stamp() + "\n");
-  return left ? 1 : 0;
+  // The upgrade itself landed, so the version advances, but the edit it carried is exactly what
+  // --check and doctor fail on. Exiting 0 here would tell a script the tenant is clean when
+  // the next doctor says it is not.
+  if (edited) {
+    process.stdout.write(
+      `  ${edited} framework file${edited === 1 ? "" : "s"} still carr${edited === 1 ? "ies" : "y"} a local edit. ` +
+        "Move it into the framework, or doctor keeps failing.\n\n",
+    );
+  }
+  return left || edited ? 1 : 0;
 }
 
 function seed(seedDir: string, tplDir: string, rel: string) {

@@ -114,6 +114,7 @@ test("an edited framework-owned file is never overwritten, and --check will not 
 
   assert.equal((await t.upgrade("--check")).value, 1);
   const run = await t.upgrade("--apply");
+  assert.equal(run.value, 1, "--apply agrees with --check about an edited framework file");
   assert.match(run.out, /! runner-plan\.mjs\s+edited here, but the framework owns it/);
   assert.match(run.out, /That is how a fix gets quietly reverted/);
   assert.match(t.read(t.ops("runner-plan.mjs")), /a fix made in the wrong place/);
@@ -127,6 +128,7 @@ test("an edited framework file still takes the framework's change, and stays fla
   writeFileSync(t.ops("runner-plan.mjs"), `// a fix made in the wrong place\n${then}`);
 
   const run = await t.upgrade("--apply");
+  assert.equal(run.value, 1, "the merge landed, but the tenant is not clean");
   assert.match(run.out, /merged, but this is a framework file/);
   const merged = t.read(t.ops("runner-plan.mjs"));
   assert.match(merged, /^\/\/ a fix made in the wrong place/, "the tenant's line survives");
