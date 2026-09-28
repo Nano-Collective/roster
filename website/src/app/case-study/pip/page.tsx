@@ -158,7 +158,7 @@ export default function PipCaseStudy() {
                 Everything built by Roster. <Soft>Every change read before it merged.</Soft>
               </>
             }
-            lede="117 pull requests since August, from v1.0 to v1.25 and a membership on sale. Will reads what the staff hand off and merges it."
+            lede="117 pull requests since August, from v1.0 to v1.25 and a membership on sale. One person oversees it, reading what the staff hand off and merging it."
           />
           <p className="mt-8 text-[15px] text-fg-2">
             <a href={`${PIP_REPO}/pulls?q=is%3Apr+is%3Amerged`} className={link}>
