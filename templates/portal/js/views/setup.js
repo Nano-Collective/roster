@@ -492,7 +492,7 @@ const BUSINESS_QUESTIONS = [
 
 /** The business, as five questions in plain fields, written out as org/business.md. */
 function businessForm(onSaved) {
-  const box = el("div");
+  const form = el("div");
   const path = opsName() + "/org/business.md";
   const fields = BUSINESS_QUESTIONS.map(([id, label, , required]) => {
     const input = id === "line" ? el("input", { type: "text" }) : el("textarea", { className: "pastebox", rows: 3 });
@@ -504,7 +504,7 @@ function businessForm(onSaved) {
   });
   const save = el("button", { className: "btn primary", textContent: "Save" });
   const out = el("div");
-  box.append(...fields.map((f) => f.wrap), el("div", { className: "row" }, [save]), out);
+  form.append(...fields.map((f) => f.wrap), el("div", { className: "row" }, [save]), out);
 
   save.onclick = async () => {
     const missing = fields.find((f, i) => BUSINESS_QUESTIONS[i][3] && !String(f.input.value ?? "").trim());
@@ -524,20 +524,19 @@ function businessForm(onSaved) {
     await saveAndSay(save, out, path, text, "portal: write org/business.md", onSaved);
   };
 
-  // For somebody who would rather be interviewed than fill in a form.
-  box.append(
-    el("details", { className: "altway" }, [
-      el("summary", { textContent: "Or let an AI interview you instead" }),
-      paste({ kind: "discover", title: "", onSaved: () => (onSaved(), recheck()) }),
-    ]),
-  );
-  box.append(changeRaw(path, onSaved));
-  return box;
+  return modes([
+    { label: "Answer questions", node: form },
+    {
+      label: "Let an AI interview you",
+      node: paste({ kind: "discover", title: "", onSaved: () => (onSaved(), recheck()) }),
+    },
+    rawMode(path, onSaved),
+  ]);
 }
 
 /** This month's priorities, as three lines and an out-of-scope list. */
 function prioritiesForm(onSaved) {
-  const box = el("div");
+  const form = el("div");
   const path = opsName() + "/org/priorities.md";
   const ranks = [1, 2, 3].map((i) => {
     const input = el("input", { type: "text", placeholder: i === 1 ? "e.g. Tasks can be ticked off and removed" : "" });
@@ -546,7 +545,7 @@ function prioritiesForm(onSaved) {
   const scope = el("textarea", { className: "pastebox", rows: 3, placeholder: "One per line" });
   const save = el("button", { className: "btn primary", textContent: "Save" });
   const out = el("div");
-  box.append(
+  form.append(
     ...ranks.map((r) => r.wrap),
     el("label", { className: "qfield" }, [el("span", { textContent: "Out of scope this month (optional)" }), scope]),
     el("div", { className: "row" }, [save]),
@@ -567,8 +566,7 @@ function prioritiesForm(onSaved) {
       (outs.length ? "\n### Out of scope this month\n\n" + outs.map((t) => `- ${t}`).join("\n") + "\n" : "");
     await saveAndSay(save, out, path, text, "portal: write org/priorities.md", onSaved);
   };
-  box.append(changeRaw(path, onSaved));
-  return box;
+  return modes([{ label: "Fill in", node: form }, rawMode(path, onSaved)]);
 }
 
 async function saveAndSay(btn, out, path, text, message, onSaved) {
@@ -594,18 +592,18 @@ async function saveAndSay(btn, out, path, text, message, onSaved) {
 }
 
 /** The file itself, for editing what is already there rather than starting again. */
-function changeRaw(path, onSaved) {
-  const details = el("details", { className: "altway" });
-  details.append(el("summary", { textContent: "Or edit the file directly" }));
-  let loaded = false;
-  details.addEventListener("toggle", () => {
-    if (!details.open || loaded) return;
-    loaded = true;
-    const ta = el("textarea", { className: "pastebox" });
-    ta.rows = 12;
-    const save = el("button", { className: "btn", textContent: "Save" });
-    const out = el("div");
-    details.append(ta, el("div", { className: "row" }, [save]), out);
+function rawMode(path, onSaved) {
+  const node = el("div");
+  const ta = el("textarea", { className: "pastebox" });
+  ta.rows = 12;
+  const save = el("button", { className: "btn primary", textContent: "Save" });
+  const out = el("div");
+  node.append(ta, el("div", { className: "row" }, [save]), out);
+  ta.addEventListener("input", () => grow(ta));
+  save.onclick = () =>
+    saveAndSay(save, out, path, ta.value, "portal: edit " + path.split("/").slice(1).join("/"), onSaved);
+  // Read when first shown, so it shows the file as it is then, not as it was at page load.
+  const load = () =>
     // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
     fetch(fileUrl(path), { cache: "no-store" })
       .then((r) => (r.ok ? r.text() : ""))
@@ -613,10 +611,28 @@ function changeRaw(path, onSaved) {
         ta.value = text;
         grow(ta);
       });
-    ta.addEventListener("input", () => grow(ta));
-    save.onclick = () => saveAndSay(save, out, path, ta.value, "portal: edit " + path.split("/").slice(1).join("/"), onSaved);
+  return { label: "Edit the file", node, onShow: load };
+}
+
+/** Ways to do one step, as a switcher across the top: one shown at a time. */
+function modes(list) {
+  const box = el("div");
+  const bar = el("div", { className: "modes" });
+  const panes = el("div");
+  const buttons = list.map((m, i) => {
+    const b = el("button", { className: "mode", textContent: m.label });
+    b.onclick = () => show(i);
+    return b;
   });
-  return details;
+  bar.append(...buttons);
+  box.append(bar, panes);
+  function show(i) {
+    buttons.forEach((b, j) => b.classList.toggle("on", i === j));
+    panes.replaceChildren(list[i].node);
+    list[i].onShow?.();
+  }
+  show(0);
+  return box;
 }
 
 /** The ops repo's directory name, which is what every workspace-relative path starts with. */
