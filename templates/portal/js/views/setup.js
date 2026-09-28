@@ -61,27 +61,10 @@ export async function viewGettingStarted(main) {
   S = await getSetup();
   // Somebody may have clicked elsewhere while GitHub was answering.
   if (App.view !== "setup") return;
-  sub.textContent =
-    "What is still to do before " + (App.data?.name ?? "this org") + " runs well. Each step " +
-    "reads the world rather than remembering a click, so it is safe to leave and come back.";
+  sub.textContent = "Work through these in order.";
+  main.append(afterCreate());
 
-  if (!App.data?.staff?.length) {
-    const next = step(1, "Hire your first staff member", false);
-    const hire = el("button", { className: "btn primary", textContent: "Hire someone" });
-    hire.onclick = () => go({ view: "staff" });
-    next.append(
-      el("p", {
-        textContent:
-          "Nothing runs until you hire someone. You'll set up their GitHub App and charter from their card.",
-      }),
-      el("div", { className: "row" }, [hire]),
-    );
-    main.append(next);
-  }
-
-  main.append(afterCreate(App.data?.staff?.length ? 1 : 2));
-
-  const health = step(App.data?.staff?.length ? 2 : 3, "Other problems", false);
+  const health = step("!", "Other problems", false);
   healthHost = el("div", { style: "margin-top:12px" });
   health.append(healthHost);
   main.append(health);
@@ -136,7 +119,11 @@ function render(main) {
 
   /* Drawn whenever a tenant exists, not only in the seconds after creating one. Setup takes
      days: the repo picker and the two manual steps have to still be here tomorrow. */
-  if (S.tenant.found) main.append(afterCreate(3));
+  if (S.tenant.found) {
+    const rest = step(3, "Finish setting up", false);
+    rest.append(afterCreate());
+    main.append(rest);
+  }
 }
 
 /* ---------------------------------- 1 · gh ---------------------------------- */
@@ -389,33 +376,95 @@ function stepOrg(main) {
 
 /* ------------------------- 5 · the two GitHub insists on ------------------------- */
 
-function afterCreate(n) {
+function afterCreate() {
   fileSteps.clear();
-  const card = step(n, "What is left", false);
-  card.append(accessStep());
-  card.append(credentialPanel());
+  const list = el("div", { className: "todos" });
+  const left = S.tenant.left ?? [];
+  const staffCount = App.data?.staff?.length ?? 0;
+  let n = 0;
 
   if (S.tenant.org) {
-    card.append(repoPicker({ org: S.tenant.org, known: S.tenant.repos ?? [] }));
+    const repos = todo(++n, "Choose the repos your staff work on", (S.tenant.products ?? []).length > 0);
+    repos.hint("Pick at least one. Staff open pull requests there, and you review them.");
+    repos.body.append(
+      repoPicker({ org: S.tenant.org, known: S.tenant.repos ?? [], bare: true, onAdded: () => repos.setDone(true) }),
+    );
+    list.append(repos.card);
   }
 
-  const business = fileStep(
-    "business",
-    "Describe the business",
-    "Answer the questions in org/business.md. Every staff member reads it before they start work.",
-  );
-  // The copy-a-prompt loop, which is the whole answer to "how do I write this file".
-  business.append(paste({ kind: "discover", title: "Write it with your own AI", onSaved: recheck }));
-  card.append(business);
+  const business = todo(++n, "Describe the business", !left.includes("business"));
+  business.hint("A few short answers. Every staff member reads them before they start work.");
+  business.body.append(businessForm(() => business.setDone(true)));
+  fileSteps.set("business", business.setDone);
+  list.append(business.card);
 
-  const priorities = fileStep(
-    "priorities",
-    "Set this month's priorities",
-    "Up to three things, in order, plus what's out of scope. Saved as org/priorities.md.",
-  );
-  priorities.append(prioritiesEditor());
-  card.append(priorities);
-  return card;
+  const priorities = todo(++n, "Set this month's priorities", !left.includes("priorities"));
+  priorities.hint("Up to three, in order. Staff pick work that serves them.");
+  priorities.body.append(prioritiesForm(() => priorities.setDone(true)));
+  fileSteps.set("priorities", priorities.setDone);
+  list.append(priorities.card);
+
+  const hire = todo(++n, "Hire your first staff member", staffCount > 0);
+  hire.hint("Give them a role, like cto. You'll create their GitHub App and write their charter from their card.");
+  const hireBtn = el("button", { className: "btn primary", textContent: "Hire someone" });
+  hireBtn.onclick = () => {
+    // Before the org has loaded, this screen is the whole app, so the Staff screen needs a reload.
+    if (App.data) go({ view: "staff" });
+    else location.assign("/#/-/staff") || location.reload();
+  };
+  hire.body.append(el("div", { className: "row" }, [hireBtn]));
+  list.append(hire.card);
+
+  const cred = todo(++n, "Add your agent credential", false);
+  cred.hint(staffCount ? "Staff use it to run. You only add it once." : "Do this after your first hire.");
+  cred.body.append(credentialPanel({ bare: true, onStatus: (ok) => cred.setDone(ok) }));
+  list.append(cred.card);
+
+  const access = todo(++n, "Let staff repos use the shared workflow", false);
+  access.body.append(accessStep({ onStatus: (ok) => access.setDone(ok) }));
+  list.append(access.card);
+
+  return list;
+}
+
+/**
+ * One numbered thing to do. Done ones fold to a single ticked line, and Change opens them again,
+ * so the list shows what is left without hiding what was done.
+ */
+function todo(n, title, done) {
+  const card = el("section", { className: "todo" });
+  const num = el("span", { className: "todon" });
+  const pill = el("span", { className: "todopill" });
+  const change = el("button", { className: "ghbtn todochange", textContent: "Change" });
+  const head = el("div", { className: "todohead" }, [num, el("h3", { textContent: title }), pill, change]);
+  const hintEl = el("p", { className: "sub todohint" });
+  const body = el("div", { className: "todobody" });
+  card.append(head, hintEl, body);
+  let open = false;
+  const setDone = (d) => {
+    card.classList.toggle("done", d);
+    num.textContent = d ? "✓" : String(n);
+    pill.textContent = d ? "Done" : "To do";
+    change.hidden = !d;
+    const shown = !d || open;
+    body.hidden = !shown;
+    hintEl.hidden = !shown || !hintEl.textContent;
+  };
+  change.onclick = () => {
+    open = !open;
+    change.textContent = open ? "Close" : "Change";
+    setDone(card.classList.contains("done"));
+  };
+  setDone(done);
+  return {
+    card,
+    body,
+    setDone,
+    hint: (text) => {
+      hintEl.textContent = text;
+      setDone(card.classList.contains("done"));
+    },
+  };
 }
 
 /**
@@ -424,18 +473,6 @@ function afterCreate(n) {
  * Read from the status rather than from the click that saved it, so a file written in an
  * editor, or by a coding agent, shows as done here too.
  */
-function fileStep(id, title, why) {
-  const box = el("div", { className: "manual" });
-  const tag = el("span", { className: "meta" });
-  const mark = (done) => {
-    tag.textContent = done ? "Written." : "Still the stub it shipped as.";
-    box.classList[done ? "add" : "remove"]("done");
-  };
-  mark(!(S.tenant.left ?? []).includes(id));
-  fileSteps.set(id, mark);
-  box.append(el("div", {}, [el("b", { textContent: title }), tag]), el("p", { textContent: why }));
-  return box;
-}
 
 /**
  * org/priorities.md, edited in place.
@@ -445,56 +482,141 @@ function fileStep(id, title, why) {
  * quicker to type than to explain to a model. So the file opens as it is on disk, stub and
  * all, and saving it is the same commit-and-push as every other editor here.
  */
-function prioritiesEditor() {
-  const box = el("div", { style: "margin-top:9px" });
-  const path = opsName() + "/org/priorities.md";
-  const ta = el("textarea", { className: "pastebox" });
-  ta.rows = 12;
-  const save = el("button", { className: "btn primary", textContent: "Save and commit" });
-  const out = el("div");
-  box.append(ta, el("div", { className: "row", style: "margin-top:9px" }, [save]), out);
+const BUSINESS_QUESTIONS = [
+  ["line", "What does it do, in one line?", "What this business does, in one line", true],
+  ["who", "Who is it for?", "Who the customers are, specifically", true],
+  ["key", "What does everything depend on?", "The one fact everything else follows from", false],
+  ["true", "What's already true? What's built, measured or tried?", "What is already true", false],
+  ["not", "What should staff never decide on their own?", "What is not ours to decide", false],
+];
 
-  let before = "";
-  save.disabled = true;
-  // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
-  fetch(fileUrl(path), { cache: "no-store" })
-    .then((r) => (r.ok ? r.text() : ""))
-    .then((text) => {
-      before = text;
-      ta.value = text;
-      grow(ta);
-      save.disabled = false;
-    })
-    .catch((err) => out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) })));
-  ta.addEventListener("input", () => grow(ta));
+/** The business, as five questions in plain fields, written out as org/business.md. */
+function businessForm(onSaved) {
+  const box = el("div");
+  const path = opsName() + "/org/business.md";
+  const fields = BUSINESS_QUESTIONS.map(([id, label, , required]) => {
+    const input = id === "line" ? el("input", { type: "text" }) : el("textarea", { className: "pastebox", rows: 3 });
+    const wrap = el("label", { className: "qfield" }, [
+      el("span", { textContent: label + (required ? "" : " (optional)") }),
+      input,
+    ]);
+    return { id, input, wrap };
+  });
+  const save = el("button", { className: "btn primary", textContent: "Save" });
+  const out = el("div");
+  box.append(...fields.map((f) => f.wrap), el("div", { className: "row" }, [save]), out);
 
   save.onclick = async () => {
-    if (ta.value.trim() === before.trim()) {
-      out.replaceChildren(el("p", { className: "sub", textContent: "Nothing changed yet." }));
+    const missing = fields.find((f, i) => BUSINESS_QUESTIONS[i][3] && !String(f.input.value ?? "").trim());
+    if (missing) {
+      missing.input.focus();
+      out.replaceChildren(el("p", { className: "err", textContent: "Answer the first two at least." }));
       return;
     }
-    save.disabled = true;
-    save.textContent = "Saving…";
-    try {
-      const r = await saveFile(path, ta.value, "portal: write org/priorities.md");
-      before = ta.value;
-      out.replaceChildren(
-        el("p", {
-          className: r.pushed ? "sub" : "err",
-          textContent: r.pushed
-            ? "Saved and pushed."
-            : "Committed, but the push failed: " + (r.note ?? ""),
-        }),
-      );
-      recheck();
-    } catch (err) {
-      out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) }));
-    } finally {
-      save.disabled = false;
-      save.textContent = "Save and commit";
-    }
+    const name = App.data?.name ?? S.tenant.name ?? S.tenant.org;
+    const text =
+      `# What ${name} is\n\n` +
+      fields
+        .map((f, i) => [BUSINESS_QUESTIONS[i][2], String(f.input.value ?? "").trim()])
+        .filter(([, v]) => v)
+        .map(([h, v]) => `## ${h}\n\n${v}\n`)
+        .join("\n");
+    await saveAndSay(save, out, path, text, "portal: write org/business.md", onSaved);
   };
+
+  // For somebody who would rather be interviewed than fill in a form.
+  box.append(
+    el("details", { className: "altway" }, [
+      el("summary", { textContent: "Or let an AI interview you instead" }),
+      paste({ kind: "discover", title: "", onSaved: () => (onSaved(), recheck()) }),
+    ]),
+  );
+  box.append(changeRaw(path, onSaved));
   return box;
+}
+
+/** This month's priorities, as three lines and an out-of-scope list. */
+function prioritiesForm(onSaved) {
+  const box = el("div");
+  const path = opsName() + "/org/priorities.md";
+  const ranks = [1, 2, 3].map((i) => {
+    const input = el("input", { type: "text", placeholder: i === 1 ? "e.g. Tasks can be ticked off and removed" : "" });
+    return { input, wrap: el("label", { className: "qfield" }, [el("span", { textContent: "Priority " + i + (i > 1 ? " (optional)" : "") }), input]) };
+  });
+  const scope = el("textarea", { className: "pastebox", rows: 3, placeholder: "One per line" });
+  const save = el("button", { className: "btn primary", textContent: "Save" });
+  const out = el("div");
+  box.append(
+    ...ranks.map((r) => r.wrap),
+    el("label", { className: "qfield" }, [el("span", { textContent: "Out of scope this month (optional)" }), scope]),
+    el("div", { className: "row" }, [save]),
+    out,
+  );
+  save.onclick = async () => {
+    const items = ranks.map((r) => String(r.input.value ?? "").trim()).filter(Boolean);
+    if (!items.length) {
+      ranks[0].input.focus();
+      out.replaceChildren(el("p", { className: "err", textContent: "Add at least one priority." }));
+      return;
+    }
+    const outs = String(scope.value ?? "").split("\n").map((l) => l.replace(/^[-*]\s*/, "").trim()).filter(Boolean);
+    const text =
+      "## What matters this month\n\n### Priorities, in order\n\n" +
+      items.map((t, i) => `${i + 1}. ${t}`).join("\n") +
+      "\n" +
+      (outs.length ? "\n### Out of scope this month\n\n" + outs.map((t) => `- ${t}`).join("\n") + "\n" : "");
+    await saveAndSay(save, out, path, text, "portal: write org/priorities.md", onSaved);
+  };
+  box.append(changeRaw(path, onSaved));
+  return box;
+}
+
+async function saveAndSay(btn, out, path, text, message, onSaved) {
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = "Saving…";
+  try {
+    const r = await saveFile(path, text, message);
+    out.replaceChildren(
+      el("p", {
+        className: r.pushed ? "sub" : "err",
+        textContent: r.pushed ? "Saved." : "Saved locally, but the push failed: " + (r.note ?? ""),
+      }),
+    );
+    onSaved();
+    recheck();
+  } catch (err) {
+    out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) }));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+/** The file itself, for editing what is already there rather than starting again. */
+function changeRaw(path, onSaved) {
+  const details = el("details", { className: "altway" });
+  details.append(el("summary", { textContent: "Or edit the file directly" }));
+  let loaded = false;
+  details.addEventListener("toggle", () => {
+    if (!details.open || loaded) return;
+    loaded = true;
+    const ta = el("textarea", { className: "pastebox" });
+    ta.rows = 12;
+    const save = el("button", { className: "btn", textContent: "Save" });
+    const out = el("div");
+    details.append(ta, el("div", { className: "row" }, [save]), out);
+    // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
+    fetch(fileUrl(path), { cache: "no-store" })
+      .then((r) => (r.ok ? r.text() : ""))
+      .then((text) => {
+        ta.value = text;
+        grow(ta);
+      });
+    ta.addEventListener("input", () => grow(ta));
+    save.onclick = () => saveAndSay(save, out, path, ta.value, "portal: edit " + path.split("/").slice(1).join("/"), onSaved);
+  });
+  return details;
 }
 
 /** The ops repo's directory name, which is what every workspace-relative path starts with. */
@@ -509,9 +631,8 @@ function opsName() {
  *
  * Skipped, every workflow fails with "workflow not found", which reads like a typo in a path.
  */
-function accessStep() {
-  const box = el("div", { className: "manual" });
-  box.append(el("b", { textContent: "Let staff repos run the shared workflow" }));
+function accessStep(opts = {}) {
+  const box = el("div");
   const out = el("div");
   box.append(out);
   const say = (text, cls) => el("p", { className: cls ?? "sub", textContent: text });
@@ -521,7 +642,7 @@ function accessStep() {
     out.replaceChildren(
       say(
         (why ? why + " " : "") +
-          "Needed so staff repos can run the shared workflow.",
+          "Roster tried to set this when it created the org, and GitHub didn't allow it.",
       ),
       el("div", { className: "row" }, [go]),
     );
@@ -531,6 +652,7 @@ function accessStep() {
         const r = await setAccess();
         if (r.ok) {
           out.replaceChildren(say("Done."));
+          opts.onStatus?.(true);
           return;
         }
         out.replaceChildren(
@@ -548,6 +670,7 @@ function accessStep() {
   out.replaceChildren(say("Checking…"));
   getAccess()
     .then((r) => {
+      opts.onStatus?.(Boolean(r.ok));
       if (r.ok) out.replaceChildren(say("Done."));
       else offer(r.level ? "It is set to “" + r.level + "”." : "");
     })

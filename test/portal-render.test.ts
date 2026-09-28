@@ -2817,7 +2817,7 @@ test("the repo picker offers what org.yaml does not already list", async () => {
     const s = await renderAll("", { mode: "setup" });
     await new Promise((r) => setTimeout(r, 40));
     const text = s._byId.main.textContent;
-    assert.match(text, /Which repos the staff work in/);
+    assert.match(text, /Choose the repos your staff work on/);
     assert.match(text, /acme-web/, "a repo gh can see and org.yaml lacks should be offered");
   } finally {
     (SETUP_FIXTURE as any).tenant = saved;
@@ -2856,13 +2856,12 @@ test("an org nobody has been hired into opens on what is left, not an empty inbo
 
   const text = s._byId.main.textContent;
   assert.match(text, /Getting started/);
-  assert.match(text, /Hire your first staff member/, "the next step comes first");
-  assert.match(text, /Which repos the staff work in/, "the repo picker is back");
+  assert.match(text, /Hire your first staff member/);
+  assert.match(text, /Choose the repos your staff work on/, "the repo picker is back");
   assert.match(text, /credential/, "and the credential box");
-  assert.match(text, /org\/business\.md/);
-  assert.match(text, /org\/priorities\.md/, "and the step Health flags as priorities.stub");
-  assert.match(text, /Still the stub it shipped as/, "a stub says so on its step");
-
+  assert.match(text, /Describe the business/);
+  assert.match(text, /Set this month's priorities/, "and the step Health flags as priorities.stub");
+  assert.match(text, /To do/, "an unfinished step says so");
   button(s._byId.main, "Hire someone").onclick();
   assert.equal(s.view, "staff", "Hire someone goes where hiring is");
 });
@@ -2891,12 +2890,14 @@ test("saving priorities.md re-runs the check rather than leaving Health stale", 
       text: async () => "",
     };
   };
-  // The last one: business.md's paste box comes first, and it takes a reply, not the file.
-  const ta = walkNodes(s._byId.main)
-    .filter((n) => n.tagName === "TEXTAREA" && String(n.className) === "pastebox")
-    .at(-1);
-  ta.value = "## This month\n\n1. Ship the course.\n";
-  button(s._byId.main, "Save and commit").onclick();
+  const nodes = walkNodes(s._byId.main);
+  const first = nodes.find(
+    (n) => n.tagName === "INPUT" && String(n.placeholder ?? "").startsWith("e.g."),
+  );
+  first.value = "Ship the course";
+  // business.md's form has a Save of its own, and comes first.
+  const saves = nodes.filter((n) => n.tagName === "BUTTON" && n.textContent === "Save");
+  saves[1].onclick();
   await new Promise((r) => setTimeout(r, 30));
 
   const save = asked.findIndex((a) => a.startsWith("/api/save"));

@@ -13,14 +13,16 @@ import { el } from "../dom.js";
  *   org.yaml already lists is read off disk, which is how the Org screen uses it long after setup.
  */
 export function repoPicker(opts) {
-  const box = el("div", { className: "manual" });
-  box.append(
-    el("b", { textContent: "Which repos the staff work in" }),
-    el("p", {
-      textContent:
-        "Add the repos your staff should work on. New hires get access to them automatically.",
-    }),
-  );
+  const box = el("div", { className: opts.bare ? "" : "manual" });
+  if (!opts.bare) {
+    box.append(
+      el("b", { textContent: "Which repos the staff work in" }),
+      el("p", {
+        textContent:
+          "Add the repos your staff should work on. New hires get access to them automatically.",
+      }),
+    );
+  }
 
   const out = el("div", { style: "margin-top:9px" });
   box.append(out);

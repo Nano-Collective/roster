@@ -22,6 +22,8 @@ export interface SetupStatus {
     opsDir?: string;
     org?: string;
     repos?: string[];
+    /** The repos marked `role: product`: the ones staff work on. */
+    products?: string[];
     /** What is still to do, so a step can say it is done without anybody pressing anything. */
     left?: Unfinished[];
   };
@@ -122,6 +124,7 @@ export async function setupStatus(startedIn: string): Promise<SetupStatus> {
           opsDir: found.opsDir,
           org: readOrgName(found.opsDir),
           repos: readBlockNames(found.opsDir, "repos", "name"),
+          products: readProducts(found.opsDir),
           left: unfinished(found.opsDir, readBlockNames(found.opsDir, "staff", "handle").length),
         }
       : { found: false },
@@ -146,6 +149,25 @@ function readOrgName(opsDir: string): string | undefined {
   if (!existsSync(path)) return undefined;
   const m = /^org:\s*(\S+)\s*$/m.exec(readFileSync(path, "utf8"));
   return m?.[1];
+}
+
+/** The repos org.yaml marks as products, which is what "has somebody chosen them" means. */
+function readProducts(opsDir: string): string[] {
+  const path = join(opsDir, "org.yaml");
+  if (!existsSync(path)) return [];
+  const out: string[] = [];
+  let inside = false;
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    if (/^repos:\s*$/.test(line)) {
+      inside = true;
+      continue;
+    }
+    if (inside && /^\S/.test(line)) break;
+    if (!inside || !/\brole:\s*product\b/.test(line)) continue;
+    const m = /\bname:\s*([\w.-]+)/.exec(line);
+    if (m) out.push(m[1]!);
+  }
+  return out;
 }
 
 /**

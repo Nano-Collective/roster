@@ -15,7 +15,7 @@ import { unifiedDiff, diffStat } from "../textdiff.js";
  */
 export function paste(opts) {
   const box = el("div", { className: "paste" });
-  box.append(el("h3", { textContent: opts.title ?? "Write it with your own AI" }));
+  if (opts.title !== "") box.append(el("h3", { textContent: opts.title ?? "Write it with your own AI" }));
 
   const status = el("p", { className: "sub", textContent: "Building the prompt…" });
   box.append(status);
@@ -23,7 +23,7 @@ export function paste(opts) {
   /* A charter brief carries a worked example to model the shape on, matched to the role. The
      choice is on the page because the match is a guess, and "none" is a fair answer. */
   const model = el("select", { hidden: true });
-  const modelRow = el("label", { className: "sub", hidden: true }, ["Model it on: ", model]);
+  const modelRow = el("label", { className: "sub", hidden: true }, ["Example to follow: ", model]);
   box.append(modelRow);
 
   const actions = el("div", { className: "row" });
@@ -38,8 +38,7 @@ export function paste(opts) {
   const answer = el("textarea", {
     className: "pastebox",
     placeholder:
-      "Paste the whole reply here, including anything your AI said around the file. " +
-      "Only the part between the sentinels is used.",
+      "Paste its whole reply here.",
   });
   answer.rows = 8;
 
@@ -76,11 +75,9 @@ export function paste(opts) {
         model.hidden = modelRow.hidden = false;
       }
       status.textContent =
-        "Paste this into Claude, ChatGPT or anything else. It carries every file it refers to, " +
-        "so there is nothing to attach and nothing for it to ask you for. It will interview you " +
-        "first, then hand back the finished file.";
+        "Copy the prompt into Claude or ChatGPT and answer its questions.";
       box.append(
-        el("p", { className: "sub", textContent: "Then paste its whole reply back here:" }),
+        el("p", { className: "sub", textContent: "Then paste its reply here:" }),
         answer,
         el("div", { className: "row" }, [check]),
         result,

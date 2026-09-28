@@ -6,24 +6,30 @@
 import { getCredential, storeCredential } from "../api.js";
 import { el } from "../dom.js";
 
-export function credentialPanel() {
-  const box = el("div", { className: "manual" });
-  box.append(el("b", { textContent: "Agent credential" }));
+/** @param opts.bare  drawn inside a step that already has a title. `onStatus(done)` hears whether one is stored. */
+export function credentialPanel(opts = {}) {
+  const box = el("div", { className: opts.bare ? "" : "manual" });
+  if (!opts.bare) box.append(el("b", { textContent: "Agent credential" }));
   const body = el("div");
   box.append(body);
   body.append(el("p", { className: "sub", textContent: "Looking at where it would go…" }));
 
   getCredential()
-    .then((c) => draw(body, c))
+    .then((c) => {
+      opts.onStatus?.(Boolean(c.orgSecret));
+      draw(body, c, opts);
+    })
     .catch((err) => body.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) })));
   return box;
 }
 
-function draw(body, c) {
+function draw(body, c, opts = {}) {
   body.replaceChildren();
   if (c.howTo) body.append(el("p", { textContent: "Where to get one: " + c.howTo }));
 
-  if (!c.brains.length) {
+  if (!(c.brains ?? []).length) {
+    // Inside a step, the step's own hint already says when this opens.
+    if (opts.bare) return;
     body.append(
       el("p", {
         className: "sub",
@@ -73,6 +79,7 @@ function draw(body, c) {
       const r = await storeCredential(value, false);
       input.value = "";
       if (!r.ok) throw new Error(r.error);
+      opts.onStatus?.(true);
       out.replaceChildren(
         ...(r.fellBack ? [el("p", { className: "err", textContent: "The org secret was refused: " + r.fellBack })] : []),
         el("p", {

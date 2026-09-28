@@ -121,3 +121,25 @@
 .plansteps{margin:6px 0 12px;padding-left:20px;font-size:13.5px;line-height:1.7}
 .planfiles{margin:0 0 12px}
 .planfiles summary{cursor:pointer;color:var(--ink-dim);font-size:12.5px}
+
+/* ---------- the numbered to-do list ---------- */
+
+.todos{display:grid;gap:10px}
+.todo{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
+.todo.done{padding:11px 18px;border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.todohead{display:flex;align-items:center;gap:11px}
+.todohead h3{margin:0;font:600 14.5px var(--sans);flex:1}
+.todon{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+      background:var(--surface-2);color:var(--ink-dim);font:600 11px var(--mono)}
+.todo.done .todon{background:var(--accent-fill);color:var(--accent-ink)}
+.todopill{font:600 11px var(--sans);padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--ink-dim)}
+.todo.done .todopill{background:var(--accent-soft);color:var(--accent)}
+.todohint{margin:8px 0 0 35px}
+.todobody{margin:12px 0 0 35px}
+.todobody .row{margin-top:10px}
+.qfield{display:grid;gap:5px;margin:0 0 12px}
+.qfield span{font:600 12.5px var(--sans)}
+.qfield input{background:var(--bg-elev);border:1px solid var(--border-strong);color:var(--ink);
+      border-radius:var(--r);padding:8px 10px;font:13px var(--sans)}
+.altway{margin-top:14px}
+.altway summary{cursor:pointer;color:var(--ink-dim);font-size:12.5px}
