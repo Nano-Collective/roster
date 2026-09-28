@@ -100,7 +100,9 @@ member writes to, not only their own. This is the step that most often looks don
 Then **Write the charter**, which is the same copy-a-prompt loop as `business.md`, aimed at
 `CHARTER.md`. `hire` deliberately does not generate one: a generated charter produces exactly
 the generic agent this whole arrangement exists to avoid. It is the file that decides
-everything else, so it is worth the time. [Writing a charter](writing-a-charter.md).
+everything else, so it is worth the time. [Writing a charter](writing-a-charter.md), with
+worked examples for a [CTO](charters/cto.md), a [CMO](charters/cmo.md) and
+[support](charters/support.md).
 
 ## 7. Health, then one run by hand
 

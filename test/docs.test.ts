@@ -359,3 +359,22 @@ test("a hit is a page the portal will actually serve", () => {
   const listed = new Set(docPages().map((d) => d.file));
   for (const hit of searchDocs("agent")) assert.ok(listed.has(hit.file), hit.file);
 });
+
+test("the example charters are examples, and about nobody real", () => {
+  /* Drawn from a live org's charters, so the check that matters is that nothing of that org
+     came along: an example that names a real product is a leak, and one that reads as a
+     template gets filled in rather than rewritten. */
+  const dir = join(DOCS, "charters");
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
+  assert.deepEqual(files.sort(), ["cmo.md", "cto.md", "support.md"]);
+  for (const f of files) {
+    const body = readFileSync(join(dir, f), "utf8");
+    assert.match(body, /An example to adapt, not a template/, `${f} has to say what it is`);
+    assert.match(body, /Acme/);
+    assert.doesNotMatch(body, /\bpip\b|playpip|poker/i, `${f} names the org it came from`);
+    assert.doesNotMatch(body, /\bWill\b/, `${f} names the person it came from`);
+    for (const heading of ["Who I am", "The mission", "Decision rights", "Guardrails"]) {
+      assert.ok(body.includes(`## ${heading}`), `${f} is missing "${heading}"`);
+    }
+  }
+});
