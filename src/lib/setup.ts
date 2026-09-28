@@ -38,7 +38,6 @@ export interface AgentPreset {
   label: string;
   /** The repo secret its credential goes in. Named here so setup can name it exactly. */
   tokenEnv: string;
-  note: string;
   /** Where the credential comes from, in one line. docs/agents.md has the longer answer. */
   howTo: string;
 }
@@ -53,7 +52,6 @@ export const AGENTS: AgentPreset[] = [
     id: "claude-code-action",
     label: "Claude Code (GitHub Action)",
     tokenEnv: "CLAUDE_CODE_OAUTH_TOKEN",
-    note: "The reference runner, and the one exercised daily. Start here unless you have a reason not to.",
     howTo:
       "run `claude setup-token` where Claude Code is signed in, and paste the long-lived token it prints. An Anthropic API key also works.",
   },
@@ -61,7 +59,6 @@ export const AGENTS: AgentPreset[] = [
     id: "claude",
     label: "Claude Code (CLI)",
     tokenEnv: "CLAUDE_CODE_OAUTH_TOKEN",
-    note: "The same agent, installed and driven as a command line rather than as an action.",
     howTo:
       "run `claude setup-token` where Claude Code is signed in, and paste the long-lived token it prints. An Anthropic API key also works.",
   },
@@ -69,7 +66,6 @@ export const AGENTS: AgentPreset[] = [
     id: "codex",
     label: "Codex",
     tokenEnv: "CODEX_API_KEY",
-    note: "OpenAI's coding agent.",
     howTo:
       "an API key from the OpenAI platform console. `codex login` is for interactive use and gives nothing a runner can hold.",
   },
@@ -77,7 +73,6 @@ export const AGENTS: AgentPreset[] = [
     id: "nanocoder",
     label: "Nanocoder",
     tokenEnv: "NANOCODER_API_KEY",
-    note: "The Nano Collective's own, and the smallest thing that works.",
     howTo:
       "the API key of the provider named in agents.config.json. Nanocoder is a client, so the key is the provider's.",
   },

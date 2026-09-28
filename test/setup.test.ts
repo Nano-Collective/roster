@@ -69,7 +69,7 @@ test("every agent preset names the secret it needs", () => {
   assert.ok(AGENTS.length >= 4);
   for (const preset of AGENTS) {
     assert.match(preset.tokenEnv, /^[A-Z][A-Z0-9_]+$/, `${preset.id} has no usable secret name`);
-    assert.ok(preset.label.trim() && preset.note.trim(), `${preset.id} is unexplained`);
+    assert.ok(preset.label.trim(), `${preset.id} has no label`);
   }
   assert.equal(AGENTS[0]!.id, "claude-code-action", "the reference runner should be first");
 });

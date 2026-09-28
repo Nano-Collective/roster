@@ -264,7 +264,7 @@ function stepOrg(main) {
     const opt = el("label", { className: "choice" });
     const radio = el("input", { name: "agent", value: a.id, checked: i === 0 });
     radio.setAttribute("type", "radio");
-    opt.append(radio, el("b", { textContent: a.label }), el("small", { textContent: a.note }));
+    opt.append(radio, el("b", { textContent: a.label }));
     opt.append(el("code", { textContent: a.tokenEnv }));
     agents.append(opt);
   });
