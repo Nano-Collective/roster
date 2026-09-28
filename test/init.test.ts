@@ -257,3 +257,54 @@ test("an agent nobody has heard of is refused with the list", async () => {
     /unknown agent "not-an-agent"/,
   );
 });
+
+test("priorities.md ships as a stub, reaches the daily prompt, and doctor follows it", async () => {
+  /* The shared direction. Tenant-owned like business.md, and optional in the prompt, so an org
+     that predates it still composes and doctor says what is missing rather than failing. */
+  const { root, opsDir } = await newOrg();
+  try {
+    const ws = findWorkspace(opsDir);
+    const { parseYaml, compose } = await loadComposer(opsDir);
+    const plan = buildPlan(
+      ws,
+      readOrg(opsDir, parseYaml) as any,
+      "cto",
+      {
+        name: "CTO",
+        dir: "technology",
+        app: "acme-cto",
+        publicApp: "acme-robot",
+        statusIssue: 1,
+      } as never,
+      parseYaml,
+    );
+    const brain = join(root, "technology");
+    for (const [rel, text] of plan.files) {
+      mkdirSync(dirname(join(brain, rel)), { recursive: true });
+      writeFileSync(join(brain, rel), text);
+    }
+    addToOrgYaml(ws, plan);
+
+    const ids = async () =>
+      new Set(
+        (await collect({ offline: true, ops: opsDir }))!.findings.map((f) => `${f.level}:${f.id}`),
+      );
+    const daily = () => compose({ opsDir, brainsDir: root, staff: "cto", kind: "daily" });
+
+    assert.ok((await ids()).has("warn:priorities.stub"), "the stub is noticed");
+    assert.match(daily(), /What matters this month/, "and it is composed into the daily run");
+
+    writeFileSync(
+      join(opsDir, "org", "priorities.md"),
+      "## What matters this month\n\n1. Ship the beta.\n",
+    );
+    assert.ok((await ids()).has("ok:priorities"));
+    assert.match(daily(), /Ship the beta/);
+
+    rmSync(join(opsDir, "org", "priorities.md"));
+    assert.ok((await ids()).has("warn:priorities"), "an org without one is told, not failed");
+    assert.doesNotMatch(daily(), /Ship the beta/, "and still composes");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

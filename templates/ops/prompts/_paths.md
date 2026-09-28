@@ -5,7 +5,8 @@ repos sit side by side inside it:
 
 - `{{staff.dir}}/` - your brain. **Start by reading it.**
 - `{{ops.dir}}/` - the org's shared brain: `org/operating.md`, `org/voice.md`, `org/guardrails.md`,
-  `org/business.md`. **Read-only to you.** Propose a change as a PR; do not edit it in place.
+  `org/business.md`, `org/priorities.md`. **Read-only to you.** Propose a change as a PR; do not
+  edit it in place.
 {{#if peers}}
 {{peer_list}}
 {{/if}}

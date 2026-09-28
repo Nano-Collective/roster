@@ -56,6 +56,9 @@ const HUMAN_ONLY: Record<string, string> = {
   repo: "Creating or renaming a repository. `roster hire` does this deliberately, not an agent.",
   "repo.visibility": "Changing a repository's visibility is a posture decision, not a fix.",
   "status-issue": "Pinning an issue is a click, and which issue is pinned is yours to decide.",
+  priorities:
+    "What matters this month is yours to decide. An agent asked to write it invents a direction.",
+  "priorities.stub": "Same: the ranking is a judgement about the business, not an edit.",
 };
 
 /** Findings whose fix is a file in the workspace, so an agent can simply do it. */

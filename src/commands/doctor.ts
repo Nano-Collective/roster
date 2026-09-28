@@ -72,6 +72,7 @@ export async function collect(opts: Flags & { only?: string }): Promise<Report |
 
   findings.push(...checkWorkspace(ws, org));
   findings.push(...checkBusiness(ws));
+  findings.push(...checkPriorities(ws));
   findings.push(...(await checkAgent(ws, org)));
   if (online) findings.push(...(await checkOrgOnline(ws, org)));
 
@@ -318,6 +319,39 @@ function checkBusiness(ws: Workspace): Finding[] {
     ];
   }
   return [{ scope: "workspace", level: "ok", id: "business", title: "org/business.md is written" }];
+}
+
+/**
+ * The shared direction. A warning, never a failure: an org without one still runs, it just
+ * runs as several staff members each choosing their own "one piece of work".
+ */
+function checkPriorities(ws: Workspace): Finding[] {
+  const path = join(ws.opsDir, "org", "priorities.md");
+  if (!existsSync(path)) {
+    return [
+      {
+        scope: "workspace",
+        level: "warn",
+        id: "priorities",
+        title: "no org/priorities.md, so each staff member sets its own direction",
+        fix: "Write org/priorities.md: what matters this month, ranked, and what is out of scope. Every daily run reads it.",
+      },
+    ];
+  }
+  if (looksUnwritten(readFileSync(path, "utf8"))) {
+    return [
+      {
+        scope: "workspace",
+        level: "warn",
+        id: "priorities.stub",
+        title: "org/priorities.md is still the stub it shipped as",
+        fix: "Replace it with what matters this month, ranked. Until then the staff choose from their charters.",
+      },
+    ];
+  }
+  return [
+    { scope: "workspace", level: "ok", id: "priorities", title: "org/priorities.md is written" },
+  ];
 }
 
 interface Manifest {
