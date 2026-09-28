@@ -4,6 +4,21 @@ import { useState } from "react";
 import { Reveal } from "./Reveal";
 import { Section, SectionHead, Soft } from "./Section";
 
+const onGithub = [
+  {
+    title: "Work arrives as a pull request",
+    body: "Read the diff, merge it or leave a review. That is the approval.",
+  },
+  {
+    title: "Decisions arrive as issues",
+    body: "Anything that needs you is an issue with the question in it. Answer in a comment.",
+  },
+  {
+    title: "Mention them to talk",
+    body: "@ a staff member on any issue or pull request and they get to work on it straight away.",
+  },
+];
+
 const screens: { label: string; body: string; src: string; dark?: string }[] = [
   {
     label: "Brain",
@@ -99,6 +114,29 @@ export function Showcase() {
         </div>
         <p className="mt-4 text-center text-[13px] text-fg-3 sm:hidden">Swipe to look around · tap to open full size</p>
       </Reveal>
+
+      {/* the portal is optional: everything it shows is on GitHub too */}
+      <Reveal delay={80}>
+        <div className="mx-auto mt-24 max-w-[720px] text-center">
+          <h3 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] sm:text-[36px]">
+            Or never open it. <Soft>Run the whole org from GitHub.</Soft>
+          </h3>
+          <p className="mt-4 text-[17px] leading-[1.55] text-fg-2">
+            The portal is a nicer way to read. Everything it shows lives in your repos, so the whole
+            org is manageable straight from GitHub, on the web or your phone.
+          </p>
+        </div>
+      </Reveal>
+      <div className="mt-12 grid gap-px overflow-hidden rounded-2xl bg-line md:grid-cols-3">
+        {onGithub.map((g, i) => (
+          <Reveal key={g.title} delay={i * 70} className="bg-bg-2">
+            <div className="h-full p-6 md:pr-8">
+              <div className="text-[17px] font-semibold tracking-[-0.02em]">{g.title}</div>
+              <p className="mt-2 text-[14px] leading-[1.55] text-fg-2">{g.body}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
     </Section>
   );
 }
