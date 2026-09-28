@@ -68,20 +68,36 @@ export function Showcase() {
         </div>
         <p className="mx-auto mt-5 max-w-[520px] text-center text-[15px] leading-[1.5] text-fg-2">{s.body}</p>
 
+        {/* On a phone the full screenshot shrinks to unreadable, so it keeps a legible
+            width and pans sideways instead; tapping opens it full size to pinch-zoom. */}
         <div className="window mx-auto mt-10">
-          <picture key={s.src}>
-            {s.dark && <source srcSet={s.dark} media="(prefers-color-scheme: dark)" />}
-            {/* biome-ignore lint/performance/noImgElement: static export, images are unoptimised */}
-            <img
-              src={s.src}
-              alt={`The Roster portal, ${s.label} screen`}
-              width={1432}
-              height={707}
-              className="fade-up block h-auto w-full"
-              style={{ animationDuration: "400ms" }}
-            />
-          </picture>
+          <div key={s.src} className="overflow-x-auto overscroll-x-contain sm:overflow-visible">
+            <a
+              href={s.src}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                const img = e.currentTarget.querySelector("img");
+                if (img?.currentSrc) e.currentTarget.href = img.currentSrc;
+              }}
+              className="block w-[860px] sm:w-full"
+            >
+              <picture>
+                {s.dark && <source srcSet={s.dark} media="(prefers-color-scheme: dark)" />}
+                {/* biome-ignore lint/performance/noImgElement: static export, images are unoptimised */}
+                <img
+                  src={s.src}
+                  alt={`The Roster portal, ${s.label} screen`}
+                  width={1432}
+                  height={707}
+                  className="fade-up block h-auto w-full"
+                  style={{ animationDuration: "400ms" }}
+                />
+              </picture>
+            </a>
+          </div>
         </div>
+        <p className="mt-4 text-center text-[13px] text-fg-3 sm:hidden">Swipe to look around · tap to open full size</p>
       </Reveal>
     </Section>
   );
