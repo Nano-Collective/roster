@@ -10,6 +10,8 @@ import { el, toClipboard } from "../dom.js";
 const LEVEL_ORDER = { fail: 0, warn: 1, ok: 2 };
 
 /**
+ * @param opts.skip  finding ids the caller already shows as a step of its own, so they are not
+ *   reported twice. With `opts.hideWhenClean`, a list left empty draws nothing at all.
  * @param opts.shell  when Health draws this, the section it lives in: `{actions, say}`. The
  *   setup screen passes nothing and gets the layout it has always had. Its own screen is a
  *   wizard, where a chunky button and a paragraph under it are right; on Health it is one
@@ -32,9 +34,14 @@ export async function checklist(host, opts = {}) {
   const findings = (report.findings ?? []).slice().sort(
     (a, b) => (LEVEL_ORDER[a.level] ?? 3) - (LEVEL_ORDER[b.level] ?? 3),
   );
-  const bad = findings.filter((f) => f.level !== "ok");
+  const skip = new Set(opts.skip ?? []);
+  const bad = findings.filter((f) => f.level !== "ok" && !skip.has(f.id));
 
   host.replaceChildren();
+  if (!bad.length && opts.hideWhenClean) {
+    opts.onEmpty?.();
+    return;
+  }
   opts.shell?.say(bad.length ? String(bad.length) : "clean");
   host.append(
     el("p", {
@@ -83,7 +90,7 @@ export async function checklist(host, opts = {}) {
   const again = el("button", { className: btnClass, textContent: "Check again" });
   again.onclick = () => checklist(host, opts);
 
-  const feet = opts.shell?.actions ?? host;
+  const feet = opts.shell?.actions ?? host.appendChild(el("div", { className: "row" }));
   if (opts.shell) feet.replaceChildren();
   feet.append(copy, again, note);
   if (bad.length) {
@@ -92,8 +99,7 @@ export async function checklist(host, opts = {}) {
         className: noteClass,
         style: "flex-basis:100%",
         textContent:
-          "Paste it into Cursor, Claude Code or anything else that can edit files here, then " +
-          "check again. The ids above should be gone.",
+          "Paste them into your coding agent, then check again.",
       }),
     );
   }

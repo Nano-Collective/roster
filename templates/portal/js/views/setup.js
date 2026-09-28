@@ -30,6 +30,12 @@ let S = null; // /api/setup/status, refreshed after anything that changes the wo
 /* Where the doctor checklist is drawn on this screen, so a save can re-run it. Left stale, it
    went on saying business.stub after business.md had been saved, until "Check again". */
 let healthHost = null;
+let healthStep = null;
+
+/* What the "What is left" cards already ask for. Doctor reporting them as well, right after a
+   successful create, read as the create having failed. */
+const COVERED = ["business", "business.stub", "priorities", "priorities.stub", "actions-access", "secrets", "agent"];
+const HEALTH = { skip: COVERED, hideWhenClean: true };
 
 /* Each "what is left" step that is a file, by id, so a save can mark it done in place rather
    than repainting the page and throwing away the diff somebody is still reading. */
@@ -75,11 +81,12 @@ export async function viewGettingStarted(main) {
 
   main.append(afterCreate(App.data?.staff?.length ? 1 : 2));
 
-  const health = step(App.data?.staff?.length ? 2 : 3, "What doctor still says", false);
+  const health = step(App.data?.staff?.length ? 2 : 3, "Other problems", false);
   healthHost = el("div", { style: "margin-top:12px" });
   health.append(healthHost);
   main.append(health);
-  checklist(healthHost, {});
+  healthStep = health;
+  checklist(healthHost, { ...HEALTH, onEmpty: () => health.remove() });
 }
 
 /** Whether the sidebar offers Getting started: while anything is left, or while it is open. */
@@ -93,7 +100,7 @@ export function paintSetupNav() {
    again rather than updated by hand. The sidebar's list comes from /api/org, which is the one
    the portal already reads. */
 async function recheck() {
-  if (healthHost) checklist(healthHost, {});
+  if (healthHost) checklist(healthHost, { ...HEALTH, onEmpty: () => healthStep?.remove() });
   try {
     S = await getSetup();
     for (const [id, mark] of fileSteps) mark(!(S.tenant.left ?? []).includes(id));
@@ -166,13 +173,9 @@ function stepOrg(main) {
       el("p", {
         className: "sub",
         textContent:
-          "Reload the page to open the portal. Anything below that is still undone stays under " +
-          "Getting started in the sidebar until it is.",
+          "Finish the steps below. They stay under Getting started in the sidebar until they're done.",
       }),
     );
-    healthHost = el("div", { style: "margin-top:12px" });
-    card.append(healthHost);
-    checklist(healthHost, {});
     return card;
   }
 
