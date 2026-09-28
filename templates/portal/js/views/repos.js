@@ -18,9 +18,7 @@ export function repoPicker(opts) {
     el("b", { textContent: "Which repos the staff work in" }),
     el("p", {
       textContent:
-        "Repos marked as products are the ones staff contribute to without owning. A new hire " +
-        "picks them up automatically; somebody already hired keeps the works_in list in their " +
-        "own staff.yaml.",
+        "Add the repos your staff should work on. New hires get access to them automatically.",
     }),
   );
 

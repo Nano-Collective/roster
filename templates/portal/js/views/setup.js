@@ -66,8 +66,7 @@ export async function viewGettingStarted(main) {
     next.append(
       el("p", {
         textContent:
-          "Nothing runs until somebody is hired. Hiring creates their repo, their workflows and " +
-          "their pinned issue; the GitHub App and the charter follow on their card.",
+          "Nothing runs until you hire someone. You'll set up their GitHub App and charter from their card.",
       }),
       el("div", { className: "row" }, [hire]),
     );
@@ -120,9 +119,7 @@ function render(main) {
     el("p", {
       className: "sub",
       textContent:
-        "Sign in with gh, choose the organisation and the agent, then what is left: a setting " +
-        "roster tries for you, the agent's credential, the repos your staff work in, and the two " +
-        "files only you can write. Nothing is created until you have read the plan.",
+        "Choose an organisation and a coding agent. Nothing is created until you press Create it.",
     }),
   );
 
@@ -148,8 +145,7 @@ function stepGh() {
     el("p", {
       className: "sub",
       textContent:
-        "roster does everything through your own gh, so it holds no token of its own. Run this " +
-        "in a terminal, then reload:",
+        "Run this in a terminal, then reload:",
     }),
     el("pre", { className: "cmd", textContent: "gh auth login" }),
   );
@@ -206,8 +202,7 @@ function stepOrg(main) {
   orgWrap.append(
     el("small", {
       textContent:
-        "Repos are created here. GitHub has no API for creating an organisation, so make one on " +
-        "github.com first if you need to.",
+        "Don't have one? Create it on github.com first.",
     }),
   );
   form.append(orgWrap);
@@ -250,8 +245,8 @@ function stepOrg(main) {
   });
   other.input.addEventListener("change", look);
 
-  const name = field("name", "What the business is called", "", "Shown to the agents. Defaults to the org.");
-  const human = field("human", "Your GitHub login", S.gh.login ?? "", "The person the agents answer to.");
+  const name = field("name", "What the business is called", "", "Defaults to the organisation name.");
+  const human = field("human", "Your GitHub login", S.gh.login ?? "", "The person the staff report to.");
 
   card.append(form);
   const agentHead = el("h3", { textContent: "Which coding agent runs a session" });
@@ -272,8 +267,7 @@ function stepOrg(main) {
   const agentNote = el("p", {
     className: "sub",
     textContent:
-      "Anything else works too: a runner is an install command, a run command and the name of " +
-      "the secret holding its credential. Write those three into org.yaml afterwards.",
+      "Using a different agent? Pick any of these, then set it in org.yaml afterwards.",
   });
   card.append(agentNote);
 
@@ -349,26 +343,20 @@ function stepOrg(main) {
     out.replaceChildren(el("p", { className: "sub", textContent: "Working…" }));
     try {
       const result = await planTenant(p);
-      out.replaceChildren();
-      out.append(
-        el("p", {
-          textContent:
-            `${result.files.length} files in ${result.dir}, and one private repo, ${p.org}/roster-ops, ` +
-            "with its Actions access set so every repo in the org can call its workflow. If GitHub " +
-            "refuses that, you get the reason and the page to click.",
-        }),
-      );
-      const list = el("div", { className: "filelist" });
-      for (const f of result.files) list.append(el("code", { textContent: "+ " + f }));
-      out.append(list);
-      out.append(
-        el("p", {
-          className: "sub",
-          textContent:
-            "org/business.md arrives as questions, not prose. Answering it is the next step and " +
-            "it is the one that decides whether any of this is worth running.",
-        }),
-      );
+      const steps = el("ol", { className: "plansteps" }, [
+        el("li", { textContent: `Create a private repo, ${p.org}/roster-ops, to hold the org's shared settings.` }),
+        el("li", { textContent: `Put a copy of it in ${result.dir}.` }),
+        el("li", { textContent: `Let the other repos in ${p.org} run its workflow.` }),
+      ]);
+      const files = el("details", { className: "planfiles" }, [
+        el("summary", { textContent: `The ${result.files.length} files it writes` }),
+        el("div", { className: "filelist" }, result.files.map((f) => el("code", { textContent: f }))),
+      ]);
+      const next = el("p", {
+        className: "sub",
+        textContent: "After that: describe the business, set this month's priorities, and hire your first staff member.",
+      });
+      out.replaceChildren(el("p", { textContent: "Create it will:" }), steps, files, next);
       go.hidden = false;
     } catch (err) {
       out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) }));
@@ -401,13 +389,6 @@ function stepOrg(main) {
 function afterCreate(n) {
   fileSteps.clear();
   const card = step(n, "What is left", false);
-  card.append(
-    el("p", {
-      textContent:
-        "The first is a setting roster tries for you. The last two are the files that decide " +
-        "whether any of this is worth running, and only you can write them.",
-    }),
-  );
   card.append(accessStep());
   card.append(credentialPanel());
 
@@ -417,9 +398,8 @@ function afterCreate(n) {
 
   const business = fileStep(
     "business",
-    "Answer org/business.md",
-    "It ships as questions. It is composed into the top of every prompt, every run, and an " +
-      "agent that cannot answer them writes work that is plausible and generic.",
+    "Describe the business",
+    "Answer the questions in org/business.md. Every staff member reads it before they start work.",
   );
   // The copy-a-prompt loop, which is the whole answer to "how do I write this file".
   business.append(paste({ kind: "discover", title: "Write it with your own AI", onSaved: recheck }));
@@ -427,9 +407,8 @@ function afterCreate(n) {
 
   const priorities = fileStep(
     "priorities",
-    "Rank org/priorities.md",
-    "What matters this month, at most three things in order, and what is out of scope. Every " +
-      "daily run reads it; without it each staff member picks its own direction from its charter.",
+    "Set this month's priorities",
+    "Up to three things, in order, plus what's out of scope. Saved as org/priorities.md.",
   );
   priorities.append(prioritiesEditor());
   card.append(priorities);
@@ -500,7 +479,7 @@ function prioritiesEditor() {
         el("p", {
           className: r.pushed ? "sub" : "err",
           textContent: r.pushed
-            ? "Committed and pushed. Every daily run reads it from the next one."
+            ? "Saved and pushed."
             : "Committed, but the push failed: " + (r.note ?? ""),
         }),
       );
@@ -529,7 +508,7 @@ function opsName() {
  */
 function accessStep() {
   const box = el("div", { className: "manual" });
-  box.append(el("b", { textContent: "Let every repo in the org call the ops repo's workflow" }));
+  box.append(el("b", { textContent: "Let staff repos run the shared workflow" }));
   const out = el("div");
   box.append(out);
   const say = (text, cls) => el("p", { className: cls ?? "sub", textContent: text });
@@ -539,8 +518,7 @@ function accessStep() {
     out.replaceChildren(
       say(
         (why ? why + " " : "") +
-          "Settings → Actions → General → Access on roster-ops. Skip it and every workflow fails " +
-          "with “workflow not found”.",
+          "Needed so staff repos can run the shared workflow.",
       ),
       el("div", { className: "row" }, [go]),
     );
@@ -549,7 +527,7 @@ function accessStep() {
       try {
         const r = await setAccess();
         if (r.ok) {
-          out.replaceChildren(say("Set. Every repo in the org can call roster-ops."));
+          out.replaceChildren(say("Done."));
           return;
         }
         out.replaceChildren(
@@ -567,7 +545,7 @@ function accessStep() {
   out.replaceChildren(say("Checking…"));
   getAccess()
     .then((r) => {
-      if (r.ok) out.replaceChildren(say("Done. Every repo in the org can call roster-ops."));
+      if (r.ok) out.replaceChildren(say("Done."));
       else offer(r.level ? "It is set to “" + r.level + "”." : "");
     })
     .catch(() => offer(""));

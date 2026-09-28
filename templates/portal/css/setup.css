@@ -117,3 +117,7 @@
 .verdict{background:var(--accent-soft);border:1px solid transparent;border-radius:var(--r);
       padding:9px 12px;font-size:12.5px}
 .verdict p{margin:0}
+
+.plansteps{margin:6px 0 12px;padding-left:20px;font-size:13.5px;line-height:1.7}
+.planfiles{margin:0 0 12px}
+.planfiles summary{cursor:pointer;color:var(--ink-dim);font-size:12.5px}

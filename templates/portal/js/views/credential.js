@@ -8,7 +8,7 @@ import { el } from "../dom.js";
 
 export function credentialPanel() {
   const box = el("div", { className: "manual" });
-  box.append(el("b", { textContent: "Your agent's credential, once" }));
+  box.append(el("b", { textContent: "Agent credential" }));
   const body = el("div");
   box.append(body);
   body.append(el("p", { className: "sub", textContent: "Looking at where it would go…" }));
@@ -28,8 +28,7 @@ function draw(body, c) {
       el("p", {
         className: "sub",
         textContent:
-          "Nothing reads it until somebody is hired, so this box opens once there is a staff " +
-          "member. It is asked for once, not once per hire.",
+          "Available after your first hire. You only add it once.",
       }),
     );
     return;
@@ -40,8 +39,7 @@ function draw(body, c) {
       el("p", {
         className: "sub",
         textContent:
-          c.name + " is already an org secret, shared with " + c.orgSecret.visibility + " repos. " +
-          "Each hire adds its brain to it. Paste a new one only to replace it.",
+          c.name + " is already set. Paste a new one only to replace it.",
       }),
     );
   }
@@ -53,7 +51,7 @@ function draw(body, c) {
         (c.plan.mode === "org"
           ? "Stored as one org secret, " + c.name + ", shared with " + c.brains.join(", ") + ". "
           : "Stored as " + c.name + " on each of " + c.brains.join(", ") + ", because " + c.plan.reason + ". ") +
-        "It goes to gh on standard input and is never written to disk.",
+        "It's never written to disk.",
     }),
   );
 
@@ -80,8 +78,8 @@ function draw(body, c) {
         el("p", {
           textContent:
             r.mode === "org"
-              ? "Stored once for the org, shared with " + r.repos.length + " brains."
-              : "Stored on " + r.repos.join(", ") + ".",
+              ? "Saved."
+              : "Saved on " + r.repos.join(", ") + ".",
         }),
       );
     } catch (err) {
