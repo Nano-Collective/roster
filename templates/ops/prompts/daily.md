@@ -59,8 +59,8 @@ writing a plan for {{human.name}} to approve.
    this run did, what the next run picks up in priority order. **It is a handover for the next run,
    not a diary.** Rewrite it, do not append, and cut anything the next run can find for itself.
 3. **Reconcile the tracker.** Open issues for anything new needing {{human.name}}, labelled by owner
-   plus kind, assigned to `{{human.github}}`. Close what genuinely completed, citing evidence.
-   **Never close a `decision` issue.** **Comments and replies get the same concision as everything
+   plus kind, assigned to `{{human.github}}`. Sweep every open issue you opened: close what is done
+   or superseded, citing what closed it. **Comments and replies get the same concision as everything
    else:** what changed and what it means for them. A comment that only says an issue is still open
    is not worth the notification.
 4. **Update `{{staff.dir}}/memory/` only if a fact or watch-out changed.** A new fact is **one line**

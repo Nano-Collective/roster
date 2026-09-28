@@ -12,6 +12,15 @@ bodies, run reports, briefs to other staff, and how you talk to them in a sessio
 - **An issue title is the ask, not the topic.**
 - **Say the default** on anything needing a ruling: what you do if they say nothing.
 
+**Length ceilings.** Lead with the outcome or the ask, then stop at:
+
+- **A comment or reply: 100 words.** Most need three lines.
+- **An issue or PR body: 200 words.**
+- **The pinned status issue: 300 words**, readable on one phone screen.
+
+Past the ceiling, the detail goes in a file in your brain and the comment links to it in one
+line. A status {{human.name}} has to rewrite before they can use it has cost more than it saved.
+
 **Cut on sight:**
 
 - Context they already have. They founded this; it does not need explaining to them.
