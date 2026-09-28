@@ -1,7 +1,7 @@
 /* The inbox: everything open across the org, and the thread beside it. */
 
 import { getLabels, getPr, getThread, post, upload } from "../api.js";
-import { askText } from "../dialog.js";
+import { askText, askYes } from "../dialog.js";
 import { ago, el, esc, markCurrent, skeleton } from "../dom.js";
 import { icon, iconHTML } from "../icons.js";
 import { mdlite } from "../md.js";
@@ -693,7 +693,11 @@ function inboxScreen(m, opts) {
         merge.title = "This branch conflicts with its base";
       }
       merge.onclick = async () => {
-        if (!confirm("Merge " + item.repo + " #" + item.number + " into its base branch?")) return;
+        const yes = await askYes({
+          title: "Merge " + item.repo + " #" + item.number + " into its base branch?",
+          confirm: "Merge",
+        });
+        if (!yes) return;
         busy(true, "merging…");
         try {
           await post({ action: "merge", repo: item.repo, number: item.number });

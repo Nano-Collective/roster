@@ -14,7 +14,7 @@ import {
   syncNotice,
 } from "./refresh.js";
 import { onRender } from "./router.js";
-import { ORG_WIDE, S, VIEWS, applyHash, writeHash } from "./state.js";
+import { ORG_WIDE, S, VIEWS, applyHash, readHash, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
 import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
@@ -24,10 +24,11 @@ import { viewInbox, viewPrs } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
 import { viewRuns } from "./views/runs.js";
-import { viewSetup } from "./views/setup.js";
+import { paintSetupNav, viewGettingStarted, viewSetup } from "./views/setup.js";
 import { viewStaff } from "./views/staff.js";
 
 const SCREEN = {
+  setup: viewGettingStarted,
   inbox: viewInbox,
   prs: viewPrs,
   runs: viewRuns,
@@ -52,8 +53,38 @@ const SCREEN = {
  */
 const NEEDS = ["org", "name", "opsName", "staff"];
 
+/** The org-wide screens in the sidebar, by button. */
+const NAV = [
+  ["#setupnav", "setup"],
+  ["#inboxnav", "inbox"],
+  ["#prsnav", "prs"],
+  ["#runsnav", "runs"],
+  ["#staffnav", "staff"],
+  ["#orgnav", "org"],
+  ["#docsnav", "docs"],
+];
+
 export async function boot() {
   initTheme();
+
+  /* Bound before the first request rather than after it. The sidebar is markup, so it is on
+     screen and clickable while /api/org is still building the export, and a click in that
+     window used to do nothing at all: the first click on Staff after a load was simply lost.
+     Now it is remembered and honoured once there is something to render. */
+  let early = null;
+  for (const [id, view] of NAV) {
+    const b = $(id);
+    if (!b) continue;
+    b.onclick = () => {
+      if (!S.data) {
+        early = view;
+        return;
+      }
+      S.view = view;
+      render();
+    };
+  }
+
   /* Before the first render, and once: it is delegated, so it covers every image any screen
      draws from here on, including the setup screen. */
   installLightbox();
@@ -90,16 +121,15 @@ export async function boot() {
     slot.innerHTML = iconHTML(slot.dataset.icon);
   }
   onRender(render);
+  const linked = readHash() !== null;
   applyHash();
+  /* An org nobody has been hired into has an empty Inbox, which says nothing about what to do
+     next. It opens on what is left instead, unless a link or a click asked for somewhere else. */
+  if (early) S.view = early;
+  else if (!linked && (S.data.unfinished ?? []).includes("hire")) S.view = "setup";
   initStaffFold();
   paintSidebar();
 
-  $("#inboxnav").onclick = () => { S.view = "inbox"; render(); };
-  $("#prsnav").onclick = () => { S.view = "prs"; render(); };
-  $("#runsnav").onclick = () => { S.view = "runs"; render(); };
-  $("#staffnav").onclick = () => { S.view = "staff"; render(); };
-  $("#orgnav").onclick = () => { S.view = "org"; render(); };
-  $("#docsnav").onclick = () => { S.view = "docs"; render(); };
   $("#refreshall").onclick = () => refreshAll(false);
 
   /* Coming back to the tab after a run should show the run — and coming back to it thirty
@@ -299,6 +329,7 @@ function render() {
   // A refresh can add or remove a staff member, and the sidebar is built once.
   const roster = S.data.staff.map((s) => s.handle).join(" ");
   if (roster !== paintedRoster) paintSidebar();
+  paintSetupNav();
   markSidebar();
   stampCounts();
   writeHash(true);

@@ -10,6 +10,7 @@
  */
 
 import { post } from "../api.js";
+import { askYes } from "../dialog.js";
 import { ago, el, esc } from "../dom.js";
 import { icon } from "../icons.js";
 import { refreshAll } from "../refresh.js";
@@ -117,16 +118,21 @@ export function viewStaff(m) {
   /* ------------------------------- hiring -------------------------------- */
 
   function hireForm(host) {
+    /* App names are copied from whoever is already here. The first hire has nobody to copy
+       from, and the CLI asks for --app and --public-app at that point; these are those two. */
+    const first = !S.data.staff.length;
     const box = el("div", { className: "card" });
     box.append(
       el("h3", { textContent: "Hire someone" }),
       el("p", {
         className: "sub",
         style: "margin-bottom:14px",
-        textContent:
-          "Only the handle is required. Everything else is copied from whoever is already " +
-          "here, because app slugs carry a house naming scheme and the public identity is " +
-          "genuinely shared.",
+        textContent: first
+          ? "Only the handle is required. This is the first hire, so there is nobody to copy " +
+            "App names from: name them here, and later hires follow the pattern."
+          : "Only the handle is required. Everything else is copied from whoever is already " +
+            "here, because app slugs carry a house naming scheme and the public identity is " +
+            "genuinely shared.",
       }),
     );
 
@@ -134,7 +140,17 @@ export function viewStaff(m) {
     const name = field("name", "Chief Financial Officer", "defaults to the handle, uppercased");
     const dir = field("dir", "finance", "directory and repo name; defaults to the handle");
     const schedule = scheduleField();
-    for (const f of [handle, name, dir, schedule]) box.append(f.row);
+    const fields = [handle, name, dir, schedule];
+    const apps = [];
+    if (first) {
+      const org = S.data.org;
+      apps.push(
+        ["app", field("app", org + "-cfo", "this staff member's GitHub App. Names are unique across GitHub, so prefix it")],
+        ["publicApp", field("public app", org + "-robot", "the shared identity for public product repos. Optional when they are all private")],
+      );
+      fields.push(...apps.map(([, f]) => f));
+    }
+    for (const f of fields) box.append(f.row);
 
     const status = el("span", { className: "meta" });
     const plan = el("button", { className: "ghbtn primary", textContent: "Show the plan" });
@@ -156,7 +172,7 @@ export function viewStaff(m) {
       status.className = "meta";
       out.replaceChildren();
       const params = new URLSearchParams({ handle: handle.input.value.trim() });
-      for (const [key, f] of [["name", name], ["dir", dir], ["schedule", schedule]]) {
+      for (const [key, f] of [["name", name], ["dir", dir], ["schedule", schedule], ...apps]) {
         const value = (f.value ? f.value() : f.input.value).trim();
         if (value) params.set(key, value);
       }
@@ -211,7 +227,7 @@ export function viewStaff(m) {
       line("todo", "Write the charter"),
       line("todo", "Run once now, or roster run " + s.handle + " --apply: the run that proves the wiring"),
     );
-    for (const w of plan.warnings ?? []) box.append(line("warn", w));
+    for (const w of plan.warnings ?? []) box.append(line("warn", S.data.staff.length ? w : portalWords(w)));
 
     const status = el("span", { className: "meta" });
     const go = el("button", { className: "ghbtn primary", textContent: "Hire " + s.handle });
@@ -222,7 +238,7 @@ export function viewStaff(m) {
           handle: s.handle,
           flags: Object.fromEntries(params),
         },
-        "Create " + s.brain + " and wire it up?\n\nThis creates a repository on GitHub.",
+        { title: "Create " + s.brain + " and wire it up?", hint: "This creates a repository on GitHub.", confirm: "Hire " + s.handle },
         go,
         status,
         box,
@@ -277,7 +293,7 @@ export function viewStaff(m) {
     go.onclick = () =>
       apply(
         { action: "retire", handle: plan.handle },
-        "Retire " + plan.name + "?\n\n" + (plan.brain ?? plan.dir) + " is not touched.",
+        { title: "Retire " + plan.name + "?", hint: (plan.brain ?? plan.dir) + " is not touched.", confirm: "Retire " + plan.handle },
         go,
         status,
         box,
@@ -289,7 +305,7 @@ export function viewStaff(m) {
   /* -------------------------------- apply -------------------------------- */
 
   async function apply(payload, ask, btn, status, box) {
-    if (!confirm(ask)) return;
+    if (!(await askYes(ask))) return;
     btn.disabled = true;
     status.textContent = "working…";
     status.className = "meta";
@@ -306,6 +322,14 @@ export function viewStaff(m) {
       btn.disabled = false;
     }
   }
+}
+
+/* The plan's warnings are the CLI's, and name its flags. Here the same two options are fields
+   on the form above, and a flag the page has no box for reads as a dead end. */
+function portalWords(warning) {
+  return warning
+    .replace(/pass --public-app\b/, "fill in public app above")
+    .replace(/pass --app\b/, "fill in app above");
 }
 
 function field(label, placeholder, hint) {

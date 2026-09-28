@@ -1,6 +1,7 @@
 /* Is the scaffolding still there, has the agent been running, and what does lint say. */
 
 import { post } from "../api.js";
+import { askYes } from "../dialog.js";
 import { ago, el, esc, kb } from "../dom.js";
 import { inline } from "../md.js";
 import { render } from "../router.js";
@@ -281,7 +282,7 @@ export async function askToFix(s, problems, btn, status) {
     "Fix in your next session and close this.",
   ].join("\n");
 
-  if (!confirm("Open an issue in " + s.brain + "?")) return;
+  if (!(await askYes({ title: "Open an issue in " + s.brain + "?", confirm: "Open it" }))) return;
   btn.disabled = true;
   status.textContent = "opening…";
   status.className = "meta";

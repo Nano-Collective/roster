@@ -56,6 +56,8 @@
 
 .manual{background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--r);
       padding:13px 15px;margin:11px 0}
+/* A file step that is written says so in the border too, the way a finished step does. */
+.manual.done{border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
 .manual b{display:block;font:600 13px var(--sans);margin-bottom:4px}
 .manual p{margin:0 0 6px;font-size:13px}
 .manual small{display:block;color:var(--ink-faint);font-size:11.5px;line-height:1.5;margin-bottom:9px}

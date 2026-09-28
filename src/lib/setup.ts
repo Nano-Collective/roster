@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ghJson, ghReady } from "./gh.js";
+import { looksUnwritten } from "./stub.js";
 import { templatesRoot } from "./templates.js";
 import { tryWorkspace } from "./workspace.js";
 
@@ -15,7 +16,15 @@ import { tryWorkspace } from "./workspace.js";
  */
 export interface SetupStatus {
   /** Is there already a tenant where the portal was started. */
-  tenant: { found: boolean; root?: string; opsDir?: string; org?: string; repos?: string[] };
+  tenant: {
+    found: boolean;
+    root?: string;
+    opsDir?: string;
+    org?: string;
+    repos?: string[];
+    /** What is still to do, so a step can say it is done without anybody pressing anything. */
+    left?: Unfinished[];
+  };
   gh: { ok: boolean; login?: string; error?: string };
   /** Organisations this `gh` can see, best effort. Empty is not an error. */
   orgs: string[];
@@ -117,7 +126,8 @@ export async function setupStatus(startedIn: string): Promise<SetupStatus> {
           root: found.root,
           opsDir: found.opsDir,
           org: readOrgName(found.opsDir),
-          repos: readRepoNames(found.opsDir),
+          repos: readBlockNames(found.opsDir, "repos", "name"),
+          left: unfinished(found.opsDir, readBlockNames(found.opsDir, "staff", "handle").length),
         }
       : { found: false },
     gh: ready.ok
@@ -144,31 +154,58 @@ function readOrgName(opsDir: string): string | undefined {
 }
 
 /**
- * The repos org.yaml already lists, so the picker does not offer one that is there.
+ * The repos org.yaml already lists, so the picker does not offer one that is there, and the
+ * staff it names, so setup knows whether anybody has been hired.
  *
  * Read with a regex for the same reason the org name is: setup may be running on the
  * framework's composer rather than the tenant's, and this question is too small to load a
  * second parser for.
  */
-function readRepoNames(opsDir: string): string[] {
+function readBlockNames(opsDir: string, block: "repos" | "staff", key: string): string[] {
   const path = join(opsDir, "org.yaml");
   if (!existsSync(path)) return [];
   /* Walked line by line rather than matched, and scoped to the block `repos:` introduces. A
      staff entry opens with `handle:` today, so a looser pattern happens to work and would stop
      working the day somebody reorders the keys. */
   const names: string[] = [];
+  const pattern = new RegExp(`\\b${key}:\\s*([\\w.-]+)`);
   let inside = false;
   for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (/^repos:\s*$/.test(line)) {
+    if (new RegExp(`^${block}:\\s*$`).test(line)) {
       inside = true;
       continue;
     }
     if (inside && /^\S/.test(line)) break;
     if (!inside) continue;
-    const m = /name:\s*([\w.-]+)/.exec(line);
+    const m = pattern.exec(line);
     if (m) names.push(m[1]!);
   }
   return names;
+}
+
+/** A setup step that is only done when the world says so. */
+export type Unfinished = "hire" | "business" | "priorities";
+
+/**
+ * What is still left once a tenant exists, off disk and cheap enough to ask on every page load.
+ *
+ * The setup screen used to be reachable only before there was a tenant, so reloading after
+ * creating one landed on an empty Inbox with the rest of setup gone. This is what decides
+ * whether the portal still offers it. Only the steps that can be read locally are here: the
+ * Actions access and the credential need GitHub, and the Getting started screen asks for those
+ * itself rather than slowing every load down.
+ */
+export function unfinished(opsDir: string, staffCount: number): Unfinished[] {
+  const out: Unfinished[] = [];
+  if (!staffCount) out.push("hire");
+  for (const [id, rel] of [
+    ["business", "org/business.md"],
+    ["priorities", "org/priorities.md"],
+  ] as const) {
+    const path = join(opsDir, rel);
+    if (!existsSync(path) || looksUnwritten(readFileSync(path, "utf8"))) out.push(id);
+  }
+  return out;
 }
 
 /** The framework's own composer, used only in the minutes before a tenant vendors its copy. */

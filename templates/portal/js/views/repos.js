@@ -5,11 +5,12 @@
  * spelling a repo name exactly right in a YAML file, which is the kind of thing that fails
  * quietly and reads as the tool being broken. */
 
-import { addRepo, listRepos } from "../api.js";
+import { addRepo, getRepos, listRepos } from "../api.js";
 import { el } from "../dom.js";
 
 /**
- * @param {{org: string, known: string[], onAdded?: () => void}} opts
+ * @param {{org: string, known?: string[], onAdded?: () => void}} opts  without `known`, what
+ *   org.yaml already lists is read off disk, which is how the Org screen uses it long after setup.
  */
 export function repoPicker(opts) {
   const box = el("div", { className: "manual" });
@@ -18,7 +19,8 @@ export function repoPicker(opts) {
     el("p", {
       textContent:
         "Repos marked as products are the ones staff contribute to without owning. A new hire " +
-        "picks them up automatically.",
+        "picks them up automatically; somebody already hired keeps the works_in list in their " +
+        "own staff.yaml.",
     }),
   );
 
@@ -26,10 +28,13 @@ export function repoPicker(opts) {
   box.append(out);
   out.replaceChildren(el("p", { className: "sub", textContent: "Reading your repos…" }));
 
-  listRepos(opts.org)
-    .then((data) => {
+  const known = opts.known
+    ? Promise.resolve(opts.known)
+    : getRepos().then((d) => (d.repos ?? []).map((r) => r.name));
+  Promise.all([listRepos(opts.org), known])
+    .then(([data, listed]) => {
       if (data.error) throw new Error(data.error);
-      const already = new Set(opts.known ?? []);
+      const already = new Set(listed);
       const candidates = (data.repos ?? []).filter((r) => !already.has(r.name));
 
       if (!candidates.length) {
@@ -52,7 +57,7 @@ export function repoPicker(opts) {
           add.disabled = true;
           add.textContent = "Adding…";
           try {
-            await addRepo(repo.name, "product");
+            await addRepo(repo.name, "product", repo.visibility);
             add.textContent = "Added";
             row.classList.add("added");
             opts.onAdded?.();

@@ -111,3 +111,50 @@ export function askText({
     ta.setSelectionRange?.(ta.value.length, ta.value.length);
   });
 }
+
+/**
+ * Asking before something that cannot be taken back: a merge, a push, a new repo, a paid run.
+ *
+ * Native `confirm()` looked like the browser rather than this page, and it blocks the whole
+ * tab, which froze browser automation mid-run. This is the same `<dialog>` as askText, so the
+ * backdrop, Escape and the focus trap come free. The wording is the caller's: `title` is the
+ * question, `hint` says what will happen.
+ *
+ * @returns true only for the confirm button. Escape, Cancel and the backdrop are all no.
+ */
+export function askYes({ title, hint, confirm = "Continue" }) {
+  const box = document.createElement("dialog");
+  // The test shim has no dialog element; see askText.
+  if (typeof box.showModal !== "function") {
+    return Promise.resolve(Boolean(globalThis.confirm?.(hint ? title + "\n\n" + hint : title)));
+  }
+
+  box.className = "ask";
+  box.append(el("h3", { textContent: title }));
+  if (hint) box.append(el("p", { className: "askhint", textContent: hint }));
+
+  const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
+  const go = el("button", { className: "ghbtn primary", textContent: confirm });
+  box.append(el("div", { className: "row askrow" }, [cancel, go]));
+
+  return new Promise((resolve) => {
+    let answer = false;
+    const done = (yes) => {
+      answer = yes;
+      box.close();
+    };
+    cancel.onclick = () => done(false);
+    go.onclick = () => done(true);
+    box.addEventListener("close", () => {
+      box.remove();
+      resolve(answer);
+    });
+    box.addEventListener("click", (e) => {
+      if (onBackdrop(e, box.getBoundingClientRect?.())) done(false);
+    });
+    document.body.append(box);
+    box.showModal();
+    // Cancel has the focus, so an Enter pressed out of habit does not merge anything.
+    cancel.focus();
+  });
+}

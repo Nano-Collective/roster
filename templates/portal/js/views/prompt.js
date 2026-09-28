@@ -10,7 +10,7 @@
  */
 
 import { getFile, post } from "../api.js";
-import { askText } from "../dialog.js";
+import { askText, askYes } from "../dialog.js";
 import { el, esc, grow, kb, toClipboard } from "../dom.js";
 import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
@@ -375,8 +375,12 @@ export function viewPrompt(m) {
         status.textContent = "nothing changed";
         return;
       }
-      if (!confirm("Commit " + layer.path + " to " + layer.repo + " and push?\n\n" +
-                   "Picked up by " + reach + ".")) return;
+      const yes = await askYes({
+        title: "Commit " + layer.path + " to " + layer.repo + " and push?",
+        hint: "Picked up by " + reach + ".",
+        confirm: "Commit and push",
+      });
+      if (!yes) return;
       save.disabled = cancel.disabled = true;
       status.textContent = "committing…";
       status.className = "meta";

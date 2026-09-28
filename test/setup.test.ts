@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { AGENTS, setupStatus } from "../src/lib/setup.js";
+import { businessStub, prioritiesStub } from "../src/commands/init.js";
+import { AGENTS, setupStatus, unfinished } from "../src/lib/setup.js";
 import { tryWorkspace } from "../src/lib/workspace.js";
 import { makeTenant } from "./helpers/tenant.js";
 
@@ -36,6 +37,11 @@ test("a directory that already holds a tenant is recognised, with its repos", as
   assert.equal(status.tenant.org, "acme");
   assert.ok(status.tenant.repos?.includes("roster-ops"));
   assert.ok(status.tenant.repos?.includes("cto"), "a hire should be listed as a repo");
+  assert.ok(status.tenant.left, "what is left travels with the status");
+  assert.ok(
+    !status.tenant.left.includes("hire"),
+    "a tenant with a staff member has hired: " + status.tenant.left,
+  );
 });
 
 test("the repo list is scoped to the block repos: introduces", async () => {
@@ -66,4 +72,33 @@ test("every agent preset names the secret it needs", () => {
     assert.ok(preset.label.trim() && preset.note.trim(), `${preset.id} is unexplained`);
   }
   assert.equal(AGENTS[0]!.id, "claude-code-action", "the reference runner should be first");
+});
+
+test("what is left is read off disk, and a written file drops off the list", () => {
+  /* The portal offers Getting started while this is non-empty, so a stub that read as written
+     would hide setup with the work still undone, and the reverse would never let it go. */
+  const ops = mkdtempSync(join(tmpdir(), "roster-setup-left-"));
+  try {
+    mkdirSync(join(ops, "org"));
+    assert.deepEqual(unfinished(ops, 0), ["hire", "business", "priorities"], "absent is unwritten");
+
+    writeFileSync(join(ops, "org", "business.md"), businessStub("Acme", "acme"));
+    writeFileSync(join(ops, "org", "priorities.md"), prioritiesStub());
+    assert.deepEqual(
+      unfinished(ops, 1),
+      ["business", "priorities"],
+      "the shipped stubs are not done",
+    );
+
+    writeFileSync(join(ops, "org", "business.md"), "# Acme\n\nWe sell poker lessons.\n");
+    assert.deepEqual(unfinished(ops, 1), ["priorities"]);
+    writeFileSync(join(ops, "org", "priorities.md"), "## This month\n\n1. Ship the course.\n");
+    assert.deepEqual(
+      unfinished(ops, 2),
+      [],
+      "nothing left once both are written and someone is hired",
+    );
+  } finally {
+    rmSync(ops, { recursive: true, force: true });
+  }
 });

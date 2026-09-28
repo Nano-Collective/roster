@@ -110,7 +110,9 @@ export const getDoctor = (offline) => json("/api/doctor" + (offline ? "?offline=
 export const getFix = (offline) => json("/api/fix" + (offline ? "?offline=1" : ""));
 
 export const listRepos = (org) => json("/api/setup/repos?org=" + encodeURIComponent(org));
-export const addRepo = (name, role) => post({ name, role }, "/api/setup/add-repo");
+/** Commits org.yaml and pushes, as every other write here does. */
+export const addRepo = (name, role, visibility) =>
+  post({ name, role, visibility }, "/api/setup/add-repo");
 export const startApp = (staff, scope) => post({ staff, scope }, "/api/setup/app");
 export const appResult = (state) => json("/api/setup/app-result?state=" + encodeURIComponent(state));
 

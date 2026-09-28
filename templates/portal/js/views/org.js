@@ -15,11 +15,13 @@
  */
 
 import { getFile, getOrgLayer, post } from "../api.js";
+import { askYes } from "../dialog.js";
 import { el, esc, grow, kb, skeleton } from "../dom.js";
 import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
 import { humansOf, S, writeHash } from "../state.js";
 import { yamlPre } from "../yaml.js";
+import { repoPicker } from "./repos.js";
 
 /* What the files roster itself ships are for, in one line each. A filename says nothing about
    which one to open; anything a tenant has added of its own falls back to its first heading. */
@@ -76,6 +78,20 @@ export function viewOrg(m) {
     kv("Staff", String(org.staff.length), org.staff.map((s) => s.handle).join(", ")),
   );
   m.append(facts);
+
+  /* Marking a product repo after setup. The picker only lived on the setup screen, so a repo
+     created later meant typing `role: product` into org.yaml by hand. Folded, because it asks
+     GitHub for every repo in the org and most visits here are to read a file. */
+  const repoPane = el("div");
+  const repos = el("button", { className: "ghbtn", textContent: "Add a product repo" });
+  repos.onclick = () => {
+    if (repoPane.children.length) {
+      repoPane.replaceChildren();
+      return;
+    }
+    repoPane.replaceChildren(repoPicker({ org: org.org, onAdded: () => open("org.yaml") }));
+  };
+  m.append(el("div", { className: "row", style: "margin-bottom:14px" }, [repos]), repoPane);
 
   const split = el("div", { className: "split" });
   const tree = el("div", { className: "tree" });
@@ -222,9 +238,11 @@ export function viewOrg(m) {
          through the question, which is worse than not asking. */
       if (
         isYaml &&
-        !confirm(
-          "Commit " + full(path) + " and push?\n\nEvery staff member picks this up on their next run.",
-        )
+        !(await askYes({
+          title: "Commit " + full(path) + " and push?",
+          hint: "Every staff member picks this up on their next run.",
+          confirm: "Commit and push",
+        }))
       ) {
         return;
       }

@@ -2824,6 +2824,173 @@ test("the repo picker offers what org.yaml does not already list", async () => {
   }
 });
 
+/* ------------------------------ after the tenant exists ----------------------------- */
+
+/** The status once a tenant is on disk, with nobody hired and priorities.md still the stub. */
+const AFTER_SETUP = {
+  found: true,
+  org: "acme",
+  opsDir: "/x/roster-ops",
+  repos: ["roster-ops"],
+  left: ["hire", "priorities"],
+};
+
+async function gettingStarted(hash = "") {
+  const saved = SETUP_FIXTURE.tenant;
+  (SETUP_FIXTURE as any).tenant = AFTER_SETUP;
+  try {
+    const s = await renderAll(hash, { ...ORG, staff: [], unfinished: ["hire", "priorities"] });
+    await new Promise((r) => setTimeout(r, 40));
+    return s;
+  } finally {
+    (SETUP_FIXTURE as any).tenant = saved;
+  }
+}
+
+test("an org nobody has been hired into opens on what is left, not an empty inbox", async () => {
+  /* The reload after creating an org used to land on Inbox, with the repo picker, the
+     credential and both files unreachable. */
+  const s = await gettingStarted();
+  assert.equal(s.view, "setup");
+  assert.equal(s._byId.setupnav.hidden, false, "and the sidebar offers it");
+
+  const text = s._byId.main.textContent;
+  assert.match(text, /Getting started/);
+  assert.match(text, /Hire your first staff member/, "the next step comes first");
+  assert.match(text, /Which repos the staff work in/, "the repo picker is back");
+  assert.match(text, /credential/, "and the credential box");
+  assert.match(text, /org\/business\.md/);
+  assert.match(text, /org\/priorities\.md/, "and the step Health flags as priorities.stub");
+  assert.match(text, /Still the stub it shipped as/, "a stub says so on its step");
+
+  button(s._byId.main, "Hire someone").onclick();
+  assert.equal(s.view, "staff", "Hire someone goes where hiring is");
+});
+
+test("a link still wins over the default, and a finished org has no Getting started", async () => {
+  const linked = await gettingStarted("#/-/org");
+  assert.equal(linked.view, "org", "somebody who asked for Org gets Org");
+  assert.equal(linked._byId.setupnav.hidden, false, "with the way back still offered");
+
+  const done = await renderAll("", { ...ORG, unfinished: [] });
+  assert.equal(done.view, "inbox");
+  assert.equal(done._byId.setupnav.hidden, true, "nothing left, nothing offered");
+});
+
+test("saving priorities.md re-runs the check rather than leaving Health stale", async () => {
+  /* business.stub stayed on the setup screen after business.md was saved, until somebody
+     pressed Check again. Every save on this screen asks the world again. */
+  const s = await gettingStarted();
+  const asked: string[] = [];
+  s.fetch = async (u: string, init?: any) => {
+    asked.push(String(u) + (init?.body ? " " + init.body : ""));
+    return {
+      ok: true,
+      json: async () =>
+        String(u).startsWith("/api/save") ? { pushed: true, sha: "abc" } : fixtureFetch(u).json(),
+      text: async () => "",
+    };
+  };
+  // The last one: business.md's paste box comes first, and it takes a reply, not the file.
+  const ta = walkNodes(s._byId.main)
+    .filter((n) => n.tagName === "TEXTAREA" && String(n.className) === "pastebox")
+    .at(-1);
+  ta.value = "## This month\n\n1. Ship the course.\n";
+  button(s._byId.main, "Save and commit").onclick();
+  await new Promise((r) => setTimeout(r, 30));
+
+  const save = asked.findIndex((a) => a.startsWith("/api/save"));
+  assert.ok(save >= 0, "it saves: " + asked.join(", "));
+  assert.match(asked[save]!, /roster-ops\/org\/priorities\.md/);
+  assert.ok(
+    asked.slice(save + 1).some((a) => a.startsWith("/api/doctor")),
+    "and checks again after: " + asked.slice(save).join(", "),
+  );
+});
+
+test("the first hire is asked for its App names, and they reach the plan", async () => {
+  /* The plan used to say "pass --app" and "pass --public-app" on a page with no such flags. */
+  const s = await renderAll("#/-/staff", { ...ORG, staff: [] });
+  button(s._byId.main, "Hire someone").onclick();
+  const nodes = walkNodes(s._byId.main);
+  const input = (f: string) => nodes.find((n) => n.dataset?.field === f);
+  assert.ok(input("app") && input("public app"), "both fields, on a first hire");
+
+  let asked = "";
+  s.fetch = async (u: string) => {
+    if (String(u).includes("/api/staff/plan")) asked = String(u);
+    return { ok: true, json: async () => ({ error: "stop here" }), text: async () => "" };
+  };
+  input("handle").value = "cto";
+  input("app").value = "acme-cto";
+  input("public app").value = "acme-robot";
+  button(s._byId.main, "Show the plan").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.match(asked, /app=acme-cto/);
+  assert.match(asked, /publicApp=acme-robot/);
+
+  const later = await renderAll("#/-/staff");
+  button(later._byId.main, "Hire someone").onclick();
+  assert.ok(
+    !walkNodes(later._byId.main).some((n) => n.dataset?.field === "app"),
+    "a later hire copies them from a peer, so the form stays short",
+  );
+});
+
+test("a product repo can be marked from the Org screen, long after setup", async () => {
+  const s = await renderAll("#/-/org");
+  await new Promise((r) => setTimeout(r, 20));
+  const posted: string[] = [];
+  const was = s.fetch;
+  s.fetch = async (u: string, init?: any) => {
+    if (init?.body) posted.push(String(u) + " " + init.body);
+    return was(u);
+  };
+  button(s._byId.main, "Add a product repo").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.match(s._byId.main.textContent, /acme-web/, "what gh can see and org.yaml lacks");
+
+  button(s._byId.main, "Add").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  const add = posted.find((p) => p.startsWith("/api/setup/add-repo"));
+  assert.ok(add, "it writes through the server: " + posted.join(", "));
+  // What gh said, not "private" regardless: hire only asks for a public identity for these.
+  assert.match(add!, /"visibility":"PUBLIC"/);
+});
+
+test("a click on the sidebar before the org has loaded is not lost", async () => {
+  /* The sidebar is markup and on screen at once; its handlers used to be bound only once
+     /api/org answered, so the first click on Staff after a load did nothing. */
+  orgOverride = null;
+  const shim = install("");
+  const m = await load();
+  Object.assign(m.state.S, DEFAULTS);
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  (globalThis as any).fetch = async (u: string) => {
+    if (String(u).startsWith("/api/org")) await gate;
+    return fixtureFetch(u);
+  };
+  const booting = m.app.boot();
+  await new Promise((r) => setTimeout(r, 5));
+  shim.byId.staffnav.onclick();
+  release();
+  await booting;
+  assert.equal(m.state.S.view, "staff");
+});
+
+test("no screen reaches for the browser's own confirm()", () => {
+  /* It looked like the browser rather than the page, and it blocks the tab, which froze
+     browser automation. askYes in dialog.js is the one way to ask. */
+  const dir = join(ROOT, "templates", "portal", "js", "views");
+  for (const f of readdirSync(dir)) {
+    const code = readFileSync(join(dir, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.ok(!/(^|[^.\w])confirm\(/m.test(code), f + " calls confirm()");
+  }
+});
+
 /* ------------------------------ nothing is one tenant's ----------------------------- */
 
 /**

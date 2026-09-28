@@ -5,6 +5,7 @@
  * callers all work together. This starts one, and says how it ended. */
 
 import { runStatus, startRun } from "../api.js";
+import { askYes } from "../dialog.js";
 import { el } from "../dom.js";
 
 /**
@@ -26,7 +27,12 @@ export function runOnce(opts) {
   box.append(el("div", { className: "row" }, [go]), out);
 
   go.onclick = async () => {
-    if (!confirm("Start a daily run for " + opts.name + " now?\n\nIt is a real run, and it costs what one does.")) return;
+    const yes = await askYes({
+      title: "Start a daily run for " + opts.name + " now?",
+      hint: "It is a real run, and it costs what one does.",
+      confirm: "Start the run",
+    });
+    if (!yes) return;
     go.disabled = true;
     const say = (text, cls) => out.replaceChildren(el("p", { className: cls ?? "sub", textContent: text }));
     say("Starting…");

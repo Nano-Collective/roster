@@ -5,8 +5,21 @@
  * is rather than as it was left. Setup cannot be finished in one sitting, so it must survive
  * being abandoned halfway. */
 
-import { checkOrg, createTenant, getAccess, getSetup, joinOrg, planTenant, setAccess } from "../api.js";
-import { $, el, esc, toClipboard } from "../dom.js";
+import {
+  checkOrg,
+  createTenant,
+  fileUrl,
+  getAccess,
+  getOrg,
+  getSetup,
+  joinOrg,
+  planTenant,
+  saveFile,
+  setAccess,
+} from "../api.js";
+import { $, el, esc, grow, toClipboard } from "../dom.js";
+import { go } from "../router.js";
+import { S as App } from "../state.js";
 import { checklist } from "./checklist.js";
 import { credentialPanel } from "./credential.js";
 import { repoPicker } from "./repos.js";
@@ -14,9 +27,85 @@ import { paste } from "./paste.js";
 
 let S = null; // /api/setup/status, refreshed after anything that changes the world
 
+/* Where the doctor checklist is drawn on this screen, so a save can re-run it. Left stale, it
+   went on saying business.stub after business.md had been saved, until "Check again". */
+let healthHost = null;
+
+/* Each "what is left" step that is a file, by id, so a save can mark it done in place rather
+   than repainting the page and throwing away the diff somebody is still reading. */
+const fileSteps = new Map();
+
 export async function viewSetup(main) {
   S = await getSetup();
   render(main);
+}
+
+/**
+ * The same steps once a tenant exists, as their own screen in the portal.
+ *
+ * Setup used to be reachable only before there was a tenant, so the reload that followed
+ * creating one landed on an empty Inbox with the repo picker, the credential and both files
+ * gone. The sidebar offers this while anything is unfinished, and an org nobody has been hired
+ * into opens on it.
+ */
+export async function viewGettingStarted(main) {
+  main.append(el("h1", { textContent: "Getting started" }));
+  const sub = el("p", { className: "sub", textContent: "Reading what is left…" });
+  main.append(sub);
+  S = await getSetup();
+  // Somebody may have clicked elsewhere while GitHub was answering.
+  if (App.view !== "setup") return;
+  sub.textContent =
+    "What is still to do before " + (App.data?.name ?? "this org") + " runs well. Each step " +
+    "reads the world rather than remembering a click, so it is safe to leave and come back.";
+
+  if (!App.data?.staff?.length) {
+    const next = step(1, "Hire your first staff member", false);
+    const hire = el("button", { className: "btn primary", textContent: "Hire someone" });
+    hire.onclick = () => go({ view: "staff" });
+    next.append(
+      el("p", {
+        textContent:
+          "Nothing runs until somebody is hired. Hiring creates their repo, their workflows and " +
+          "their pinned issue; the GitHub App and the charter follow on their card.",
+      }),
+      el("div", { className: "row" }, [hire]),
+    );
+    main.append(next);
+  }
+
+  main.append(afterCreate(App.data?.staff?.length ? 1 : 2));
+
+  const health = step(App.data?.staff?.length ? 2 : 3, "What doctor still says", false);
+  healthHost = el("div", { style: "margin-top:12px" });
+  health.append(healthHost);
+  main.append(health);
+  checklist(healthHost, {});
+}
+
+/** Whether the sidebar offers Getting started: while anything is left, or while it is open. */
+export function paintSetupNav() {
+  const nav = $("#setupnav");
+  if (!nav) return;
+  nav.hidden = !App.data?.unfinished?.length && App.view !== "setup";
+}
+
+/* After a save: the checklist and the step list are both derived from disk, so both are asked
+   again rather than updated by hand. The sidebar's list comes from /api/org, which is the one
+   the portal already reads. */
+async function recheck() {
+  if (healthHost) checklist(healthHost, {});
+  try {
+    S = await getSetup();
+    for (const [id, mark] of fileSteps) mark(!(S.tenant.left ?? []).includes(id));
+  } catch {
+    // The saved file is saved either way; a stale tick is not worth an error on top of it.
+  }
+  if (App.data) {
+    const fresh = await getOrg().catch(() => null);
+    if (fresh?.unfinished) App.data.unfinished = fresh.unfinished;
+    paintSetupNav();
+  }
 }
 
 function render(main) {
@@ -31,9 +120,9 @@ function render(main) {
     el("p", {
       className: "sub",
       textContent:
-        "Three things here, then what is left: a setting roster tries for you, the repos your " +
-        "staff work in, and the one file only you can write. Nothing is created until you have " +
-        "read the plan.",
+        "Sign in with gh, choose the organisation and the agent, then what is left: a setting " +
+        "roster tries for you, the agent's credential, the repos your staff work in, and the two " +
+        "files only you can write. Nothing is created until you have read the plan.",
     }),
   );
 
@@ -43,7 +132,7 @@ function render(main) {
 
   /* Drawn whenever a tenant exists, not only in the seconds after creating one. Setup takes
      days: the repo picker and the two manual steps have to still be here tomorrow. */
-  if (S.tenant.found) main.append(afterCreate());
+  if (S.tenant.found) main.append(afterCreate(3));
 }
 
 /* ---------------------------------- 1 · gh ---------------------------------- */
@@ -80,12 +169,14 @@ function stepOrg(main) {
       }),
       el("p", {
         className: "sub",
-        textContent: "Reload the page to leave setup and use the portal.",
+        textContent:
+          "Reload the page to open the portal. Anything below that is still undone stays under " +
+          "Getting started in the sidebar until it is.",
       }),
     );
-    const rows = el("div", { style: "margin-top:12px" });
-    card.append(rows);
-    checklist(rows, {});
+    healthHost = el("div", { style: "margin-top:12px" });
+    card.append(healthHost);
+    checklist(healthHost, {});
     return card;
   }
 
@@ -307,13 +398,14 @@ function stepOrg(main) {
 
 /* ------------------------- 5 · the two GitHub insists on ------------------------- */
 
-function afterCreate() {
-  const card = step(3, "What is left", false);
+function afterCreate(n) {
+  fileSteps.clear();
+  const card = step(n, "What is left", false);
   card.append(
     el("p", {
       textContent:
-        "The first is a setting roster tries for you. The last is the file that decides whether " +
-        "any of this is worth running, and only you can write it.",
+        "The first is a setting roster tries for you. The last two are the files that decide " +
+        "whether any of this is worth running, and only you can write them.",
     }),
   );
   card.append(accessStep());
@@ -323,20 +415,109 @@ function afterCreate() {
     card.append(repoPicker({ org: S.tenant.org, known: S.tenant.repos ?? [] }));
   }
 
-  const two = el("div", { className: "manual" });
-  two.append(
-    el("b", { textContent: "Answer org/business.md" }),
-    el("p", {
-      textContent:
-        "It ships as questions. It is composed into the top of every prompt, every run, and an " +
-        "agent that cannot answer them writes work that is plausible and generic.",
-    }),
+  const business = fileStep(
+    "business",
+    "Answer org/business.md",
+    "It ships as questions. It is composed into the top of every prompt, every run, and an " +
+      "agent that cannot answer them writes work that is plausible and generic.",
   );
-  card.append(two);
-
   // The copy-a-prompt loop, which is the whole answer to "how do I write this file".
-  card.append(paste({ kind: "discover", title: "Write it with your own AI" }));
+  business.append(paste({ kind: "discover", title: "Write it with your own AI", onSaved: recheck }));
+  card.append(business);
+
+  const priorities = fileStep(
+    "priorities",
+    "Rank org/priorities.md",
+    "What matters this month, at most three things in order, and what is out of scope. Every " +
+      "daily run reads it; without it each staff member picks its own direction from its charter.",
+  );
+  priorities.append(prioritiesEditor());
+  card.append(priorities);
   return card;
+}
+
+/**
+ * One of the files only a person can write, with whether it is written yet.
+ *
+ * Read from the status rather than from the click that saved it, so a file written in an
+ * editor, or by a coding agent, shows as done here too.
+ */
+function fileStep(id, title, why) {
+  const box = el("div", { className: "manual" });
+  const tag = el("span", { className: "meta" });
+  const mark = (done) => {
+    tag.textContent = done ? "Written." : "Still the stub it shipped as.";
+    box.classList[done ? "add" : "remove"]("done");
+  };
+  mark(!(S.tenant.left ?? []).includes(id));
+  fileSteps.set(id, mark);
+  box.append(el("div", {}, [el("b", { textContent: title }), tag]), el("p", { textContent: why }));
+  return box;
+}
+
+/**
+ * org/priorities.md, edited in place.
+ *
+ * There is no brief for it, and it does not want one: business.md needs an interview because
+ * nobody can write it off the top of their head, while a ranked list of three things is
+ * quicker to type than to explain to a model. So the file opens as it is on disk, stub and
+ * all, and saving it is the same commit-and-push as every other editor here.
+ */
+function prioritiesEditor() {
+  const box = el("div", { style: "margin-top:9px" });
+  const path = opsName() + "/org/priorities.md";
+  const ta = el("textarea", { className: "pastebox" });
+  ta.rows = 12;
+  const save = el("button", { className: "btn primary", textContent: "Save and commit" });
+  const out = el("div");
+  box.append(ta, el("div", { className: "row", style: "margin-top:9px" }, [save]), out);
+
+  let before = "";
+  save.disabled = true;
+  // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
+  fetch(fileUrl(path), { cache: "no-store" })
+    .then((r) => (r.ok ? r.text() : ""))
+    .then((text) => {
+      before = text;
+      ta.value = text;
+      grow(ta);
+      save.disabled = false;
+    })
+    .catch((err) => out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) })));
+  ta.addEventListener("input", () => grow(ta));
+
+  save.onclick = async () => {
+    if (ta.value.trim() === before.trim()) {
+      out.replaceChildren(el("p", { className: "sub", textContent: "Nothing changed yet." }));
+      return;
+    }
+    save.disabled = true;
+    save.textContent = "Saving…";
+    try {
+      const r = await saveFile(path, ta.value, "portal: write org/priorities.md");
+      before = ta.value;
+      out.replaceChildren(
+        el("p", {
+          className: r.pushed ? "sub" : "err",
+          textContent: r.pushed
+            ? "Committed and pushed. Every daily run reads it from the next one."
+            : "Committed, but the push failed: " + (r.note ?? ""),
+        }),
+      );
+      recheck();
+    } catch (err) {
+      out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) }));
+    } finally {
+      save.disabled = false;
+      save.textContent = "Save and commit";
+    }
+  };
+  return box;
+}
+
+/** The ops repo's directory name, which is what every workspace-relative path starts with. */
+function opsName() {
+  return App.data?.opsName ?? String(S.tenant.opsDir ?? "roster-ops").split("/").pop();
 }
 
 /**

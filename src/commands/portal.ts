@@ -35,6 +35,7 @@ import {
   loadFrameworkComposer,
   orgHasTenant,
   setupStatus,
+  unfinished,
 } from "../lib/setup.js";
 import { syncRepos } from "../lib/sync.js";
 import { loadComposer, readOrg, tryWorkspace, type Workspace } from "../lib/workspace.js";
@@ -421,10 +422,21 @@ export async function portalCommand(argv: string[]): Promise<number> {
         refuseWrite(res);
         return;
       }
-      const payload = JSON.parse((await body(req)) || "{}") as { name?: string; role?: string };
+      const payload = JSON.parse((await body(req)) || "{}") as {
+        name?: string;
+        role?: string;
+        visibility?: string;
+      };
       const name = String(payload.name ?? "");
       const role = String(payload.role ?? "product");
-      if (!/^[\w.-]+$/.test(name) || !/^(product|brain|ops|repo)$/.test(role)) {
+      /* The picker knows what gh said. Writing `private` regardless told hire a public product
+         repo needed no public identity, which is the one case where it does. */
+      const visibility = String(payload.visibility ?? "private").toLowerCase();
+      if (
+        !/^[\w.-]+$/.test(name) ||
+        !/^(product|brain|ops|repo)$/.test(role) ||
+        !/^(private|public|internal)$/.test(visibility)
+      ) {
         res.writeHead(400, { "content-type": "application/json" });
         res.end(JSON.stringify({ error: "a repo name and a known role are needed" }));
         return;
@@ -438,7 +450,11 @@ export async function portalCommand(argv: string[]): Promise<number> {
       const result = saveFile(
         ws,
         `${ws.opsName}/org.yaml`,
-        insertUnder(text, "repos", `  - { name: ${name}, visibility: private, role: ${role} }`),
+        insertUnder(
+          text,
+          "repos",
+          `  - { name: ${name}, visibility: ${visibility}, role: ${role} }`,
+        ),
         `portal: org.yaml lists ${name}`,
       );
       json(res, { ok: true, ...result });
@@ -701,11 +717,14 @@ export async function portalCommand(argv: string[]): Promise<number> {
         // including whatever an agent pushed thirty seconds ago.
         const org = readOrg(w.opsDir, parseYaml);
         const data = buildExport(w, org as any, parseYaml);
+        // Here rather than in the export, because it is the portal's question and not the
+        // data's: whether the sidebar still offers Getting started.
+        const left = unfinished(w.opsDir, (org.staff ?? []).length);
         res.writeHead(200, {
           "content-type": "application/json; charset=utf-8",
           "cache-control": "no-store",
         });
-        res.end(JSON.stringify(data));
+        res.end(JSON.stringify({ ...data, unfinished: left }));
         return;
       }
 

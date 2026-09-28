@@ -27,6 +27,10 @@
       <span class="sync" data-icon="refresh"></span><span id="loaded">data now</span>
     </button>
 
+    <!-- Only while something is left to set up; app.js decides. -->
+    <button class="nav top" id="setupnav" data-view="setup" hidden>
+      <span class="ic" data-icon="task-done"></span> Getting started
+    </button>
     <button class="nav top" id="inboxnav" data-view="inbox">
       <span class="ic" data-icon="inbox"></span> Inbox
       <span class="n" id="inboxcount"></span>
@@ -52,7 +56,10 @@
 
     <!-- The heading is the fold. Collapsed, it carries the count, because a hidden list still
          has to say how much it is hiding. -->
-    <button class="sect sectfold" id="stafffold" aria-expanded="false" aria-controls="stafflist">
+    <!-- Named apart from the Staff screen above it: two controls both called "Staff" is how a
+         click meant for the screen landed on the fold, for people and for automation alike. -->
+    <button class="sect sectfold" id="stafffold" aria-expanded="false" aria-controls="stafflist"
+            aria-label="Staff list" title="Show or hide each staff member's own screens">
       <span class="caret" data-icon="chevron"></span>Staff<span class="n" id="staffcount" hidden></span>
     </button>
     <div id="stafflist"></div>
