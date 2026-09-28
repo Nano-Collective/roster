@@ -109,8 +109,9 @@ main{padding:36px 44px 96px;max-width:1220px;overflow-x:hidden}
 .thit .hitline em{font-style:normal;color:var(--ink);background:color-mix(in srgb,var(--accent) 22%,transparent);
       border-radius:3px;padding:0 2px}
 
+/* No height cap: a file grows the page, so there is one scrollbar, not one inside another. */
 .viewer{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px 26px;
-        min-height:340px;max-height:74vh;overflow:auto;box-shadow:var(--shadow-sm)}
+        min-height:340px;min-width:0;box-shadow:var(--shadow-sm)}
 .viewer pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12.5px/1.65 var(--mono);color:var(--ink-dim)}
 /* Source keeps its own line breaks and scrolls, rather than wrapping into soup. */
 .viewer pre.code{white-space:pre;word-break:normal;overflow-x:auto}

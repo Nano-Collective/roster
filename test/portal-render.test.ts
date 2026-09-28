@@ -2734,9 +2734,11 @@ test("the org screen offers every file the whole roster inherits", async () => {
     "a tenant's own file should be described by its own heading",
   );
 
-  // And the way in is a button, not a word in a row of grey text.
-  const edit = walkNodes(s._byId.main).find((n) => String(n.className ?? "").includes("editbtn"));
-  assert.ok(edit, "there should be an edit button on the file being read");
+  // And the way in is a tab beside Read, not a word in a row of grey text.
+  const edit = walkNodes(s._byId.main).find(
+    (n) => n.tagName === "BUTTON" && n.textContent === "Edit the file",
+  );
+  assert.ok(edit, "the file being read should offer Edit the file");
 });
 
 test("a portal left running across an upgrade says so instead of rendering undefined", async () => {

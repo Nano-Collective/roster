@@ -14,11 +14,8 @@
  * wrong. The server validates it before writing.
  */
 
-import { highlighted } from "../mdedit.js";
-import { getFile, getOrgLayer, post } from "../api.js";
-import { askYes } from "../dialog.js";
-import { el, esc, grow, kb, skeleton } from "../dom.js";
-import { icon } from "../icons.js";
+import { getFile, getOrgLayer } from "../api.js";
+import { el, esc, kb, skeleton } from "../dom.js";
 import { mdlite } from "../md.js";
 import { humansOf, S, writeHash } from "../state.js";
 import { yamlPre } from "../yaml.js";
@@ -166,112 +163,25 @@ export function viewOrg(m) {
     viewer.replaceChildren();
     const head = el("div", { className: "row filehead" });
     head.append(el("span", { className: "meta", textContent: full(path) + " · " + kb(text.length) }));
-    /* The edit control used to be a word in a row of grey text, which is why "there is no easy
-       way to edit the org docs" was a fair thing to say about a screen that could edit them. */
     const file = S.orgFiles.find((f) => f.path === path) ?? { path };
 
-    if (path.endsWith(".yaml") || path.endsWith(".yml")) {
-      const edit = el("button", { className: "ghbtn primary editbtn", onclick: () => editor(path, text) });
-      edit.append(icon("edit", "ic"), el("span", { textContent: "Edit" }));
-      head.append(edit);
-      viewer.append(head, el("p", { className: "factsub", textContent: why(file) }), yamlPre(text));
-      return;
-    }
-
-    /* Prose files open on Read, with the ways to change them as tabs beside it: the same ones
-       Getting started offers, because a file is no easier to write after setup than during it. */
+    const isYaml = /\.ya?ml$/.test(path);
+    /* Every file opens on Read, with the ways to change it as tabs beside it: the same ones
+       Getting started offers, because a file is no easier to write after setup than during it.
+       org.yaml is checked by the server before it is written, so a bad one is refused. */
     viewer.append(head, el("p", { className: "factsub", textContent: why(file) }));
-    const read = { label: "Read", node: el("div", { className: "md doc", innerHTML: mdlite(text) }) };
+    const read = {
+      label: "Read",
+      node: isYaml ? yamlPre(text) : el("div", { className: "md doc", innerHTML: mdlite(text) }),
+    };
     const o = { path: full(path), name: S.data.name, text, before: [read], onSaved: () => show(path) };
     viewer.append(
       path === "org/business.md"
         ? businessForm(o)
         : path === "org/priorities.md"
           ? prioritiesForm(o)
-          : fileModes(o),
+          : fileModes({ ...o, lang: isYaml ? "yaml" : "md" }),
     );
-  }
-
-  function editor(path, text) {
-    viewer.replaceChildren();
-    const isYaml = /\.ya?ml$/.test(path);
-
-    const status = el("span", { className: "meta" });
-    const save = el("button", { className: "ghbtn primary", textContent: "Save and commit" });
-    const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
-
-    const bar = el("div", { className: "row filehead" });
-    bar.append(el("span", { className: "meta", textContent: full(path) }), save, cancel, status);
-    viewer.append(bar);
-
-    const ta = el("textarea", { value: text, className: "editor" });
-    const hl = highlighted(ta, isYaml ? "yaml" : "md");
-    viewer.append(hl);
-    grow(ta);
-    hl.repaint();
-    ta.addEventListener("input", () => grow(ta));
-    // ⌘S is what a person's hands do in a text box. Without it, saving means finding a button
-    // above a screenful of textarea you have just scrolled past.
-    ta.addEventListener("keydown", (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        e.preventDefault();
-        commit();
-      }
-    });
-    ta.focus?.();
-
-    cancel.onclick = () => render(path, text);
-    save.onclick = commit;
-
-    viewer.append(
-      el("p", {
-        className: "editnote",
-        textContent:
-          "⌘S saves. Commits to " + S.data.opsName + " and pushes, and every staff member picks " +
-          "it up on their next run." +
-          (isYaml
-            ? " org.yaml is checked before it is written: bad YAML, or a missing org or name, is refused rather than committed."
-            : ""),
-      }),
-    );
-
-    async function commit() {
-      if (ta.value === text) {
-        status.textContent = "nothing changed";
-        status.className = "meta";
-        return;
-      }
-      /* Only the manifest asks. A prose edit is one commit to revert and the agents pick it up
-         on their next run; org.yaml is the file that can stop every prompt composing, and the
-         portal has just told you it validates it. Asking every time taught people to click
-         through the question, which is worse than not asking. */
-      if (
-        isYaml &&
-        !(await askYes({
-          title: "Commit " + full(path) + " and push?",
-          hint: "Every staff member picks this up on their next run.",
-          confirm: "Commit and push",
-        }))
-      ) {
-        return;
-      }
-      save.disabled = cancel.disabled = true;
-      status.textContent = "committing…";
-      status.className = "meta";
-      try {
-        const r = await post({ path: full(path), text: ta.value }, "/api/save");
-        status.textContent = r.pushed
-          ? "committed and pushed · " + r.sha
-          : "committed " + r.sha + ", but the push failed: " + (r.note ?? "");
-        status.className = r.pushed ? "meta ok" : "meta warn";
-        render(path, ta.value);
-      } catch (e) {
-        // A refused org.yaml is the interesting case: the reason is the whole message.
-        status.textContent = e.message;
-        status.className = "meta err";
-        save.disabled = cancel.disabled = false;
-      }
-    }
   }
 }
 
