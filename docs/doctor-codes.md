@@ -33,10 +33,13 @@ ran at all.
 | `agent.config` | **fail.** The agent needs a config file of its own and it is missing, or still has a `FILL IN` in it. Nanocoder is the one preset that does: it is a client rather than a model, so without a provider it starts, finds nothing to call, and exits. |
 | `business` | **fail** if `org/business.md` is missing. Every prompt is composed on top of it. |
 | `business.stub` | `org/business.md` is still the questions it shipped with. Nothing errors; the agents just write competent work about a business that does not exist. |
+| `priorities` | No `org/priorities.md`. Nothing breaks; each staff member just picks its own direction. See [concepts](concepts.md#priorities). |
+| `priorities.stub` | `org/priorities.md` is still the stub `roster init` wrote. |
 | `actions-access` | **fail** unless the ops repo is callable from the whole organisation. This is the "workflow not found" trap. See [manual steps](manual-steps.md#1-allow-the-ops-repos-workflow-to-be-called). |
 | `workflows` | No workflow in the repo is failing run after run. Reported for the ops repo here, and for each brain repo under its staff member. |
 | `workflows.failing` | **fail.** A workflow that is not one of roster's callers has failed at least its last two runs, with the date it started. Skipped and cancelled runs are stepped over. This is the canary that goes red and stays red, because whatever would have said so broke with it. |
 | `budget` | Trailing 30-day spend against a `budget` in `org.yaml`, for the org here and for a staff member under their name. A warning when it is past, never a failure, and only read when a budget is set. Cost comes from each run's record, so it says how many runs it could price. See [cost](cost.md#budgets). |
+| `review-gate` | One per product repo. **fail** when nothing requires a pull request on its default branch, or a staff App can bypass the rule; a warning when a PR is required with no approving review, or the settings cannot be read. See [security](security.md#the-review-gate). |
 | `upgrade` | The tenant is in sync with the framework. |
 | `upgrade.stale` | Generated files are behind. `roster upgrade --apply`. |
 | `upgrade.owned` | **fail.** A framework-owned file was edited in the tenant. Move the change upstream or the next upgrade reverts it. |

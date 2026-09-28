@@ -71,6 +71,10 @@ both halves of the round trip: **Copy the prompt** puts a self-contained brief o
 clipboard, and **paste the answer back** turns the reply into a file, with a diff and a button
 rather than a silent save. See [the portal](portal.md#copy-a-prompt-paste-the-answer-back).
 
+Then `org/priorities.md`: what matters this month, ranked, and what is out of scope. It is a
+few lines, only you can write it, and without it each staff member picks its own direction.
+See [concepts](concepts.md#priorities).
+
 ## 5. Hire someone
 
 ![The Staff screen, with a card per staff member and Hire someone underneath](images/staff.jpg)
@@ -96,7 +100,9 @@ member writes to, not only their own. This is the step that most often looks don
 Then **Write the charter**, which is the same copy-a-prompt loop as `business.md`, aimed at
 `CHARTER.md`. `hire` deliberately does not generate one: a generated charter produces exactly
 the generic agent this whole arrangement exists to avoid. It is the file that decides
-everything else, so it is worth the time. [Writing a charter](writing-a-charter.md).
+everything else, so it is worth the time. [Writing a charter](writing-a-charter.md), with
+worked examples for a [CTO](charters/cto.md), a [CMO](charters/cmo.md) and
+[support](charters/support.md).
 
 ## 7. Health, then one run by hand
 

@@ -132,7 +132,7 @@ function memoryProblems({ body, actions, say }, s) {
     const { row, body: text } = finding(
       p.level === "error" ? "error" : "warning",
       { html: inline(p.message) },
-      [p.rule, p.line ? "INDEX.md:" + p.line : ""],
+      [p.rule, p.line ? "INDEX.md:" + p.line : (p.file ?? "")],
     );
     const status = el("span", { className: "meta" });
     const btn = el("button", { className: "ghbtn", textContent: "Ask " + s.handle.toUpperCase() + " to fix" });
@@ -263,7 +263,7 @@ export async function askToFix(s, problems, btn, status) {
     "",
     "| rule | where | what |",
     "|---|---|---|",
-    ...problems.map((p) => "| `" + p.rule + "` | " + (p.line ? "INDEX.md:" + p.line : "—") + " | " +
+    ...problems.map((p) => "| `" + p.rule + "` | " + (p.line ? "INDEX.md:" + p.line : (p.file ?? "—")) + " | " +
       String(p.message).replace(/\|/g, "\\|") + " |"),
     "",
     "Fix in your next session and close this.",

@@ -2,7 +2,14 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { type Human, readHumans } from "./humans.js";
-import { type Fact, type Link, type LintProblem, lintMemory, parseMemory } from "./memory.js";
+import {
+  budgetsFor,
+  type Fact,
+  type Link,
+  type LintProblem,
+  lintMemory,
+  parseMemory,
+} from "./memory.js";
 import type { Workspace } from "./workspace.js";
 
 export interface Surface {
@@ -144,7 +151,9 @@ export function buildExport(
       sections: doc.sections,
       notes: doc.notes,
       links: doc.links,
-      problems: existsSync(join(memDir, "INDEX.md")) ? lintMemory(doc, memDir) : [],
+      problems: existsSync(join(memDir, "INDEX.md"))
+        ? lintMemory(doc, memDir, budgetsFor(org, manifest))
+        : [],
       surfaces: readSurfaces(root, manifest.surfaces ?? []),
       recentCommits: commits,
       factsChanged: factsChanged(root, opts.since ?? "14 days ago"),
@@ -181,7 +190,10 @@ function botName(raw: string): string {
   return String(raw).replace(/\[bot\]$/, "");
 }
 
-function readManifest(root: string, parseYaml: (t: string, f?: string) => Record<string, unknown>) {
+export function readManifest(
+  root: string,
+  parseYaml: (t: string, f?: string) => Record<string, unknown>,
+) {
   const path = join(root, "staff.yaml");
   if (!existsSync(path)) return {} as Record<string, any>;
   try {

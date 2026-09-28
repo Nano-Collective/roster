@@ -6,7 +6,7 @@ import { specFromManifest } from "../lib/render.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
 export const appHelp = `
-roster app <handle> [--public] [--port 4310] [--no-open]
+roster app <handle> [--public] [--port 4310] [--no-open] [--apply]
 
   Create the GitHub App a staff member runs as, and put its credentials into their repo.
 
@@ -20,10 +20,14 @@ roster app <handle> [--public] [--port 4310] [--no-open]
   GitHub asks a human to choose them; the URL is printed and \`roster doctor\` tells you whether
   the grant actually took, which is the only reliable way to know.
 
+  Nothing happens without --apply. On its own this prints the plan: the App's name, the
+  secrets it would write, and the repos you will be asked to grant.
+
   <handle>      a staff member in org.yaml
   --public      create the shared public identity instead of this staff member's own
   --port <n>    the localhost port the hand-off listens on (default 4310)
   --no-open     print the URL rather than opening a browser
+  --apply       actually create it
 `;
 
 export async function appCommand(argv: string[]): Promise<number> {
@@ -82,6 +86,24 @@ export async function appCommand(argv: string[]): Promise<number> {
     return 1;
   }
 
+  /* Every other command plans first, and this one should too: an App name is global and a
+     created App cannot be renamed, so seeing the name before the browser opens is worth a
+     second invocation. Everything above is a read. */
+  const targets = [
+    ...new Set([spec.brain, ...spec.worksIn, ...peerBrains(ws, org, parseYaml, handle)]),
+  ];
+  if (!opts.apply) {
+    process.stdout.write(
+      `\n  roster app — ${name} (${scope}) for ${handle}\n\n` +
+        `    creates     the GitHub App "${name}" in ${org.org}, confirmed by you in a browser\n` +
+        `    writes      ${prefix}_APP_ID and ${prefix}_APP_PRIVATE_KEY to ${spec.brain}\n` +
+        `    then asks   you to install it on:\n` +
+        targets.map((r) => `                  ${r}\n`).join("") +
+        `\n  Nothing was created. Re-run with --apply.\n\n`,
+    );
+    return 0;
+  }
+
   const appSpec: AppSpec = {
     name,
     org: org.org,
@@ -118,12 +140,11 @@ export async function appCommand(argv: string[]): Promise<number> {
   /* Installing is a human choice about which repos to grant, so it cannot be done from here.
      Every tracker this staff member writes to has to be included, not just their own — the
      token is minted org-wide and a peer's board is where its briefs land. */
-  const targets = [spec.brain, ...spec.worksIn, ...peerBrains(ws, org, parseYaml, handle)];
   process.stdout.write(
     `\n  Now install it. GitHub asks a human which repos to grant:\n` +
       `    ${created.html_url}/installations/new\n\n` +
       `  Grant it on:\n` +
-      [...new Set(targets)].map((r) => `    ${r}\n`).join("") +
+      targets.map((r) => `    ${r}\n`).join("") +
       `\n  Then check the grant actually took — a declaration is not a grant:\n` +
       `    roster doctor ${handle}\n\n`,
   );
@@ -157,6 +178,7 @@ interface Flags {
   public?: boolean;
   port?: number;
   noOpen?: boolean;
+  apply?: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
@@ -165,6 +187,10 @@ function parseFlags(argv: string[]): Flags {
     const flag = argv[i];
     if (flag === "--public") {
       out.public = true;
+      continue;
+    }
+    if (flag === "--apply") {
+      out.apply = true;
       continue;
     }
     if (flag === "--no-open") {

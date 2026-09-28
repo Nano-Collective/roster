@@ -27,6 +27,8 @@ const KNOWN = {
   "org.yaml": "Who and what: the humans, the repos, the defaults, which agent runs them.",
   "org/business.md":
     "What the business actually is. Every prompt is composed on top of it, and it is the file that stops the agents writing generic slop.",
+  "org/priorities.md":
+    "What matters this month, ranked, and what is out of scope. Every daily run reads it, and every PR says which priority it serves.",
   "org/operating.md":
     "The autonomy contract: what they do without asking, what they escalate, how a run starts and ends.",
   "org/guardrails.md":

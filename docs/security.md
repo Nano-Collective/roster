@@ -45,6 +45,31 @@ whole organisation can reach anything in it.
 Install narrowly. The Staff card's **GitHub App** panel prints the list it actually needs, and
 so does `roster app`.
 
+## The review gate
+
+"Nothing goes out unread" is enforced by GitHub, not by the prompt. An App with
+`contents: write` on a product repo can push to its default branch, and with
+`pull_requests: write` it can merge its own PR, unless a rule on the branch says otherwise.
+
+The rule: **the default branch of every product repo requires a pull request with at least one
+approving review, and no staff App is on the list of who may bypass it.** A ruleset or classic
+branch protection both count.
+
+`roster doctor` reads it for every `role: product` repo in `org.yaml` and every repo a staff
+member `works_in`, as `review-gate`. It fails when nothing requires a PR or a staff App can
+bypass the rule, and warns when a PR is required with no approval, since then whoever opened
+it can merge it.
+
+`roster hire --apply` adds a ruleset named `roster: review before merge` to each product repo
+that does not already require an approving review, and leaves anything stricter alone. Pass
+`--no-review-gate` to skip it. The ruleset lets repository admins bypass it only by merging a
+pull request, so your own merge is still the approval (GitHub will not let you approve your
+own PR) and an App, which is never an admin, cannot merge at all.
+
+To set it by hand: repo **Settings -> Rules -> Rulesets -> New branch ruleset**, target the
+default branch, tick **Require a pull request before merging** with one required approval, and
+keep the staff Apps off the bypass list.
+
 ## Permissions a new App asks for
 
 ```

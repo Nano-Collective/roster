@@ -13,8 +13,8 @@ roster init --org <github-org> [--name "Acme"] [--human <login>] [--apply]
 
   What it deliberately does not do is write org/business.md. That file is what stops the
   agents producing generic slop, and it is the one thing here that has to come from someone
-  who knows the business. You get a stub with the questions in it, and a /discover command to
-  answer them with your own AI.
+  who knows the business. You get a stub with the questions in it, and
+  \`roster brief discover\` prints the brief to answer them with whichever agent you use.
 
   Nothing happens without --apply. On its own this prints the plan.
 
@@ -73,7 +73,8 @@ export async function initCommand(argv: string[]): Promise<number> {
       `    2. Put your agent's credential on each brain repo as you create it. Which secret\n` +
       `       that is depends on the runner: roster help agents, or docs/agents.md.\n` +
       `    3. Write org/business.md. Everything the agents say is downstream of it.\n` +
-      `    4. roster hire <handle>   then   roster app <handle>\n\n`,
+      `    4. Write org/priorities.md: what matters this month, ranked, and what does not.\n` +
+      `    5. roster hire <handle> --apply   then   roster app <handle> --apply\n\n`,
   );
 
   if (!opts.apply) {
@@ -118,7 +119,7 @@ export async function initCommand(argv: string[]): Promise<number> {
   git(opsDir, ["remote", "add", "origin", `https://github.com/${opts.org}/${opsName}.git`]);
   git(opsDir, ["push", "-q", "-u", "origin", "main"]);
   process.stdout.write(`  created and pushed ${opts.org}/${opsName}\n\n`);
-  process.stdout.write(`  Now do the four things above, starting with the Actions setting.\n\n`);
+  process.stdout.write(`  Now do the five things above, starting with the Actions setting.\n\n`);
   return 0;
 }
 
@@ -153,6 +154,7 @@ export async function initFiles(o: {
     files.set(preset.config.path, JSON.stringify(preset.config.contents, null, 2) + "\n");
   }
   files.set("org/business.md", businessStub(o.name, o.org));
+  files.set("org/priorities.md", prioritiesStub());
   /* The org-level briefs, as slash commands. `/discover` was named in this command's own
      output and in the docs for a while before it existed anywhere. */
   for (const [rel, text] of briefCommands(["discover", "voice"], {
@@ -268,10 +270,10 @@ It is composed into the top of every prompt, every run. An agent that cannot ans
 questions writes work that is plausible and generic — which is worse than no work, because it
 takes longer to notice.
 
-Write it with your own AI, which can read the site, the README and the recent commits:
+Write it with your own AI, which can read the site, the README and the recent commits.
+This prints a brief to paste into whichever agent you use (in Claude Code it is also /discover):
 
-    claude
-    /discover
+    roster brief discover
 
 Or answer these by hand. Short is better than complete.
 
@@ -302,6 +304,35 @@ Guardrails and house voice are not here: they are in \`org/guardrails.md\` and \
 and every staff member inherits both. This file is only what the business *is*.
 
 The org is \`${org}\`.
+`;
+}
+
+/**
+ * What the staff should be pulling in the same direction on.
+ *
+ * Without it each staff member picks its own "one piece of work" from its own charter, and a
+ * live org ended up with a third of its runs spent policing itself. Tenant-owned like
+ * business.md, so it is written here once and never merged over. The stub is composed into
+ * every daily run until someone replaces it, so it has to read sensibly to an agent as well.
+ */
+function prioritiesStub(): string {
+  return `## What matters this month
+
+**This file is a stub, so there is no shared direction yet.** Until it is written, choose work
+from your charter and say in the run report that no priority covers it.
+
+Replace all of this with a short ranked list. Every staff member reads it at the start of every
+run. Rewrite it when the month turns, not when a run finishes.
+
+### Priorities, in order
+
+1. The outcome that matters most this month, and how you will know it happened.
+2. The second.
+3. At most a third. Past three it is a wish list.
+
+### Out of scope this month
+
+- Work that is tempting and not now. Naming it here is what stops it being done.
 `;
 }
 
@@ -357,4 +388,4 @@ function parseFlags(argv: string[]): Flags {
   return out;
 }
 
-export { businessStub, orgYaml };
+export { businessStub, orgYaml, prioritiesStub };

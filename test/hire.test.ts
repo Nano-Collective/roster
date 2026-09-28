@@ -7,6 +7,8 @@ import { collect } from "../src/commands/doctor.js";
 import {
   addToOrgYaml,
   buildPlan,
+  hireCommand,
+  hireHelp,
   insertUnder,
   type Plan,
   wirePeers,
@@ -401,4 +403,22 @@ test("the generated callers are valid workflows with the triggers they are meant
     "and the loop guard must be on the sender, not the author",
   );
   assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
+});
+
+test("the review gate is planned unless --no-review-gate says to leave the repo alone", () => {
+  assert.equal(plan("cfo").skipGate, false, "a hire gates the product repos by default");
+  assert.equal(plan("cfo", { reviewGate: false }).skipGate, true);
+});
+
+test("the charter step names the agent-neutral brief, not one particular agent", () => {
+  /* roster runs on any agent, and the step it cannot do for you used to read
+     "cd … && claude → /charter". */
+  assert.match(plan("cfo").files.get("CHARTER.md")!, /roster brief charter cfo/);
+  assert.doesNotMatch(hireHelp, /&& claude/);
+  assert.match(hireHelp, /roster brief charter/);
+});
+
+test("a brain repo is always private, so there is no flag pretending to choose", async () => {
+  assert.doesNotMatch(hireHelp, /--private|--public(?![-\w])/);
+  await assert.rejects(hireCommand(["cfo", "--private"]), /unknown flag --private/);
 });

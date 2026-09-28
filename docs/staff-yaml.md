@@ -154,6 +154,17 @@ Labels this staff member expects to exist on its own tracker, grouped for readab
 value across every group is checked by `roster doctor`. An agent applying a label that does not
 exist gets an API error mid-run.
 
+## `memory`
+
+This staff member's own memory budgets, overriding the org's. Same three fields as
+[`memory` in org.yaml](org-yaml.md#memory); any left out fall back to the org, then to the
+defaults.
+
+```yaml
+memory:
+  max_index_kb: 32
+```
+
 ## What `roster upgrade` does to this file
 
 Nothing. It is `scaffold` class: written once by `roster hire`, and yours from that moment.

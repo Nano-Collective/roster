@@ -6,8 +6,10 @@ sidebar_order: 8
 
 # Commands
 
-Every command prints a plan and changes nothing unless you pass `--apply`, except `lint`,
-`prompt`, `export` and `portal`, which never change anything at all.
+Every command that changes anything prints a plan and changes nothing unless you pass
+`--apply`. `lint`, `prompt`, `export`, `brief`, `doctor` and `fix` never change anything.
+`portal` is the exception: it is interactive, and each change there is a button you press after
+seeing what it will do.
 
 ## `roster fix`
 
@@ -61,8 +63,12 @@ pinned status issue, and peer wiring in both directions.
 --secret-prefix <X>    secrets become <X>_APP_ID and <X>_APP_PRIVATE_KEY
 --app <slug>           defaults to the pattern the peers use
 --public-app <slug>    the shared public identity
+--no-review-gate       leave the product repos' branch rules alone
 --apply
 ```
+
+With `--apply` it also adds a review-before-merge ruleset to each product repo that does not
+already require an approving review. See [security](security.md#the-review-gate).
 
 ## `roster app <handle>`
 
@@ -72,6 +78,7 @@ Create the GitHub App and put its credentials in the brain repo's secrets.
 --public       create the shared public identity instead
 --port <n>     localhost port for the hand-off. Default 4310.
 --no-open      print the URL rather than opening a browser
+--apply        actually create it; without it, prints the App name, secrets and repos
 ```
 
 Cannot install the App. See [manual steps](manual-steps.md).
@@ -124,7 +131,8 @@ Carry framework changes into the tenant. See [upgrading](upgrading.md).
 
 ## `roster lint [handle]`
 
-Check memory against the grammar. See [memory](memory.md).
+Check memory against the grammar, and warn when a fact, the index or the decision log is over
+its [budget](memory.md#budgets). See [memory](memory.md).
 
 ```
 --quiet   print only problems

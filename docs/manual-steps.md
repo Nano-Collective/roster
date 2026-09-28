@@ -39,9 +39,9 @@ them, it is this.
 
 ## 2. Create the GitHub App
 
-**Do:** the **GitHub App** button on a staff card in the portal, or `roster app <handle>` in a
-terminal. Either opens a browser, GitHub asks you to confirm, and you come back. Credentials go
-straight into the repository's secrets.
+**Do:** the **GitHub App** button on a staff card in the portal, or `roster app <handle> --apply`
+in a terminal. Either opens a browser, GitHub asks you to confirm, and you come back.
+Credentials go straight into the repository's secrets.
 
 **Why not fully automated:** there is no API that creates a GitHub App. The only route is the
 App Manifest flow: POST a manifest to a settings page, a human confirms, GitHub returns a
@@ -157,6 +157,22 @@ as still pending next time, which is the intended behaviour.
 
 ---
 
+## 8. Gate the product repos on a review
+
+**Do:** nothing, if `roster hire --apply` added its ruleset. Otherwise require a pull request
+with one approving review on each product repo's default branch, and keep the staff Apps off
+the bypass list. [Security](security.md#the-review-gate) has the clicks.
+
+**Why not automated:** it is, at hire time. After that it is a setting on a repo you own, and
+changing it is yours rather than a staff member's: it is the gate on them.
+
+**If you skip it:** an agent that can push can ship without you reading it. Nothing in the
+prompt can stop that, only the branch rule can.
+
+**Check:** Health, or `roster doctor`, reports `review-gate` per product repo.
+
+---
+
 ## Order
 
 For a new organisation:
@@ -176,8 +192,8 @@ From a terminal:
 
 ```
 roster init --org <org> --apply          # 1 applies here
-roster hire <handle> --apply             # then 7
-roster app <handle>                      # 2, then 3
+roster hire <handle> --apply             # then 7; adds 8
+roster app <handle> --apply              # 2, then 3
 # 4, 5, 6
 roster doctor <handle>
 ```

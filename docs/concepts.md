@@ -10,8 +10,9 @@ sidebar_order: 3
 
 `<org>/roster-ops` holds two different kinds of thing, and the split matters.
 
-**`org/` is yours.** `business.md`, `voice.md`, `guardrails.md`, `operating.md`. This is the
-business truth and the shared half of every staff member's instructions. Edit it freely: the
+**`org/` is yours.** `business.md`, `priorities.md`, `voice.md`, `guardrails.md`,
+`operating.md`. This is the business truth and the shared half of every staff member's
+instructions. Edit it freely: the
 [Org screen](portal.md#org) lists every one of these off disk with an Edit button, and saving
 commits and pushes. A change here reaches everybody on their next run, which is the point: a
 concision rule that used to mean editing twelve files is now one file.
@@ -23,6 +24,17 @@ reverted at worst. Fix machinery in the framework, then `roster upgrade`.
 
 `roster upgrade` enforces this distinction. It reports an edit to a framework-owned file even
 when nothing has collided yet, because "not broken yet" is the state a lost fix sits in.
+
+## Priorities
+
+`org/priorities.md` is the one direction every staff member shares: what matters this month,
+ranked, and what is out of scope. It is composed into every daily run, a run picks work that
+serves it, and a PR names the priority it serves. Keep it to three priorities or fewer, and
+rewrite it when the month turns.
+
+Without it each staff member picks its own work from its own charter, and they drift. `roster
+init` writes a stub; `roster doctor` warns while it is missing or still the stub. An org that
+predates it just adds the file.
 
 ## The brain
 
@@ -65,7 +77,7 @@ exports declares `gallery` and `table`; nothing in the portal knows what a CMO i
 
 ```
 org/operating.md + org/guardrails.md + org/voice.md + org/business.md
-                 + <staff>/CHARTER.md + prompts/<kind>.md
+                 + org/priorities.md + <staff>/CHARTER.md + prompts/<kind>.md
 ```
 
 Built at run time by `compose.mjs` in the tenant's own repo. See it for yourself on the

@@ -126,6 +126,20 @@ Fallbacks for staff members who do not set their own.
 | `mention_timeout_minutes` | Ceiling on a mention run. Falls back to `timeout_minutes`, then `90`. |
 | `allowed_tools` | Claude's own spelling of a permission level, kept because it predates `agent.permissions` and still wins for the agents that take a tool list. Nothing translates it for the others: a list written for one agent is not a permission level for another. Prefer [`agent.permissions`](agents.md#permissions), which every agent understands. |
 
+### `memory`
+
+Budgets `roster lint` holds every staff member's memory to. All optional; a staff member's own
+[`memory:`](staff-yaml.md#memory) overrides these.
+
+```yaml
+memory:
+  max_fact_chars: 400     # one fact's line in memory/INDEX.md
+  max_index_kb: 24        # the whole index, read in full at every boot
+  max_decisions_kb: 24    # log/decisions.md
+```
+
+Over budget is a warning naming what to cut, never an error. See [memory](memory.md#budgets).
+
 ### `staff`
 
 The registry. One inline map per staff member. **This is the org's view of them**; the rest
@@ -179,6 +193,7 @@ Every repository the org owns, and what it is for.
 | `agents.mjs` | `agent`, `staff` |
 | `roster hire` | all of it, plus every existing manifest |
 | `roster doctor` | all of it, including `budget` |
+| `roster lint` | `staff`, `memory` |
 | `roster portal` | all of it; the Runs screen reads `budget` |
 
 ## Editing it

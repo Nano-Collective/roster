@@ -63,6 +63,13 @@ touches. Be specific. A vague boundary is one that gets crossed at 07:00 with no
 **Where the rest of it lives.** Point at `memory/INDEX.md`, `log/decisions.md`, the pinned
 status issue, and the surfaces the manifest declares.
 
+## Worked examples
+
+Three, for an invented company called Acme: a [CTO](charters/cto.md), a [CMO](charters/cmo.md)
+and a [Head of Support](charters/support.md). They are examples to adapt, not templates to fill
+in. Read them for what a finished charter covers and how specific it gets, then write your own
+about your business. A charter copied from one of these describes Acme.
+
 ## Things worth being concrete about
 
 - **Escalation.** Name the label and the mechanism, not the sentiment. "Open an issue labelled

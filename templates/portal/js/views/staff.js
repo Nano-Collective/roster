@@ -170,7 +170,7 @@ export function viewStaff(m) {
     if (plan.secrets?.length) {
       box.append(el("div", { className: "planhead", textContent: "You will still have to" }));
       box.append(
-        line("todo", "create the GitHub App: roster app " + s.handle),
+        line("todo", "create the GitHub App: roster app " + s.handle + " --apply"),
         line("todo", "put " + plan.secrets.join(", ") + " on the new repo"),
       );
     }
