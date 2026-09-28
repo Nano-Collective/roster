@@ -188,7 +188,7 @@ export function fixBrief(ws: Workspace, items: FixItem[]): string {
     "them is reverted by the next `roster upgrade`, and the mistake is invisible until it is",
     "expensive. Do not touch:",
     "",
-    `- \`${ws.opsName}/compose.mjs\`, \`agents.mjs\`, \`runner-plan.mjs\` — vendored from the framework.`,
+    `- \`${ws.opsName}/compose.mjs\`, \`agents.mjs\`, \`runner-plan.mjs\`, \`inflight.mjs\`, \`run-record.mjs\` — vendored from the framework.`,
     `- \`${ws.opsName}/.github/workflows/\` and any brain's \`.github/workflows/\` — generated, and`,
     "  GitHub App tokens cannot push changes there in any case.",
     `- \`${ws.opsName}/.roster/\` — the recorded merge base.`,

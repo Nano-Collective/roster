@@ -172,6 +172,16 @@ jobs:
             echo "product: $repo -> $dir"
           done
 
+      # What people have open on the product repos, so the agent does not open competing work
+      # on files a human branch is rewriting. Read by "Compose the prompt" below; never
+      # fatal, because without it the prompt just has no section about it.
+      - name: Gather human work in flight
+        if: steps.plan.outputs.products != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.public.outputs.token || steps.private.outputs.token }}
+        run: node roster-ops/inflight.mjs --staff "${{ inputs.staff }}" --ops roster-ops --brains . --out .roster-run/inflight.md
+
       # Commits read as the bot, not as a human, so the git history stays legible.
       - name: Set git identity
         env:

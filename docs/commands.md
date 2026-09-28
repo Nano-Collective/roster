@@ -178,7 +178,12 @@ Compose and print what a staff member is actually sent.
 ```
 --kind daily|mention
 --diff <workflow.yaml>
+--inflight
 ```
+
+A run also carries the pull requests people have open on the product repos. `--inflight` reads
+them through your own `gh` and includes them; without it that section is left out, so the output
+does not move with somebody else's branch.
 
 `mention` needs trigger context:
 

@@ -191,3 +191,33 @@ test("the job token may comment, and every caller grants it", () => {
     );
   }
 });
+
+test("the run is written down whatever happened, under a name the portal can find", () => {
+  const record = step("Write down the run");
+  assert.match(record, /if: always\(\)/, "a failed run is the one most worth a record");
+  assert.match(record, /continue-on-error: true/, "a missing record must never cost the run");
+  assert.match(record, /steps\.session_action\.outputs\.execution_file/);
+  const keep = step("Keep the run record");
+  assert.match(keep, /if: always\(\)/);
+  assert.match(keep, /name: roster-run$/m, "lib/runs.ts downloads it by this name");
+  assert.ok(
+    SESSION_CODE.indexOf("- name: Write down the run") >
+      SESSION_CODE.lastIndexOf("- name: Run the session"),
+    "the record is written after the agent",
+  );
+});
+
+test("human work in flight is gathered before the prompt, and never fails the run", () => {
+  const gather = step("Gather human work in flight");
+  assert.match(gather, /continue-on-error: true/);
+  assert.match(gather, /--out \.roster-run\/inflight\.md/, "where compose.mjs looks for it");
+  assert.ok(
+    SESSION_CODE.indexOf("- name: Gather human work in flight") <
+      SESSION_CODE.indexOf("- name: Compose the prompt"),
+  );
+  assert.match(
+    step("Compose the prompt"),
+    /--brains \. /,
+    "compose reads .roster-run from the brains directory, which has to be the checkout root",
+  );
+});

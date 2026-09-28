@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { extractLivePrompt } from "../lib/livePrompt.js";
@@ -15,6 +15,9 @@ roster prompt <handle> [options]
   --kind <k>       daily | mention                     (default: daily)
   --diff <file>    diff the composed prompt against the prompt: block in a workflow file
   --stat           with --diff, print a summary instead of the full diff
+  --inflight       include the pull requests people have open on the product repos, read
+                   through your own gh, as a run does. Without it that section is left out,
+                   so the output does not change with somebody else's branch
   --ops <dir>      ops repo directory (default: found by walking up)
 `;
 
@@ -42,7 +45,8 @@ export async function promptCommand(argv: string[]): Promise<number> {
     });
   }
 
-  const composed = compose({ opsDir: ws.opsDir, brainsDir: ws.root, staff: handle, kind });
+  const runDir = opts.inflight ? await gatherInflight(ws.opsDir, ws.root, handle) : undefined;
+  const composed = compose({ opsDir: ws.opsDir, brainsDir: ws.root, staff: handle, kind, runDir });
 
   if (!opts.diff) {
     process.stdout.write(composed);
@@ -78,6 +82,37 @@ export async function promptCommand(argv: string[]): Promise<number> {
 }
 
 /**
+ * What a run would find open on the product repos, written where compose.mjs looks for it.
+ *
+ * The tenant's own inflight.mjs, for the same reason the tenant's compose.mjs is used: what you
+ * preview is what the runner does. A temp directory, so a preview never leaves a file in the
+ * workspace for the next plain `roster prompt` to pick up.
+ */
+async function gatherInflight(opsDir: string, root: string, handle: string): Promise<string> {
+  const path = join(opsDir, "inflight.mjs");
+  if (!existsSync(path)) {
+    throw new Error("this tenant has no inflight.mjs yet. Run `roster upgrade --apply` first.");
+  }
+  const { describe, gather } = (await import(`file://${path}`)) as {
+    describe(found: unknown): string;
+    gather(o: { org: unknown; manifest: unknown; gh: (a: string[]) => string }): unknown;
+  };
+  const { parseYaml } = await loadComposer(opsDir);
+  const org = readOrg(opsDir, parseYaml);
+  const entry = org.staff?.find((s) => s.handle === handle);
+  const manifestPath = join(root, entry?.dir ?? handle, "staff.yaml");
+  const manifest = existsSync(manifestPath)
+    ? parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml")
+    : {};
+  const gh = (args: string[]) =>
+    execFileSync("gh", args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+
+  const dir = mkdtempSync(join(tmpdir(), "roster-inflight-"));
+  writeFileSync(join(dir, "inflight.md"), describe(gather({ org, manifest, gh })));
+  return dir;
+}
+
+/**
  * Whitespace-only differences are noise for this comparison: the live prompt was
  * hand-wrapped inside YAML, the composed one is wrapped in markdown files.
  */
@@ -93,11 +128,16 @@ function normalise(text: string): string {
 }
 
 function parseFlags(argv: string[]) {
-  const out: { kind?: string; diff?: string; ops?: string; stat?: boolean } = {};
+  const out: { kind?: string; diff?: string; ops?: string; stat?: boolean; inflight?: boolean } =
+    {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     if (flag === "--stat") {
       out.stat = true;
+      continue;
+    }
+    if (flag === "--inflight") {
+      out.inflight = true;
       continue;
     }
     const value = argv[++i];

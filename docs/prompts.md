@@ -108,9 +108,30 @@ than a hang.
 | `event` | trigger context, from `ROSTER_CONTEXT` |
 | `event.issue_number`, `event.comment_id`, `event.repo`, `event.actor` | |
 | `event.no_comment` | true when the ask is the issue body rather than a comment. There is no `{{#unless}}`, so the absence is a value |
+| `inflight` | the pull requests people have open on the product repos, as a markdown list. **Empty outside a run**, and when there are none. See below |
 
 Anything else in a manifest is reachable under `staff.`, so `staff.status_issue` and
 `staff.public_token_env` work without being listed here.
+
+## Human work in flight
+
+Before composing, a run looks at the staff member's product repos (their `works_in`, or every
+`role: product` repo) for open pull requests opened by people rather than by any App. Each one
+goes in as a line: title, author, age, branch, and the files it touches, capped at twenty with
+the top directories named when there are more.
+
+`prompts/_inflight.md` carries that list under a short instruction, inside `{{#if inflight}}`,
+and both kinds include it: do not open competing work on files a human branch is changing, and
+raise anything about it on that pull request instead.
+
+It exists because nothing told them. While a person had a long branch open rewriting a
+product's copy, the staff opened five pull requests and nine issues chasing that same copy, and
+four of the pull requests were overtaken by the branch.
+
+The list is a value, never a template. Titles are a person's words, and a `{{` in one must not
+be able to break composition, so `compose.mjs` reads `.roster-run/inflight.md` and substitutes it
+as it stands. Locally there is no such file, so `roster prompt` leaves the section out; pass
+`--inflight` to fetch the real list through your own `gh`.
 
 ## Guarding
 

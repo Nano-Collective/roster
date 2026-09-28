@@ -52,26 +52,28 @@ authentication error forty lines into a log.
 ## What it does, in order
 
 1. **Start the clock**, for the run record.
-1. **Mint the private-tracker token** from the staff member's App.
-2. **Mint the public-repo token**, if a public App was passed.
-3. **React to the request** with eyes, on a `mention` only. Before any checkout, so it lands in
+2. **Mint the private-tracker token** from the staff member's App.
+3. **Mint the public-repo token**, if a public App was passed.
+4. **React to the request** with eyes, on a `mention` only. Before any checkout, so it lands in
    seconds. `continue-on-error`: a missing reaction must never cost the answer.
-4. **Check out the ops repo.** It is the only thing that can be cloned without having read a
+5. **Check out the ops repo.** It is the only thing that can be cloned without having read a
    manifest, so it goes first and then says what else to clone.
-5. **Work out what to check out**, by running `runner-plan.mjs`.
-6. **Check out the brain**, full history. The agent reads its own past.
-7. **Check out peers and product repos**, per the plan.
-8. **Set git identity** to the App.
-9. **Set up Node and pnpm**, if the plan found a `package.json`.
-10. **Compose the prompt**, to a step output and to `.roster-prompt.txt`.
-11. **Check the agent has a credential.**
-12. **Work out which agent runs this**, by running `agents.mjs`.
-13. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
+6. **Work out what to check out**, by running `runner-plan.mjs`.
+7. **Check out the brain**, full history. The agent reads its own past.
+8. **Check out peers and product repos**, per the plan.
+9. **Gather human work in flight**: open pull requests people have on the product repos, via
+   `inflight.mjs`, for the prompt. Never fatal. See [prompts](prompts.md#human-work-in-flight).
+10. **Set git identity** to the App.
+11. **Set up Node and pnpm**, if the plan found a `package.json`.
+12. **Compose the prompt**, to a step output and to `.roster-prompt.txt`.
+13. **Check the agent has a credential.**
+14. **Work out which agent runs this**, by running `agents.mjs`.
+15. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
     CLI one. See [choosing a coding agent](agents.md).
-14. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
+16. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
     and tokens where the agent reports them. Into the job summary, and kept as an artifact
     called `roster-run`. Never fatal. See [cost](cost.md#what-each-run-cost).
-15. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
+17. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
     woke a mention, linking the run.
 
 ## When the failure is the token

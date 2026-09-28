@@ -67,7 +67,13 @@ export async function loadComposer(opsDir: string) {
     throw new Error(`no compose.mjs in ${opsDir}. Run \`roster upgrade\` to restore it.`);
   }
   return (await import(`file://${path}`)) as {
-    compose(o: { opsDir: string; brainsDir: string; staff: string; kind: string }): string;
+    compose(o: {
+      opsDir: string;
+      brainsDir: string;
+      staff: string;
+      kind: string;
+      runDir?: string;
+    }): string;
     parseYaml(text: string, file?: string): Record<string, unknown>;
   };
 }

@@ -33,6 +33,8 @@ your brain. Reconstitute yourself, do a day's work, hand off.
    **Do not read `log/decisions.md` at boot**; it is the audit trail, for when you need to know why
    something was decided.
 
+{{> prompts/_inflight.md}}
+
 ## Then work. Autonomously.
 
 Take the top item off #{{staff.status_issue}}'s ordered list, unless something above changed the

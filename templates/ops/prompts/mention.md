@@ -35,6 +35,8 @@ An issue opened this way often carries a pull request somewhere else, and says w
 
 `gh issue view --comments` is broken; use `gh api` as above.
 
+{{> prompts/_inflight.md}}
+
 ## Do the work
 
 - **Read `{{staff.dir}}/CHARTER.md` and `{{staff.dir}}/memory/INDEX.md` before acting.** They are

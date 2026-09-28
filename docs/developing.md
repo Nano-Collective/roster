@@ -64,8 +64,8 @@ registers into at boot.
 
 ## The rule that matters
 
-**Never fix a generated file in a tenant.** `compose.mjs`, `agents.mjs`, `runner-plan.mjs` and
-`session.yaml` live in `templates/ops/`. Fix them there and run `roster upgrade`.
+**Never fix a generated file in a tenant.** `compose.mjs`, `agents.mjs`, `runner-plan.mjs`,
+`inflight.mjs`, `run-record.mjs` and `session.yaml` live in `templates/ops/`. Fix them there and run `roster upgrade`.
 
 This has gone wrong once already. A fix went into `roster-ops/.github/workflows/session.yaml`
 instead of the template and nothing noticed, because the framework had not touched that file

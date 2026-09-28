@@ -86,6 +86,21 @@ test("required partials throw, optional ones render empty", () => {
   );
 });
 
+test("a value is substituted as it stands, even when a partial carries it", () => {
+  /* A partial's output is scanned again by its parent. A PR title reaches the prompt through
+     one, and a title saying `{{nope}}` used to fail the run while `{{> file}}` read the file in. */
+  let reads = 0;
+  const read = (rel: string) => {
+    if (rel === "part.md") return "t={{title}}";
+    reads++;
+    return "secret";
+  };
+  for (const title of ["{{nope}}", "{{> other.md}}", "{{#if x}}y{{/if}}"]) {
+    assert.equal(render("{{> part.md}}", { title }, read), `t=${title}`);
+  }
+  assert.equal(reads, 0, "a value must never be able to include a file");
+});
+
 test("stops runaway includes instead of hanging the runner", () => {
   assert.throws(() => render("{{> self.md}}", {}, () => "{{> self.md}}"), /include depth exceeded/);
 });

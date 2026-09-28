@@ -186,6 +186,12 @@ function parseScalar(raw, line) {
 
 const MAX_INCLUDE_DEPTH = 8;
 
+/* A partial's output is scanned again by the template that included it, so a value containing
+   `{{` would be rendered as though somebody had written it into a prompt: a PR title saying
+   `{{nope}}` failed the run, and one saying `{{> some/file}}` read that file in. Values are
+   fenced off with a character no template can contain, and let back out once, at the end. */
+const FENCE = "\u0000";
+
 export function render(template, ctx, readPartial, depth = 0) {
   if (depth > MAX_INCLUDE_DEPTH) throw new Error("include depth exceeded; a partial probably includes itself");
 
@@ -220,10 +226,10 @@ export function render(template, ctx, readPartial, depth = 0) {
       }
       throw new Error(`unknown or empty placeholder: {{${path}}}`);
     }
-    return String(v);
+    return String(v).replace(/\{\{/g, FENCE);
   });
 
-  return out;
+  return depth === 0 ? out.replaceAll(FENCE, "{{") : out;
 }
 
 function lookup(ctx, path) {
@@ -282,7 +288,7 @@ function defaultMarker(name) {
 // Composition
 // ---------------------------------------------------------------------------
 
-export function compose({ opsDir, brainsDir, staff, kind }) {
+export function compose({ opsDir, brainsDir, staff, kind, runDir }) {
   const org = parseYaml(readFileSync(join(opsDir, "org.yaml"), "utf8"), "org.yaml");
 
   const entry = (org.staff ?? []).find((s) => s.handle === staff);
@@ -317,6 +323,12 @@ export function compose({ opsDir, brainsDir, staff, kind }) {
   // sends it to a 404 before it has read anything. So the absence is a value of its own.
   if (Object.keys(event).length) event = { ...event, no_comment: !event.comment_id };
 
+  // What people have open on the product repos, gathered by inflight.mjs just before this runs.
+  // Read as a value and never rendered as a template: it is PR titles, which are a person's
+  // words, and a `{{` in one must not be able to break composition.
+  const inflightFile = join(runDir ?? join(brainsDir, ".roster-run"), "inflight.md");
+  const inflight = existsSync(inflightFile) ? readFileSync(inflightFile, "utf8").trim() : "";
+
   const humans = readHumans(org);
   const ctx = {
     org,
@@ -344,6 +356,7 @@ export function compose({ opsDir, brainsDir, staff, kind }) {
     // without the one the prose already names. Empty when there is only one, which is what
     // makes `{{#if humans_extra}}` the right way to mention the others at all.
     human_list: humanSentence(humans),
+    inflight,
     humans_extra: humanSentence(humans.slice(1)),
   };
 
