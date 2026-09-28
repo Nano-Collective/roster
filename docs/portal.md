@@ -18,6 +18,9 @@ Keep the repos checked out beside each other, in the same shape the runner uses.
 
 ## The sidebar
 
+Anything that asks before it acts (a merge, a push, a hire, a retire, a paid run) asks in the
+page's own dialog, never the browser's `confirm()`, which blocks the whole tab.
+
 **The counts are right on load.** The badges beside Inbox and Pending work are fetched once at
 boot, and the Inbox screen shares that request rather than making a second one. A sidebar that
 says nothing until you look at it is not a sidebar.
@@ -56,12 +59,24 @@ and where it will be stored (one org secret shared with the brains, or each brai
 secret would not arrive, with the reason). The value goes to the local server in a POST and from
 there to `gh` on standard input; it is never written to disk or echoed back. Until somebody is
 hired the box says so, because nothing would read it. Then which repos the staff work in, as a
-picker over what your `gh` can see minus what `org.yaml` already has, and a prompt for writing
-`org/business.md`.
+picker over what your `gh` can see minus what `org.yaml` already has, recorded with the
+visibility GitHub reports. Then the two files only you can write: a prompt for writing
+`org/business.md`, and `org/priorities.md` opened in place, stub and all, to replace with what
+matters this month. Each says whether it is written yet.
 
 Nothing here stores which step you are on. Setup takes days rather than minutes: an App has to be
 installed, a credential set, a first run finished. So the page derives its state from `roster
-doctor` every time it is drawn. A stored step counter would disagree with the world within an hour.
+doctor` every time it is drawn, and runs the check again after anything on it is saved. A stored
+step counter would disagree with the world within an hour.
+
+### Getting started
+
+**Once the org exists, the same steps stay in the sidebar as *Getting started*** for as long as
+anything is left: nobody hired, or `org/business.md` or `org/priorities.md` still the stub. An
+org nobody has been hired into opens on it rather than on an empty Inbox, with *Hire your first
+staff member* first, then the Actions setting, the credential, the repo picker, both files, and
+what doctor still says. A link to another screen still wins. When the list is empty the entry
+goes away; the repo picker lives on under [Org](#org).
 
 ## Inbox
 
@@ -217,6 +232,10 @@ prompt files in `prompts/`, each with a line saying what it is for, because a fi
 you nothing about which to open. Anything roster does not ship falls back to its own first
 heading.
 
+**Add a product repo** opens the same picker setup uses, so a repo created later does not mean
+typing `role: product` into `org.yaml` by hand. Adding one commits `org.yaml` and pushes. A new
+hire picks it up; somebody already hired keeps the `works_in` in their own `staff.yaml`.
+
 **The list comes off disk**, not out of the page, so a tenant that adds `org/pricing.md` can
 open it like any other. Only files the
 portal may actually write are listed: an editor that offers a file it cannot save is a trap.
@@ -244,7 +263,10 @@ have more than one human, and a card that names one of two reads as the only one
 Everyone on the roster, and the things you would otherwise do from a terminal.
 
 **Hiring** runs the same `buildPlan` and `applyPlan` that `roster hire` does, on the server.
-Only the handle is required; everything else is copied from whoever is already here. You see
+Only the handle is required; everything else is copied from whoever is already here. The first
+hire has nobody to copy App names from, so its form also asks for the App's name and the shared
+public App's, which are `--app` and `--public-app`. The public one only matters when a product
+repo is public; on private ones the session uses the staff member's own App. You see
 the plan first, listing every file, every label, the schedule it chose and why, the commits it
 will make as you in repos that already exist (each peer's `staff.yaml`, `org.yaml`), whether the
 new brain joins the credential's org secret, and what is left for you. Nothing happens until you

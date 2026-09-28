@@ -50,6 +50,9 @@ Creating it makes `<org>/roster-ops` and **sets its Actions access** so every re
 can call its workflow. Without that every run fails with "workflow not found". If GitHub refuses
 (it needs admin on the repo), the page says why and links to the setting to click instead.
 
+The rest of the steps stay on the same page. Reload it and the portal opens on **Getting
+started**, which keeps them in the sidebar until they are done, with hiring first.
+
 ## 2. Say what the business is
 
 `org/business.md` ships as questions, and it is composed into the top of every prompt. An agent
@@ -61,7 +64,8 @@ reply into the box and you get a diff and a save button. See
 [the portal](portal.md#copy-a-prompt-paste-the-answer-back).
 
 Then `org/priorities.md`: what matters this month, ranked, and what is out of scope. A few
-lines, only you can write it. See [concepts](concepts.md#priorities).
+lines, only you can write it, so it opens in place on the setup screen and saves the same way.
+See [concepts](concepts.md#priorities).
 
 ## 3. Hire someone
 
@@ -71,7 +75,13 @@ lines, only you can write it. See [concepts](concepts.md#priorities).
 schedule it chose, and the commits it will make **as you** in repos that already exist: each
 peer's `staff.yaml`, and `org.yaml`. Nothing is left uncommitted on disk.
 
-For the first hire there is nobody to copy an App name from, so it asks.
+For the first hire there is nobody to copy an App name from, so the form asks for two: this
+staff member's App, and the shared public App. Names are unique across GitHub, so prefix them
+with the org. The public one only matters if a product repo is public; leave it empty when they
+are all private.
+
+Product repos come from `org.yaml`. Mark one on the setup screen, or later with **Org → Add a
+product repo**.
 
 ## 4. Create the App, and confirm the install
 
