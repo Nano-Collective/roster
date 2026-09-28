@@ -16,7 +16,7 @@ const principles = [
   },
   {
     q: "Setup should tell you the truth.",
-    a: "A first hire is half a day of real work, so setup keeps no step counter. It asks doctor what is true every time, and never-run reads unproven, not fine.",
+    a: "A first hire is a couple of hours of real work, so setup keeps no step counter. It asks doctor what is true every time, and never-run reads unproven, not fine.",
   },
   {
     q: "Nothing goes out under the company name unread.",

@@ -18,7 +18,7 @@ const cols = [
   {
     h: "Your first hire",
     items: [
-      "About half a day, most of it writing the charter",
+      "About two hours, most of it writing the business and the charter",
       "Every repo, file and label listed before it exists",
       "Doctor says what is proven, and what is not yet",
     ],

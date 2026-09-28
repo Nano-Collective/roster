@@ -75,12 +75,12 @@ function Doctor() {
 }
 
 const news: [string, string][] = [
-  ["Runs", "Every run in the portal, with its outcome, duration and cost where known."],
-  ["Alerts", "When a run, or any workflow, fails silently, you hear about it."],
-  ["Shared priorities", "org/priorities.md, read by every staff member."],
-  ["Memory budgets", "roster lint flags a memory that outgrows its budget."],
-  ["Branch protection", "doctor checks your product repos have it."],
-  ["Example charters", "A CTO, a CMO and Support, to start from."],
+  ["Runs and cost", "Every run in the portal: outcome, duration, cost where known, and a budget warning."],
+  ["Alerts that survive", "A run or any workflow failing in silence still reaches a person."],
+  ["Shared priorities", "org/priorities.md, read by every staff member, named in every pull request."],
+  ["Memory budgets", "roster lint names the facts that make a memory too long to boot from."],
+  ["A real review gate", "doctor checks a review is required before merge, and hire sets it up."],
+  ["A faster first hire", "One credential for the org, the App install pre-selected, example charters, and Run once now."],
 ];
 
 export function Features() {
