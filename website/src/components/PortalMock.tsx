@@ -8,35 +8,31 @@ const nav = [
   { label: "Docs" },
 ];
 
-const facts = [
+// Real facts from Pip's CTO's memory/INDEX.md, lightly shortened.
+const facts: { section: string; items: { id: string; tag?: string; fact: string; so: string }[] }[] = [
   {
-    section: "What we have tried",
+    section: "The gate, and the ways it lies",
     items: [
       {
-        id: "one-plan-pricing",
-        tag: "boss",
-        tone: "text-blue bg-blue/10",
-        fact: "One plan, one price, and pricing is not ours to change.",
-        so: "raise packaging as a decision rather than testing it.",
-      },
-      {
-        id: "setup-step-drop-off",
-        tag: "measured",
-        tone: "text-accent bg-accent-soft",
-        fact: "38% of accounts never finish the setup step (n=212, Jun to Aug).",
-        so: "nothing upstream of it is worth spending on until it moves.",
+        id: "ui-needs-will",
+        fact: "No runner has a browser or a device.",
+        so: "say plainly in the PR body what the gate did not cover. Never imply green covered UI.",
       },
     ],
   },
   {
-    section: "Constraints",
+    section: "The engine and the AI",
     items: [
       {
-        id: "approve-outbound",
-        tag: "boss",
-        tone: "text-blue bg-blue/10",
-        fact: "Nothing goes out under the company name unread.",
-        so: "finished work waits in drafts/; never schedule a send.",
+        id: "the-odds-band-is-honest",
+        tag: "measured",
+        fact: "The calculator's error bar is the width it claims, from 500 to 20,000 iterations (2026-09-14).",
+        so: "it can be defended in public. Do not re-derive it; re-run the script.",
+      },
+      {
+        id: "import-the-subject",
+        fact: "A test that retyped three rungs out of venues.ts kept asserting old numbers, green.",
+        so: "import the subject, never retype it.",
       },
     ],
   },
@@ -57,7 +53,7 @@ export function PortalMock() {
             <Mark size={20} />
             <div className="leading-tight">
               <div className="text-[13px] font-semibold">Roster</div>
-              <div className="text-[11px] text-fg-2">acme · 2 staff</div>
+              <div className="text-[11px] text-fg-2">playpip · 2 staff</div>
             </div>
           </div>
           <div className="space-y-px">
@@ -98,7 +94,7 @@ export function PortalMock() {
         <div className="min-w-0 flex-1 bg-surface p-6 sm:p-8">
           <div className="text-[20px] font-semibold tracking-[-0.02em]">Brain</div>
           <div className="mt-0.5 text-[13px] text-fg-2">
-            Chief Technology Officer · 3 facts in 2 sections
+            Chief Technology Officer · 142 facts in 8 sections
           </div>
           <div className="mt-5 flex h-8 items-center rounded-lg bg-fill px-3 text-[13px] text-fg-3">
             Search facts and files
@@ -111,9 +107,11 @@ export function PortalMock() {
                   <div key={f.id} className="border-b border-line px-4 py-3 last:border-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-[11.5px] text-fg-2">{f.id}</span>
-                      <span className={`rounded-full px-2 py-px text-[10.5px] font-medium ${f.tone}`}>
-                        {f.tag}
-                      </span>
+                      {f.tag && (
+                        <span className="rounded-full bg-accent-soft px-2 py-px text-[10.5px] font-medium text-accent">
+                          {f.tag}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1 text-[14px] tracking-[-0.01em]">{f.fact}</div>
                     <div className="mt-0.5 text-[12.5px] text-fg-2">So: {f.so}</div>

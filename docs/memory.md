@@ -16,8 +16,8 @@ memory/INDEX.md      one line per fact. Read in full at every boot.
 memory/notes/*.md    the argument behind a fact. Read only when that fact is in play.
 ```
 
-That split is the whole design. Boot context here went from about 52,000 words to about 6,000
-by making it, and the saving repeats on every run forever.
+That split is the whole design. Boot context here went from about 52,000 words to about 10,000
+today by making it, and the saving repeats on every run forever.
 
 ## The grammar
 

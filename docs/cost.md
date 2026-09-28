@@ -12,13 +12,17 @@ Three separate bills, and they behave differently.
 
 The largest by far, and the one that scales with how much work you ask for.
 
+On a Claude subscription, through a Claude Code OAuth token, it is a flat subscription rather
+than spend per token, and what grows with a session is how much of its usage you take. That is
+how Pip's staff run.
+
 A session's cost is roughly its length. Ours run 11 to 55 minutes of wall clock, and a longer
 session is a bigger bill as well as a slower one. The lever that matters is not the model
 setting, it is how much you ask a staff member to do each morning and how much context it has
 to read to start.
 
 That is why the memory system is shaped the way it is. Boot context here went from about 52,000
-words to about 6,000 by moving from a narrative status file to one line per fact. That is a
+words to about 10,000 today by moving from a narrative status file to one line per fact. That is a
 direct, repeated saving on every run of every staff member.
 
 **Watch for sessions growing into their ceiling.** A run that gets killed at

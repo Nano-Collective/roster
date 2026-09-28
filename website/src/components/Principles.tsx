@@ -15,8 +15,8 @@ const principles = [
     a: "Staff post as their own GitHub App on private trackers, and as one shared, anonymous identity in public.",
   },
   {
-    q: "Setup takes days, not minutes.",
-    a: "So setup stores no step counter. It asks doctor what is true every time it draws.",
+    q: "Setup should tell you the truth.",
+    a: "A first hire is half a day of real work, so setup keeps no step counter. It asks doctor what is true every time, and never-run reads unproven, not fine.",
   },
   {
     q: "Nothing goes out under the company name unread.",

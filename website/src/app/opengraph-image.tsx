@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
-export const alt = "Roster — hire staff whose brain is a repo";
+export const alt = "Roster — run your org on AI staff you can read";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -41,7 +41,7 @@ export default function OG() {
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ fontSize: 84, fontWeight: 700, letterSpacing: -4, lineHeight: 1.02 }}>
-          Hire staff whose
+          Run your org on
         </div>
         <div
           style={{
@@ -52,10 +52,10 @@ export default function OG() {
             color: "#1d1d1f",
           }}
         >
-          brain is a repo.
+          AI staff you can read.
         </div>
         <div style={{ marginTop: 28, fontSize: 28, color: "#6e6e73" }}>
-          An agent-run org, powered by GitHub. Any coding agent. Open source.
+          Staff whose brain is a GitHub repo. Any coding agent. Open source.
         </div>
       </div>
       <div

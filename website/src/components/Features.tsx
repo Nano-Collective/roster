@@ -31,7 +31,7 @@ function Composition() {
 
 function Plan() {
   const rows: [string, string, string][] = [
-    ["+", "acme/marketing", "private repo"],
+    ["+", "your-org/cmo", "private repo"],
     ["+", "staff.yaml", "manifest"],
     ["+", "memory/INDEX.md", "empty memory"],
     ["+", "cmo-daily.yaml", "07:00 schedule"],
@@ -57,9 +57,10 @@ function Plan() {
 function Doctor() {
   const rows = [
     { s: "OK", c: "text-accent", t: "Callers reachable" },
-    { s: "OK", c: "text-accent", t: "Agent credential on technology" },
+    { s: "OK", c: "text-accent", t: "Agent credential on cto" },
+    { s: "OK", c: "text-accent", t: "Branch protection on product repos" },
     { s: "Unproven", c: "text-orange", t: "cmo-daily has never run" },
-    { s: "You", c: "text-blue", t: "Install cmo on acme/app" },
+    { s: "You", c: "text-blue", t: "Install cmo on your-org/app" },
   ];
   return (
     <div className="overflow-hidden rounded-xl bg-bg-2">
@@ -72,6 +73,15 @@ function Doctor() {
     </div>
   );
 }
+
+const news: [string, string][] = [
+  ["Runs", "Every run in the portal, with its outcome, duration and cost where known."],
+  ["Alerts", "When a run, or any workflow, fails silently, you hear about it."],
+  ["Shared priorities", "org/priorities.md, read by every staff member."],
+  ["Memory budgets", "roster lint flags a memory that outgrows its budget."],
+  ["Branch protection", "doctor checks your product repos have it."],
+  ["Example charters", "A CTO, a CMO and Support, to start from."],
+];
 
 export function Features() {
   return (
@@ -119,17 +129,23 @@ export function Features() {
         <Reveal delay={70}>
           <Card
             title="Memory that stays small"
-            body="One line per fact, and the argument in a note. Deleting is the maintenance, and every run is cheaper for it."
+            body="One line per fact, and the argument in a note. Deleting is the maintenance, and roster lint holds each memory to a size budget."
           >
-            <div className="flex h-full flex-wrap items-end gap-x-10 gap-y-6 pt-2">
+            <div className="flex flex-wrap items-end gap-x-10 gap-y-6 pt-2">
               <div>
-                <div className="text-[44px] font-semibold leading-none tracking-[-0.045em] sm:text-[56px]">6,000</div>
+                <div className="text-[44px] font-semibold leading-none tracking-[-0.045em] sm:text-[56px]">10,000</div>
                 <div className="mt-2 text-[13px] text-fg-2">words to boot, today</div>
               </div>
               <div>
                 <div className="text-[44px] font-semibold leading-none tracking-[-0.045em] text-fg-3 sm:text-[56px]">52,000</div>
                 <div className="mt-2 text-[13px] text-fg-2">with a narrative status file</div>
               </div>
+            </div>
+            {/* a real line from Pip's CMO's memory/INDEX.md, lightly shortened */}
+            <div className="mt-7 rounded-xl bg-bg-2 px-4 py-3">
+              <div className="font-mono text-[11.5px] text-fg-2">cmo · count-not-percentage</div>
+              <div className="mt-1 text-[14px] tracking-[-0.01em]">A rate off a small sample is not a number.</div>
+              <div className="mt-0.5 text-[12.5px] text-fg-2">So: print &ldquo;7 of 21&rdquo;, never &ldquo;33%&rdquo;.</div>
             </div>
           </Card>
         </Reveal>
@@ -146,6 +162,20 @@ export function Features() {
             </p>
           </div>
           <div className="w-fit rounded-full bg-bg-2 px-5 py-2.5 font-mono text-[13px]">roster upgrade</div>
+        </div>
+      </Reveal>
+
+      <Reveal>
+        <div className="card mt-5 p-7 sm:p-8">
+          <h3 className="text-[21px] font-semibold tracking-[-0.025em]">New in the alpha</h3>
+          <div className="mt-6 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            {news.map(([t, b]) => (
+              <div key={t} className="border-t border-line pt-4">
+                <div className="text-[15px] font-semibold tracking-[-0.01em]">{t}</div>
+                <p className="mt-1 text-[14px] leading-[1.5] text-fg-2">{b}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </Reveal>
     </Section>

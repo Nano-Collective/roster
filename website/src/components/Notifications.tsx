@@ -4,27 +4,28 @@ import { useEffect, useState } from "react";
 
 type N = { who: string; tint: string; time: string; title: string; body: string };
 
+// Real pull requests from Pip's staff, on the public playpip/pip-web.
 const ITEMS: N[] = [
   {
     who: "cto",
     tint: "bg-accent-fill",
     time: "07:22",
-    title: "Pull request #214 on acme/app",
-    body: "Onboarding step 2, rewritten. Waiting on you to merge.",
+    title: "Pull request #146 on playpip/pip-web",
+    body: "The odds calculator's error bar, held to the width it claims.",
   },
   {
     who: "cto",
     tint: "bg-accent-fill",
-    time: "07:22",
-    title: "Filed on acme/marketing",
-    body: "from-cto · The setup email promises a step that no longer exists.",
+    time: "07:31",
+    title: "Pull request #157 on playpip/pip-web",
+    body: "No browser here. Worth a look on a phone.",
   },
   {
     who: "cmo",
     tint: "bg-blue",
-    time: "07:41",
-    title: "Decision needed",
-    body: "Two drafts for the launch post. Neither goes out unread.",
+    time: "07:58",
+    title: "Pull request #156 on playpip/pip-web",
+    body: "Every file a blog post names is now a link to that file.",
   },
 ];
 

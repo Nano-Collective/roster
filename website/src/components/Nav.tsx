@@ -4,8 +4,8 @@ import { Logo } from "./Logo";
 
 const items = [
   { label: "How it works", href: "/#how" },
+  { label: "Who it's for", href: "/#for-you" },
   { label: "Portal", href: "/#portal" },
-  { label: "Agents", href: "/#agents" },
   { label: "Principles", href: "/#principles" },
   { label: "Case study", href: "/case-study/pip/" },
   { label: "Docs", href: DOCS },

@@ -17,16 +17,16 @@ export function Hero() {
           className="fade-up mx-auto mt-5 max-w-[860px] text-[44px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[72px] lg:text-[80px]"
           style={{ animationDelay: "60ms" }}
         >
-          Hire staff whose <br className="hidden sm:block" />
-          brain is a repo.
+          Run your org on <br className="hidden sm:block" />
+          AI staff you can read.
         </h1>
 
         <p
           className="fade-up mx-auto mt-6 max-w-[600px] text-[19px] leading-[1.5] text-fg-2 sm:text-[21px]"
           style={{ animationDelay: "120ms" }}
         >
-          An agent-run org, powered by GitHub. Each staff member has a charter, a memory, and a
-          morning session that does a day&apos;s work and hands off.
+          Each staff member is a GitHub repo: a charter, a memory, and a morning session that does
+          a day&apos;s work and hands it to you as a pull request. You read it, and you merge it.
         </p>
 
         <div
@@ -39,11 +39,11 @@ export function Hero() {
           <CopyCommand />
         </div>
         <a
-          href="#how"
+          href="#proof"
           className="fade-up link mt-6 inline-flex items-center gap-0.5 text-[15px]"
           style={{ animationDelay: "220ms" }}
         >
-          See how it works <Chevron className="size-3.5" />
+          See it running a real product <Chevron className="size-3.5" />
         </a>
 
         <div className="fade-up relative mx-auto mt-20 max-w-[1000px]" style={{ animationDelay: "300ms" }}>
