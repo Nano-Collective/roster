@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { amendBrief } from "../lib/amend.js";
+import { CHARTER_EXAMPLES, exampleOffer, exampleSection, matchExample } from "../lib/examples.js";
 import { readHumans } from "../lib/humans.js";
 import { promptView } from "../lib/prompt.js";
 import {
@@ -27,6 +28,11 @@ roster brief <kind> [handle]
     voice           revise org/voice.md, the house style every surface inherits
     amend <who>     change what a staff member is told, with the whole prompt attached
 
+  \`charter\` carries one of the worked examples in docs/charters as a model for the shape,
+  picked by handle or role (a CTO, a CMO, support). It is there to adapt, not to copy: the
+  brief still interviews you, and the charter is still yours. --example picks another, and
+  --example none leaves it out.
+
   \`amend\` is the long one. It carries the composed prompt and every file it is assembled
   from, so the agent you paste it into does not have to ask for any of them. Say what you
   want with --want, or fill in the placeholder at the top before you send it.
@@ -44,6 +50,7 @@ roster brief <kind> [handle]
 
   --kind <k>      for amend: daily | mention  (default: daily)
   --want <text>   for amend: what you want changed
+  --example <e>   for charter: cto, cmo, support or none (default: matched to the role)
   --ops <dir>     ops repo directory (default: found by walking up)
 `;
 
@@ -97,7 +104,9 @@ export async function briefCommand(argv: string[]): Promise<number> {
   }
 
   const text = readFileSync(join(briefTemplateDir(), `${kind}.md`), "utf8");
-  process.stdout.write(renderBrief(text, tokens, `briefs/${kind}.md`));
+  let out = renderBrief(text, tokens, `briefs/${kind}.md`);
+  if (kind === "charter") out = withExample(out, handle!, tokens.NAME ?? "", opts.example);
+  process.stdout.write(out);
   return 0;
 }
 
@@ -161,6 +170,21 @@ function renderBrief(text: string, tokens: Record<string, string>, where: string
   return out;
 }
 
+/**
+ * The charter brief, with a worked example to model it on, or the offer of one.
+ *
+ * Shared with the portal's copy-a-prompt, so the page and the terminal hand over the same
+ * model for the same staff member.
+ */
+export function withExample(brief: string, handle: string, name: string, asked?: string): string {
+  if (asked && asked !== "none" && !(CHARTER_EXAMPLES as readonly string[]).includes(asked)) {
+    throw new Error(`no example charter "${asked}". There is: ${CHARTER_EXAMPLES.join(", ")}`);
+  }
+  if (asked === "none") return brief;
+  const choice = asked ?? matchExample(handle, name);
+  return `${brief.trimEnd()}\n\n${choice ? exampleSection(choice) : exampleOffer(handle)}`;
+}
+
 export function available(): string[] {
   return readdirSync(briefTemplateDir())
     .filter((f) => f.endsWith(".md"))
@@ -169,7 +193,7 @@ export function available(): string[] {
 }
 
 function parseFlags(argv: string[]) {
-  const out: { ops?: string; kind?: string; want?: string } = {};
+  const out: { ops?: string; kind?: string; want?: string; example?: string } = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     const value = argv[++i];
@@ -177,6 +201,7 @@ function parseFlags(argv: string[]) {
     if (flag === "--ops") out.ops = value;
     else if (flag === "--kind") out.kind = value;
     else if (flag === "--want") out.want = value;
+    else if (flag === "--example") out.example = value;
     else throw new Error(`unknown flag ${flag}`);
   }
   return out;
