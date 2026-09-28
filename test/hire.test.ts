@@ -22,13 +22,12 @@ import { testWorkspace } from "./helpers/workspace.js";
  * than no manifest at all.
  */
 
-const ROOT = join(import.meta.dirname, "..", "..");
 const ws = await testWorkspace();
 const { parseYaml } = await loadComposer(ws.opsDir);
 const ORG = readOrg(ws.opsDir, parseYaml) as any;
 
-/* What this tenant happens to be called, read rather than written down. These tests run
-   against the workspace beside the framework, and that is somebody's real org. */
+/* What this tenant happens to be called, read rather than written down, so the same tests
+   hold when ROSTER_TEST_WORKSPACE points them at a real org. */
 const FIRST_HANDLE: string = ORG.staff?.[0]?.handle ?? "";
 const FIRST_DIR: string = ORG.staff?.[0]?.dir ?? FIRST_HANDLE;
 const FIRST_MANIFEST = (() => {
@@ -315,7 +314,7 @@ test("a scaffolded hire is coherent: doctor passes and both prompts compose", as
           `handle: ${s.handle}`,
           `brain: acme/${dir}`,
           `schedule: "0 7 * * 1-5"`,
-          `public_token_env: PIPWEB_TOKEN`,
+          `public_token_env: PRODUCT_TOKEN`,
           `identities:`,
           `  - { app: acme-${s.handle}, secret_prefix: ${s.handle.toUpperCase()}, scope: private }`,
           `  - { app: acme-robot, secret_prefix: BOT, scope: public }`,

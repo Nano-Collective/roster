@@ -18,8 +18,8 @@ import { testWorkspace } from "./helpers/workspace.js";
  * to keep, and deleting the wrong label from the wrong repo.
  */
 
-const REAL_OPS = (await testWorkspace()).opsDir;
-const { parseYaml } = await loadComposer(REAL_OPS);
+const OPS = (await testWorkspace()).opsDir;
+const { parseYaml } = await loadComposer(OPS);
 
 const ORG_YAML = `org: acme
 name: Acme
