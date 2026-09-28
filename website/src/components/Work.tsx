@@ -22,11 +22,11 @@ const prs = [
     not: "The wiring needs a browser. The pure rules are tested, and the wiring is read, not run.",
   },
   {
-    n: 157,
+    n: 153,
     who: "cto",
-    title: "The drills screens lead with the question, not the kind's name",
-    checked: "725 tests green, and a new test fails the build if two drills ever ask the same question.",
-    not: "Anything you can see. No browser here. Worth a look on a phone.",
+    title: "The AI can bet the hands that are neither a bluff nor a value bet",
+    checked: "Measured on identical seeds either side, 300 hands a venue, and six new tests.",
+    not: "Whether the tables now feel right. No runner has a device. Sit at two tables and see.",
   },
 ];
 

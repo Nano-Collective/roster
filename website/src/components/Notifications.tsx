@@ -17,8 +17,8 @@ const ITEMS: N[] = [
     who: "cto",
     tint: "bg-accent-fill",
     time: "07:31",
-    title: "Pull request #157 on playpip/pip-web",
-    body: "No browser here. Worth a look on a phone.",
+    title: "Pull request #153 on playpip/pip-web",
+    body: "Whether the tables now feel right is yours. No runner has a device.",
   },
   {
     who: "cmo",
