@@ -43,7 +43,7 @@ export const PRESETS = {
   "claude-code-action": {
     kind: "action",
     token_env: "CLAUDE_CODE_OAUTH_TOKEN",
-    model: "claude-opus-5",
+    model: "claude-opus-5-5",
     permissions: CLAUDE_TOOLS,
     option: (k, v) => `--${k} ${shellArg(v)}`,
   },
@@ -54,7 +54,7 @@ export const PRESETS = {
     install: "npm install -g @anthropic-ai/claude-code",
     run: 'claude -p --model "$AGENT_MODEL" $AGENT_FLAGS < "$AGENT_PROMPT_FILE"',
     token_env: "CLAUDE_CODE_OAUTH_TOKEN",
-    model: "claude-opus-5",
+    model: "claude-opus-5-5",
     permissions: CLAUDE_TOOLS,
     option: (k, v) => `--${k} ${shellArg(v)}`,
   },

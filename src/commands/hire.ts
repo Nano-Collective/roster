@@ -121,7 +121,7 @@ export function buildPlan(
     }))
     .filter((s) => s.manifest);
 
-  const model = opts.model ?? org.defaults?.model ?? "claude-opus-5";
+  const model = opts.model ?? org.defaults?.model ?? "claude-opus-5-5";
   const schedule =
     opts.schedule ??
     nextSlot(

@@ -78,7 +78,7 @@ model is a reasonable thing to want:
 ```yaml
 # marketing/staff.yaml
 agent: claude
-model: claude-opus-5
+model: claude-opus-5-5
 ```
 
 ## The presets
@@ -97,7 +97,7 @@ agent: claude-code-action
 ```
 
 - credential: `CLAUDE_CODE_OAUTH_TOKEN`
-- default model: `claude-opus-5`
+- default model: `claude-opus-5-5`
 - tool permissions come from `allowed_tools` on the caller, which roster renders from
   `defaults.allowed_tools` in org.yaml
 
@@ -218,7 +218,7 @@ agent:
   id: claude-code-action      # the default; the whole block can be left out
 
 defaults:
-  model: claude-opus-5
+  model: claude-opus-5-5
 ```
 
 ```bash
@@ -429,7 +429,7 @@ model: qwen/qwen3-coder
 
 ```yaml
 # technology/staff.yaml
-model: claude-opus-5    # keeps the org's agent, changes only the model
+model: claude-opus-5-5    # keeps the org's agent, changes only the model
 ```
 
 Two staff members on two different agents need both credentials present, each on its own brain

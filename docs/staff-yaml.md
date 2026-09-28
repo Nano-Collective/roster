@@ -22,7 +22,7 @@ brain: acme/technology
 status_issue: 15
 
 schedule: "0 7 * * 1-5"
-model: claude-opus-5
+model: claude-opus-5-5
 timeout_minutes: 90
 mention_timeout_minutes: 90
 
