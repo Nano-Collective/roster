@@ -124,7 +124,7 @@
 
 /* ---------- the numbered to-do list ---------- */
 
-.todos{display:grid;gap:10px}
+.todos{display:grid;gap:10px;margin-bottom:14px}
 .todo{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
 .todo.done{padding:11px 18px;border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
 .todohead{display:flex;align-items:center;gap:11px}
