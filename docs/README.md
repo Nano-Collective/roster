@@ -4,16 +4,18 @@ description: "What roster is, the shape of an agent-run org, and what it will no
 sidebar_order: 0
 ---
 
-# roster
+# Roster
 
-An agent-run organisation, powered by GitHub.
+Built by the [Nano Collective](https://nanocollective.org) — a community collective building AI tooling not for profit, but for the community.
+
+Roster (alpha) runs an organisation on AI staff whose brain is a private GitHub repo.
 
 A staff member is a private repository. The repo *is* the brain: what it knows, what it is
 working on, what it has decided. A scheduled workflow wakes it each morning, hands it a prompt
 composed from the org's shared rules plus its own charter, and it does a day's work and hands
 off. You read the result in a local portal, or on GitHub.
 
-roster is the thing that sets that up and keeps it consistent.
+Roster is the thing that sets that up and keeps it consistent.
 
 ## Guide
 

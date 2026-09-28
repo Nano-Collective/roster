@@ -7,6 +7,7 @@ const items = [
   { label: "Portal", href: "/#portal" },
   { label: "Agents", href: "/#agents" },
   { label: "Principles", href: "/#principles" },
+  { label: "Case study", href: "/case-study/pip/" },
   { label: "Docs", href: DOCS },
 ];
 

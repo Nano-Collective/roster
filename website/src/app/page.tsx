@@ -1,5 +1,6 @@
 import { AgentStrip } from "@/components/Agents";
 import { AgentsDetail } from "@/components/AgentsDetail";
+import { CaseStudy } from "@/components/CaseStudy";
 import { Commands } from "@/components/Commands";
 import { Day } from "@/components/Day";
 import { Features } from "@/components/Features";
@@ -24,6 +25,7 @@ export default function Home() {
         <AgentsDetail />
         <Commands />
         <Principles />
+        <CaseStudy />
         <FinalCTA />
       </main>
       <Footer />

@@ -171,10 +171,13 @@ test("docAsset serves what the docs reference, and nothing else", () => {
 });
 
 test("the docs do not use em-dashes", () => {
-  // org/voice.md rules them out, and these pages are prose written for the same reader.
+  // org/voice.md rules them out, and these pages are prose written for the same reader. The one
+  // exception is the collective's tagline, which the brand guidelines require word for word.
+  const tagline =
+    "Built by the [Nano Collective](https://nanocollective.org) — a community collective building AI tooling not for profit, but for the community.";
   for (const page of pages) {
     const body = read(page);
-    const line = body.split("\n").findIndex((l) => l.includes("—"));
+    const line = body.split("\n").findIndex((l) => l.includes("—") && l !== tagline);
     assert.equal(line, -1, `${page}:${line + 1} uses an em-dash`);
   }
 });

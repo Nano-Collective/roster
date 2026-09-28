@@ -1,117 +1,100 @@
-# roster
+# Roster
 
 Built by the [Nano Collective](https://nanocollective.org) — a community collective building AI tooling not for profit, but for the community.
 
-**An agent-run org, powered by GitHub.** Each staff member is an AI whose brain is a private
-repo: a charter, a memory, a decision log, and a scheduled session that does a day's work
-unattended and hands off.
+Roster (alpha) runs an organisation on AI staff whose brain is a private GitHub repo: a charter,
+a memory, a decision log, and a scheduled session that does a day's work unattended and hands off.
 
-**Full documentation is in [`docs/`](docs/README.md).** Start with
-[getting started](docs/getting-started.md), then read [manual steps](docs/manual-steps.md).
+[![PR checks](https://github.com/Nano-Collective/roster/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/Nano-Collective/roster/actions/workflows/pr-checks.yml)
+[![npm](https://img.shields.io/npm/v/@nanocollective/roster)](https://www.npmjs.com/package/@nanocollective/roster)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Status: **working, private, one tenant.** Every command below is built and exercised daily
-against a live two-agent org. Not published yet.
+It runs every day against a live org: a CTO and a CMO have built and marketed
+[Pip](https://playpip.io) since July, with one person reading and merging what they hand off.
+[The case study](https://roster.nanocollective.org/case-study/pip/) has the numbers.
 
-## What it does
+## Quick start
 
 ```bash
-npx @nanocollective/roster      # set up, or join, an org — in a browser
-roster init --org acme          # or from a terminal: ops repo, org layer, merge base
+npx @nanocollective/roster
+```
+
+Run it in an empty directory. The page that opens is the setup screen, and it is the whole of
+setup: say which GitHub organisation, read the plan, then create it. An org that already runs
+Roster gets checked out instead, which is how you join one a colleague set up.
+
+You need `gh` [authenticated](https://cli.github.com), a GitHub organisation, and a credential
+for whichever [coding agent](docs/agents.md) you want to run. Then read
+[getting started](docs/getting-started.md) and [manual steps](docs/manual-steps.md): a few
+things only a person can do, and what breaks if you skip them.
+
+## Usage
+
+Everything the portal does is also a command, on the same files. Nothing changes anything
+without `--apply`.
+
+```bash
+roster init --org acme          # ops repo, org layer, merge base
 roster hire cto                 # scaffold a staff member: repo, workflows, labels, peers
 roster app cto                  # create their GitHub App, write its secrets
 roster doctor                   # is any of this actually wired up
+roster fix                      # every finding, as one brief for a coding agent
 roster portal                   # read every brain, and the docs, locally
+roster prompt cto               # the exact prompt a run will be sent
 roster upgrade                  # take framework changes without losing your edits
+roster retire cto               # let someone go, with their brain kept
 ```
 
-Nothing changes anything without `--apply`. `roster help <command>` for the rest, or
-[docs/commands.md](docs/commands.md).
+Also `lint`, `brief` and `export`. `roster help <command>` for flags, or
+[the CLI reference](docs/commands.md).
 
-## The shape
+## How it is shaped
 
 ```
-Nano-Collective/roster        this repo. The CLI, the templates, the portal, the docs.
-                              ✗ never a runtime dependency of a tenant
+Nano-Collective/roster        this repo: the CLI, the templates, the portal, the docs.
+                              Never a runtime dependency of an org.
 
-<tenant>/roster-ops           the org layer + the machinery, generated from templates/ops/
+<your-org>/roster-ops         the org layer and the machinery, generated from templates/ops/
   org/business.md               what the business is. You write this.
-  org/operating.md              the autonomy contract
-  org/voice.md                  house style
-  org/guardrails.md             the non-negotiables
-  prompts/                      composable run-kind fragments
-  compose.mjs                   vendored. Builds the prompt at run time.
-  agents.mjs                    vendored. Which coding agent runs, and how.
-  .github/workflows/session.yaml    the reusable workflow every staff repo calls
+  org/operating.md, voice.md,   the autonomy contract, house style, the non-negotiables,
+    guardrails.md                 inherited by every staff member
+  compose.mjs, agents.mjs       vendored: builds the prompt, runs the coding agent
+  .github/workflows/session.yaml  the reusable workflow every staff repo calls
 
-<tenant>/<brain>              one repo per staff member. The repo is the brain.
-  CHARTER.md                    the personality. Hand written. Never generated.
+<your-org>/<staff>            one per staff member. The repo is the brain.
+  CHARTER.md                    the personality. Hand written, never generated.
   staff.yaml                    the machine-readable half of the charter
   memory/INDEX.md               one line per fact, read at every boot
-  memory/notes/                 the argument behind a fact, read on demand
-  .github/workflows/            three callers, about forty lines each
 ```
 
-**Why a tenant vendors the machinery:** a private reusable workflow can only be called from
-inside its own org, and a morning run should not depend on npm, on a network call, or on an
-organisation the tenant does not control. So the framework writes templates *out* and never runs
-anything. `roster upgrade` carries a new version across, and it is run by a human because App
-tokens cannot push changes under `.github/workflows/` anywhere.
-
+An org vendors the machinery because a morning run should not depend on npm, on a network
+call, or on an organisation it does not control. `roster upgrade` carries a new version across.
 See [architecture](docs/architecture.md).
 
-## Any coding agent
-
-roster composes a prompt and hands it to an agent. A runner is three shell-level facts:
-
-```yaml
-agent:
-  id: codex
-```
-
-Presets for `claude-code-action` (default), `claude`, `codex` and `nanocoder`. Anything else
-works by writing `install`, `run` and `token_env` into `org.yaml`.
+**Any coding agent.** Presets for `claude-code-action` (the default), `claude`, `codex` and
+`nanocoder`; anything else works by writing `install`, `run` and `token_env` into `org.yaml`.
 See [choosing a coding agent](docs/agents.md).
 
-## Composition
+## Documentation
 
-A runtime prompt is assembled from org policy, the staff member's charter, and the run kind:
-
-```
-prompts/<kind>.md
-  {{> prompts/_paths.md}}        where the repos are in the runner
-  {{> prompts/_identity.md}}     which bot you are, on which repo
-  {{>? staff:prompts/work.md}}   optional per-role override
-  {{> org/operating.md}}         the autonomy contract
-  {{> org/guardrails.md}}
-  {{> org/voice.md}}
-```
-
-`{{> x}}` is required, `{{>? x}}` renders empty when absent, and `staff:` resolves inside the
-staff member's own repo. That is the extension seam: **a role extends the org without forking
-it.** Change `org/voice.md` once and everyone inherits it on their next run.
-
-See [prompts](docs/prompts.md).
-
-## Development
-
-```bash
-pnpm install
-pnpm test             # 148 tests, node:test through tsx
-pnpm test:all         # the full gate
-pnpm dev doctor --offline
-```
-
-Run it from a workspace root: a directory holding the ops repo and every brain repo side by
-side, which is the same shape the CI runner checks out.
+Online at [roster.nanocollective.org/docs](https://roster.nanocollective.org/docs/), and the
+same pages in [`docs/`](docs/README.md). Start with [getting started](docs/getting-started.md),
+then [manual steps](docs/manual-steps.md). The [reference](docs/README.md#reference) covers
+`org.yaml`, `staff.yaml`, the prompt syntax, the session workflow and every `doctor` code.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions are welcome at any level of experience.
+Contributions are welcome at any level of experience. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 pnpm install
-pnpm test:all      # format, lint, types, dead code, tests
+pnpm test:all                   # format, lint, types, dead code, tests
+pnpm dev doctor --offline       # run the CLI from source
 ```
+
+Before touching anything that reaches a live org, read
+[working on Roster itself](docs/developing.md). The short version: never fix a generated file
+in an org, and check `roster prompt` output byte for byte before shipping a prompt change.
 
 ## Community
 
@@ -121,9 +104,3 @@ pnpm test:all      # format, lint, types, dead code, tests
 - [Discord](https://discord.gg/ktPDV6rekE)
 
 Licensed [MIT](LICENSE), copyright Nano Collective.
-
----
-
-Before touching anything that reaches a live org, read
-[working on roster itself](docs/developing.md). The short version: never fix a generated file
-in a tenant, and check `roster prompt` output byte for byte before shipping a prompt change.
