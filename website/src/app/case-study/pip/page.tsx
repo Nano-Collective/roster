@@ -51,7 +51,7 @@ export default function PipCaseStudy() {
                 </a>{" "}
                 is free, single-player Texas Hold&rsquo;em in the browser. Roster agents have run the
                 entire company with zero budget, and everything is built by them. The only running cost
-                is the agents themselves.
+                is the agents themselves, and they run on a Claude subscription, so it is flat.
               </p>
             </Reveal>
           </div>
@@ -163,6 +163,10 @@ export default function PipCaseStudy() {
           <p className="mt-8 text-[15px] text-fg-2">
             <a href={`${PIP_REPO}/pulls?q=is%3Apr+is%3Amerged`} className={link}>
               All of it is public
+            </a>
+            . Start with{" "}
+            <a href="/#work" className={link}>
+              three of them
             </a>
             .
           </p>

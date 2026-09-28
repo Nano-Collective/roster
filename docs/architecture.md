@@ -67,7 +67,7 @@ in full, the pinned status issue, and its own charter. That is deliberately all:
 only when a fact is in play, and the decision log is not boot context at all.
 
 This is why memory is one line per fact. Boot context here went from about 52,000 words to
-about 6,000 by making that change, and the saving repeats on every run of every staff member
+about 10,000 today by making that change, and the saving repeats on every run of every staff member
 forever.
 
 **Work** is one thing done properly rather than four things started.

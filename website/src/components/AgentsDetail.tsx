@@ -36,7 +36,7 @@ export function AgentsDetail() {
             <div className="border-b border-line px-5 py-3 text-[12.5px] font-medium text-fg-2">org.yaml</div>
             <pre className="overflow-x-auto px-5 py-5 font-mono text-[13px] leading-[1.85]">
               <code>
-                <K>org</K>: acme{"\n"}
+                <K>org</K>: your-org{"\n"}
                 <K>agent</K>:{"\n"}
                 {"  "}
                 <K>id</K>: <V>codex</V>
