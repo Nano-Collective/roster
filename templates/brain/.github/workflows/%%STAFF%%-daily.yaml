@@ -18,6 +18,12 @@ concurrency:
 
 jobs:
   session:
+    # The ceiling on what session.yaml's job token may do: reading the checkout, and the one
+    # comment that says a run failed when the App that would normally say so is what broke.
+    # A called workflow cannot raise these, so they have to be granted here.
+    permissions:
+      contents: read
+      issues: write
     uses: %%OPS_REPO%%/.github/workflows/session.yaml@main
     with:
       staff: %%STAFF%%

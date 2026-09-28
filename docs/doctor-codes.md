@@ -34,6 +34,8 @@ ran at all.
 | `business` | **fail** if `org/business.md` is missing. Every prompt is composed on top of it. |
 | `business.stub` | `org/business.md` is still the questions it shipped with. Nothing errors; the agents just write competent work about a business that does not exist. |
 | `actions-access` | **fail** unless the ops repo is callable from the whole organisation. This is the "workflow not found" trap. See [manual steps](manual-steps.md#1-allow-the-ops-repos-workflow-to-be-called). |
+| `workflows` | No workflow in the repo is failing run after run. Reported for the ops repo here, and for each brain repo under its staff member. |
+| `workflows.failing` | **fail.** A workflow that is not one of roster's callers has failed at least its last two runs, with the date it started. Skipped and cancelled runs are stepped over. This is the canary that goes red and stays red, because whatever would have said so broke with it. |
 | `upgrade` | The tenant is in sync with the framework. |
 | `upgrade.stale` | Generated files are behind. `roster upgrade --apply`. |
 | `upgrade.owned` | **fail.** A framework-owned file was edited in the tenant. Move the change upstream or the next upgrade reverts it. |

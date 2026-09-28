@@ -172,6 +172,23 @@ test("a conflicted file keeps its old base, so it can still be merged next time"
   }
 });
 
+test("an edit the framework has since made too is an update, not a finding", () => {
+  /* The tenant's session.yaml had its model default bumped by hand, and the template got the
+     same bump separately. Asking somebody to move that change upstream is asking for what is
+     already done, and it failed every doctor run until the next unrelated template change. */
+  const s = scratch();
+  try {
+    s.base(".github/workflows/session.yaml", "model: old\nsteps:\n  - a\n");
+    s.tenant(".github/workflows/session.yaml", "model: new\nsteps:\n  - a\n");
+    s.template(".github/workflows/session.yaml", "model: new\nsteps:\n  - a\n  - b\n");
+    const p = s.plans()[0]!;
+    assert.equal(p.verdict, "updated");
+    assert.equal(p.next, "model: new\nsteps:\n  - a\n  - b\n");
+  } finally {
+    s.cleanup();
+  }
+});
+
 test("editing a framework-owned file is called out, not silently merged away", () => {
   /* Exactly what happened with session.yaml: the eyes-reaction fix was applied to the
      tenant, where the next upgrade would have reverted it. */

@@ -716,6 +716,8 @@ async function checkOrgOnline(ws: Workspace, org: OrgFile): Promise<Finding[]> {
     });
   }
 
+  out.push(...(await checkWorkflows(scope, `${org.org}/${ws.opsName}`, new Set())));
+
   return out;
 }
 
@@ -733,7 +735,7 @@ async function checkStaffOnline(
     for (const m of c.text.matchAll(/secrets\.([A-Z0-9_]+)/g)) needed.add(m[1]!);
   }
 
-  const [secrets, labels, runs, pinned] = await Promise.all([
+  const [secrets, labels, runs, pinned, workflows] = await Promise.all([
     api<{ secrets: Array<{ name: string }> }>(`repos/${repo}/actions/secrets`),
     api<Array<{ name: string }>>(`repos/${repo}/labels?per_page=100`),
     Promise.all(
@@ -761,7 +763,10 @@ async function checkStaffOnline(
           { owner: repo.split("/")[0]!, name: repo.split("/")[1]! },
         )
       : Promise.resolve(null),
+    // The callers are read in detail below, so only everything else in the repo is looked at.
+    checkWorkflows(scope, repo, new Set(callers.map((c) => c.name))),
   ]);
+  out.push(...workflows);
 
   if (!secrets.ok) {
     out.push({
@@ -1019,6 +1024,94 @@ async function checkStaffOnline(
   }
 
   return out;
+}
+
+/**
+ * Every other workflow in a repo that has been failing run after run.
+ *
+ * A staff member's own canary sat red for twelve days because the only thing that would have
+ * said so used the token that had broken. Nothing roster generated was involved, so nothing
+ * roster checked noticed. This reads each workflow's recent runs and names the ones whose last
+ * few have all failed, with the day it started.
+ */
+async function checkWorkflows(scope: string, repo: string, skip: Set<string>): Promise<Finding[]> {
+  const list = await api<{
+    workflows: Array<{ id: number; name: string; path: string; state: string }>;
+  }>(`repos/${repo}/actions/workflows?per_page=100`);
+  if (!list.ok) {
+    return [
+      {
+        scope,
+        level: "warn",
+        id: "workflows",
+        title: `cannot read the workflows on ${repo}: ${list.error}`,
+        fix: "Check your access to the repo; a failing workflow there would go unseen.",
+      },
+    ];
+  }
+  const mine = (list.data?.workflows ?? []).filter(
+    (w) => w.state === "active" && !skip.has(w.path.split("/").pop() ?? ""),
+  );
+  const streaks = await Promise.all(
+    mine.map(async (w) => {
+      const res = await api<{ workflow_runs: Array<Record<string, any>> }>(
+        `repos/${repo}/actions/workflows/${w.id}/runs?per_page=10&exclude_pull_requests=true`,
+      );
+      const runs = (res.data?.workflow_runs ?? []).map((r) => ({
+        conclusion: r.conclusion ?? null,
+        status: String(r.status ?? ""),
+        createdAt: String(r.created_at ?? ""),
+      }));
+      return { w, streak: failingStreak(runs) };
+    }),
+  );
+
+  const out: Finding[] = [];
+  for (const { w, streak } of streaks) {
+    if (!streak) continue;
+    const file = w.path.split("/").pop();
+    out.push({
+      scope,
+      level: "fail",
+      id: "workflows.failing",
+      title:
+        `${repo}: "${w.name}" has failed its last ${streak.count} runs, ` +
+        `${streak.whole ? "since at least" : "since"} ${streak.since.slice(0, 10)} (${ago(streak.since)})`,
+      fix: `gh run list --repo ${repo} --workflow ${file}`,
+    });
+  }
+  if (!out.length && mine.length) {
+    out.push({
+      scope,
+      level: "ok",
+      id: "workflows",
+      title: `no other workflow on ${repo} is failing`,
+    });
+  }
+  return out;
+}
+
+/**
+ * The run of failures a workflow is currently in, newest first, or null when it is not in one.
+ *
+ * Skipped and cancelled runs are stepped over rather than counted either way: a skip is a gate
+ * doing its job, and a cancel is usually a newer run superseding it. One failure is noise; two
+ * in a row with nothing green between is a workflow that has stopped working.
+ */
+export function failingStreak(
+  runs: Array<{ conclusion: string | null; status: string; createdAt: string }>,
+  window = 10,
+): { count: number; since: string; whole: boolean } | null {
+  const real = runs.filter(
+    (r) => r.status === "completed" && r.conclusion !== "skipped" && r.conclusion !== "cancelled",
+  );
+  const FAILED = new Set(["failure", "timed_out", "startup_failure"]);
+  let count = 0;
+  while (count < real.length && FAILED.has(real[count]!.conclusion ?? "")) count++;
+  if (count < 2) return null;
+  // "Since at least": every run in a full window failed, so the start is further back.
+  const whole = count === real.length && runs.length >= window;
+  return { count, since: real[count - 1]!.createdAt, whole };
 }
 
 /* ------------------------------- output ------------------------------- */

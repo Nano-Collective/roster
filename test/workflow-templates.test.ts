@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { plan } from "../src/commands/upgrade.js";
 
 /**
  * The Actions layer is generated, so every fix to it has to live in the template or the next
@@ -129,13 +130,64 @@ test("session.yaml is the framework's, so the tenant copy must not drift", () =>
   /* `compose.mjs` and `runner-plan.mjs` say outright that they are vendored; session.yaml is the
      third piece of the same runner machinery and says nothing, which is what made its ownership a
      question. It is the framework's: a fix applied only to the tenant is lost on the next upgrade.
-     Skipped when the ops repo is not checked out beside this one. */
-  const tenant = join(ROOT, "..", "roster-ops", ".github", "workflows", "session.yaml");
-  if (!existsSync(tenant)) return;
-  assert.equal(
-    readFileSync(tenant, "utf8"),
-    SESSION,
-    "roster-ops/.github/workflows/session.yaml has diverged from templates/ops — patch the " +
-      "template and copy it out, or the next `roster upgrade` reverts the tenant",
+
+     Behind is not drift. A template change leaves the tenant on its old copy until `roster
+     upgrade` lands, so the question is the one upgrade asks: is there an edit here that the
+     framework does not have. Skipped when the ops repo is not checked out beside this one. */
+  const ops = join(ROOT, "..", "roster-ops");
+  if (!existsSync(join(ops, ".github", "workflows", "session.yaml"))) return;
+  const verdict = plan(
+    ".github/workflows/session.yaml",
+    join(ROOT, "templates", "ops"),
+    join(ops, ".roster", "seed"),
+    ops,
+  ).verdict;
+  assert.notEqual(
+    verdict,
+    "edited-managed",
+    "roster-ops/.github/workflows/session.yaml has an edit the template does not — patch the " +
+      "template and run `roster upgrade`, or the next upgrade reverts the tenant",
   );
+});
+
+/** One step of session.yaml, by name, without its neighbours. */
+function step(name: string): string {
+  const at = SESSION_CODE.indexOf(`- name: ${name}`);
+  assert.ok(at > 0, `no step called "${name}"`);
+  const next = SESSION_CODE.indexOf("- name:", at + 10);
+  return SESSION_CODE.slice(at, next < 0 ? undefined : next);
+}
+
+test("the failure notice does not depend on the token whose failure it reports", () => {
+  /* A canary sat red for twelve days because its alert used the App token, and the App token
+     was what had broken. The notice falls back to the job's own token, and to the caller's repo
+     when the plan never ran. */
+  const notice = step("Say so if the run did not finish");
+  assert.match(notice, /if: failure\(\) \|\| cancelled\(\)/);
+  assert.match(notice, /JOB_TOKEN: \$\{\{ github\.token \}\}/, "no fallback token");
+  assert.match(notice, /GH_TOKEN="\$JOB_TOKEN" gh issue comment/, "the fallback is never used");
+  assert.match(
+    notice,
+    /steps\.plan\.outputs\.brain_repo \|\| github\.repository/,
+    "a run that died minting its token never reached the plan",
+  );
+  assert.match(
+    notice,
+    /contents\/staff\.yaml/,
+    "the status issue has to be findable without a checkout",
+  );
+});
+
+test("the job token may comment, and every caller grants it", () => {
+  /* A called workflow can only narrow what its caller grants, so asking for issues: write in
+     session.yaml alone is asking for something nobody gave it. */
+  assert.match(SESSION_CODE, /^ {4}permissions:\n {6}contents: read\n {6}issues: write$/m);
+  for (const kind of ["daily", "mention"]) {
+    const caller = code(read(`templates/brain/.github/workflows/%%STAFF%%-${kind}.yaml`));
+    assert.match(
+      caller,
+      /^ {4}permissions:\n {6}contents: read\n {6}issues: write$/m,
+      `the ${kind} caller does not grant issues: write, so the fallback cannot post`,
+    );
+  }
 });

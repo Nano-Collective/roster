@@ -6,6 +6,7 @@ import { test } from "node:test";
 import {
   collect,
   doctorCommand,
+  failingStreak,
   inferredCeiling,
   isTimeout,
   type Run,
@@ -292,5 +293,48 @@ test("runMinutes measures the wall clock the run was allowed", () => {
   assert.equal(
     runMinutes(run({ createdAt: "2026-09-01T11:00:00Z", updatedAt: "2026-09-01T11:30:00Z" })),
     30,
+  );
+});
+
+test("a workflow failing run after run is named, with the day it started", () => {
+  /* The canary that sat red for twelve days. Newest first, which is how GitHub lists them. */
+  const day = (d: number, conclusion: string | null) =>
+    run({ conclusion, createdAt: `2026-09-${String(d).padStart(2, "0")}T06:00:00Z` });
+  const streak = failingStreak([day(12, "failure"), day(11, "failure"), day(10, "success")]);
+  assert.deepEqual(streak, { count: 2, since: "2026-09-11T06:00:00Z", whole: false });
+
+  assert.equal(
+    failingStreak([day(12, "failure"), day(11, "success"), day(10, "failure")]),
+    null,
+    "one failure is noise, and a green run in between ends the streak",
+  );
+  assert.equal(failingStreak([day(12, "success"), day(11, "failure"), day(10, "failure")]), null);
+});
+
+test("skips and cancels neither break a failing streak nor count towards it", () => {
+  const streak = failingStreak([
+    run({ conclusion: "failure", createdAt: "2026-09-12T06:00:00Z" }),
+    run({ conclusion: "skipped", createdAt: "2026-09-11T12:00:00Z" }),
+    run({ conclusion: "cancelled", createdAt: "2026-09-11T09:00:00Z" }),
+    run({ conclusion: "timed_out", createdAt: "2026-09-11T06:00:00Z" }),
+    run({ conclusion: null, status: "in_progress", createdAt: "2026-09-13T06:00:00Z" }),
+    run({ conclusion: "success", createdAt: "2026-09-10T06:00:00Z" }),
+  ]);
+  assert.equal(streak?.count, 2);
+  assert.equal(streak?.since, "2026-09-11T06:00:00Z");
+});
+
+test("a full window of failures says the start is further back than it can see", () => {
+  const all = Array.from({ length: 10 }, (_, i) =>
+    run({
+      conclusion: "failure",
+      createdAt: `2026-09-${String(20 - i).padStart(2, "0")}T06:00:00Z`,
+    }),
+  );
+  assert.equal(failingStreak(all)?.whole, true);
+  assert.equal(
+    failingStreak(all.slice(0, 4))?.whole,
+    false,
+    "a new workflow's first run is its start",
   );
 });

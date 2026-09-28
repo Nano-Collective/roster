@@ -67,7 +67,32 @@ authentication error forty lines into a log.
 12. **Work out which agent runs this**, by running `agents.mjs`.
 13. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
     CLI one. See [choosing a coding agent](agents.md).
-14. **Say so if the run did not finish.**
+14. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
+    woke a mention, linking the run.
+
+## When the failure is the token
+
+The failure notice cannot rely on anything that might be what failed. A renamed repo, a rotated
+key or an uninstalled App breaks the App token first, and an alert that posts with that token
+says nothing at exactly the moment it is needed. So the notice uses the App token when there is
+one, and falls back to the job's own `github.token` when there is not or it is refused. It then
+posts as `github-actions`, and says to check the App.
+
+That needs `issues: write` on the job token. `session.yaml` asks for it, but a called workflow
+can only narrow what its caller grants, so both callers grant it too:
+
+```yaml
+jobs:
+  session:
+    permissions:
+      contents: read
+      issues: write
+    uses: acme/roster-ops/.github/workflows/session.yaml@main
+```
+
+Callers generated before this lack it, and their fallback cannot post. `roster upgrade --apply`
+regenerates them. `roster doctor` separately reports any other workflow in the ops or brain
+repos that has failed run after run, as `workflows.failing`.
 
 ## What `runner-plan.mjs` emits
 

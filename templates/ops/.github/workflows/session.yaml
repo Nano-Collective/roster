@@ -69,6 +69,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout_minutes }}
 
+    # `issues: write` is for the failure notice alone, which falls back to this job's own token
+    # when the App's cannot be minted. A called workflow cannot raise what its caller granted, so
+    # the callers ask for the same.
+    permissions:
+      contents: read
+      issues: write
+
     # secrets are not usable in a step-level `if`, so the presence check is hoisted here.
     env:
       HAS_PUBLIC_APP: ${{ secrets.PUBLIC_APP_ID != '' }}
@@ -297,20 +304,45 @@ jobs:
           fi
           eval "$RUN"
 
-      # A failed unattended run is otherwise a red X in a tab nobody opens. New in the roster
-      # migration, and deliberate: every failure path should end somewhere a human reads.
+      # A failed unattended run is otherwise a red X in a tab nobody opens, so every failure path
+      # has to end somewhere a human reads.
+      #
+      # It cannot lean on anything that might be what failed. The App token is the first thing a
+      # renamed repo, a rotated key or an uninstalled App breaks, and a canary sat red for twelve
+      # days because its alert used exactly that token. So: the App token when there is one, and
+      # this job's own token when there is not or it is refused. The plan may not have run
+      # either, so the brain repo falls back to the caller's, which is the same repo, and
+      # staff.yaml is read over the API when it was never checked out.
       - name: Say so if the run did not finish
         if: failure() || cancelled()
         env:
-          GH_TOKEN: ${{ steps.private.outputs.token }}
+          APP_TOKEN: ${{ steps.private.outputs.token }}
+          JOB_TOKEN: ${{ github.token }}
           BRAIN_DIR: ${{ steps.plan.outputs.brain_dir }}
-          BRAIN_REPO: ${{ steps.plan.outputs.brain_repo }}
+          BRAIN_REPO: ${{ steps.plan.outputs.brain_repo || github.repository }}
+          ISSUE: ${{ inputs.issue_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -euo pipefail
-          issue="${{ inputs.issue_number }}"
-          if [ -z "$issue" ]; then
-            issue=$(sed -n 's/^status_issue:[[:space:]]*//p' "$BRAIN_DIR/staff.yaml" | head -1 || true)
+          set -uo pipefail
+          issue="$ISSUE"
+          if [ -z "$issue" ] && [ -n "$BRAIN_DIR" ] && [ -f "$BRAIN_DIR/staff.yaml" ]; then
+            issue=$(sed -n 's/^status_issue:[[:space:]]*//p' "$BRAIN_DIR/staff.yaml" | head -1)
           fi
-          [ -n "$issue" ] || { echo "no status_issue in staff.yaml; nothing to comment on"; exit 0; }
-          gh issue comment "$issue" --repo "$BRAIN_REPO" --body \
-            "This run did not finish, so there is no answer coming. [Run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) has the error."
+          if [ -z "$issue" ]; then
+            issue=$(GH_TOKEN="${APP_TOKEN:-$JOB_TOKEN}" gh api "repos/$BRAIN_REPO/contents/staff.yaml" \
+              -H "Accept: application/vnd.github.raw" 2>/dev/null \
+              | sed -n 's/^status_issue:[[:space:]]*//p' | head -1)
+          fi
+          issue="${issue%%[[:space:]#]*}"
+          if [ -z "$issue" ]; then
+            echo "::error::no status_issue in staff.yaml and no issue in the trigger, so nobody was told"
+            exit 1
+          fi
+
+          body="This run did not finish, so there is no answer coming. [Run ${GITHUB_RUN_ID}]($RUN_URL) has the error."
+          if [ -n "$APP_TOKEN" ] && GH_TOKEN="$APP_TOKEN" gh issue comment "$issue" --repo "$BRAIN_REPO" --body "$body"; then
+            exit 0
+          fi
+          # Posted as github-actions rather than as the staff member, which is itself the clue.
+          GH_TOKEN="$JOB_TOKEN" gh issue comment "$issue" --repo "$BRAIN_REPO" --body \
+            "$body The staff member's own App could not post it, so check the App is installed on this repo and its APP_ID and APP_PRIVATE_KEY secrets are current."

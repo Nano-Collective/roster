@@ -171,6 +171,12 @@ export function plan(rel: string, tplDir: string, seedDir: string, opsDir: strin
   }
 
   const { text, conflicts } = merge3(current, base, incoming);
+  /* The tenant's edit is one the framework has since made too, usually because the same fix
+     went into both. Nothing is left to move upstream, so this is an ordinary update rather
+     than a finding that asks somebody to do what was already done. */
+  if (conflicts === 0 && text === incoming) {
+    return { rel, kind, verdict: "updated", note: "updated from the framework", next: incoming };
+  }
   if (conflicts === 0) {
     return {
       rel,
