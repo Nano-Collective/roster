@@ -202,10 +202,32 @@ export async function exchange(code: string): Promise<CreatedApp> {
  * A private key on argv shows up in the process table; in a file it survives whatever happens
  * next. gh reads the value from stdin, which is neither.
  */
-export async function setSecret(repo: string, name: string, value: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = execFile("gh", ["secret", "set", name, "--repo", repo], (err) =>
-      err ? reject(new Error(`gh secret set ${name}: ${err.message}`)) : resolve(),
+export function setSecret(repo: string, name: string, value: string): Promise<void> {
+  return secretFromStdin(["secret", "set", name, "--repo", repo], value);
+}
+
+/**
+ * One organisation secret, visible only to the named repos. Same stdin rule as above, which is
+ * the whole reason this is not a one-line `gh api` call: the value never reaches argv.
+ */
+export function setOrgSecret(
+  org: string,
+  name: string,
+  repos: string[],
+  value: string,
+): Promise<void> {
+  return secretFromStdin(
+    ["secret", "set", name, "--org", org, "--visibility", "selected", "--repos", repos.join(",")],
+    value,
+  );
+}
+
+function secretFromStdin(args: string[], value: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const child = execFile("gh", args, (err, _out, stderr) =>
+      err
+        ? reject(new Error(`gh secret set ${args[2]}: ${String(stderr || err.message).trim()}`))
+        : resolve(),
     );
     child.stdin?.end(value);
   });

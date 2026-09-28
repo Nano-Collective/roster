@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type AppSpec, type CreatedApp, createApp, setSecret } from "../lib/appmanifest.js";
 import { api, ghReady } from "../lib/gh.js";
+import { installTargets, preselectedInstall } from "../lib/install.js";
 import { specFromManifest } from "../lib/render.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
@@ -17,8 +18,9 @@ roster app <handle> [--public] [--port 4310] [--no-open] [--apply]
   repo's secrets — the key is held in memory and never touches disk.
 
   What it still cannot do is install the App. Installing grants access to specific repos and
-  GitHub asks a human to choose them; the URL is printed and \`roster doctor\` tells you whether
-  the grant actually took, which is the only reliable way to know.
+  GitHub asks a human to confirm them. The link it prints opens the install page with the org
+  and every repo this staff member needs already ticked: its brain, its peers' trackers and
+  the product repos. A first run is what proves the grant took: \`roster run <handle>\`.
 
   Nothing happens without --apply. On its own this prints the plan: the App's name, the
   secrets it would write, and the repos you will be asked to grant.
@@ -76,12 +78,14 @@ export async function appCommand(argv: string[]): Promise<number> {
 
   // An App name is unique across GitHub, so a clash is the common failure and worth catching
   // before a browser is opened rather than after a form is submitted.
+  const targets = installTargets(ws, org, parseYaml, handle, spec);
   const existing = await api<{ slug: string }>(`/apps/${name}`);
   if (existing.ok) {
+    const install = await preselectedInstall(existing.data?.slug ?? name, org.org, targets);
     process.stderr.write(
       `roster: an App called "${name}" already exists.\n` +
         `  If it is yours, it only needs installing and its secrets setting:\n` +
-        `    https://github.com/organizations/${org.org}/settings/apps/${name}/installations\n`,
+        `    ${install.url}\n`,
     );
     return 1;
   }
@@ -89,15 +93,12 @@ export async function appCommand(argv: string[]): Promise<number> {
   /* Every other command plans first, and this one should too: an App name is global and a
      created App cannot be renamed, so seeing the name before the browser opens is worth a
      second invocation. Everything above is a read. */
-  const targets = [
-    ...new Set([spec.brain, ...spec.worksIn, ...peerBrains(ws, org, parseYaml, handle)]),
-  ];
   if (!opts.apply) {
     process.stdout.write(
       `\n  roster app — ${name} (${scope}) for ${handle}\n\n` +
         `    creates     the GitHub App "${name}" in ${org.org}, confirmed by you in a browser\n` +
         `    writes      ${prefix}_APP_ID and ${prefix}_APP_PRIVATE_KEY to ${spec.brain}\n` +
-        `    then asks   you to install it on:\n` +
+        `    then links  to the install page with these already selected:\n` +
         targets.map((r) => `                  ${r}\n`).join("") +
         `\n  Nothing was created. Re-run with --apply.\n\n`,
     );
@@ -138,39 +139,25 @@ export async function appCommand(argv: string[]): Promise<number> {
   process.stdout.write(`  wrote ${prefix}_APP_ID and ${prefix}_APP_PRIVATE_KEY to ${spec.brain}\n`);
 
   /* Installing is a human choice about which repos to grant, so it cannot be done from here.
-     Every tracker this staff member writes to has to be included, not just their own — the
-     token is minted org-wide and a peer's board is where its briefs land. */
+     What can be done is arriving on the page with the right answer already ticked, because an
+     install that covers only the brain looks finished and fails the first time a brief goes to
+     a peer. */
+  const install = await preselectedInstall(created.slug, org.org, targets);
   process.stdout.write(
-    `\n  Now install it. GitHub asks a human which repos to grant:\n` +
-      `    ${created.html_url}/installations/new\n\n` +
-      `  Grant it on:\n` +
-      targets.map((r) => `    ${r}\n`).join("") +
-      `\n  Then check the grant actually took — a declaration is not a grant:\n` +
-      `    roster doctor ${handle}\n\n`,
+    `\n  Now install it. GitHub asks you to confirm which repos it may reach:\n` +
+      `    ${install.url}\n\n` +
+      (install.preselected.length
+        ? `  Already selected on that page:\n` +
+          install.preselected.map((r) => `    ${r}\n`).join("")
+        : "") +
+      (install.missing.length
+        ? `  Tick these yourself; their ids could not be read:\n` +
+          install.missing.map((r) => `    ${r}\n`).join("")
+        : "") +
+      `\n  Then prove the grant took, with one run:\n` +
+      `    roster run ${handle} --apply\n\n`,
   );
   return 0;
-}
-
-/** The other staff members this one files work with, so the install covers their trackers too. */
-function peerBrains(
-  ws: ReturnType<typeof findWorkspace>,
-  org: any,
-  parseYaml: (t: string, f?: string) => Record<string, unknown>,
-  handle: string,
-): string[] {
-  const out: string[] = [];
-  for (const s of org.staff ?? []) {
-    if (s.handle === handle) continue;
-    const p = join(ws.root, s.dir ?? s.handle, "staff.yaml");
-    if (!existsSync(p)) continue;
-    try {
-      const m = parseYaml(readFileSync(p, "utf8"), "staff.yaml") as any;
-      if (m.brain) out.push(String(m.brain));
-    } catch {
-      /* a manifest that will not parse is doctor's problem, not this command's */
-    }
-  }
-  return out;
 }
 
 interface Flags {
