@@ -26,7 +26,8 @@ pnpm build        # static export into out/
 
 ## Deploy on Cloudflare Pages
 
-**From Git (recommended).** Create a Pages project connected to `Nano-Collective/roster`. The
+**Pushing to `main` deploys it.** There is no deploy from a terminal: the Pages project is
+connected to `Nano-Collective/roster` and builds on every push. To set one up again, the
 build reads `../docs`, which Pages has because it clones the whole repo:
 
 | Setting | Value |
@@ -35,12 +36,6 @@ build reads `../docs`, which Pages has because it clones the whole repo:
 | Build command | `pnpm install && pnpm build` |
 | Build output directory | `out` |
 | Environment variable | `NODE_VERSION` = `22` |
-
-**From a terminal.**
-
-```bash
-pnpm deploy       # next build && wrangler pages deploy out --project-name roster
-```
 
 `public/_headers` sets caching and security headers, and gives the extensionless
 `/opengraph-image` its `image/png` type. If the site ends up somewhere other than
