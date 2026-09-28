@@ -67,6 +67,8 @@ hand-off and make pruning that run's job when it is over.
 
 - **Why something was decided.** That is `log/decisions.md`, and it is not boot context.
 - **How a thing works.** That is a draft or a strategy document.
+- **An idea not yet acted on.** That is one line in `strategy/ideas.md`, and it becomes an issue
+  only when it needs a ruling.
 - **What is outstanding.** That is the pinned status issue.
 
 Nothing is copied between them. Four places, four jobs, and a fact that appears in two of them

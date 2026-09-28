@@ -37,6 +37,8 @@ without `--apply`.
 roster init --org acme          # ops repo, org layer, merge base
 roster hire cto                 # scaffold a staff member: repo, workflows, labels, peers
 roster app cto                  # create their GitHub App, write its secrets
+roster credential               # the coding agent's credential, once for the org
+roster run cto                  # one run now, followed to the end
 roster doctor                   # is any of this actually wired up
 roster fix                      # every finding, as one brief for a coding agent
 roster portal                   # read every brain, and the docs, locally
@@ -56,9 +58,11 @@ Nano-Collective/roster        this repo: the CLI, the templates, the portal, the
 
 <your-org>/roster-ops         the org layer and the machinery, generated from templates/ops/
   org/business.md               what the business is. You write this.
+  org/priorities.md             what matters this month, ranked. You write this too.
   org/operating.md, voice.md,   the autonomy contract, house style, the non-negotiables,
     guardrails.md                 inherited by every staff member
   compose.mjs, agents.mjs       vendored: builds the prompt, runs the coding agent
+  inflight.mjs, run-record.mjs  vendored: human work in flight, and what each run cost
   .github/workflows/session.yaml  the reusable workflow every staff repo calls
 
 <your-org>/<staff>            one per staff member. The repo is the brain.

@@ -46,7 +46,7 @@ commits and pushes. A change here reaches everybody on their next run, which is 
 rule every staff member should follow is one edit, not one per repo.
 
 **Everything else is machinery** and belongs to the framework: `compose.mjs`, `agents.mjs`,
-`runner-plan.mjs`, `.github/workflows/session.yaml`. Editing these works right up until the
+`runner-plan.mjs`, `inflight.mjs`, `run-record.mjs`, `.github/workflows/session.yaml`. Editing these works right up until the
 framework changes the same file, at which point your change is a conflict at best and silently
 reverted at worst. Fix machinery in the framework, then `roster upgrade`.
 
