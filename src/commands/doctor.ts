@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { parseMemory } from "../lib/memory.js";
+import { judgeGate, readGate } from "../lib/reviewgate.js";
 import { looksUnwritten } from "../lib/stub.js";
 import { opsTemplateDir } from "../lib/templates.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
@@ -75,6 +76,7 @@ export async function collect(opts: Flags & { only?: string }): Promise<Report |
   findings.push(...checkPriorities(ws));
   findings.push(...(await checkAgent(ws, org)));
   if (online) findings.push(...(await checkOrgOnline(ws, org)));
+  if (online) findings.push(...(await checkReviewGates(ws, org, composer)));
 
   // Staff members are independent, so they are checked at the same time rather than in turn.
   const perStaff = await Promise.all(staff.map((s) => checkStaff(ws, org, s, composer, online)));
@@ -751,6 +753,38 @@ async function checkOrgOnline(ws: Workspace, org: OrgFile): Promise<Finding[]> {
   }
 
   return out;
+}
+
+/**
+ * The mechanical half of "nothing goes out unread": every repo the staff open PRs on needs a
+ * reviewed PR to merge, and no staff App may skip that. Read from GitHub rather than trusted
+ * from org.yaml, because the setting is the thing and the manifest is only a claim about it.
+ */
+async function checkReviewGates(
+  ws: Workspace,
+  org: OrgFile,
+  composer: Awaited<ReturnType<typeof loadComposer>>,
+): Promise<Finding[]> {
+  const repos = new Set(
+    (org.repos ?? []).filter((r) => r.role === "product").map((r) => `${org.org}/${r.name}`),
+  );
+  const apps = new Set<string>();
+  for (const s of org.staff ?? []) {
+    const path = join(ws.root, s.dir ?? s.handle, "staff.yaml");
+    if (!existsSync(path)) continue;
+    try {
+      const m = composer.parseYaml(readFileSync(path, "utf8"), "staff.yaml") as {
+        works_in?: Array<{ repo?: string }>;
+        identities?: Array<{ app?: string }>;
+      };
+      for (const w of m.works_in ?? []) if (w?.repo) repos.add(String(w.repo));
+      for (const i of m.identities ?? []) if (i?.app) apps.add(String(i.app));
+    } catch {
+      // A manifest that does not parse is already a finding of its own.
+    }
+  }
+  const readings = await Promise.all([...repos].map((r) => readGate(r, [...apps])));
+  return readings.map((r) => ({ scope: "workspace", id: "review-gate", ...judgeGate(r) }));
 }
 
 async function checkStaffOnline(

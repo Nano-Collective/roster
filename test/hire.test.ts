@@ -402,3 +402,8 @@ test("the generated callers are valid workflows with the triggers they are meant
   );
   assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
 });
+
+test("the review gate is planned unless --no-review-gate says to leave the repo alone", () => {
+  assert.equal(plan("cfo").skipGate, false, "a hire gates the product repos by default");
+  assert.equal(plan("cfo", { reviewGate: false }).skipGate, true);
+});

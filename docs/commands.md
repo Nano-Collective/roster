@@ -61,8 +61,12 @@ pinned status issue, and peer wiring in both directions.
 --secret-prefix <X>    secrets become <X>_APP_ID and <X>_APP_PRIVATE_KEY
 --app <slug>           defaults to the pattern the peers use
 --public-app <slug>    the shared public identity
+--no-review-gate       leave the product repos' branch rules alone
 --apply
 ```
+
+With `--apply` it also adds a review-before-merge ruleset to each product repo that does not
+already require an approving review. See [security](security.md#the-review-gate).
 
 ## `roster app <handle>`
 

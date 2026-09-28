@@ -14,6 +14,7 @@ import {
   tokensFor,
   toolsOf,
 } from "../lib/render.js";
+import { addGate, judgeGate, readGate } from "../lib/reviewgate.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 
 export const hireHelp = `
@@ -39,6 +40,7 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
   --secret-prefix <X>    secrets are <X>_APP_ID and <X>_APP_PRIVATE_KEY. Defaults to HANDLE.
   --app <slug>           this staff member's GitHub App. Defaults to the pattern its peers use.
   --public-app <slug>    the shared public identity. Defaults to whatever the peers use.
+  --no-review-gate       leave the product repos' branch rules alone
   --private             create the repo private (default)
   --apply                actually do it
 
@@ -56,6 +58,8 @@ export interface Plan {
   labels: string[];
   secrets: string[];
   warnings: string[];
+  /** --no-review-gate: leave the product repos' branch rules as they are. */
+  skipGate: boolean;
 }
 
 export async function hireCommand(argv: string[]): Promise<number> {
@@ -244,7 +248,17 @@ export function buildPlan(
     staff.agentSecret,
   ];
 
-  return { org: orgSpec, staff, dir, files, peers, labels, secrets, warnings };
+  return {
+    org: orgSpec,
+    staff,
+    dir,
+    files,
+    peers,
+    labels,
+    secrets,
+    warnings,
+    skipGate: opts.reviewGate === false,
+  };
 }
 
 /** Which repo secret the agent's credential lives in, named after the credential itself. */
@@ -306,6 +320,19 @@ function printPlan(plan: Plan, ws: Workspace) {
     for (const p of plan.peers) {
       process.stdout.write(
         `    ${p.brain}: add label "${p.label}", and a peers: entry for ${staff.handle}\n`,
+      );
+    }
+  }
+
+  /* The gate is what makes "you prepare, they publish" true rather than a promise, and a
+     hire is the moment a new account starts opening PRs on the product. */
+  if (staff.worksIn.length && !plan.skipGate) {
+    process.stdout.write(
+      `\n  review gate, where a product repo does not already require an approving review\n`,
+    );
+    for (const repo of staff.worksIn) {
+      process.stdout.write(
+        `    ${repo}: a ruleset requiring one approving review on the default branch\n`,
       );
     }
   }
@@ -441,11 +468,33 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
   addToOrgYaml(ws, plan);
   process.stdout.write(`  added ${staff.handle} to org.yaml\n`);
 
+  if (!plan.skipGate) {
+    for (const repo of staff.worksIn) {
+      process.stdout.write(`  ${await ensureGate(repo, [staff.app, staff.publicApp])}\n`);
+    }
+  }
+
   process.stdout.write(
     `\n  ${staff.name} exists but cannot run yet.\n` +
       `  Create the app, add the secrets, write the charter — then: roster doctor ${staff.handle}\n\n`,
   );
   return 0;
+}
+
+/**
+ * Adds the gate only where there is none, or where a PR is required with no approval. A repo
+ * whose rules are stricter, or that a staff App can bypass, is reported and left alone: that
+ * is somebody's deliberate configuration, and rewriting it is not a hire's business.
+ */
+async function ensureGate(repo: string, apps: string[]): Promise<string> {
+  const now = await readGate(repo, apps);
+  if (now.error || now.bypass.length || (now.approvals ?? 0) >= 1) {
+    return `review gate on ${repo}: ${judgeGate(now).title}`;
+  }
+  const added = await addGate(repo);
+  return added.ok
+    ? `added a review-before-merge ruleset to ${repo}`
+    : `could not add a review gate to ${repo}: ${added.error}. See docs/security.md.`;
 }
 
 /**
@@ -553,6 +602,7 @@ export interface Flags {
   statusIssue?: number;
   agentSecret?: string;
   visibility?: string;
+  reviewGate?: boolean;
   apply?: boolean;
 }
 
@@ -562,6 +612,10 @@ function parseFlags(argv: string[]): Flags {
     const flag = argv[i];
     if (flag === "--apply") {
       out.apply = true;
+      continue;
+    }
+    if (flag === "--no-review-gate") {
+      out.reviewGate = false;
       continue;
     }
     if (flag === "--private") {

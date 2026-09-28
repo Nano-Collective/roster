@@ -36,6 +36,7 @@ ran at all.
 | `priorities` | No `org/priorities.md`. Nothing breaks; each staff member just picks its own direction. See [concepts](concepts.md#priorities). |
 | `priorities.stub` | `org/priorities.md` is still the stub `roster init` wrote. |
 | `actions-access` | **fail** unless the ops repo is callable from the whole organisation. This is the "workflow not found" trap. See [manual steps](manual-steps.md#1-allow-the-ops-repos-workflow-to-be-called). |
+| `review-gate` | One per product repo. **fail** when nothing requires a pull request on its default branch, or a staff App can bypass the rule; a warning when a PR is required with no approving review, or the settings cannot be read. See [security](security.md#the-review-gate). |
 | `upgrade` | The tenant is in sync with the framework. |
 | `upgrade.stale` | Generated files are behind. `roster upgrade --apply`. |
 | `upgrade.owned` | **fail.** A framework-owned file was edited in the tenant. Move the change upstream or the next upgrade reverts it. |
