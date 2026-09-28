@@ -76,6 +76,31 @@ test("a file nobody asked for is refused, and named", () => {
   assert.match(problems[0]!.message, /roster-ops\/org\/guardrails\.md/);
 });
 
+test("a reply that drops the workspace prefix still lands on the one file it can mean", () => {
+  const targets: PasteTarget[] = [{ path: "roster-ops/org/business.md", before: "stub\n" }];
+  const { files, problems } = parsePaste(wrap("org/business.md", REAL), targets);
+  assert.deepEqual(problems, []);
+  assert.equal(
+    files[0]!.path,
+    "roster-ops/org/business.md",
+    "it must be saved under the asked-for path",
+  );
+});
+
+test("a suffix only counts at a segment boundary, and never when it could mean two files", () => {
+  const one: PasteTarget[] = [{ path: "roster-ops/org/business.md", before: "" }];
+  assert.equal(parsePaste(wrap("g/business.md", REAL), one).problems[0]!.id, "unknown-path");
+  assert.equal(parsePaste(wrap("../org/business.md", REAL), one).problems[0]!.id, "unknown-path");
+
+  const two: PasteTarget[] = [
+    { path: "roster-ops/org/business.md", before: "" },
+    { path: "other/org/business.md", before: "" },
+  ];
+  const { files, problems } = parsePaste(wrap("org/business.md", REAL), two);
+  assert.equal(files.length, 0, "an ambiguous path must not pick a file to overwrite");
+  assert.equal(problems[0]!.id, "unknown-path");
+});
+
 test("the template handed straight back is caught", () => {
   const { problems } = parsePaste(wrap("growth/CHARTER.md", TARGET[0]!.before), TARGET);
   assert.equal(problems[0]!.id, "brief-echoed");

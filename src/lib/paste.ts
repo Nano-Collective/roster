@@ -73,22 +73,22 @@ export function parsePaste(raw: string, targets: PasteTarget[]): PasteResult {
 
   BLOCK.lastIndex = 0;
   for (const m of text.matchAll(BLOCK)) {
-    const path = m[1]!.trim();
+    const written = m[1]!.trim();
     const body = strip(m[2] ?? "");
-    const target = known.get(path);
+    const target = resolveTarget(written, known);
 
     if (!target) {
       problems.push({
         id: "unknown-path",
-        path,
-        message: `The answer writes ${path}, which this brief did not ask for.`,
+        path: written,
+        message: `The answer writes ${written}, which this brief did not ask for.`,
         retry: `Write only ${[...known.keys()].join(", ")}, using the sentinels exactly as given.`,
       });
       continue;
     }
 
     files.push({
-      path,
+      path: target.path,
       text: ensureNewline(body),
       unchanged: body.trim() === target.before.trim(),
     });
@@ -142,6 +142,21 @@ export function parsePaste(raw: string, targets: PasteTarget[]): PasteResult {
   }
 
   return { files, problems };
+}
+
+/**
+ * Models drop the workspace prefix: asked for `roster-ops/org/business.md`, they write
+ * `org/business.md`. That is the same file when exactly one target ends with it at a segment
+ * boundary. Two candidates, or none, stays a refusal, because guessing which file to overwrite
+ * is exactly what the envelope exists to avoid.
+ */
+function resolveTarget(written: string, known: Map<string, PasteTarget>): PasteTarget | undefined {
+  const exact = known.get(written);
+  if (exact) return exact;
+  const tail = written.replace(/^(\.\/)+/, "").replace(/^\/+/, "");
+  if (!tail || tail.split("/").includes("..")) return undefined;
+  const matches = [...known.values()].filter((t) => t.path === tail || t.path.endsWith(`/${tail}`));
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /**
