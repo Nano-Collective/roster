@@ -14,6 +14,7 @@
  * wrong. The server validates it before writing.
  */
 
+import { highlighted } from "../mdedit.js";
 import { getFile, getOrgLayer, post } from "../api.js";
 import { askYes } from "../dialog.js";
 import { el, esc, grow, kb, skeleton } from "../dom.js";
@@ -21,31 +22,27 @@ import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
 import { humansOf, S, writeHash } from "../state.js";
 import { yamlPre } from "../yaml.js";
+import { businessForm, fileModes, prioritiesForm } from "./orgedit.js";
 import { repoPicker } from "./repos.js";
 
 /* What the files roster itself ships are for, in one line each. A filename says nothing about
    which one to open; anything a tenant has added of its own falls back to its first heading. */
 const KNOWN = {
-  "org.yaml": "Who and what: the humans, the repos, the defaults, which agent runs them.",
-  "org/business.md":
-    "What the business actually is. Every prompt is composed on top of it, and it is the file that stops the agents writing generic slop.",
-  "org/priorities.md":
-    "What matters this month, ranked, and what is out of scope. Every daily run reads it, and every PR says which priority it serves.",
-  "org/operating.md":
-    "The autonomy contract: what they do without asking, what they escalate, how a run starts and ends.",
-  "org/guardrails.md":
-    "The non-negotiables. Every staff member is bound by these and cannot argue with them.",
-  "org/voice.md":
-    "How everything they write reads. Change it once, and every surface changes on the next run.",
-  "prompts/daily.md": "The whole of a scheduled run, before the fragments are pulled into it.",
-  "prompts/mention.md": "What they are sent when you @-mention them.",
-  "prompts/_identity.md": "Who they post as, and what wakes you.",
-  "prompts/_paths.md": "Where everything is in the runner's checkout.",
+  "org.yaml": "The people, repos, defaults and coding agent.",
+  "org/business.md": "What the business is. Every staff member reads it.",
+  "org/priorities.md": "This month's priorities, in order, and what's out of scope.",
+  "org/operating.md": "What staff do on their own, what they ask about, and how a run starts and ends.",
+  "org/guardrails.md": "Rules every staff member must follow.",
+  "org/voice.md": "How staff write.",
+  "prompts/daily.md": "The instructions for a scheduled run.",
+  "prompts/mention.md": "The instructions when you @-mention someone.",
+  "prompts/_identity.md": "Who staff post as.",
+  "prompts/_paths.md": "Where files are during a run.",
 };
 
 const GROUPS = [
-  ["org", "The org layer", "Inherited by everybody, on their next run."],
-  ["prompts", "The prompts", "The runs themselves. Edit these last: they are the framework's."],
+  ["org", "Org files", "Every staff member reads these."],
+  ["prompts", "Prompts", "Roster's run instructions. Upgrades may change them."],
 ];
 
 export function viewOrg(m) {
@@ -55,8 +52,7 @@ export function viewOrg(m) {
     el("p", {
       className: "sub",
       textContent:
-        "The layer every staff member inherits. Editing one of these reaches all " +
-        org.staff.length + " of them on their next run.",
+        "Files every staff member reads. Changes apply from their next run.",
     }),
   );
 
@@ -172,17 +168,28 @@ export function viewOrg(m) {
     head.append(el("span", { className: "meta", textContent: full(path) + " · " + kb(text.length) }));
     /* The edit control used to be a word in a row of grey text, which is why "there is no easy
        way to edit the org docs" was a fair thing to say about a screen that could edit them. */
-    const edit = el("button", { className: "ghbtn primary editbtn", onclick: () => editor(path, text) });
-    edit.append(icon("edit", "ic"), el("span", { textContent: "Edit" }));
-    head.append(edit);
     const file = S.orgFiles.find((f) => f.path === path) ?? { path };
-    viewer.append(head, el("p", { className: "factsub", textContent: why(file) }));
 
     if (path.endsWith(".yaml") || path.endsWith(".yml")) {
-      viewer.append(yamlPre(text));
+      const edit = el("button", { className: "ghbtn primary editbtn", onclick: () => editor(path, text) });
+      edit.append(icon("edit", "ic"), el("span", { textContent: "Edit" }));
+      head.append(edit);
+      viewer.append(head, el("p", { className: "factsub", textContent: why(file) }), yamlPre(text));
       return;
     }
-    viewer.append(el("div", { className: "md doc", innerHTML: mdlite(text) }));
+
+    /* Prose files open on Read, with the ways to change them as tabs beside it: the same ones
+       Getting started offers, because a file is no easier to write after setup than during it. */
+    viewer.append(head, el("p", { className: "factsub", textContent: why(file) }));
+    const read = { label: "Read", node: el("div", { className: "md doc", innerHTML: mdlite(text) }) };
+    const o = { path: full(path), name: S.data.name, text, before: [read], onSaved: () => show(path) };
+    viewer.append(
+      path === "org/business.md"
+        ? businessForm(o)
+        : path === "org/priorities.md"
+          ? prioritiesForm(o)
+          : fileModes(o),
+    );
   }
 
   function editor(path, text) {
@@ -198,8 +205,10 @@ export function viewOrg(m) {
     viewer.append(bar);
 
     const ta = el("textarea", { value: text, className: "editor" });
-    viewer.append(ta);
+    const hl = highlighted(ta, isYaml ? "yaml" : "md");
+    viewer.append(hl);
     grow(ta);
+    hl.repaint();
     ta.addEventListener("input", () => grow(ta));
     // ⌘S is what a person's hands do in a text box. Without it, saving means finding a button
     // above a screenful of textarea you have just scrolled past.

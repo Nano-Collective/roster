@@ -8,22 +8,20 @@
 import {
   checkOrg,
   createTenant,
-  fileUrl,
   getAccess,
   getOrg,
   getSetup,
   joinOrg,
   planTenant,
-  saveFile,
   setAccess,
 } from "../api.js";
-import { $, el, esc, grow, toClipboard } from "../dom.js";
+import { $, el, esc, toClipboard } from "../dom.js";
 import { go } from "../router.js";
 import { S as App } from "../state.js";
 import { checklist } from "./checklist.js";
+import { businessForm, prioritiesForm } from "./orgedit.js";
 import { credentialPanel } from "./credential.js";
 import { repoPicker } from "./repos.js";
-import { paste } from "./paste.js";
 
 let S = null; // /api/setup/status, refreshed after anything that changes the world
 
@@ -394,13 +392,24 @@ function afterCreate() {
 
   const business = todo(++n, "Describe the business", !left.includes("business"));
   business.hint("A few short answers. Every staff member reads them before they start work.");
-  business.body.append(businessForm(() => business.setDone(true)));
+  business.body.append(
+    businessForm({
+      path: opsName() + "/org/business.md",
+      name: App.data?.name ?? S.tenant.name ?? S.tenant.org,
+      onSaved: () => (business.setDone(true), recheck()),
+    }),
+  );
   fileSteps.set("business", business.setDone);
   list.append(business.card);
 
   const priorities = todo(++n, "Set this month's priorities", !left.includes("priorities"));
   priorities.hint("Up to three, in order. Staff pick work that serves them.");
-  priorities.body.append(prioritiesForm(() => priorities.setDone(true)));
+  priorities.body.append(
+    prioritiesForm({
+      path: opsName() + "/org/priorities.md",
+      onSaved: () => (priorities.setDone(true), recheck()),
+    }),
+  );
   fileSteps.set("priorities", priorities.setDone);
   list.append(priorities.card);
 
@@ -482,158 +491,11 @@ function todo(n, title, done) {
  * quicker to type than to explain to a model. So the file opens as it is on disk, stub and
  * all, and saving it is the same commit-and-push as every other editor here.
  */
-const BUSINESS_QUESTIONS = [
-  ["line", "What does it do, in one line?", "What this business does, in one line", true],
-  ["who", "Who is it for?", "Who the customers are, specifically", true],
-  ["key", "What does everything depend on?", "The one fact everything else follows from", false],
-  ["true", "What's already true? What's built, measured or tried?", "What is already true", false],
-  ["not", "What should staff never decide on their own?", "What is not ours to decide", false],
-];
 
-/** The business, as five questions in plain fields, written out as org/business.md. */
-function businessForm(onSaved) {
-  const form = el("div");
-  const path = opsName() + "/org/business.md";
-  const fields = BUSINESS_QUESTIONS.map(([id, label, , required]) => {
-    const input = id === "line" ? el("input", { type: "text" }) : el("textarea", { className: "pastebox", rows: 3 });
-    const wrap = el("label", { className: "qfield" }, [
-      el("span", { textContent: label + (required ? "" : " (optional)") }),
-      input,
-    ]);
-    return { id, input, wrap };
-  });
-  const save = el("button", { className: "btn primary", textContent: "Save" });
-  const out = el("div");
-  form.append(...fields.map((f) => f.wrap), el("div", { className: "row" }, [save]), out);
 
-  save.onclick = async () => {
-    const missing = fields.find((f, i) => BUSINESS_QUESTIONS[i][3] && !String(f.input.value ?? "").trim());
-    if (missing) {
-      missing.input.focus();
-      out.replaceChildren(el("p", { className: "err", textContent: "Answer the first two at least." }));
-      return;
-    }
-    const name = App.data?.name ?? S.tenant.name ?? S.tenant.org;
-    const text =
-      `# What ${name} is\n\n` +
-      fields
-        .map((f, i) => [BUSINESS_QUESTIONS[i][2], String(f.input.value ?? "").trim()])
-        .filter(([, v]) => v)
-        .map(([h, v]) => `## ${h}\n\n${v}\n`)
-        .join("\n");
-    await saveAndSay(save, out, path, text, "portal: write org/business.md", onSaved);
-  };
 
-  return modes([
-    { label: "Answer questions", node: form },
-    {
-      label: "Let an AI interview you",
-      node: paste({ kind: "discover", title: "", onSaved: () => (onSaved(), recheck()) }),
-    },
-    rawMode(path, onSaved),
-  ]);
-}
 
-/** This month's priorities, as three lines and an out-of-scope list. */
-function prioritiesForm(onSaved) {
-  const form = el("div");
-  const path = opsName() + "/org/priorities.md";
-  const ranks = [1, 2, 3].map((i) => {
-    const input = el("input", { type: "text", placeholder: i === 1 ? "e.g. Tasks can be ticked off and removed" : "" });
-    return { input, wrap: el("label", { className: "qfield" }, [el("span", { textContent: "Priority " + i + (i > 1 ? " (optional)" : "") }), input]) };
-  });
-  const scope = el("textarea", { className: "pastebox", rows: 3, placeholder: "One per line" });
-  const save = el("button", { className: "btn primary", textContent: "Save" });
-  const out = el("div");
-  form.append(
-    ...ranks.map((r) => r.wrap),
-    el("label", { className: "qfield" }, [el("span", { textContent: "Out of scope this month (optional)" }), scope]),
-    el("div", { className: "row" }, [save]),
-    out,
-  );
-  save.onclick = async () => {
-    const items = ranks.map((r) => String(r.input.value ?? "").trim()).filter(Boolean);
-    if (!items.length) {
-      ranks[0].input.focus();
-      out.replaceChildren(el("p", { className: "err", textContent: "Add at least one priority." }));
-      return;
-    }
-    const outs = String(scope.value ?? "").split("\n").map((l) => l.replace(/^[-*]\s*/, "").trim()).filter(Boolean);
-    const text =
-      "## What matters this month\n\n### Priorities, in order\n\n" +
-      items.map((t, i) => `${i + 1}. ${t}`).join("\n") +
-      "\n" +
-      (outs.length ? "\n### Out of scope this month\n\n" + outs.map((t) => `- ${t}`).join("\n") + "\n" : "");
-    await saveAndSay(save, out, path, text, "portal: write org/priorities.md", onSaved);
-  };
-  return modes([{ label: "Fill in", node: form }, rawMode(path, onSaved)]);
-}
 
-async function saveAndSay(btn, out, path, text, message, onSaved) {
-  btn.disabled = true;
-  const label = btn.textContent;
-  btn.textContent = "Saving…";
-  try {
-    const r = await saveFile(path, text, message);
-    out.replaceChildren(
-      el("p", {
-        className: r.pushed ? "sub" : "err",
-        textContent: r.pushed ? "Saved." : "Saved locally, but the push failed: " + (r.note ?? ""),
-      }),
-    );
-    onSaved();
-    recheck();
-  } catch (err) {
-    out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) }));
-  } finally {
-    btn.disabled = false;
-    btn.textContent = label;
-  }
-}
-
-/** The file itself, for editing what is already there rather than starting again. */
-function rawMode(path, onSaved) {
-  const node = el("div");
-  const ta = el("textarea", { className: "pastebox" });
-  ta.rows = 12;
-  const save = el("button", { className: "btn primary", textContent: "Save" });
-  const out = el("div");
-  node.append(ta, el("div", { className: "row" }, [save]), out);
-  ta.addEventListener("input", () => grow(ta));
-  save.onclick = () =>
-    saveAndSay(save, out, path, ta.value, "portal: edit " + path.split("/").slice(1).join("/"), onSaved);
-  // Read when first shown, so it shows the file as it is then, not as it was at page load.
-  const load = () =>
-    // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
-    fetch(fileUrl(path), { cache: "no-store" })
-      .then((r) => (r.ok ? r.text() : ""))
-      .then((text) => {
-        ta.value = text;
-        grow(ta);
-      });
-  return { label: "Edit the file", node, onShow: load };
-}
-
-/** Ways to do one step, as a switcher across the top: one shown at a time. */
-function modes(list) {
-  const box = el("div");
-  const bar = el("div", { className: "modes" });
-  const panes = el("div");
-  const buttons = list.map((m, i) => {
-    const b = el("button", { className: "mode", textContent: m.label });
-    b.onclick = () => show(i);
-    return b;
-  });
-  bar.append(...buttons);
-  box.append(bar, panes);
-  function show(i) {
-    buttons.forEach((b, j) => b.classList.toggle("on", i === j));
-    panes.replaceChildren(list[i].node);
-    list[i].onShow?.();
-  }
-  show(0);
-  return box;
-}
 
 /** The ops repo's directory name, which is what every workspace-relative path starts with. */
 function opsName() {

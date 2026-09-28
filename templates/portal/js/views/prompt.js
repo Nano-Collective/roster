@@ -9,6 +9,7 @@
  * changing a byte of the composed text, and nothing said so before.
  */
 
+import { highlighted } from "../mdedit.js";
 import { getFile, post } from "../api.js";
 import { askText, askYes } from "../dialog.js";
 import { el, esc, grow, kb, toClipboard } from "../dom.js";
@@ -351,8 +352,10 @@ export function viewPrompt(m) {
     );
 
     const ta = el("textarea", { value: text, className: "editor" });
-    viewer.append(ta);
+    const hl = highlighted(ta, "md");
+    viewer.append(hl);
     grow(ta);
+    hl.repaint();
     ta.addEventListener("input", () => grow(ta));
 
     const status = el("span", { className: "meta" });

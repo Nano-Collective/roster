@@ -75,3 +75,22 @@ pre.yaml{color:var(--ink)}
 .md img{display:block;max-width:100%;height:auto;margin:14px 0;
         border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
 .md img+em,.md p>img+em{display:block}
+
+/* ---------- highlighted editors (mdedit.js) ---------- */
+
+.hled{position:relative}
+.hled .hlback{position:absolute;inset:0;margin:0;pointer-events:none;overflow:hidden;
+      white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;color:var(--ink);
+      border-color:transparent !important;background:transparent !important}
+.hled .hlfront{position:relative;color:transparent;background:transparent;caret-color:var(--ink);
+      -webkit-text-fill-color:transparent}
+.hled .hlfront::selection{background:var(--accent-soft)}
+.mdh{color:var(--ruled);font-weight:700}
+.mdb{font-weight:700}
+.mdi{font-style:italic}
+.mdc,.mdcode,.mdfence{color:var(--derived)}
+.mdq{color:var(--ink-dim);font-style:italic}
+.mdl{color:var(--accent)}
+.mdk{color:var(--accent)}
+.mdu{color:var(--ink-faint)}
+.mdt{color:var(--ruled)}
