@@ -38,6 +38,8 @@ defaults:
   timeout_minutes: 90
   mention_timeout_minutes: 90
 
+budget: 300
+
 staff:
   - { handle: cto, dir: technology, name: Chief Technology Officer, schedule: "0 7 * * 1-5" }
   - { handle: cmo, dir: marketing, name: Chief Marketing Officer, schedule: "40 7 * * 1-5" }
@@ -58,6 +60,7 @@ repos:
 | `name` | yes | What the business is called, in prose. Appears in prompts. |
 | `ops_dir` | no | Directory name of the ops repo in the runner checkout. Defaults to `roster-ops`. |
 | `experiment_private` | no | Whether the fact that this org is agent-run is itself private. Read by the guardrails fragment. |
+| `budget` | no | USD over any trailing 30 days, for the whole org. See [below](#budget). |
 
 ### `human` and `humans`
 
@@ -134,9 +137,25 @@ lives in their own `staff.yaml`.
 | `dir` | no | Directory and repo name. Defaults to the handle. |
 | `name` | no | Role name in prose. |
 | `schedule` | no | Cron. Informational here; the caller workflow is what actually schedules. |
+| `budget` | no | USD over any trailing 30 days, for this staff member alone. |
 
 `roster hire` appends to this list. An empty list (`staff: []`) is valid and is what a fresh
 org has.
+
+### `budget`
+
+A number of dollars, on the org, on a staff entry, or both:
+
+```yaml
+budget: 300
+staff:
+  - { handle: cto, dir: technology, name: Chief Technology Officer, budget: 200 }
+```
+
+Spend over the trailing 30 days is added up from each run's record. Past a budget, `roster
+doctor` warns and the portal's Runs screen marks the total. **Nothing stops a run.** A cap that
+ends a session fails it after the work is done and committed, which is a false red rather than a
+saved penny; `timeout_minutes` is the real bound. See [cost](cost.md#budgets).
 
 ### `repos`
 
@@ -159,7 +178,8 @@ Every repository the org owns, and what it is for.
 | `runner-plan.mjs` | `org`, `staff`, and each manifest's `works_in` and `peers` |
 | `agents.mjs` | `agent`, `staff` |
 | `roster hire` | all of it, plus every existing manifest |
-| `roster doctor` | all of it |
+| `roster doctor` | all of it, including `budget` |
+| `roster portal` | all of it; the Runs screen reads `budget` |
 
 ## Editing it
 

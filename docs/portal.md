@@ -193,6 +193,25 @@ credential is put on a public repo. The tracker issue goes first, because it is 
 reaches anybody; if the copy on the pull request then fails you are told, rather than being
 shown an error that invites you to ask the same person the same thing twice.
 
+## Runs
+
+What each staff member ran in the last 30 days: when, daily or mention, how it ended, how long
+it took, turns and cost where known, and a link to the log. Above the tables, the 30-day total
+for the org, and each staff member's own in their heading.
+
+Runs are not in any repo, so this is the one screen that is only ever on GitHub. It reads the
+run lists through your own `gh`, the same way the inbox does, and offline it says so rather
+than drawing an empty table that reads as "nothing ran".
+
+Cost comes from the record each run leaves behind (see [cost](cost.md#what-each-run-cost)). A
+run from before records existed, or from an agent that does not report cost, shows a dash, and
+a total says how many runs it could price. Each record is downloaded once and kept for as long
+as the portal runs, so the first visit is the slow one.
+
+A skipped mention is not a run and is not listed. A `setup-failure` is a run that failed before
+the agent started, usually a token or a checkout. Past a [`budget`](org-yaml.md#budget), the
+total turns amber.
+
 ## Org
 
 The layer every staff member inherits, in one place: `org.yaml`, every `org/*.md`, and the

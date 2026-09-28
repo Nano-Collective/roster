@@ -25,6 +25,37 @@ direct, repeated saving on every run of every staff member.
 `timeout_minutes` has been paid for and produced nothing. Health, and `roster doctor`, report
 the ratio.
 
+## What each run cost
+
+Every session writes down what it was, after the agent finishes or fails: staff, kind, outcome,
+duration, and turns, cost and tokens where the agent reports them. It goes in the job summary,
+and into an artifact called `roster-run` holding one `run.json`.
+
+Which agents report what:
+
+| Agent | Turns, cost, tokens |
+|---|---|
+| `claude-code-action` | yes, from the Action's execution file |
+| `claude` | yes, from `--output-format json` |
+| anything else | only if its `run` writes the agent's result JSON to `$AGENT_RESULT_FILE` |
+
+What is not reported is recorded as unknown, never as zero. A total built from guesses is worse
+than none, so every total says how many runs it could price. The cost is the agent's own figure:
+on a subscription it is what the tokens would have cost, not what you were billed.
+
+The portal's [Runs](portal.md#runs) screen lists them per staff member, with a link to each log
+and a 30-day total.
+
+## Budgets
+
+An optional [`budget`](org-yaml.md#budget) in `org.yaml`, in dollars over any trailing 30 days,
+for the org or for one staff member. Past it, `roster doctor` warns (`budget`) and the Runs
+screen marks the total.
+
+It is a warning and never a cap. Stopping a session mid-run fails it after the work is done and
+committed, and that was already the reason `--max-turns` was rejected. Use the warning to go and
+look at which runs cost most and why; the levers are below.
+
 ## GitHub Actions minutes
 
 Real on private repositories, and easy to forget because it is metered per minute of runner

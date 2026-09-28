@@ -16,13 +16,14 @@ import { attach, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
 import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
 import { buildExport } from "../lib/export.js";
-import { api, ghJson } from "../lib/gh.js";
+import { api, ghJson, ghReady } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { parsePaste } from "../lib/paste.js";
 import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
 import { isWritable, KINDS, promptView, saveFile, validateOrgYaml } from "../lib/prompt.js";
 import { orgTokens, specFromManifest, tokensFor, toolsOf } from "../lib/render.js";
+import { budgetOf, spend, staffRuns } from "../lib/runs.js";
 import { joinTenant, loadFrameworkComposer, orgHasTenant, setupStatus } from "../lib/setup.js";
 import { syncRepos } from "../lib/sync.js";
 import { loadComposer, readOrg, tryWorkspace, type Workspace } from "../lib/workspace.js";
@@ -139,6 +140,10 @@ export async function portalCommand(argv: string[]): Promise<number> {
   /* A repo's labels, per repo. They are the vocabulary of the org and change about never, so
      the picker on the new-issue form should not cost a round trip every time it opens. */
   const labelCache = new Map<string, { at: number; labels: unknown[] }>();
+
+  /* The Runs screen. Same short cache as the inbox; the records behind it are cached for good
+     in lib/runs.ts, so a refresh costs the run lists and nothing already seen. */
+  let runsCache: { at: number; body: unknown } | null = null;
   const LABEL_TTL = 300_000;
 
   const brainDirs = () =>
@@ -1084,6 +1089,60 @@ export async function portalCommand(argv: string[]): Promise<number> {
             res.writeHead(500, { "content-type": "application/json" });
             res.end(JSON.stringify({ items: [], errors: [String(err?.message ?? err)] }));
           });
+        return;
+      }
+
+      /**
+       * Every staff member's recent runs, and what the last 30 days cost.
+       *
+       * Online only, and it says so rather than failing: offline the rest of the portal reads
+       * from disk, and this screen is the one part of it that is only ever on GitHub.
+       */
+      if (url.pathname === "/api/runs") {
+        const fresh = url.searchParams.get("refresh") === "1";
+        if (!fresh && runsCache && Date.now() - runsCache.at < TTL) {
+          json(res, runsCache.body);
+          return;
+        }
+        const org = readOrg(w.opsDir, parseYaml) as any;
+        (async () => {
+          const who = await ghReady();
+          if (!who.ok) return { online: false, error: who.error, staff: [] };
+          const staff = await Promise.all(
+            (org.staff ?? []).map(async (s: any) => {
+              const brain = `${org.org}/${s.dir ?? s.handle}`;
+              const { runs, errors } = await staffRuns(brain, s.handle);
+              return {
+                handle: s.handle,
+                name: s.name ?? s.handle,
+                brain,
+                budget: budgetOf(s.budget),
+                spend: spend(runs),
+                runs,
+                errors,
+              };
+            }),
+          );
+          const total = { usd: 0, known: 0, runs: 0 };
+          for (const s of staff) {
+            total.usd = Math.round((total.usd + s.spend.usd) * 100) / 100;
+            total.known += s.spend.known;
+            total.runs += s.spend.runs;
+          }
+          const body = {
+            online: true,
+            fetchedAt: new Date().toISOString(),
+            budget: budgetOf(org.budget),
+            spend: total,
+            staff,
+          };
+          runsCache = { at: Date.now(), body };
+          return body;
+        })()
+          .then((body) => json(res, body))
+          .catch((err) =>
+            json(res, { online: false, error: String(err?.message ?? err), staff: [] }),
+          );
         return;
       }
 

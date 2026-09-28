@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { parseMemory } from "../lib/memory.js";
+import { budgetOf, type Spend, spend, staffRuns } from "../lib/runs.js";
 import { looksUnwritten } from "../lib/stub.js";
 import { opsTemplateDir } from "../lib/templates.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
@@ -78,6 +79,7 @@ export async function collect(opts: Flags & { only?: string }): Promise<Report |
   // Staff members are independent, so they are checked at the same time rather than in turn.
   const perStaff = await Promise.all(staff.map((s) => checkStaff(ws, org, s, composer, online)));
   for (const f of perStaff) findings.push(...f);
+  if (online) findings.push(...(await checkBudgets(org, staff, !opts.only)));
 
   return { org, findings, online };
 }
@@ -128,7 +130,14 @@ async function gate(found: Finding[]): Promise<boolean> {
 interface OrgFile {
   org: string;
   name: string;
-  staff?: Array<{ handle: string; dir?: string; name?: string; schedule?: string }>;
+  staff?: Array<{
+    handle: string;
+    dir?: string;
+    name?: string;
+    schedule?: string;
+    budget?: unknown;
+  }>;
+  budget?: unknown;
   repos?: Array<{ name: string; role?: string; visibility?: string }>;
   human?: { github?: string };
   humans?: Array<{ github?: string; name?: string; marker?: string }>;
@@ -1112,6 +1121,75 @@ export function failingStreak(
   // "Since at least": every run in a full window failed, so the start is further back.
   const whole = count === real.length && runs.length >= window;
   return { count, since: real[count - 1]!.createdAt, whole };
+}
+
+/**
+ * Trailing 30-day spend against the budgets in org.yaml, when there are any.
+ *
+ * Only read when a budget is set: it downloads a record per run, and an org that has not asked
+ * the question should not pay for the answer. A warning and never a failure, and nothing stops
+ * a run mid-way. Capping a session fails it after the work is done, which is a false red rather
+ * than a saved penny; see the note on --max-turns in session.yaml.
+ */
+async function checkBudgets(
+  org: OrgFile,
+  staff: NonNullable<OrgFile["staff"]>,
+  whole: boolean,
+): Promise<Finding[]> {
+  const orgBudget = whole ? budgetOf(org.budget) : null;
+  const who = orgBudget !== null ? staff : staff.filter((s) => budgetOf(s.budget) !== null);
+  if (!who.length) return [];
+
+  const spent = await Promise.all(
+    who.map(async (s) => {
+      const { runs, errors } = await staffRuns(`${org.org}/${s.dir ?? s.handle}`, s.handle);
+      return { s, spend: spend(runs), errors };
+    }),
+  );
+
+  const out: Finding[] = [];
+  const verdict = (scope: string, what: string, used: Spend, budget: number): Finding => {
+    const known =
+      used.known < used.runs ? ` (cost known for ${used.known} of ${used.runs} runs)` : "";
+    return used.usd > budget
+      ? {
+          scope,
+          level: "warn",
+          id: "budget",
+          title: `${what} spent $${used.usd.toFixed(2)} over the last 30 days, past its $${budget} budget${known}`,
+          fix: "Nothing stops a run over budget. The portal's Runs screen shows which runs cost most; docs/cost.md has the levers.",
+        }
+      : {
+          scope,
+          level: "ok",
+          id: "budget",
+          title: `${what} spent $${used.usd.toFixed(2)} of its $${budget} budget over the last 30 days${known}`,
+        };
+  };
+
+  for (const { s, spend: used, errors } of spent) {
+    for (const e of errors) {
+      out.push({
+        scope: s.handle,
+        level: "warn",
+        id: "budget",
+        title: `cannot read runs to check spend: ${e}`,
+        fix: "Without the runs nothing here can say what was spent.",
+      });
+    }
+    const budget = budgetOf(s.budget);
+    if (budget !== null) out.push(verdict(s.handle, s.name ?? s.handle, used, budget));
+  }
+  if (orgBudget !== null) {
+    const total: Spend = { usd: 0, known: 0, runs: 0 };
+    for (const { spend: used } of spent) {
+      total.usd = Math.round((total.usd + used.usd) * 100) / 100;
+      total.known += used.known;
+      total.runs += used.runs;
+    }
+    out.push(verdict("workspace", "the org", total, orgBudget));
+  }
+  return out;
 }
 
 /* ------------------------------- output ------------------------------- */

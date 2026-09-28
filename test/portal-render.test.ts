@@ -372,123 +372,178 @@ function fixtureFetch(u: string) {
   return {
     ok: true,
     json: async () =>
-      url.startsWith("/api/repos")
-        ? { repos: [{ name: "product", owner: "acme", role: "product" }] }
-        : url.startsWith("/api/labels")
-          ? {
-              labels: [
-                { name: "decision", color: "aaa", description: "" },
-                { name: "build", color: "bbb", description: "" },
-              ],
-            }
-          : // Before /api/pr, which every one of these also starts with.
-            url.startsWith("/api/promptaudit")
+      url.startsWith("/api/runs")
+        ? runsFixture
+        : url.startsWith("/api/repos")
+          ? { repos: [{ name: "product", owner: "acme", role: "product" }] }
+          : url.startsWith("/api/labels")
             ? {
-                staff: "cto",
-                errors: [],
-                problems: PROMPT_FIXTURE.problems.map((p) => ({
-                  ...p,
-                  kind: "daily",
-                  kinds: ["daily"],
-                })),
+                labels: [
+                  { name: "decision", color: "aaa", description: "" },
+                  { name: "build", color: "bbb", description: "" },
+                ],
               }
-            : url.startsWith("/api/prompt")
-              ? PROMPT_FIXTURE
-              : url.startsWith("/api/pr?")
-                ? PR_FIXTURE
-                : url.startsWith("/api/inbox")
-                  ? INBOX_FIXTURE
-                  : // Before /api/docs, which is a prefix of it.
-                    url.startsWith("/api/docsearch")
-                    ? DOC_HITS_FIXTURE
-                    : url.startsWith("/api/docs")
-                      ? [
-                          { file: "README.md", title: "Overview" },
-                          { file: "agents.md", title: "Choosing a coding agent" },
-                        ]
-                      : url.startsWith("/api/orglayer")
-                        ? ORG_LAYER_FIXTURE
-                        : url.startsWith("/api/staff/plan")
-                          ? url.includes("action=retire")
-                            ? {
-                                action: "retire",
-                                plan: {
-                                  handle: "cmo",
-                                  name: "Chief Marketing Officer",
-                                  dir: "marketing",
-                                  brain: "acme/marketing",
-                                  workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
-                                  peers: [
-                                    {
-                                      handle: "cto",
-                                      dir: "technology",
-                                      brain: "acme/technology",
-                                      label: "from-cmo",
-                                    },
-                                  ],
-                                  keeps: [
-                                    "acme/marketing is untouched",
-                                    "103 facts and everything in memory/notes/",
-                                  ],
-                                  warnings: [],
-                                },
-                              }
-                            : {
-                                action: "hire",
-                                plan: {
-                                  dir: "finance",
-                                  files: ["CHARTER.md", "staff.yaml"],
-                                  labels: ["will", "cfo"],
-                                  secrets: ["CFO_APP_ID"],
-                                  peers: [
-                                    {
-                                      handle: "cto",
-                                      dir: "technology",
-                                      brain: "acme/technology",
-                                      label: "from-cfo",
-                                    },
-                                  ],
-                                  warnings: ["schedule was chosen to sit clear of everyone else's"],
-                                  staff: {
-                                    handle: "cfo",
-                                    name: "Chief Financial Officer",
-                                    brain: "acme/finance",
-                                    schedule: "0 9 * * 1-5",
-                                    model: "a-model",
+            : // Before /api/pr, which every one of these also starts with.
+              url.startsWith("/api/promptaudit")
+              ? {
+                  staff: "cto",
+                  errors: [],
+                  problems: PROMPT_FIXTURE.problems.map((p) => ({
+                    ...p,
+                    kind: "daily",
+                    kinds: ["daily"],
+                  })),
+                }
+              : url.startsWith("/api/prompt")
+                ? PROMPT_FIXTURE
+                : url.startsWith("/api/pr?")
+                  ? PR_FIXTURE
+                  : url.startsWith("/api/inbox")
+                    ? INBOX_FIXTURE
+                    : // Before /api/docs, which is a prefix of it.
+                      url.startsWith("/api/docsearch")
+                      ? DOC_HITS_FIXTURE
+                      : url.startsWith("/api/docs")
+                        ? [
+                            { file: "README.md", title: "Overview" },
+                            { file: "agents.md", title: "Choosing a coding agent" },
+                          ]
+                        : url.startsWith("/api/orglayer")
+                          ? ORG_LAYER_FIXTURE
+                          : url.startsWith("/api/staff/plan")
+                            ? url.includes("action=retire")
+                              ? {
+                                  action: "retire",
+                                  plan: {
+                                    handle: "cmo",
+                                    name: "Chief Marketing Officer",
+                                    dir: "marketing",
+                                    brain: "acme/marketing",
+                                    workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
+                                    peers: [
+                                      {
+                                        handle: "cto",
+                                        dir: "technology",
+                                        brain: "acme/technology",
+                                        label: "from-cmo",
+                                      },
+                                    ],
+                                    keeps: [
+                                      "acme/marketing is untouched",
+                                      "103 facts and everything in memory/notes/",
+                                    ],
+                                    warnings: [],
                                   },
-                                },
-                              }
-                          : url.startsWith("/api/prompt")
-                            ? PROMPT_FIXTURE
-                            : url.startsWith("/api/thread")
-                              ? INBOX_FIXTURE.items[1]
-                              : url.startsWith("/api/sync")
-                                ? { results: [] }
-                                : url.startsWith("/api/setup/repos")
-                                  ? {
-                                      repos: [
-                                        {
-                                          name: "acme-web",
-                                          visibility: "PUBLIC",
-                                          description: "the site",
-                                        },
-                                      ],
-                                    }
-                                  : url.startsWith("/api/setup/status")
-                                    ? SETUP_FIXTURE
-                                    : url.startsWith("/api/brief")
-                                      ? {
-                                          kind: "discover",
-                                          text: BRIEF_TEXT,
-                                          targets: ["roster-ops/org/business.md"],
-                                        }
-                                      : (orgOverride ?? ORG),
+                                }
+                              : {
+                                  action: "hire",
+                                  plan: {
+                                    dir: "finance",
+                                    files: ["CHARTER.md", "staff.yaml"],
+                                    labels: ["will", "cfo"],
+                                    secrets: ["CFO_APP_ID"],
+                                    peers: [
+                                      {
+                                        handle: "cto",
+                                        dir: "technology",
+                                        brain: "acme/technology",
+                                        label: "from-cfo",
+                                      },
+                                    ],
+                                    warnings: [
+                                      "schedule was chosen to sit clear of everyone else's",
+                                    ],
+                                    staff: {
+                                      handle: "cfo",
+                                      name: "Chief Financial Officer",
+                                      brain: "acme/finance",
+                                      schedule: "0 9 * * 1-5",
+                                      model: "a-model",
+                                    },
+                                  },
+                                }
+                            : url.startsWith("/api/prompt")
+                              ? PROMPT_FIXTURE
+                              : url.startsWith("/api/thread")
+                                ? INBOX_FIXTURE.items[1]
+                                : url.startsWith("/api/sync")
+                                  ? { results: [] }
+                                  : url.startsWith("/api/setup/repos")
+                                    ? {
+                                        repos: [
+                                          {
+                                            name: "acme-web",
+                                            visibility: "PUBLIC",
+                                            description: "the site",
+                                          },
+                                        ],
+                                      }
+                                    : url.startsWith("/api/setup/status")
+                                      ? SETUP_FIXTURE
+                                      : url.startsWith("/api/brief")
+                                        ? {
+                                            kind: "discover",
+                                            text: BRIEF_TEXT,
+                                            targets: ["roster-ops/org/business.md"],
+                                          }
+                                        : (orgOverride ?? ORG),
     text: async () =>
       url.startsWith("/api/doc?")
         ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
         : "sample",
   };
 }
+
+/** What `/api/runs` answers with. Swapped for the offline shape by the test that needs it. */
+const RUNS_ONLINE = {
+  online: true,
+  fetchedAt: new Date().toISOString(),
+  budget: 50,
+  spend: { usd: 61.5, known: 2, runs: 3 },
+  staff: [
+    {
+      handle: "cto",
+      name: "Chief Technology Officer",
+      brain: "acme/technology",
+      budget: null,
+      spend: { usd: 61.5, known: 2, runs: 3 },
+      errors: [],
+      runs: [
+        {
+          id: 3,
+          kind: "daily",
+          url: "https://github.com/acme/technology/actions/runs/3",
+          createdAt: new Date().toISOString(),
+          status: "completed",
+          conclusion: "success",
+          minutes: 41,
+          record: { outcome: "success", duration_s: 2400, turns: 88, cost_usd: 40.25 },
+        },
+        {
+          id: 2,
+          kind: "mention",
+          url: "https://github.com/acme/technology/actions/runs/2",
+          createdAt: new Date(Date.now() - 86400_000).toISOString(),
+          status: "completed",
+          conclusion: "failure",
+          minutes: 1,
+          record: { outcome: "setup-failure", duration_s: 40, turns: null, cost_usd: null },
+        },
+        {
+          id: 1,
+          kind: "daily",
+          url: "https://github.com/acme/technology/actions/runs/1",
+          createdAt: new Date(Date.now() - 2 * 86400_000).toISOString(),
+          status: "completed",
+          conclusion: "success",
+          minutes: 30,
+          record: null,
+        },
+      ],
+    },
+  ],
+};
+let runsFixture: Record<string, unknown> = RUNS_ONLINE;
 
 /* What `/api/org` answers with. Overridden by the setup tests, which need the one shape
    the live workspace never has: no tenant at all. */
@@ -598,6 +653,7 @@ function install(hash: string) {
 const ALIAS: Record<string, string> = {
   DATA: "data",
   INBOX: "inbox",
+  RUNS: "runs",
   DOCS: "docs",
   view: "view",
   staffHandle: "staffHandle",
@@ -647,6 +703,7 @@ const DEFAULTS = {
   data: null,
   docs: null,
   inbox: null,
+  runs: null,
   sync: null,
   loadedAt: null,
   staffHandle: null,
@@ -2809,5 +2866,48 @@ test("no stylesheet is keyed on one tenant's names", () => {
       !new RegExp("[.#-]" + String(name).toLowerCase() + "\\b").test(css.toLowerCase()),
       `a stylesheet is keyed on "${name}", which is this tenant's and nobody else's`,
     );
+  }
+});
+
+/** Everything in the tree, as text: the table cells are innerHTML and the rest is textContent. */
+function allText(node: any): string {
+  if (typeof node === "string") return node;
+  return (node._text ?? "") + (node._html ?? "") + (node.children ?? []).map(allText).join("");
+}
+
+test("Runs lists each staff member's runs with outcome, cost and a link to the log", async () => {
+  runsFixture = RUNS_ONLINE;
+  const s = await renderAll("#/-/runs");
+  assert.equal(s.view, "runs", "the hash lands on the screen, which is org-wide");
+  // The first paint asks; the answer lands and repaints.
+  await new Promise((r) => setTimeout(r, 30));
+  const text = allText(s._byId.main);
+  assert.match(text, /\$61\.50/, "the 30-day total");
+  assert.match(text, /cost known for 2 of 3 runs/, "a total says how many runs it could price");
+  assert.match(text, /\$40\.25/);
+  assert.match(text, /setup-failure/, "the record's word wins over the run's conclusion");
+  assert.match(text, /actions\/runs\/3/, "every row links to its log");
+  const tiles = (s._byId.main.children as any[]).find((n) =>
+    String(n.className).includes("runsum"),
+  );
+  assert.ok(
+    tiles.children.some((t: any) => t.className === "kv bad"),
+    "spend past the org budget is marked",
+  );
+});
+
+test("Runs offline says where runs live, rather than drawing an empty table", async () => {
+  runsFixture = { online: false, error: "gh is not installed, or not on PATH", staff: [] };
+  try {
+    const s = await renderAll("#/-/runs");
+    s.RUNS = null;
+    s.render();
+    await new Promise((r) => setTimeout(r, 30));
+    const text = allText(s._byId.main);
+    assert.match(text, /could not be reached/);
+    assert.match(text, /not on PATH/);
+    assert.doesNotMatch(text, /runtable/);
+  } finally {
+    runsFixture = RUNS_ONLINE;
   }
 });

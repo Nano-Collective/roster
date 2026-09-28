@@ -22,7 +22,7 @@ export const VIEWS = [
 export const VIEW_ALIAS = { memory: "brain" };
 
 /** Screens that belong to the org rather than to one staff member. */
-export const ORG_WIDE = new Set(["inbox", "prs", "org", "staff", "docs"]);
+export const ORG_WIDE = new Set(["inbox", "prs", "runs", "org", "staff", "docs"]);
 
 /** The two screens that read the inbox, and so share its filters and its `?t=` thread. */
 const INBOXY = new Set(["inbox", "prs"]);
@@ -32,6 +32,8 @@ export const S = {
   data: null,
   docs: null,
   inbox: null,
+  /** /api/runs. Kept once read: it is minutes of downloads on a cold cache. */
+  runs: null,
   sync: null,
   loadedAt: null,
 

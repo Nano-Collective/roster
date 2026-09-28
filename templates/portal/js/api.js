@@ -7,6 +7,9 @@ export const getDocs = () => json("/api/docs");
 export const getInbox = (force) => json("/api/inbox" + (force ? "?refresh=1" : ""));
 export const getSync = () => json("/api/sync").catch(() => null);
 
+/** Every staff member's recent runs and 30-day spend. Online only; offline it says so. */
+export const getRuns = (force) => json("/api/runs" + (force ? "?refresh=1" : ""));
+
 /** The repos org.yaml lists. Off disk, so the new-issue form does not wait on the inbox. */
 export const getRepos = () => json("/api/repos");
 

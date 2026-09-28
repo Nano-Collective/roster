@@ -1,0 +1,13 @@
+/* The Runs screen: a spend strip, then one table per staff member. */
+
+.runsum{margin-bottom:6px}
+.hsect i.warn{color:var(--warn)}
+.runtable{border-collapse:collapse;width:100%;margin-top:8px;font:12px var(--mono);
+      font-variant-numeric:tabular-nums}
+.runtable th{text-align:left;font:600 10.5px var(--sans);letter-spacing:.06em;text-transform:uppercase;
+      color:var(--ink-faint);padding:6px 10px 6px 0;border-bottom:1px solid var(--line)}
+.runtable td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line);color:var(--ink-dim);
+      white-space:nowrap}
+.runtable td:last-child,.runtable th:last-child{text-align:right;padding-right:0}
+/* The table is wider than a phone; it scrolls inside its section, never the page. */
+.hbody.runs{overflow-x:auto}

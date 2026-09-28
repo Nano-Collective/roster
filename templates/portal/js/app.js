@@ -23,12 +23,14 @@ import { viewHealth } from "./views/health.js";
 import { viewInbox, viewPrs } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
+import { viewRuns } from "./views/runs.js";
 import { viewSetup } from "./views/setup.js";
 import { viewStaff } from "./views/staff.js";
 
 const SCREEN = {
   inbox: viewInbox,
   prs: viewPrs,
+  runs: viewRuns,
   org: viewOrg,
   staff: viewStaff,
   docs: viewDocs,
@@ -66,7 +68,7 @@ export async function boot() {
     /* Every one of these reads a tenant, so during setup they answer 409 and the sidebar is a
        row of four dead ends beside an empty Staff heading. There is one thing to do on this
        screen; the navigation comes back with the org. */
-    for (const el of document.querySelectorAll("#inboxnav, #prsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
+    for (const el of document.querySelectorAll("#inboxnav, #prsnav, #runsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
       el.hidden = true;
     }
     for (const slot of document.querySelectorAll("[data-icon]")) {
@@ -94,6 +96,7 @@ export async function boot() {
 
   $("#inboxnav").onclick = () => { S.view = "inbox"; render(); };
   $("#prsnav").onclick = () => { S.view = "prs"; render(); };
+  $("#runsnav").onclick = () => { S.view = "runs"; render(); };
   $("#staffnav").onclick = () => { S.view = "staff"; render(); };
   $("#orgnav").onclick = () => { S.view = "org"; render(); };
   $("#docsnav").onclick = () => { S.view = "docs"; render(); };
