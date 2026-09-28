@@ -16,7 +16,7 @@ import {
   tokensFor,
   toolsOf,
 } from "../lib/render.js";
-import { addGate, judgeGate, readGate } from "../lib/reviewgate.js";
+import { addGate, isPlanLimit, judgeGate, readGate } from "../lib/reviewgate.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 
 export const hireHelp = `
@@ -582,9 +582,10 @@ async function ensureGate(repo: string, apps: string[]): Promise<string> {
     return `review gate on ${repo}: ${judgeGate(now).title}`;
   }
   const added = await addGate(repo);
-  return added.ok
-    ? `added a review-before-merge ruleset to ${repo}`
-    : `could not add a review gate to ${repo}: ${added.error}. See docs/security.md.`;
+  if (added.ok) return `added a review-before-merge ruleset to ${repo}`;
+  if (isPlanLimit(added.error))
+    return judgeGate({ repo, approvals: null, bypass: [], error: added.error }).title;
+  return `could not add a review gate to ${repo}: ${added.error}. See docs/security.md.`;
 }
 
 /**

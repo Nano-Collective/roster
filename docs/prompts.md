@@ -99,6 +99,12 @@ than a hang.
 | `ops.dir` | ops repo directory in the checkout |
 | `staff` | the whole of this staff member's `staff.yaml` |
 | `staff.dir` | where their brain lands in the checkout |
+| `staff.handle`, `staff.name` | their handle (`cto`) and role name (`Chief Technology Officer`) |
+| `staff.brain` | their brain repo, `owner/name` |
+| `staff.bot` | the login they post as on private repos, e.g. `acme-cto[bot]` |
+| `staff.public_bot` | the login they post as on public repos |
+| `staff.public_token_env` | the environment variable holding the public repo token during a run |
+| `staff.status_issue` | the number of their pinned status issue |
 | `staff.product` | **first entry of `works_in`, or null** |
 | `staff.product.repo` | that repo's `owner/name` |
 | `peers` | list of the other staff members |

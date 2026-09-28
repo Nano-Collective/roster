@@ -35,6 +35,7 @@ const KNOWN = {
   "prompts/mention.md": "The instructions when you @-mention someone.",
   "prompts/_identity.md": "Who staff post as.",
   "prompts/_paths.md": "Where files are during a run.",
+  "prompts/_inflight.md": "Pull requests people have open, so staff don't work on the same files.",
 };
 
 const GROUPS = [

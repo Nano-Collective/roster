@@ -66,6 +66,11 @@ that does not already require an approving review, and leaves anything stricter 
 pull request, so your own merge is still the approval (GitHub will not let you approve your
 own PR) and an App, which is never an admin, cannot merge at all.
 
+**On GitHub Free, private repos can't have this rule.** GitHub only enforces rulesets and
+branch protection on private repos for paid plans, so `review-gate` warns instead. Make the
+product repo public or move the org to GitHub Team. Until then, staff can merge their own pull
+requests.
+
 To set it by hand: repo **Settings -> Rules -> Rulesets -> New branch ruleset**, target the
 default branch, tick **Require a pull request before merging** with one required approval, and
 keep the staff Apps off the bypass list.

@@ -23,6 +23,17 @@ export interface GateReading {
   error?: string;
 }
 
+/**
+ * GitHub's answer when a free plan asks about protection on a private repo. It is not a missing
+ * permission and not a missing rule: the feature is off for that repo, and saying "could not
+ * read" sent people looking for an admin setting that does not exist.
+ */
+const PLAN_LIMIT = /upgrade to github (pro|team)|make this repository public/i;
+
+export function isPlanLimit(error?: string): boolean {
+  return PLAN_LIMIT.test(error ?? "");
+}
+
 export interface GateVerdict {
   level: "ok" | "warn" | "fail";
   title: string;
@@ -30,6 +41,13 @@ export interface GateVerdict {
 }
 
 export function judgeGate(r: GateReading): GateVerdict {
+  if (isPlanLimit(r.error)) {
+    return {
+      level: "warn",
+      title: `${r.repo} can't require reviews: GitHub only allows that on private repos with a paid plan`,
+      fix: "Make the repo public, or move the org to GitHub Team. Until then, staff can merge their own pull requests, so check what gets merged.",
+    };
+  }
   if (r.error) {
     return {
       level: "warn",
