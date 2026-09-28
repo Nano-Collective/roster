@@ -19,3 +19,11 @@ test("any other error is still a read failure", () => {
     /could not read/,
   );
 });
+
+test("the gate is on only when org.yaml says so", async () => {
+  const { gateOn } = await import("../src/lib/reviewgate.js");
+  assert.equal(gateOn({}), false);
+  assert.equal(gateOn({ review_gate: false }), false);
+  assert.equal(gateOn({ review_gate: true }), true);
+  assert.equal(gateOn({ review_gate: "on" }), true);
+});

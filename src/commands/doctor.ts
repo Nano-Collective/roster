@@ -4,7 +4,7 @@ import { accessLink } from "../lib/callable.js";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { parseMemory } from "../lib/memory.js";
-import { judgeGate, readGate } from "../lib/reviewgate.js";
+import { gateOn, judgeGate, readGate } from "../lib/reviewgate.js";
 import { budgetOf, type Spend, spend, staffRuns } from "../lib/runs.js";
 import { looksUnwritten } from "../lib/stub.js";
 import { opsTemplateDir } from "../lib/templates.js";
@@ -142,6 +142,7 @@ interface OrgFile {
     budget?: unknown;
   }>;
   budget?: unknown;
+  review_gate?: unknown;
   repos?: Array<{ name: string; role?: string; visibility?: string }>;
   human?: { github?: string };
   humans?: Array<{ github?: string; name?: string; marker?: string }>;
@@ -779,6 +780,17 @@ async function checkReviewGates(
   org: OrgFile,
   composer: Awaited<ReturnType<typeof loadComposer>>,
 ): Promise<Finding[]> {
+  if (!gateOn(org)) {
+    return [
+      {
+        scope: "workspace",
+        id: "review-gate",
+        level: "ok",
+        title:
+          "review gate is off: staff are told to leave merging to you, and GitHub does not enforce it",
+      },
+    ];
+  }
   const repos = new Set(
     (org.repos ?? []).filter((r) => r.role === "product").map((r) => `${org.org}/${r.name}`),
   );

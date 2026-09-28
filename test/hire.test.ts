@@ -404,9 +404,19 @@ test("the generated callers are valid workflows with the triggers they are meant
   assert.match(files.get(".github/workflows/cfo-daily.yaml")!, /cron: "20 8 \* \* 1-5"/);
 });
 
-test("the review gate is planned unless --no-review-gate says to leave the repo alone", () => {
-  assert.equal(plan("cfo").skipGate, false, "a hire gates the product repos by default");
-  assert.equal(plan("cfo", { reviewGate: false }).skipGate, true);
+test("the review gate is off unless org.yaml turns it on, and --no-review-gate still wins", () => {
+  // Off by default: private repos need a paid GitHub plan for it.
+  assert.equal(plan("cfo").skipGate, true, "no review_gate in org.yaml, no ruleset");
+  const on = (opts: Record<string, unknown> = {}) =>
+    buildPlan(
+      ws,
+      { ...ORG, review_gate: true } as never,
+      "cfo",
+      { name: "Chief Financial Officer", dir: "finance", ...opts } as never,
+      parseYaml,
+    );
+  assert.equal(on().skipGate, false, "review_gate: true gates the product repos");
+  assert.equal(on({ reviewGate: false }).skipGate, true);
 });
 
 test("the charter step names the agent-neutral brief, not one particular agent", () => {

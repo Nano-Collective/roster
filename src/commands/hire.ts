@@ -16,7 +16,7 @@ import {
   tokensFor,
   toolsOf,
 } from "../lib/render.js";
-import { addGate, isPlanLimit, judgeGate, readGate } from "../lib/reviewgate.js";
+import { addGate, gateOn, isPlanLimit, judgeGate, readGate } from "../lib/reviewgate.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 
 export const hireHelp = `
@@ -120,6 +120,7 @@ export interface OrgYaml {
   defaults?: { model?: string; timeout_minutes?: number; mention_timeout_minutes?: number };
   staff?: Array<{ handle: string; dir?: string; name?: string; schedule?: string }>;
   repos?: Array<{ name: string; visibility?: string; role?: string }>;
+  review_gate?: unknown;
 }
 
 export function buildPlan(
@@ -309,7 +310,8 @@ export function buildPlan(
     labels,
     secrets,
     warnings,
-    skipGate: opts.reviewGate === false,
+    // Off unless org.yaml turns it on. See gateOn.
+    skipGate: opts.reviewGate === false || !gateOn(org),
     commits,
   };
 }

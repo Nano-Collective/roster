@@ -34,6 +34,15 @@ export function isPlanLimit(error?: string): boolean {
   return PLAN_LIMIT.test(error ?? "");
 }
 
+/**
+ * Whether the org asked for the gate. Off unless `review_gate: true` is in org.yaml: GitHub
+ * only enforces it on private repos for paid plans, and most orgs running this are not on one,
+ * so a default of on was a warning nobody could clear without paying.
+ */
+export function gateOn(org: { review_gate?: unknown }): boolean {
+  return org.review_gate === true || org.review_gate === "on";
+}
+
 export interface GateVerdict {
   level: "ok" | "warn" | "fail";
   title: string;

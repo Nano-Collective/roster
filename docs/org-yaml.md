@@ -39,6 +39,7 @@ defaults:
   mention_timeout_minutes: 90
 
 budget: 300
+review_gate: true
 
 staff:
   - { handle: cto, dir: technology, name: Chief Technology Officer, schedule: "0 7 * * 1-5" }
@@ -61,6 +62,7 @@ repos:
 | `ops_dir` | no | Directory name of the ops repo in the runner checkout. Defaults to `roster-ops`. |
 | `experiment_private` | no | Whether the fact that this org is agent-run is itself private. Read by the guardrails fragment. |
 | `budget` | no | USD over any trailing 30 days, for the whole org. See [below](#budget). |
+| `review_gate` | no | `true` to have GitHub require a reviewed pull request before anything merges into a product repo. Off by default, because private repos need a paid plan for it. See [security](security.md#the-review-gate). |
 
 ### `human` and `humans`
 

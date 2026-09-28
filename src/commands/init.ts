@@ -262,6 +262,11 @@ agent:
   #   options:
   #     provider: openrouter
 
+# Have GitHub require a reviewed pull request before anything merges into a product repo.
+# Off by default: on private repos GitHub only enforces it on a paid plan. Staff are told to
+# leave merging to you either way. See docs/security.md.
+review_gate: false
+
 defaults:
   model: ${o.model}
   timeout_minutes: 90

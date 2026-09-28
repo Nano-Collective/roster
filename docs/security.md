@@ -55,21 +55,24 @@ The rule: **the default branch of every product repo requires a pull request wit
 approving review, and no staff App is on the list of who may bypass it.** A ruleset or classic
 branch protection both count.
 
-`roster doctor` reads it for every `role: product` repo in `org.yaml` and every repo a staff
+**It is off unless you turn it on**, with `review_gate: true` in `org.yaml`. Without it, staff
+are told to leave merging to you, and on Pip they always have, but GitHub does not stop them.
+Most orgs keep product repos private on the Free plan, where GitHub cannot enforce the rule.
+
+With it on, `roster doctor` reads it for every `role: product` repo in `org.yaml` and every repo a staff
 member `works_in`, as `review-gate`. It fails when nothing requires a PR or a staff App can
 bypass the rule, and warns when a PR is required with no approval, since then whoever opened
 it can merge it.
 
-`roster hire --apply` adds a ruleset named `roster: review before merge` to each product repo
+With it on, `roster hire --apply` adds a ruleset named `roster: review before merge` to each product repo
 that does not already require an approving review, and leaves anything stricter alone. Pass
 `--no-review-gate` to skip it. The ruleset lets repository admins bypass it only by merging a
 pull request, so your own merge is still the approval (GitHub will not let you approve your
 own PR) and an App, which is never an admin, cannot merge at all.
 
 **On GitHub Free, private repos can't have this rule.** GitHub only enforces rulesets and
-branch protection on private repos for paid plans, so `review-gate` warns instead. Make the
-product repo public or move the org to GitHub Team. Until then, staff can merge their own pull
-requests.
+branch protection on private repos for paid plans. To use the gate there, make the product repo
+public or move the org to GitHub Team.
 
 To set it by hand: repo **Settings -> Rules -> Rulesets -> New branch ruleset**, target the
 default branch, tick **Require a pull request before merging** with one required approval, and

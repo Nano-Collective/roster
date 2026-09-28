@@ -58,7 +58,7 @@ function Doctor() {
   const rows = [
     { s: "OK", c: "text-accent", t: "Callers reachable" },
     { s: "OK", c: "text-accent", t: "Agent credential on cto" },
-    { s: "OK", c: "text-accent", t: "Branch protection on product repos" },
+    { s: "OK", c: "text-accent", t: "Actions access on roster-ops" },
     { s: "Unproven", c: "text-orange", t: "cmo-daily has never run" },
     { s: "You", c: "text-blue", t: "Install cmo on your-org/app" },
   ];
@@ -79,7 +79,7 @@ const news: [string, string][] = [
   ["Alerts that survive", "A run or any workflow failing in silence still reaches a person."],
   ["Shared priorities", "org/priorities.md, read by every staff member, named in every pull request."],
   ["Memory budgets", "roster lint names the facts that make a memory too long to boot from."],
-  ["A real review gate", "doctor checks a review is required before merge, and hire sets it up."],
+  ["An optional review gate", "Turn it on and GitHub requires your review before anything merges."],
   ["A faster first hire", "One credential for the org, the App install pre-selected, example charters, and Run once now."],
 ];
 
