@@ -131,13 +131,12 @@ into a world-readable log.
 
 So a mention on a public pull request is decoration. It posts, it renders as a chip, and
 nothing happens, which is safe and also invisible. The portal is what makes it visible and what
-gets you out of it: replying with an `@handle` where nothing listens says so, and **Ask a staff
-member** opens the request on that person's own private tracker instead, carrying the pull
-request and the hunk. It writes through your own `gh`, as you, so no credential lives on the
+gets you out of it: replying with an `@handle` where nothing listens says so, and offers to
+open the request on that person's own private tracker as well, carrying the pull request and
+the hunk. It writes through your own `gh`, as you, so no credential lives on the
 public repo and nothing is dispatched across a boundary.
 
-There was once a forwarder in the product repo that bridged this automatically. It was removed;
-see [concepts](concepts.md#kinds-of-run). If you reinstate one, its author gate is
+If you add a workflow to a product repo that bridges this automatically, its author gate is
 load-bearing. Do not relax it.
 
 ## The loop guard

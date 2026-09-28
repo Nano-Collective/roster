@@ -34,10 +34,8 @@ test/                  one file per area
 module per screen under `js/views/`. `roster portal` serves them from `/assets`, reading each
 file per request. Editing a stylesheet and reloading the page is the whole edit loop.
 
-It was one 2,100-line HTML file until the CSS and the seven screens grew past the point where
-any of them could be found in it. Splitting it needed no bundler, because the browser resolves
-the module graph itself, and a bundler would have been a build step in a tool whose selling
-point is that it does not have one.
+No bundler, because the browser resolves the module graph itself, and a bundler would be a
+build step in a tool whose selling point is that it does not have one.
 
 ```
 templates/portal/
@@ -67,10 +65,9 @@ registers into at boot.
 **Never fix a generated file in a tenant.** `compose.mjs`, `agents.mjs`, `runner-plan.mjs`,
 `inflight.mjs`, `run-record.mjs` and `session.yaml` live in `templates/ops/`. Fix them there and run `roster upgrade`.
 
-This has gone wrong once already. A fix went into `roster-ops/.github/workflows/session.yaml`
-instead of the template and nothing noticed, because the framework had not touched that file
-yet. `roster upgrade` now reports an edit to a framework-owned file whether or not anything has
-collided, and `roster upgrade --check` fails on it.
+A fix made in the tenant's copy goes unnoticed until the framework next touches that file, and
+then it is a conflict. So `roster upgrade` reports an edit to a framework-owned file whether or
+not anything has collided, and `roster upgrade --check` fails on it.
 
 ## Template classes
 
@@ -101,21 +98,19 @@ marker, or the leftover line is stranded.
 
 ## How the tests are meant to work
 
-Three habits, each of which came from a test that was passing vacuously.
+Three habits, each of which guards against a test that passes without testing anything.
 
-**Test the harness, not just the code.** The portal tests set a property on a dead object for
-several rounds, because the state they were driving was a top-level `let` in a classic script
-and not reachable as a global. The state is now an exported object, so the tests import the
-real modules under a DOM shim and there is nothing to get wrong.
+**Test the harness, not just the code.** The portal's state is an exported object, so the tests
+import the real modules under a DOM shim and drive the same state the page does. A test that
+sets a property on something the code never reads cannot fail.
 
-**Run it against reality.** The portal and doctor tests build from the live workspace rather
-than a fixture, so they break when real data grows a shape the code cannot handle. That is how
-the brain-comparison bug was found: every live workflow reported as absent, because filenames
-are templated and the comparison did not render them.
+**Run it against reality when you can.** The suite builds a temporary tenant by default, so it
+runs for anybody who clones the repo. Set `ROSTER_TEST_WORKSPACE=<dir>` to run the portal and
+doctor tests against a real workspace instead, which is how you catch real data growing a shape
+the code cannot handle: templated filenames, for instance, that a comparison forgot to render.
 
 **Mutation-test the invariants.** For anything asserting "this behaviour must not regress",
-break it deliberately and check the test fails. The workflow-template tests were verified this
-way, one mutation each.
+break it deliberately and check the test fails. If it does not, the assertion is decoration.
 
 ## Adding a command
 

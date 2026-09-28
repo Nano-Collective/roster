@@ -15,7 +15,7 @@ sidebar_order: 3
 instructions. Edit it freely: the
 [Org screen](portal.md#org) lists every one of these off disk with an Edit button, and saving
 commits and pushes. A change here reaches everybody on their next run, which is the point: a
-concision rule that used to mean editing twelve files is now one file.
+rule every staff member should follow is one edit, not one per repo.
 
 **Everything else is machinery** and belongs to the framework: `compose.mjs`, `agents.mjs`,
 `runner-plan.mjs`, `.github/workflows/session.yaml`. Editing these works right up until the
@@ -102,21 +102,15 @@ control.
 A `mention` prompt refuses to compose without trigger context, because it is written for the
 comment that woke it. That is correct behaviour, not a bug.
 
-There used to be a third, `pr-mention`: a review comment on the public product repo, forwarded
-into the brain by a workflow in that repo. It was removed. Two repos, a dispatch, a forwarder
-with its own author gate and a second reaction path bought one thing: asking for a change
-without leaving the diff. It cost more than that was worth, in explaining and in debugging.
-
-What replaced it is the reply box. A pull request is on the product repo, and **nothing in a
-product repo wakes anybody**: a staff member's caller workflow is in their own brain repo and
+**Nothing in a product repo wakes anybody.** A pull request is on the product repo, and a staff member's caller workflow is in their own brain repo and
 gates on their `@handle` appearing *there*. So naming somebody in a reply where a comment will
 not reach them offers, under the box, to open the request on their tracker as well. One press
 posts your words on the thread and sends them the pull request, the branch, the hunk you were
 looking at if you started from a file, and an instruction to answer on the pull request rather
 than in the tracker it arrived in.
 
-It is two `gh` calls as you, rather than a workflow, a dispatch and a second gate, which is the
-difference that got the forwarder deleted. See [the portal](portal.md#asking-for-a-change).
+It is two `gh` calls as you, rather than a workflow in the product repo with its own gate and
+its own credential. See [the portal](portal.md#asking-for-a-change).
 
 ## Identities
 

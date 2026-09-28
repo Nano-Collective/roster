@@ -53,7 +53,7 @@ for the org or for one staff member. Past it, `roster doctor` warns (`budget`) a
 screen marks the total.
 
 It is a warning and never a cap. Stopping a session mid-run fails it after the work is done and
-committed, and that was already the reason `--max-turns` was rejected. Use the warning to go and
+committed, which is also why there is no `--max-turns`. Use the warning to go and
 look at which runs cost most and why; the levers are below.
 
 ## GitHub Actions minutes

@@ -58,12 +58,12 @@ ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","repo":"o/r"}' \
 `comment_id`; a mention typed into the body of a *new* issue does not, and there is no comment
 for the agent to fetch. So `compose.mjs` derives `event.no_comment` from the absence, and
 `prompts/mention.md` branches on it: one side points at the comment, the other at the issue
-body. Without that, the first instruction in the prompt was a `gh api .../issues/comments/`
+body. Without that, the first instruction in the prompt would be a `gh api .../issues/comments/`
 call with no id on the end, which 404s.
 
-The second route is the busier one now. It is what the portal's [Ask a staff
-member](portal.md#asking-for-a-change) produces, and those issues often carry a pull request
-that lives somewhere else and say to answer there instead.
+The second route is the busier one. It is what the portal produces when you [ask for a
+change](portal.md#asking-for-a-change), and those issues often carry a pull request that lives
+somewhere else and say to answer there instead.
 
 ## Syntax
 
@@ -124,9 +124,9 @@ the top directories named when there are more.
 and both kinds include it: do not open competing work on files a human branch is changing, and
 raise anything about it on that pull request instead.
 
-It exists because nothing told them. While a person had a long branch open rewriting a
-product's copy, the staff opened five pull requests and nine issues chasing that same copy, and
-four of the pull requests were overtaken by the branch.
+It exists because nothing else tells them. Without it, a person's long-running branch is
+invisible, and the staff open pull requests and issues chasing the same files, which the branch
+then overtakes.
 
 The list is a value, never a template. Titles are a person's words, and a `{{` in one must not
 be able to break composition, so `compose.mjs` reads `.roster-run/inflight.md` and substitutes it

@@ -24,8 +24,8 @@ there too.
 | `guardrails.md` | non-negotiables. What nobody may do, regardless of charter. |
 | `operating.md` | the autonomy contract: the boot ritual, the hand-off, decision rights. |
 
-This is the seam that pays. A concision rule here used to mean editing twelve files across two
-repositories; now it is one file, and the next morning everybody has it.
+This is the seam that pays. A rule written here is one file, and the next morning everybody
+has it.
 
 Keep the split honest. If a rule would be true of every staff member you will ever hire, it
 belongs here. If it is about one role, it belongs in that role's charter.

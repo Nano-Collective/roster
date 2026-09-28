@@ -90,11 +90,9 @@ constrains it is not a thing anybody wants.
 **Is:** you edited a framework-owned file. `compose.mjs`, `agents.mjs`, `runner-plan.mjs` and
 `session.yaml` are generated. The next `roster upgrade` reconciles them against the template.
 
-This happened here: a fix went into `roster-ops/.github/workflows/session.yaml` instead of
-`templates/ops/...`, and nothing noticed because the framework had not touched that file *yet*.
-
-`roster upgrade` now reports an edit to a framework-owned file whether or not anything has
-collided, and `roster upgrade --check` fails on it. Move the change upstream.
+Nothing notices until the framework next touches that file. `roster upgrade` reports an edit
+to a framework-owned file whether or not anything has collided, and `roster upgrade --check`
+fails on it. Move the change upstream.
 
 ---
 
@@ -181,7 +179,7 @@ landed on GitHub thirty seconds ago and the checkout is behind, that is what you
 
 ## `roster upgrade` says a file has no base
 
-A tenant created before the merge base was recorded has nothing to merge against. Reconstruct
+A tenant with no recorded merge base has nothing to merge against. Reconstruct
 one from the framework's history:
 
 ```bash
