@@ -35,7 +35,7 @@ ran at all.
 | `business.stub` | `org/business.md` is still the questions it shipped with. Nothing errors; the agents just write competent work about a business that does not exist. |
 | `priorities` | No `org/priorities.md`. Nothing breaks; each staff member just picks its own direction. See [concepts](concepts.md#priorities). |
 | `priorities.stub` | `org/priorities.md` is still the stub `roster init` wrote. |
-| `actions-access` | **fail** unless the ops repo is callable from the whole organisation. This is the "workflow not found" trap. See [manual steps](manual-steps.md#1-allow-the-ops-repos-workflow-to-be-called). |
+| `actions-access` | **fail** unless the ops repo is callable from the whole organisation. This is the "workflow not found" trap. See [manual steps](manual-steps.md#what-roster-does-for-you). |
 | `workflows` | No workflow in the repo is failing run after run. Reported for the ops repo here, and for each brain repo under its staff member. |
 | `workflows.failing` | **fail.** A workflow that is not one of roster's callers has failed at least its last two runs, with the date it started. Skipped and cancelled runs are stepped over. This is the canary that goes red and stays red, because whatever would have said so broke with it. |
 | `budget` | Trailing 30-day spend against a `budget` in `org.yaml`, for the org here and for a staff member under their name. A warning when it is past, never a failure, and only read when a budget is set. Cost comes from each run's record, so it says how many runs it could price. See [cost](cost.md#budgets). |
@@ -61,7 +61,7 @@ ran at all.
 | `callers.uses` | **fail.** A caller references no reusable workflow, or one in a different organisation. A private reusable workflow is only callable inside its own org. |
 | `callers.target` | **fail.** A caller points at a workflow file that is not in the ops repo. Fails at run time as "workflow not found". |
 | `surfaces` | A surface declared in `staff.yaml` is not on disk. The portal renders nothing for it. |
-| `secrets` | Every secret the callers reference exists on the brain repo. Derived from the callers themselves, not a fixed list. |
+| `secrets` | Every secret the callers reference exists on the brain repo, or is an organisation secret shared with it. Derived from the callers themselves, not a fixed list. |
 | `labels` | Every label declared in `staff.yaml` exists. An agent applying a label that does not exist gets an API error mid-run. |
 | `peer-labels` | The `from-<handle>` label exists on the *peer's* tracker, which is where this staff member's asks land. |
 | `status-issue` | The declared status issue is actually pinned. If not, the place you look is not the place the agent maintains. |

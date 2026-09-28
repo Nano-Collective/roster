@@ -50,9 +50,8 @@ this one degrades the boot cost of every future run.
 
 ## Budgets
 
-Rule 5 used to be prose, and prose is advice. A live org's indexes grew to 44 and 52KB with
-single "one line" facts of nearly 1,000 characters, and its decision logs to 61KB. So
-`roster lint` now warns past three budgets:
+Prose is advice, and an index nobody prunes grows past what a run can usefully read. So
+`roster lint` warns past three budgets:
 
 | Budget | Default | Rule |
 |---|---|---|

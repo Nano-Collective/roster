@@ -53,6 +53,12 @@ The diff is printed either way, so nothing goes quietly.
 If you want a caller to differ, change the thing it is generated from. Timeouts, schedule,
 model and identities all live in `staff.yaml`.
 
+**A caller the framework no longer generates is removed.** It would still dispatch into
+`session.yaml` with a kind that no longer composes, and fail at run time. The plan lists it.
+The one that has gone so far is `<handle>-pr-mention.yaml`; if your tenant is old enough to
+have one, a forwarding workflow in the product repo went with it, and that one is yours to
+delete, because `roster upgrade` never writes into product repos.
+
 ## Conflicts
 
 A conflict is never written into a live file. Agents read `org/voice.md` at every boot, and

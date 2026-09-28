@@ -14,23 +14,42 @@ import {
 } from "../lib/appmanifest.js";
 import { attach, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
+import { accessLink, allowOrgCallers } from "../lib/callable.js";
+import { planCredential, readOrgSecret, writeCredential } from "../lib/credential.js";
 import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
+import { CHARTER_EXAMPLES, matchExample } from "../lib/examples.js";
 import { buildExport } from "../lib/export.js";
 import { api, ghJson, ghReady } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
+import { installTargets, preselectedInstall } from "../lib/install.js";
 import { parsePaste } from "../lib/paste.js";
 import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
 import { isWritable, KINDS, promptView, saveFile, validateOrgYaml } from "../lib/prompt.js";
 import { orgTokens, specFromManifest, tokensFor, toolsOf } from "../lib/render.js";
+import { dailyWorkflow, dispatch, findDispatched, runState } from "../lib/runonce.js";
 import { budgetOf, spend, staffRuns } from "../lib/runs.js";
-import { joinTenant, loadFrameworkComposer, orgHasTenant, setupStatus } from "../lib/setup.js";
+import {
+  AGENTS,
+  joinTenant,
+  loadFrameworkComposer,
+  orgHasTenant,
+  setupStatus,
+} from "../lib/setup.js";
 import { syncRepos } from "../lib/sync.js";
 import { loadComposer, readOrg, tryWorkspace, type Workspace } from "../lib/workspace.js";
 import { portalAsset, portalIndex } from "../portal/assets.js";
+import { withExample } from "./brief.js";
 import { collect } from "./doctor.js";
 import { fixBrief, gather } from "./fix.js";
-import { applyPlan, buildPlan, type Flags, insertUnder, type OrgYaml } from "./hire.js";
+import {
+  agentTokenEnv,
+  applyPlan,
+  buildPlan,
+  type Flags,
+  insertUnder,
+  type OrgYaml,
+} from "./hire.js";
 import { initCommand, initFiles } from "./init.js";
 import { applyRetirePlan, buildRetirePlan } from "./retire.js";
 
@@ -98,7 +117,7 @@ const SEEKABLE = /^(video|audio)\//;
  */
 const pendingApps = new Map<
   string,
-  { spec: AppSpec; brain: string; prefix: string; org: string }
+  { spec: AppSpec; brain: string; prefix: string; org: string; targets: string[] }
 >();
 const appResults = new Map<string, Record<string, unknown>>();
 
@@ -224,13 +243,15 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
       // An App name is unique across GitHub, so the clash is worth catching before a browser
       // is opened rather than after a form is submitted.
+      const targets = installTargets(ws, org, parseYaml, entry.handle, spec);
       const existing = await api<{ slug: string }>(`/apps/${name}`);
       if (existing.ok) {
+        const install = await preselectedInstall(existing.data?.slug ?? name, org.org, targets);
         res.writeHead(409, { "content-type": "application/json" });
         res.end(
           JSON.stringify({
             error: `An App called "${name}" already exists. If it is yours it only needs installing.`,
-            install: `https://github.com/organizations/${org.org}/settings/apps/${name}/installations`,
+            install: install.url,
           }),
         );
         return;
@@ -249,8 +270,83 @@ export async function portalCommand(argv: string[]): Promise<number> {
         brain: spec.brain,
         prefix,
         org: org.org,
+        targets,
       });
       json(res, { state, start: `/setup/app/start?state=${state}` });
+      return;
+    }
+
+    /* The ops repo's Actions access. Read on GET so the page can say it is done without
+       anybody pressing anything; set on a guarded POST, with GitHub's reason and the page to
+       click when it refuses. */
+    if (route === "access") {
+      if (!ws) {
+        refuseWrite(res);
+        return;
+      }
+      const org = readOrg(ws.opsDir, parseYaml).org;
+      const link = accessLink(org, ws.opsName);
+      if (req.method === "POST") {
+        if (!writeAllowed(req)) {
+          refuseWrite(res);
+          return;
+        }
+        json(res, await allowOrgCallers(org, ws.opsName));
+        return;
+      }
+      const now = await api<{ access_level: string }>(
+        `repos/${org}/${ws.opsName}/actions/permissions/access`,
+      );
+      json(res, {
+        ok: now.ok && now.data?.access_level === "organization",
+        level: now.data?.access_level,
+        error: now.ok ? undefined : now.error,
+        link,
+      });
+      return;
+    }
+
+    /* The agent credential, once for the org. The value comes in on a local POST and goes out
+       on gh's stdin: it is never logged, never written, and never echoed back. */
+    if (route === "credential") {
+      if (!ws) {
+        refuseWrite(res);
+        return;
+      }
+      const org = readOrg(ws.opsDir, parseYaml) as OrgYaml;
+      const name = agentTokenEnv(org);
+      const brains = (org.staff ?? []).map((s) => `${org.org}/${s.dir ?? s.handle}`);
+      if (req.method === "POST") {
+        if (!writeAllowed(req)) {
+          refuseWrite(res);
+          return;
+        }
+        const payload = JSON.parse((await body(req)) || "{}") as {
+          value?: string;
+          repoSecrets?: boolean;
+        };
+        const plan = await planCredential(org.org, name, brains, {
+          repoSecrets: payload.repoSecrets === true,
+        });
+        try {
+          json(res, { ok: true, ...(await writeCredential(plan, String(payload.value ?? ""))) });
+        } catch (err) {
+          json(res, { ok: false, error: (err as Error).message });
+        }
+        return;
+      }
+      const agentId = String((org as any).agent?.id ?? (org as any).agent ?? "claude-code-action");
+      const [plan, orgSecret] = await Promise.all([
+        planCredential(org.org, name, brains),
+        readOrgSecret(org.org, name),
+      ]);
+      json(res, {
+        name,
+        brains,
+        plan,
+        orgSecret,
+        howTo: AGENTS.find((a) => a.id === agentId)?.howTo,
+      });
       return;
     }
 
@@ -537,10 +633,13 @@ export async function portalCommand(argv: string[]): Promise<number> {
                saying so is the difference between a puzzling failure and a known one. */
             await setSecret(pending.brain, `${pending.prefix}_APP_ID`, String(app.id));
             await setSecret(pending.brain, `${pending.prefix}_APP_PRIVATE_KEY`, app.pem);
+            const install = await preselectedInstall(app.slug, pending.org, pending.targets);
             appResults.set(state, {
               ok: true,
               slug: app.slug,
-              install: `https://github.com/organizations/${pending.org}/settings/apps/${app.slug}/installations`,
+              install: install.url,
+              preselected: install.preselected,
+              missing: install.missing,
             });
             res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
             res.end(
@@ -707,10 +806,12 @@ export async function portalCommand(argv: string[]): Promise<number> {
           const flags = hireFlags(url.searchParams);
           const plan = buildPlan(w, org as OrgYaml, handle, flags, parseYaml);
           // The file bodies are megabytes of scaffold nobody reads in a plan. Names only.
-          json(res, {
-            action,
-            plan: { ...plan, files: [...plan.files.keys()].sort() },
-          });
+          void readOrgSecret(org.org, plan.staff.agentSecret).then((orgSecret) =>
+            json(res, {
+              action,
+              plan: { ...plan, orgSecret, files: [...plan.files.keys()].sort() },
+            }),
+          );
         } catch (err) {
           res.writeHead(400, { "content-type": "application/json" });
           res.end(JSON.stringify({ error: String((err as Error).message) }));
@@ -757,6 +858,47 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* One daily run, now. The repo and the workflow come from the staff member's own
+         manifest, never from the request, so this can start nothing but a daily run. */
+      if (url.pathname === "/api/run/start" || url.pathname === "/api/run/state") {
+        const starting = url.pathname === "/api/run/start";
+        if (starting && !writeAllowed(req)) {
+          refuseWrite(res);
+          return;
+        }
+        (async () => {
+          const payload = starting
+            ? (JSON.parse((await body(req)) || "{}") as { staff?: string })
+            : { staff: url.searchParams.get("staff") ?? "" };
+          const org = readOrg(w.opsDir, parseYaml);
+          const entry = (org.staff ?? []).find((x) => x.handle === payload.staff);
+          if (!entry) throw new Error(`no staff member "${payload.staff}"`);
+          const dir = entry.dir ?? entry.handle;
+          const brain = specFromManifest(
+            parseYaml(readFileSync(join(w.root, dir, "staff.yaml"), "utf8"), "staff.yaml") as any,
+            dir,
+          ).brain;
+          const workflow = dailyWorkflow(entry.handle);
+          if (!starting) {
+            json(res, await runState(brain, Number(url.searchParams.get("id"))));
+            return;
+          }
+          const since = Date.now();
+          const started = await dispatch(brain, workflow);
+          if (!started.ok) throw new Error(`could not start ${workflow}: ${started.error}`);
+          const run = await findDispatched(brain, workflow, since);
+          json(res, {
+            ok: true,
+            id: run?.databaseId,
+            url: run?.url ?? `https://github.com/${brain}/actions/workflows/${workflow}`,
+          });
+        })().catch((err) => {
+          res.writeHead(400, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+        });
+        return;
+      }
+
       /* A prompt you paste into your own AI to change what this agent is told. It carries
          the composed text and every layer, because knowing which of eight files to open is
          the hard part and a brief that asks for them has handed that back. */
@@ -779,8 +921,20 @@ export async function portalCommand(argv: string[]): Promise<number> {
         const kind = url.searchParams.get("kind") ?? "";
         const handle = url.searchParams.get("staff") ?? "";
         try {
-          const brief = buildPasteBrief(w, parseYaml, kind, handle);
-          json(res, { kind, text: brief.text, targets: brief.targets.map((t) => t.path) });
+          const brief = buildPasteBrief(
+            w,
+            parseYaml,
+            kind,
+            handle,
+            url.searchParams.get("example") ?? undefined,
+          );
+          json(res, {
+            kind,
+            text: brief.text,
+            targets: brief.targets.map((t) => t.path),
+            example: brief.example,
+            examples: kind === "charter" ? [...CHARTER_EXAMPLES, "none"] : undefined,
+          });
         } catch (err) {
           res.writeHead(400, { "content-type": "application/json" });
           res.end(JSON.stringify({ error: String((err as Error).message) }));
@@ -1357,6 +1511,7 @@ function buildPasteBrief(
   parseYaml: (t: string, f?: string) => Record<string, unknown>,
   kind: string,
   handle: string,
+  example?: string,
 ) {
   if (!pasteable(kind)) throw new Error(`there is no paste-mode brief for "${kind}"`);
   const org = readOrg(ws.opsDir, parseYaml);
@@ -1381,7 +1536,11 @@ function buildPasteBrief(
   }
 
   const peers = staff.map((s) => s.dir ?? s.handle).filter((d) => d !== dir);
-  return pasteBrief(ws, kind, renderBrief(briefTemplate(kind), tokens), { dir, peers });
+  let rendered = renderBrief(briefTemplate(kind), tokens);
+  const chosen =
+    kind === "charter" ? (example ?? matchExample(handle, tokens.NAME ?? "") ?? "none") : undefined;
+  if (chosen) rendered = withExample(rendered, handle, tokens.NAME ?? "", chosen);
+  return { ...pasteBrief(ws, kind, rendered, { dir, peers }), example: chosen };
 }
 
 /**

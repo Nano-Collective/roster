@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { appCommand, appHelp } from "./commands/app.js";
 import { briefCommand, briefHelp } from "./commands/brief.js";
+import { credentialCommand, credentialHelp } from "./commands/credential.js";
 import { doctorCommand, doctorHelp } from "./commands/doctor.js";
 import { exportCommand, exportHelp } from "./commands/export.js";
 import { fixCommand, fixHelp } from "./commands/fix.js";
@@ -10,6 +11,7 @@ import { lintCommand, lintHelp } from "./commands/lint.js";
 import { portalCommand, portalHelp } from "./commands/portal.js";
 import { promptCommand, promptHelp } from "./commands/prompt.js";
 import { retireCommand, retireHelp } from "./commands/retire.js";
+import { runCommand, runHelp } from "./commands/run.js";
 import { upgradeCommand, upgradeHelp } from "./commands/upgrade.js";
 
 const HELP = `
@@ -24,6 +26,8 @@ roster — an agent-run org, powered by GitHub
   roster fix                every finding, as one brief for your coding agent
   roster hire <handle>      scaffold a new staff member
   roster app <handle>       create their GitHub App and set its secrets
+  roster credential         store the agent's credential, once for the org
+  roster run <handle>       start one daily run now, and follow it to the end
   roster retire <handle>    stop a staff member, keeping their repo and their memory
   roster upgrade            carry framework changes into this tenant
   roster portal             browse every brain, locally
@@ -42,6 +46,8 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   fix: fixCommand,
   hire: hireCommand,
   app: appCommand,
+  credential: credentialCommand,
+  run: runCommand,
   retire: retireCommand,
   portal: portalCommand,
   export: exportCommand,
@@ -57,6 +63,8 @@ const HELPS: Record<string, string> = {
   fix: fixHelp,
   hire: hireHelp,
   app: appHelp,
+  credential: credentialHelp,
+  run: runHelp,
   retire: retireHelp,
   portal: portalHelp,
   export: exportHelp,

@@ -6,8 +6,8 @@
  * it is one browser, one origin, and nothing extra to explain.
  *
  * What it still cannot do is install the App. Installing is a grant of access to specific
- * repositories and GitHub asks a human to choose them, which is correct behaviour and should not
- * be worked around. */
+ * repositories and GitHub asks a human to confirm them, which is correct behaviour and should not
+ * be worked around. The link it hands back has the right repos already selected. */
 
 import { appResult, startApp } from "../api.js";
 import { el } from "../dom.js";
@@ -48,6 +48,11 @@ export function appPanel(opts) {
          it: an App that exists is not a problem, it is a step you have already done. */
       const note = el("div");
       note.append(el("p", { className: "err", textContent: String(err.message || err) }));
+      if (err.data?.install) {
+        note.append(
+          el("a", { className: "btn", href: err.data.install, target: "_blank", textContent: "Install it" }),
+        );
+      }
       out.replaceChildren(note);
       return;
     }
@@ -102,9 +107,21 @@ export function appPanel(opts) {
         el("p", {
           className: "sub",
           textContent:
-            "Grant it every tracker this staff member writes to, not just their own: the token " +
-            "is minted organisation-wide and a peer's board is where a brief lands.",
+            "The link opens GitHub's install page with the org and the repos already selected: " +
+            "this staff member's brain, every peer tracker it writes to, and the product repos. " +
+            "Check the list and confirm.",
         }),
+        ...((result.preselected ?? []).length
+          ? [el("p", { className: "sub", textContent: "Selected: " + result.preselected.join(", ") })]
+          : []),
+        ...((result.missing ?? []).length
+          ? [
+              el("p", {
+                className: "err",
+                textContent: "Tick these yourself, their ids could not be read: " + result.missing.join(", "),
+              }),
+            ]
+          : []),
         el("a", {
           className: "btn primary",
           href: result.install,
@@ -115,7 +132,8 @@ export function appPanel(opts) {
           className: "sub",
           textContent:
             "Do not verify this by reading the API. It reports what an App declares separately " +
-            "from what an installation was granted. Only a run that finished proves the chain.",
+            "from what an installation was granted. Only a run that finished proves the chain, " +
+            "which is what Run once now on the staff card is for.",
         }),
       );
       out.replaceChildren(done);

@@ -18,10 +18,9 @@ Keep the repos checked out beside each other, in the same shape the runner uses.
 
 ## The sidebar
 
-**The counts are right on load.** The badges beside Inbox and Pending work used to fill in only
-once something caused a render with an inbox already loaded, which in practice meant "after you
-visit the Inbox". A sidebar that says nothing until you look at it is not a sidebar. The page
-now asks once at boot, and the Inbox screen shares that request rather than making a second one.
+**The counts are right on load.** The badges beside Inbox and Pending work are fetched once at
+boot, and the Inbox screen shares that request rather than making a second one. A sidebar that
+says nothing until you look at it is not a sidebar.
 
 While the first answer is outstanding the badge is a placeholder rather than blank, because an
 empty badge reads as zero and zero is a different claim from "still counting". The screens
@@ -50,9 +49,15 @@ It asks GitHub which of two things this is:
   nothing is written until you apply. Same `initFiles` the CLI runs, so the browser and the
   terminal cannot disagree about what a new tenant contains.
 
-Then: the Actions setting, deep-linked to the exact page with the failure it causes if skipped;
-which repos the staff work in, as a picker over what your `gh` can see minus what `org.yaml`
-already has; and a prompt for writing `org/business.md`.
+Then what is left. **The Actions setting**, read on arrival: if it is not set, *Set it for me*
+asks GitHub to set it, and a refusal comes back with GitHub's reason and a link to the page to
+click. **The agent credential**: a paste box, a line on where your agent's credential comes from,
+and where it will be stored (one org secret shared with the brains, or each brain where an org
+secret would not arrive, with the reason). The value goes to the local server in a POST and from
+there to `gh` on standard input; it is never written to disk or echoed back. Until somebody is
+hired the box says so, because nothing would read it. Then which repos the staff work in, as a
+picker over what your `gh` can see minus what `org.yaml` already has, and a prompt for writing
+`org/business.md`.
 
 Nothing here stores which step you are on. Setup takes days rather than minutes: an App has to be
 installed, a credential set, a first run finished. So the page derives its state from `roster
@@ -80,9 +85,8 @@ down with the list, so opening a thread is a render rather than a request.
   silently doing nothing.
 - **A new issue asks one question: who is it for.** One dropdown, over the staff. It goes to
   that person's brain repo and their `@handle` is written into the body for you, because those
-  are the two things that make an issue reach an agent rather than sit there. It used to ask
-  for a staff member *and* a repo, which let you set the pair to a combination that woke
-  nobody. To file in a product repo instead, use GitHub: this form is for asking the staff for
+  are the two things that make an issue reach an agent rather than sit there. Asking for a
+  repo as well would let you pick a pair that wakes nobody. To file in a product repo instead, use GitHub: this form is for asking the staff for
   something.
 - **Labels are the repo's own, as toggles.** They are the labels that exist on the recipient's
   repository, fetched from GitHub and cached. A text box was a spelling test: `from-cmo` and
@@ -149,8 +153,7 @@ of every repo to show one of them is the wrong trade.
 second decision and not this button's to make. It runs `gh pr merge` as you, so a protected
 branch, a failing required check or a merge queue behaves exactly as it would on the site.
 
-**It does not ask how.** There used to be a squash / merge commit / rebase dropdown beside it.
-That is a question about git rather than about the pull request in front of you, the repository
+**It does not ask how.** Squash, merge commit or rebase is a question about git rather than about the pull request in front of you, the repository
 has already answered it in its own settings, and on any given repository most of the answers are
 wrong. So the repository is asked instead: squash where it is allowed, then a merge commit, then
 rebase.
@@ -160,8 +163,8 @@ rebase.
 **`@cto` on a pull request wakes nobody.** A staff member's caller workflow lives in their own
 brain repo and gates on their handle appearing *there*; on a product repo the same mention
 posts, renders as a chip, and does nothing. That is deliberate, for the reasons in
-[security](security.md#trust-in-a-prompt), and it used to be silent, which is worse than the
-restriction itself.
+[security](security.md#trust-in-a-prompt). Saying so out loud is the portal's job, because a
+silent no-op is worse than the restriction itself.
 
 **Reply is the one box, and it handles this.** Name somebody in a reply where a comment will
 not reach them and the offer appears under the box, ticked: *open it on their tracker too*. One
@@ -182,11 +185,6 @@ so a handle you typed and then deleted is not asked.
 On the **Files** tab each file's heading has its own Reply, which opens the same box about that
 one file. "This bit is wrong" is what you want to say while looking at a diff, and the
 alternative is describing in prose which of thirty files you meant.
-
-There was briefly a second button up here called *Ask a staff member*. It did almost the same
-thing as Reply, differing mainly in making you pick a name from a dropdown rather than typing
-it, and nothing on the page said which one you wanted. Two ways to do one thing is worse than
-either of them.
 
 Both writes go through your own `gh`, as you. Nothing is dispatched between repositories and no
 credential is put on a public repo. The tracker issue goes first, because it is the half that
@@ -219,9 +217,8 @@ prompt files in `prompts/`, each with a line saying what it is for, because a fi
 you nothing about which to open. Anything roster does not ship falls back to its own first
 heading.
 
-**The list comes off disk**, not out of the page. It used to be five paths written into the
-portal, so a tenant that added `org/pricing.md` could not open it at all and one that had not
-written `org/business.md` yet got "not found" with nothing to do about it. Only files the
+**The list comes off disk**, not out of the page, so a tenant that adds `org/pricing.md` can
+open it like any other. Only files the
 portal may actually write are listed: an editor that offers a file it cannot save is a trap.
 
 Every one of them is editable from the screen it is read on: an **Edit** button on the file,
@@ -244,18 +241,20 @@ have more than one human, and a card that names one of two reads as the only one
 
 ## Staff
 
-Everyone on the roster, and the four things you could previously only do from a terminal.
+Everyone on the roster, and the things you would otherwise do from a terminal.
 
 **Hiring** runs the same `buildPlan` and `applyPlan` that `roster hire` does, on the server.
 Only the handle is required; everything else is copied from whoever is already here. You see
-the plan first, listing every file, every label, the schedule it chose and why, and the manual
-steps it cannot do for you. Nothing happens until you apply. What the terminal would have
-printed is shown when it finishes.
+the plan first, listing every file, every label, the schedule it chose and why, the commits it
+will make as you in repos that already exist (each peer's `staff.yaml`, `org.yaml`), whether the
+new brain joins the credential's org secret, and what is left for you. Nothing happens until you
+apply. What the terminal would have printed is shown when it finishes.
 
 **Writing the charter** is the copy-a-prompt loop below, aimed at `CHARTER.md`. `hire`
 deliberately does not write it, because a generated charter produces exactly the generic agent
-this whole arrangement exists to avoid. So this is the route that was previously `roster brief
-charter <handle>` and a terminal.
+this whole arrangement exists to avoid. It is the same brief as `roster brief charter
+<handle>`, with somewhere to put the answer, and a picker for the worked example it carries as a
+model: matched to the role, or another, or none.
 
 **The GitHub App** is `roster app`, on this server rather than a second one. There is no API that
 creates an App: the only route is the manifest flow, where you post a manifest to a settings page,
@@ -265,9 +264,17 @@ one origin. The private key is still held in memory and written straight to a re
 
 GitHub redirects the tab *it* opened, not the one you clicked from, so the original polls for the
 result. What it cannot do is install the App: that is a grant of access to specific repositories
-and GitHub asks a human to choose them, which is correct and should not be worked around. The panel
-says so loudly, and says to grant every tracker the staff member writes to rather than only their
-own.
+and GitHub asks a person to confirm it, which is correct and should not be worked around. So the
+panel's **Install it** opens the install page with the org and the repos already selected: the
+brain, every peer tracker it writes to, and the product repos. Any whose id could not be read are
+listed for you to tick.
+
+**Agent credential** is the setup screen's paste box, reachable from each card, because the
+moment you look for it is while setting somebody up. It is once for the org.
+
+**Run once now** starts the daily workflow, follows it, and shows how it ended with the log's
+link and, on a failure, the step it failed at. It asks first, because it is a real run. A success
+is what turns doctor's *unproven* into proven. Health has the same button.
 
 **Retiring** is `roster retire`, and it is deliberately not deletion. A brain repo is that
 agent's entire memory and there is no undo, so retiring disables the workflows, unwires them
@@ -303,8 +310,8 @@ rather than going nowhere.
 
 ## Prompt
 
-**What this staff member is actually sent**, which was previously only reachable through
-`roster prompt <handle> --kind daily` in a terminal. Composed on the server by the tenant's own
+**What this staff member is actually sent**, the same as `roster prompt <handle> --kind daily`.
+Composed on the server by the tenant's own
 `compose.mjs`, so there is no second implementation to drift.
 
 Pick the kind: `daily` or `mention`. A mention prompt is written for the comment

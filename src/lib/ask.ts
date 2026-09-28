@@ -4,12 +4,10 @@
  * A pull request lives in the product repo. Nothing in the product repo wakes an agent, and
  * deliberately so: a run started from a public comment executes with repository secrets, and a
  * run that prints a charter and a chain of reasoning would print it into a world-readable log.
- * The `pr-mention` forwarder that once bridged that gap was removed for costing more than it
- * bought — see docs/concepts.md.
  *
- * What it left behind was a round trip: read the diff, leave the thread, open an issue on the
- * right tracker, retype the context, paste the link. This module is that round trip, composed
- * once, so the portal can do it from where you are already standing.
+ * So asking a staff member about a PR is a round trip: read the diff, leave the thread, open an
+ * issue on the right tracker, retype the context, paste the link. This module is that round
+ * trip, composed once, so the portal can do it from where you are already standing.
  *
  * Everything here is a pure function over text. The writing is `act()`'s job, through the
  * human's own `gh` — which already reaches both repositories, which is exactly why this needs

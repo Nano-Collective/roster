@@ -22,8 +22,10 @@ a coding agent, split into what an agent can fix and what only a person can. `ro
 
 **Is:** the ops repo's Actions access is not set to organisation-wide.
 
-Settings -> Actions -> General on `roster-ops`. The setup screen deep-links that exact page,
-which is the fastest way to fix it; Health and `roster doctor` both check it explicitly.
+`roster init --apply` sets it, and so does *Set it for me* on the setup screen. If GitHub
+refused (it needs admin on the ops repo), set it by hand: Settings -> Actions -> General ->
+Access on `roster-ops`, "accessible from repositories in the organisation". Health and `roster
+doctor` both check it explicitly.
 
 ---
 
@@ -90,11 +92,9 @@ constrains it is not a thing anybody wants.
 **Is:** you edited a framework-owned file. `compose.mjs`, `agents.mjs`, `runner-plan.mjs` and
 `session.yaml` are generated. The next `roster upgrade` reconciles them against the template.
 
-This happened here: a fix went into `roster-ops/.github/workflows/session.yaml` instead of
-`templates/ops/...`, and nothing noticed because the framework had not touched that file *yet*.
-
-`roster upgrade` now reports an edit to a framework-owned file whether or not anything has
-collided, and `roster upgrade --check` fails on it. Move the change upstream.
+Nothing notices until the framework next touches that file. `roster upgrade` reports an edit
+to a framework-owned file whether or not anything has collided, and `roster upgrade --check`
+fails on it. Move the change upstream.
 
 ---
 
@@ -181,7 +181,7 @@ landed on GitHub thirty seconds ago and the checkout is behind, that is what you
 
 ## `roster upgrade` says a file has no base
 
-A tenant created before the merge base was recorded has nothing to merge against. Reconstruct
+A tenant with no recorded merge base has nothing to merge against. Reconstruct
 one from the framework's history:
 
 ```bash

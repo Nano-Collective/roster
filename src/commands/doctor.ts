@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { accessLink } from "../lib/callable.js";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { parseMemory } from "../lib/memory.js";
@@ -749,8 +750,10 @@ async function checkOrgOnline(ws: Workspace, org: OrgFile): Promise<Finding[]> {
       id: "actions-access",
       title: `${ws.opsName} Actions access is "${access.data!.access_level}", not "organization"`,
       fix:
-        `Settings → Actions → General → allow access from repositories in this organisation. ` +
-        `Until then every caller fails with "workflow not found".`,
+        `Until this is set every caller fails with "workflow not found". The setup screen's ` +
+        `button sets it, or run: gh api -X PUT repos/${org.org}/${ws.opsName}/actions/permissions/access ` +
+        `-f access_level=organization. Refused? ${accessLink(org.org, ws.opsName)} → Access → ` +
+        `accessible from repositories in the organisation.`,
     });
   } else {
     out.push({
@@ -812,8 +815,12 @@ async function checkStaffOnline(
     for (const m of c.text.matchAll(/secrets\.([A-Z0-9_]+)/g)) needed.add(m[1]!);
   }
 
-  const [secrets, labels, runs, pinned, workflows] = await Promise.all([
+  const [secrets, orgSecrets, labels, runs, pinned, workflows] = await Promise.all([
     api<{ secrets: Array<{ name: string }> }>(`repos/${repo}/actions/secrets`),
+    /* An agent credential kept once for the org, and shared with this repo, is as good as one
+       on the repo: Actions resolves `secrets.X` from either. Read separately because the two
+       live behind different endpoints, and a repo with no org secrets is the common case. */
+    api<{ secrets: Array<{ name: string }> }>(`repos/${repo}/actions/organization-secrets`),
     api<Array<{ name: string }>>(`repos/${repo}/labels?per_page=100`),
     Promise.all(
       callers.map((c) =>
@@ -855,7 +862,9 @@ async function checkStaffOnline(
     });
   } else {
     const have = new Set(secrets.data!.secrets.map((s) => s.name));
-    const gone = [...needed].filter((n) => !have.has(n));
+    const shared = new Set(orgSecrets.ok ? orgSecrets.data!.secrets.map((s) => s.name) : []);
+    const gone = [...needed].filter((n) => !have.has(n) && !shared.has(n));
+    const fromOrg = [...needed].filter((n) => !have.has(n) && shared.has(n));
     out.push(
       gone.length
         ? {
@@ -863,13 +872,17 @@ async function checkStaffOnline(
             level: "fail",
             id: "secrets",
             title: `missing on ${repo}: ${gone.join(", ")}`,
-            fix: "The callers reference these by name; a run dies at the token step without them.",
+            fix:
+              "The callers reference these by name; a run dies at the token step without them. " +
+              "An App's pair comes from roster app; the agent credential from roster credential.",
           }
         : {
             scope,
             level: "ok",
             id: "secrets",
-            title: `all ${needed.size} referenced secrets present`,
+            title:
+              `all ${needed.size} referenced secrets present` +
+              (fromOrg.length ? `, ${fromOrg.join(", ")} shared from the org` : ""),
           },
     );
   }
@@ -994,7 +1007,9 @@ async function checkStaffOnline(
         level: "warn",
         id: "runs",
         title: `${name} has never run, so nothing has proved its app grant or secrets`,
-        fix: "Trigger it once by hand before trusting it.",
+        fix: name.endsWith("-daily.yaml")
+          ? `Run it once before trusting it: roster run ${scope} --apply, or Run once now on the staff card.`
+          : "Run the daily workflow once; a finished run in this repo proves the grant for both.",
       });
       continue;
     }
@@ -1014,7 +1029,7 @@ async function checkStaffOnline(
               title: `${name}: ${all.length} recent triggers, all gated out before doing anything`,
               fix:
                 "Nothing in this repo has exercised the app grant. A skipped run proves only " +
-                "the trigger, so trigger one workflow here by hand before trusting any of them.",
+                `the trigger. Run it once before trusting any of them: roster run ${scope} --apply.`,
             },
       );
       continue;

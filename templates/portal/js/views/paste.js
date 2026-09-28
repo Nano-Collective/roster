@@ -20,6 +20,12 @@ export function paste(opts) {
   const status = el("p", { className: "sub", textContent: "Building the prompt…" });
   box.append(status);
 
+  /* A charter brief carries a worked example to model the shape on, matched to the role. The
+     choice is on the page because the match is a guess, and "none" is a fair answer. */
+  const model = el("select", { hidden: true });
+  const modelRow = el("label", { className: "sub", hidden: true }, ["Model it on: ", model]);
+  box.append(modelRow);
+
   const actions = el("div", { className: "row" });
   const copy = el("button", { className: "btn primary", textContent: "Copy the prompt" });
   const show = el("button", { className: "btn", textContent: "Show it" });
@@ -42,10 +48,33 @@ export function paste(opts) {
 
   let brief = null;
 
+  const NAMES = { cto: "the CTO example", cmo: "the CMO example", support: "the support example", none: "no example" };
+  model.onchange = () => {
+    copy.disabled = true;
+    getBrief(opts.kind, opts.staff, model.value)
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        brief = data;
+        if (!preview.hidden) preview.textContent = brief.text;
+      })
+      .catch((err) => {
+        status.className = "err";
+        status.textContent = String(err.message || err);
+      })
+      .finally(() => {
+        copy.disabled = false;
+      });
+  };
+
   getBrief(opts.kind, opts.staff)
     .then((data) => {
       if (data.error) throw new Error(data.error);
       brief = data;
+      if (data.examples) {
+        model.replaceChildren(...data.examples.map((e) => el("option", { value: e, textContent: NAMES[e] ?? e })));
+        model.value = data.example ?? "none";
+        model.hidden = modelRow.hidden = false;
+      }
       status.textContent =
         "Paste this into Claude, ChatGPT or anything else. It carries every file it refers to, " +
         "so there is nothing to attach and nothing for it to ask you for. It will interview you " +

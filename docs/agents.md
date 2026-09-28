@@ -169,15 +169,21 @@ works, and Health, or `roster doctor`, checks all three.
 | `codex` | an API key from the OpenAI platform console. `codex login` is for interactive use and does not produce something a runner can hold. |
 | `nanocoder` | whatever the provider you point it at wants. Nanocoder is a client, not a model: the key belongs to the provider in `agents.config.json`. |
 
-### 2. It is a secret on every brain repo, under the right name
+### 2. Every brain repo can read it, under the right name
 
-Each staff member's caller workflow reads the secret **from their own repo**, so the credential
-goes on each brain, not on the ops repo:
+Each staff member's caller workflow reads the secret in their own repo's context, so every brain
+needs it: as an organisation secret shared with the brains, or as a secret on each one. `roster
+credential` does either, and says which and why:
 
 ```bash
-gh secret set CODEX_API_KEY --repo playpip/technology --body "$KEY"
-gh secret set CODEX_API_KEY --repo playpip/marketing  --body "$KEY"
+roster credential --apply        # paste it at the prompt; it is not echoed
 ```
+
+By default it is one org secret, shared with each brain, and `roster hire` adds every new brain
+to it. It uses a secret per repo where an org secret would not arrive: on GitHub Free an org
+secret does not reach a private repo, and only an org owner can set one. The portal has the same
+as **Agent credential**. The value goes to `gh` on standard input, never on a command line, so it
+does not end up in shell history or the process table.
 
 The name is the preset's `token_env`, and it is the same name the caller references. If you
 override `token_env`, the callers have to be regenerated so they reference the new name:
@@ -196,7 +202,7 @@ from `$AGENT_MODEL`. `nanocoder` needs a providers file, below.
 
 ```bash
 roster doctor                    # secrets present, callers reachable, prompts compose
-gh workflow run cto-daily.yaml --repo playpip/technology
+roster run cto --apply           # one run, followed to the end
 ```
 
 Read the log of that first run rather than waiting for the schedule. What goes wrong is
@@ -223,8 +229,7 @@ defaults:
 
 ```bash
 claude setup-token            # prints a long-lived token
-gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo acme/technology --body "$TOKEN"
-gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo acme/marketing  --body "$TOKEN"
+roster credential --apply     # stores it as CLAUDE_CODE_OAUTH_TOKEN for every brain
 ```
 
 Nothing else. No file in the brain repos, no per-staff config.
@@ -242,8 +247,7 @@ defaults:
 ```
 
 ```bash
-gh secret set CODEX_API_KEY --repo acme/technology --body "$OPENAI_KEY"
-gh secret set CODEX_API_KEY --repo acme/marketing  --body "$OPENAI_KEY"
+roster credential --apply     # stores the OpenAI key as CODEX_API_KEY
 roster upgrade --apply        # repoints the callers at the new secret name
 ```
 
@@ -283,8 +287,7 @@ defaults:
 ```
 
 ```bash
-gh secret set NANOCODER_API_KEY --repo acme/technology --body "$OPENROUTER_KEY"
-gh secret set NANOCODER_API_KEY --repo acme/marketing  --body "$OPENROUTER_KEY"
+roster credential --apply     # stores the provider's key as NANOCODER_API_KEY
 roster upgrade --apply
 ```
 
@@ -461,11 +464,11 @@ that only edits files and cannot run commands will produce a run that changes no
 ## Changing agent on a live org
 
 1. Set `agent:` in `org.yaml`.
-2. Put the new credential on each brain repo, named as `token_env`
-   (`gh secret set CODEX_API_KEY --repo <org>/<brain> --body "$KEY"`).
+2. Store the new credential under its `token_env` name: `roster credential --apply`, which
+   reads the name from `org.yaml`.
 3. `roster upgrade --apply`, then commit and push the regenerated callers. This is what
    repoints them at the new secret name; skipping it leaves every run reaching for the old one.
-4. Trigger one run by hand and read the log before trusting the schedule.
+4. `roster run <handle> --apply`, and read the log before trusting the schedule.
 
 The old secret can stay where it is until the new agent has had a clean run. Nothing reads it
 once the callers have been regenerated, and it is the fastest way back if the first run is bad.

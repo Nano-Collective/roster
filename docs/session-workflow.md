@@ -14,8 +14,8 @@ A caller is about forty lines and does nothing but pass arguments.
 ## Why it lives in the tenant
 
 A reusable workflow in a **private** repo can only be called from inside its own organisation.
-A tenant therefore cannot call the framework's copy. That constraint is what forced the whole
-design, and it turned out better: the framework is never a runtime dependency, so nothing
+A tenant therefore cannot call the framework's copy. That constraint shapes the whole
+design, and it is the better one anyway: the framework is never a runtime dependency, so nothing
 breaks if it moves, goes private, or is deleted.
 
 This is also why `roster-ops` needs **Settings -> Actions -> General -> accessible from

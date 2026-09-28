@@ -63,8 +63,9 @@ Three habits, each of which came from a test that was passing without testing an
 **Test the harness, not just the code.** The portal tests once set a property on an unreachable
 object for several rounds. If a test cannot fail, it is not a test.
 
-**Run against reality where you can.** The portal and doctor suites build from a live workspace
-rather than a fixture, so they break when real data grows a shape the code cannot handle.
+**Run against reality where you can.** The suite builds a temporary tenant by default. Set
+`ROSTER_TEST_WORKSPACE=<dir>` to run the portal and doctor suites against a real workspace
+too, which is what catches real data growing a shape the code cannot handle.
 
 **Mutation-test the invariants.** For anything asserting "this must not regress", break it
 deliberately and check the test fails. If it does not, the assertion is decoration.

@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { allowOrgCallers } from "../lib/callable.js";
 import { api, ghReady } from "../lib/gh.js";
 import { briefCommands } from "../lib/render.js";
 import { opsTemplateDir, templateFiles } from "../lib/templates.js";
@@ -27,6 +28,9 @@ roster init --org <github-org> [--name "Acme"] [--human <login>] [--apply]
   --agent <id>      coding agent: claude-code-action (default), claude, codex, nanocoder,
                     or any id you describe yourself in org.yaml.
   --apply           actually create it
+
+  With --apply it also sets the ops repo's Actions access so every repo in the org can call
+  its workflow. If your gh cannot, it says why and prints the settings page to click.
 
   After this: \`roster hire <handle>\` for the first staff member, then \`roster app <handle>\`.
 `;
@@ -65,16 +69,23 @@ export async function initCommand(argv: string[]): Promise<number> {
   process.stdout.write(`\n  ${files.size} files, plus .roster/seed as the merge base\n`);
   for (const rel of [...files.keys()].sort()) process.stdout.write(`    + ${rel}\n`);
 
+  /* Said in the plan, not discovered in the output: it is a write to a setting on GitHub, and
+     the one whose absence fails most confusingly. */
+  process.stdout.write(
+    `\n  on GitHub\n` +
+      `    + ${opts.org}/${opsName}, private\n` +
+      `    + its Actions access set to "accessible from repositories in the organisation", so\n` +
+      `      every brain can call its workflow. If GitHub refuses, you get the reason and the\n` +
+      `      settings page to click instead.\n`,
+  );
+
   process.stdout.write(
     `\n  then, in order\n` +
-      `    1. Settings → Actions → General on ${opsName}: allow access from repositories in\n` +
-      `       this organisation. Callers cannot see the reusable workflow until you do, and the\n` +
-      `       failure reads as "workflow not found" rather than as a permission.\n` +
-      `    2. Put your agent's credential on each brain repo as you create it. Which secret\n` +
-      `       that is depends on the runner: roster help agents, or docs/agents.md.\n` +
-      `    3. Write org/business.md. Everything the agents say is downstream of it.\n` +
-      `    4. Write org/priorities.md: what matters this month, ranked, and what does not.\n` +
-      `    5. roster hire <handle> --apply   then   roster app <handle> --apply\n\n`,
+      `    1. Write org/business.md and org/priorities.md. Everything the agents say is\n` +
+      `       downstream of them: roster brief discover\n` +
+      `    2. roster hire <handle> --apply   then   roster app <handle> --apply\n` +
+      `    3. roster credential --apply      your agent's credential, once for the org\n` +
+      `    4. roster run <handle> --apply    one run, which is what proves the wiring\n\n`,
   );
 
   if (!opts.apply) {
@@ -118,8 +129,19 @@ export async function initCommand(argv: string[]): Promise<number> {
   git(opsDir, ["commit", "-q", "-m", "roster: the org layer and the runner machinery"]);
   git(opsDir, ["remote", "add", "origin", `https://github.com/${opts.org}/${opsName}.git`]);
   git(opsDir, ["push", "-q", "-u", "origin", "main"]);
-  process.stdout.write(`  created and pushed ${opts.org}/${opsName}\n\n`);
-  process.stdout.write(`  Now do the five things above, starting with the Actions setting.\n\n`);
+  process.stdout.write(`  created and pushed ${opts.org}/${opsName}\n`);
+
+  const access = await allowOrgCallers(opts.org, opsName);
+  if (access.ok) {
+    process.stdout.write(`  ${opsName} can be called from every repo in ${opts.org}\n\n`);
+  } else {
+    process.stdout.write(
+      `  could not set Actions access on ${opsName}: ${access.error}\n` +
+        `  Set it by hand, or every caller fails with "workflow not found":\n` +
+        `    ${access.link}  →  Access  →  accessible from repositories in the organisation\n\n`,
+    );
+  }
+  process.stdout.write(`  Now the four things above, starting with business.md.\n\n`);
   return 0;
 }
 

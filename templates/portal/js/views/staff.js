@@ -15,8 +15,10 @@ import { icon } from "../icons.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { appPanel } from "./app.js";
+import { credentialPanel } from "./credential.js";
 import { cronText } from "./health.js";
 import { paste } from "./paste.js";
+import { runOnce } from "./runonce.js";
 
 export function viewStaff(m) {
   m.append(el("h1", { textContent: "Staff" }));
@@ -88,7 +90,27 @@ export function viewStaff(m) {
       pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
     };
 
-    d.append(el("div", { className: "row", style: "margin-top:10px" }, [write, app, go, status]));
+    /* The credential is once for the org, but the moment somebody looks for it is while setting
+       up one staff member, so it is reachable from each card. */
+    const cred = el("button", { className: "ghbtn", textContent: "Agent credential" });
+    cred.onclick = () => {
+      pane.replaceChildren(el("div", { className: "card" }, [credentialPanel()]));
+      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    };
+
+    const run = el("button", { className: "ghbtn", textContent: "Run once now" });
+    run.onclick = () => {
+      pane.replaceChildren(
+        el("div", { className: "card" }, [
+          runOnce({ staff: s.handle, name: s.name, onDone: (ok) => ok && refreshAll(true) }),
+        ]),
+      );
+      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    };
+
+    d.append(
+      el("div", { className: "row", style: "margin-top:10px" }, [write, app, cred, run, go, status]),
+    );
     return d;
   }
 
@@ -163,17 +185,32 @@ export function viewStaff(m) {
       line("ok", "runs at " + s.schedule + ", on " + s.model),
     );
     for (const p of plan.peers) {
-      box.append(line("ok", p.dir + "/staff.yaml gains a peer entry and a " + p.label + " label"));
+      box.append(line("ok", p.brain + " gains a " + p.label + " label"));
     }
-    box.append(line("ok", "org.yaml gains a staff entry and a repo entry"));
+    /* Commits into repos that already exist, as you. Listed because they are writes to
+       somebody else's repo, and a plan that hid them would be the silent kind. */
+    box.append(el("div", { className: "planhead", textContent: "Commits and pushes, as you" }));
+    for (const c of plan.commits ?? []) box.append(line("ok", c.repo + ": " + c.file + ", " + c.why));
 
-    if (plan.secrets?.length) {
-      box.append(el("div", { className: "planhead", textContent: "You will still have to" }));
-      box.append(
-        line("todo", "create the GitHub App: roster app " + s.handle + " --apply"),
-        line("todo", "put " + plan.secrets.join(", ") + " on the new repo"),
-      );
-    }
+    const cred = s.agentSecret ?? "the agent credential";
+    box.append(
+      plan.orgSecret?.visibility === "selected"
+        ? line("ok", s.brain + " is added to the repos that can read the org secret " + cred)
+        : plan.orgSecret
+          ? line("ok", "the org secret " + cred + " already reaches " + plan.orgSecret.visibility + " repos")
+          : line("warn", "no org secret " + cred + " yet: store it once with Agent credential, after this"),
+    );
+
+    box.append(el("div", { className: "planhead", textContent: "Then, on the new card" }));
+    box.append(
+      line(
+        "todo",
+        "GitHub App, or roster app " + s.handle + " --apply: creates it, sets its secrets, and " +
+          "opens the install page with the repos already ticked",
+      ),
+      line("todo", "Write the charter"),
+      line("todo", "Run once now, or roster run " + s.handle + " --apply: the run that proves the wiring"),
+    );
     for (const w of plan.warnings ?? []) box.append(line("warn", w));
 
     const status = el("span", { className: "meta" });

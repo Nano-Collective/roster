@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { commitAndPush } from "../lib/commit.js";
+import { readOrgSecret, shareOrgSecret } from "../lib/credential.js";
 import { api, ghJson, ghReady } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import {
@@ -44,8 +46,14 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
   --no-review-gate       leave the product repos' branch rules alone
   --apply                actually do it
 
-  What it cannot do for you: create the GitHub App, or put its id and private key into the
-  new repo's secrets. Those are the manual steps, and the plan lists them.
+  With --apply it also commits and pushes, as you, what it changed in repos that already
+  exist: each peer's staff.yaml, org.yaml in the ops repo, and the new staff.yaml once the
+  status issue has a number. The plan lists every one of those commits first.
+
+  If the agent credential is an org secret (\`roster credential\`), the new brain is added to
+  its list of repos, so the credential is never asked for again.
+
+  What it cannot do for you: create the GitHub App. \`roster app <handle>\` does that next.
 `;
 
 export interface Plan {
@@ -60,6 +68,13 @@ export interface Plan {
   warnings: string[];
   /** --no-review-gate: leave the product repos' branch rules as they are. */
   skipGate: boolean;
+  /** Commits into repos that already exist, made as the person running roster. */
+  commits: Array<{ repo: string; dir: string; file: string; why: string; message: string }>;
+  /**
+   * The agent credential as an org secret, read from GitHub before the plan is shown. `null`
+   * is none, so the new brain needs `roster credential`; absent is not looked up yet.
+   */
+  orgSecret?: { visibility: string } | null;
 }
 
 export async function hireCommand(argv: string[]): Promise<number> {
@@ -86,6 +101,7 @@ export async function hireCommand(argv: string[]): Promise<number> {
   }
 
   const plan = buildPlan(ws, org, handle, opts, parseYaml);
+  plan.orgSecret = await readOrgSecret(org.org, plan.staff.agentSecret);
   printPlan(plan, ws);
 
   if (!opts.apply) {
@@ -248,6 +264,34 @@ export function buildPlan(
     staff.agentSecret,
   ];
 
+  /* Written after the new repo is pushed, into repos that already exist, so they are committed
+     as their own step and listed here first. Left on disk, they were the part of a hire that
+     looked finished and was not: a peer that does not know the new name, an org.yaml the
+     runner never sees. */
+  const commits = [
+    ...peers.map((p) => ({
+      repo: p.brain,
+      dir: p.dir,
+      file: "staff.yaml",
+      why: `a peers: entry for ${handle}`,
+      message: `roster: ${handle} joins as a peer`,
+    })),
+    {
+      repo: staff.brain,
+      dir,
+      file: "staff.yaml",
+      why: "the status issue's number, once it is opened",
+      message: "roster: the pinned status issue",
+    },
+    {
+      repo: orgSpec.opsRepo,
+      dir: ws.opsName,
+      file: "org.yaml",
+      why: `a staff entry and a repos entry for ${handle}`,
+      message: `roster: hire ${handle}`,
+    },
+  ];
+
   return {
     org: orgSpec,
     staff,
@@ -258,11 +302,12 @@ export function buildPlan(
     secrets,
     warnings,
     skipGate: opts.reviewGate === false,
+    commits,
   };
 }
 
 /** Which repo secret the agent's credential lives in, named after the credential itself. */
-function agentTokenEnv(org: OrgYaml): string {
+export function agentTokenEnv(org: OrgYaml): string {
   const asked = (org as any).agent;
   const spec = typeof asked === "string" ? { id: asked } : (asked ?? {});
   if (spec.token_env) return String(spec.token_env);
@@ -337,10 +382,28 @@ function printPlan(plan: Plan, ws: Workspace) {
     }
   }
 
-  process.stdout.write(`\n  org.yaml gains a staff entry and a repos entry\n`);
   process.stdout.write(
-    `  a pinned status issue is opened, and its number written into staff.yaml\n`,
+    `\n  a pinned status issue is opened, and its number written into staff.yaml\n`,
   );
+
+  process.stdout.write(`\n  commits, pushed as you\n`);
+  for (const c of plan.commits) process.stdout.write(`    ${c.repo}: ${c.file}, ${c.why}\n`);
+
+  const cred = staff.agentSecret;
+  process.stdout.write(`\n  the agent credential\n`);
+  if (plan.orgSecret?.visibility === "selected") {
+    process.stdout.write(
+      `    ${staff.brain} is added to the repos that can read the org secret ${cred}\n`,
+    );
+  } else if (plan.orgSecret) {
+    process.stdout.write(
+      `    the org secret ${cred} already reaches ${plan.orgSecret.visibility} repos\n`,
+    );
+  } else {
+    process.stdout.write(
+      `    no org secret ${cred} your gh can see: roster credential --apply after this, once for the org\n`,
+    );
+  }
 
   if (plan.warnings.length) {
     process.stdout.write(`\n  assumptions\n`);
@@ -350,13 +413,14 @@ function printPlan(plan: Plan, ws: Workspace) {
   /* The manual steps are the part people lose a day to, so they are printed with the plan
      rather than left for the docs. An App's id and key cannot be created from here. */
   process.stdout.write(
-    `\n  you will have to do these yourself\n` +
-      `    1. Create the GitHub App "${staff.app}", install it on ${staff.brain}\n` +
-      `       and on every peer tracker it writes to.\n` +
-      `    2. Put these secrets on ${staff.brain}:\n` +
-      plan.secrets.map((s) => `         ${s}\n`).join("") +
-      `    3. Write the charter:  roster brief charter ${staff.handle}, pasted into your agent\n` +
-      `\n  Then: roster doctor ${staff.handle}\n\n`,
+    `\n  then, yourself\n` +
+      `    1. roster app ${staff.handle} --apply   creates "${staff.app}", sets its secrets, and\n` +
+      `       links to an install page with ${staff.brain} and its peers already ticked.\n` +
+      (plan.orgSecret
+        ? ""
+        : `    ·  roster credential --apply   if the agent credential is not stored yet\n`) +
+      `    2. Write the charter:  roster brief charter ${staff.handle}, pasted into your agent\n` +
+      `    3. roster run ${staff.handle} --apply   one run, which is what proves the wiring\n\n`,
   );
 }
 
@@ -400,6 +464,15 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
   }
   process.stdout.write(`  created ${staff.brain}\n`);
 
+  const orgSecret =
+    plan.orgSecret === undefined
+      ? await readOrgSecret(plan.org.org, staff.agentSecret)
+      : plan.orgSecret;
+  if (orgSecret) {
+    const shared = await shareOrgSecret(plan.org.org, staff.agentSecret, staff.brain);
+    process.stdout.write(`  ${shared.note}\n`);
+  }
+
   git(root, ["init", "-q", "-b", "main"]);
   git(root, ["add", "-A"]);
   git(root, ["commit", "-q", "-m", `roster: scaffold ${staff.name}`]);
@@ -427,10 +500,7 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
   if (plan.peers.length) process.stdout.write(`  labelled ${plan.peers.length} peer trackers\n`);
 
   wirePeers(ws, plan, root);
-  if (plan.peers.length) {
-    process.stdout.write(`  wired ${plan.peers.length} peers, both ways\n`);
-    process.stdout.write(`  (their staff.yaml files changed locally — commit and push them)\n`);
-  }
+  if (plan.peers.length) process.stdout.write(`  wired ${plan.peers.length} peers, both ways\n`);
 
   const issue = await ghJson<{ number: number }>([
     "api",
@@ -469,6 +539,17 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
   addToOrgYaml(ws, plan);
   process.stdout.write(`  added ${staff.handle} to org.yaml\n`);
 
+  for (const c of plan.commits) {
+    const done = commitAndPush(join(ws.root, c.dir), [c.file], c.message);
+    process.stdout.write(
+      done.pushed
+        ? `  pushed ${c.repo}: ${c.file} (${done.sha})\n`
+        : done.committed
+          ? `  committed ${c.repo}: ${c.file} but could not push: ${done.note}. Push it yourself.\n`
+          : `  left ${c.repo}: ${c.file} uncommitted: ${done.note}\n`,
+    );
+  }
+
   if (!plan.skipGate) {
     for (const repo of staff.worksIn) {
       process.stdout.write(`  ${await ensureGate(repo, [staff.app, staff.publicApp])}\n`);
@@ -477,7 +558,7 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
 
   process.stdout.write(
     `\n  ${staff.name} exists but cannot run yet.\n` +
-      `  Create the app, add the secrets, write the charter — then: roster doctor ${staff.handle}\n\n`,
+      `  Next: roster app ${staff.handle} --apply, the charter, then roster run ${staff.handle} --apply\n\n`,
   );
   return 0;
 }

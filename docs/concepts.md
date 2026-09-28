@@ -6,6 +6,34 @@ sidebar_order: 3
 
 # Concepts
 
+## The six things you need to know
+
+Enough to set up an org and read what it does. Everything after this section is detail you
+can learn when you need it.
+
+1. **The org layer.** One private repo, `<org>/roster-ops`, holds what every staff member
+   shares: what the business is (`org/business.md`), what matters this month
+   (`org/priorities.md`), the house voice and the guardrails. Change it once and every staff
+   member has it on their next run. [More](#the-ops-repo).
+2. **A staff member is a repo.** Each one has a private repo, its *brain*: what it knows, what
+   it is working on, and what it has decided. There is no database and no server; the portal
+   reads the repos. [More](#the-brain).
+3. **The charter.** `CHARTER.md` in the brain says who this staff member is and what it
+   decides alone. You write it, with a brief that interviews you; roster never generates one,
+   because a generated charter makes a generic agent. [More](#charter-and-manifest).
+4. **Memory.** `memory/INDEX.md` is one line per fact, read at the start of every run. The
+   agent writes it and deletes from it; you can read and correct it in the portal. That is how
+   a staff member remembers yesterday. [More](memory.md).
+5. **The daily run.** A scheduled GitHub Actions workflow in each brain wakes the staff member,
+   hands it a prompt built from the org layer plus its charter and memory, and it does one piece
+   of work and writes down what happened. [More](#kinds-of-run).
+6. **Mentions.** Write `@handle` in an issue or comment on a staff member's own tracker and it
+   runs to answer that, between daily runs. Nothing on a product repo wakes anybody; you ask
+   them on their tracker. [More](#kinds-of-run).
+
+Everything below, and the rest of the docs, is detail: identities, peers, surfaces, the
+prompt's layers, upgrading. None of it is needed to get a first run.
+
 ## The ops repo
 
 `<org>/roster-ops` holds two different kinds of thing, and the split matters.
@@ -15,7 +43,7 @@ sidebar_order: 3
 instructions. Edit it freely: the
 [Org screen](portal.md#org) lists every one of these off disk with an Edit button, and saving
 commits and pushes. A change here reaches everybody on their next run, which is the point: a
-concision rule that used to mean editing twelve files is now one file.
+rule every staff member should follow is one edit, not one per repo.
 
 **Everything else is machinery** and belongs to the framework: `compose.mjs`, `agents.mjs`,
 `runner-plan.mjs`, `.github/workflows/session.yaml`. Editing these works right up until the
@@ -102,21 +130,15 @@ control.
 A `mention` prompt refuses to compose without trigger context, because it is written for the
 comment that woke it. That is correct behaviour, not a bug.
 
-There used to be a third, `pr-mention`: a review comment on the public product repo, forwarded
-into the brain by a workflow in that repo. It was removed. Two repos, a dispatch, a forwarder
-with its own author gate and a second reaction path bought one thing: asking for a change
-without leaving the diff. It cost more than that was worth, in explaining and in debugging.
-
-What replaced it is the reply box. A pull request is on the product repo, and **nothing in a
-product repo wakes anybody**: a staff member's caller workflow is in their own brain repo and
+**Nothing in a product repo wakes anybody.** A pull request is on the product repo, and a staff member's caller workflow is in their own brain repo and
 gates on their `@handle` appearing *there*. So naming somebody in a reply where a comment will
 not reach them offers, under the box, to open the request on their tracker as well. One press
 posts your words on the thread and sends them the pull request, the branch, the hunk you were
 looking at if you started from a file, and an instruction to answer on the pull request rather
 than in the tracker it arrived in.
 
-It is two `gh` calls as you, rather than a workflow, a dispatch and a second gate, which is the
-difference that got the forwarder deleted. See [the portal](portal.md#asking-for-a-change).
+It is two `gh` calls as you, rather than a workflow in the product repo with its own gate and
+its own credential. See [the portal](portal.md#asking-for-a-change).
 
 ## Identities
 
