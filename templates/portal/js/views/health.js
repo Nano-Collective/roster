@@ -7,6 +7,7 @@ import { render } from "../router.js";
 import { S, staff } from "../state.js";
 import { checklist } from "./checklist.js";
 import { copyAmendBrief } from "./prompt.js";
+import { runOnce } from "./runonce.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -81,7 +82,18 @@ export function viewHealth(m) {
      doctor, bordered boxes for the prompt audit, cards with two buttons each for lint. Same
      question in all three, so one shape: a heading that carries its own count, a line saying
      what the section is, the findings as rows, and the section's actions at the end. */
-  const doctor = section(m, "The org, from roster doctor", "doctor");
+  /* A workflow that has never run is unproven, and the way to prove it is to run it. Here
+     because Health is where "unproven" is read; a success re-runs the checks below. */
+  let doctor = null;
+  m.append(
+    runOnce({
+      staff: s.handle,
+      name: s.name,
+      onDone: (ok) => ok && doctor && checklist(doctor.body, { shell: doctor }),
+    }),
+  );
+
+  doctor = section(m, "The org, from roster doctor", "doctor");
   checklist(doctor.body, { shell: doctor });
 
   /* What is wrong with what this agent is sent. It used to sit in the tree on the Prompt

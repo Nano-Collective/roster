@@ -5,9 +5,10 @@
  * is rather than as it was left. Setup cannot be finished in one sitting, so it must survive
  * being abandoned halfway. */
 
-import { checkOrg, createTenant, getSetup, joinOrg, planTenant } from "../api.js";
+import { checkOrg, createTenant, getAccess, getSetup, joinOrg, planTenant, setAccess } from "../api.js";
 import { $, el, esc, toClipboard } from "../dom.js";
 import { checklist } from "./checklist.js";
+import { credentialPanel } from "./credential.js";
 import { repoPicker } from "./repos.js";
 import { paste } from "./paste.js";
 
@@ -30,8 +31,9 @@ function render(main) {
     el("p", {
       className: "sub",
       textContent:
-        "Four things here, then two that GitHub insists a human does. Nothing is created until " +
-        "you have read the plan.",
+        "Three things here, then what is left: a setting roster tries for you, the repos your " +
+        "staff work in, and the one file only you can write. Nothing is created until you have " +
+        "read the plan.",
     }),
   );
 
@@ -259,7 +261,10 @@ function stepOrg(main) {
       out.replaceChildren();
       out.append(
         el("p", {
-          textContent: `${result.files.length} files in ${result.dir}, and one private repo, ${p.org}/roster-ops.`,
+          textContent:
+            `${result.files.length} files in ${result.dir}, and one private repo, ${p.org}/roster-ops, ` +
+            "with its Actions access set so every repo in the org can call its workflow. If GitHub " +
+            "refuses that, you get the reason and the page to click.",
         }),
       );
       const list = el("div", { className: "filelist" });
@@ -307,30 +312,12 @@ function afterCreate() {
   card.append(
     el("p", {
       textContent:
-        "None of these can be done for you, and the first fails in a way that wastes an " +
-        "afternoon if you skip it.",
+        "The first is a setting roster tries for you. The last is the file that decides whether " +
+        "any of this is worth running, and only you can write it.",
     }),
   );
-
-  const one = el("div", { className: "manual" });
-  one.append(
-    el("b", { textContent: "Let the ops repo's workflow be called" }),
-    el("p", {
-      textContent:
-        "Settings → Actions → General → Access → “Accessible from repositories in the " +
-        "organisation”, on roster-ops.",
-    }),
-    el("small", {
-      textContent:
-        "Skip it and every workflow fails with “workflow not found”, which reads like a typo in " +
-        "a path and is not one. It is an org permission on a repo, so it is yours to click.",
-    }),
-  );
-  if (S.tenant.org) {
-    const url = `https://github.com/${S.tenant.org}/roster-ops/settings/actions`;
-    one.append(el("a", { className: "btn", href: url, target: "_blank", textContent: "Open that page" }));
-  }
-  card.append(one);
+  card.append(accessStep());
+  card.append(credentialPanel());
 
   if (S.tenant.org) {
     card.append(repoPicker({ org: S.tenant.org, known: S.tenant.repos ?? [] }));
@@ -350,6 +337,60 @@ function afterCreate() {
   // The copy-a-prompt loop, which is the whole answer to "how do I write this file".
   card.append(paste({ kind: "discover", title: "Write it with your own AI" }));
   return card;
+}
+
+/**
+ * The ops repo's Actions access. Read on arrival, so a page reloaded after it was set says it
+ * is done without anybody pressing anything; the button asks the server to set it, and a
+ * refusal comes back with GitHub's reason and the page to click instead.
+ *
+ * Skipped, every workflow fails with "workflow not found", which reads like a typo in a path.
+ */
+function accessStep() {
+  const box = el("div", { className: "manual" });
+  box.append(el("b", { textContent: "Let every repo in the org call the ops repo's workflow" }));
+  const out = el("div");
+  box.append(out);
+  const say = (text, cls) => el("p", { className: cls ?? "sub", textContent: text });
+
+  const offer = (why) => {
+    const go = el("button", { className: "btn primary", textContent: "Set it for me" });
+    out.replaceChildren(
+      say(
+        (why ? why + " " : "") +
+          "Settings → Actions → General → Access on roster-ops. Skip it and every workflow fails " +
+          "with “workflow not found”.",
+      ),
+      el("div", { className: "row" }, [go]),
+    );
+    go.onclick = async () => {
+      go.disabled = true;
+      try {
+        const r = await setAccess();
+        if (r.ok) {
+          out.replaceChildren(say("Set. Every repo in the org can call roster-ops."));
+          return;
+        }
+        out.replaceChildren(
+          say("GitHub refused: " + r.error + ".", "err"),
+          el("a", { className: "btn", href: r.link, target: "_blank", textContent: "Set it by hand" }),
+          say("Access → “Accessible from repositories in the organisation”."),
+        );
+      } catch (err) {
+        out.replaceChildren(say(String(err.message || err), "err"));
+        go.disabled = false;
+      }
+    };
+  };
+
+  out.replaceChildren(say("Checking…"));
+  getAccess()
+    .then((r) => {
+      if (r.ok) out.replaceChildren(say("Done. Every repo in the org can call roster-ops."));
+      else offer(r.level ? "It is set to “" + r.level + "”." : "");
+    })
+    .catch(() => offer(""));
+  return box;
 }
 
 /* ---------------------------------- furniture ---------------------------------- */

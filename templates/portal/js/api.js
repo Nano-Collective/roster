@@ -50,7 +50,12 @@ export async function post(payload, url = "/api/act") {
     body: JSON.stringify(payload),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(data.error || "failed with " + res.status);
+  if (!res.ok || data.error) {
+    // The body travels with the error: a refusal often carries the next step, like a link.
+    const err = new Error(data.error || "failed with " + res.status);
+    err.data = data;
+    throw err;
+  }
   return data;
 }
 
@@ -81,8 +86,12 @@ export const planTenant = (params) =>
 export const createTenant = (params) => post(params, "/api/setup/apply");
 
 /** The copyable prompt, with every file it refers to carried inside it. */
-export const getBrief = (kind, staff) =>
-  json("/api/brief?kind=" + encodeURIComponent(kind) + (staff ? "&staff=" + encodeURIComponent(staff) : ""));
+export const getBrief = (kind, staff, example) =>
+  json(
+    "/api/brief?kind=" + encodeURIComponent(kind) +
+      (staff ? "&staff=" + encodeURIComponent(staff) : "") +
+      (example ? "&example=" + encodeURIComponent(example) : ""),
+  );
 
 /** Parse what came back from the model. Reads only: saving is a second, deliberate step. */
 export const parsePaste = (kind, staff, answer) =>
@@ -108,3 +117,17 @@ export const appResult = (state) => json("/api/setup/app-result?state=" + encode
 /** Does this org already run roster. "Create" and "join" are different answers. */
 export const checkOrg = (org) => json("/api/setup/check-org?org=" + encodeURIComponent(org));
 export const joinOrg = (org) => post({ org }, "/api/setup/join");
+
+/** The ops repo's Actions access: read it, or ask the server to set it. */
+export const getAccess = () => json("/api/setup/access");
+export const setAccess = () => post({}, "/api/setup/access");
+
+/** Where the agent credential goes, and storing it. The value only ever travels in a POST. */
+export const getCredential = () => json("/api/setup/credential");
+export const storeCredential = (value, repoSecrets) =>
+  post({ value, repoSecrets }, "/api/setup/credential");
+
+/** One daily run, now, and where it has got to. */
+export const startRun = (staff) => post({ staff }, "/api/run/start");
+export const runStatus = (staff, id) =>
+  json("/api/run/state?staff=" + encodeURIComponent(staff) + "&id=" + encodeURIComponent(id));
