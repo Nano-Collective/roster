@@ -162,11 +162,19 @@ export function buildPlan(
   if (!app) warnings.push("no app slug could be inferred; pass --app");
 
   const publicApp = opts.publicApp ?? publicIdentity?.app ?? "";
-  if (!publicApp) {
-    // The first hire in a fresh org has nobody to copy it from, and a made-up name would be
-    // worse than an empty one: it would reach a workflow and fail at token-minting time.
+  /* The first hire in a fresh org has nobody to copy it from, and a made-up name would be
+     worse than an empty one: it would reach a workflow and fail at token-minting time. It only
+     matters for a public product repo, though. The session falls back to the private token to
+     clone and commit, so a private product repo works without one, and warning about it there
+     sent a first hire off to create an App that nothing would use. Unmarked counts as public:
+     a hand-written entry with no visibility is the case worth a warning. */
+  const publicProducts = (org.repos ?? []).filter(
+    (r) => r.role === "product" && String(r.visibility ?? "").toLowerCase() !== "private",
+  );
+  if (!publicApp && publicProducts.length) {
     warnings.push(
-      "no shared public identity yet — pass --public-app, or the product-repo lane will not work",
+      `no shared public identity yet — pass --public-app, or the product-repo lane will not ` +
+        `work on ${publicProducts.map((r) => r.name).join(", ")}, which is public`,
     );
   }
 

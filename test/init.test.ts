@@ -143,13 +143,23 @@ test("the first hire is told it has no shared identity rather than being given a
     const ws = findWorkspace(opsDir);
     const { parseYaml } = await loadComposer(opsDir);
     const org = readOrg(opsDir, parseYaml) as any;
-    const plan = buildPlan(ws, org, "cto", { name: "CTO", dir: "technology" } as never, parseYaml);
+    const flags = { name: "CTO", dir: "technology" } as never;
+    org.repos = [...(org.repos ?? []), { name: "site", visibility: "public", role: "product" }];
+    const plan = buildPlan(ws, org, "cto", flags, parseYaml);
 
     assert.ok(
-      plan.warnings.some((w) => /no shared public identity/.test(w)),
+      plan.warnings.some((w) => /no shared public identity.*site, which is public/.test(w)),
       "a silently invented app name would fail at token-minting time, in a scheduled run",
     );
     assert.ok(plan.warnings.some((w) => /no app slug could be inferred/.test(w)));
+
+    /* The session clones and commits on a private product repo with the private token, so
+       there the warning sent a first hire off to make an App nothing would use. */
+    org.repos = org.repos.map((r: any) =>
+      r.name === "site" ? { ...r, visibility: "private" } : r,
+    );
+    const quiet = buildPlan(ws, org, "cto", flags, parseYaml);
+    assert.ok(!quiet.warnings.some((w) => /public identity/.test(w)), quiet.warnings.join("\n"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
