@@ -68,6 +68,10 @@ writing a plan for {{human.name}} to approve.
    with "updated:". If it needs an argument, that goes in `memory/notes/<slug>.md` and the line stays
    one line. **Delete any line that no longer changes a decision** and say so in the decision log.
    If the run was purely work, touch nothing.
+   **Then check the budget:** `wc -c {{staff.dir}}/memory/INDEX.md {{staff.dir}}/log/decisions.md`.
+   Over 24KB either, or any fact over 400 characters (unless a `memory:` block in `staff.yaml` or
+   `org.yaml` sets other limits), and pruning is this run's job: delete, shorten, move arguments
+   to notes, and roll older decisions into `log/decisions/<YYYY-MM>.md`.
 5. **Log real decisions** in `{{staff.dir}}/log/decisions.md`, dated, newest at top, with the why.
 {{#if peers}}
 6. **Write to the other staff** if anything shipped, changed or broke that touches their patch.

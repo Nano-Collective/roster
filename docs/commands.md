@@ -124,7 +124,8 @@ Carry framework changes into the tenant. See [upgrading](upgrading.md).
 
 ## `roster lint [handle]`
 
-Check memory against the grammar. See [memory](memory.md).
+Check memory against the grammar, and warn when a fact, the index or the decision log is over
+its [budget](memory.md#budgets). See [memory](memory.md).
 
 ```
 --quiet   print only problems

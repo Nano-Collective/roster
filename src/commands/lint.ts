@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { type LintProblem, lintMemory, parseMemory } from "../lib/memory.js";
+import { readManifest } from "../lib/export.js";
+import { budgetsFor, type LintProblem, lintMemory, parseMemory } from "../lib/memory.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
 export const lintHelp = `
@@ -7,6 +8,9 @@ roster lint [handle]
 
   Check every staff member's memory against the grammar the portal and the agents both
   rely on. With no handle, checks everyone.
+
+  Also warns when memory is over budget: a fact's line, the whole index, and the decision
+  log. Set the budgets under \`memory:\` in org.yaml, or in one staff.yaml to override it.
 
   --ops <dir>    ops repo directory (default: found by walking up)
   --quiet        print only problems
@@ -30,13 +34,15 @@ export async function lintCommand(argv: string[]): Promise<number> {
   let warnings = 0;
 
   for (const s of staff) {
-    const dir = join(ws.root, s.dir ?? s.handle, "memory");
+    const root = join(ws.root, s.dir ?? s.handle);
+    const dir = join(root, "memory");
+    const budgets = budgetsFor(org, readManifest(root, parseYaml));
     let problems: LintProblem[];
     let factCount = 0;
     try {
       const doc = parseMemory(dir);
       factCount = doc.facts.length;
-      problems = lintMemory(doc, dir);
+      problems = lintMemory(doc, dir, budgets);
     } catch (err) {
       process.stdout.write(
         `\n  ${s.name}  ✗ ${err instanceof Error ? err.message : String(err)}\n`,
@@ -55,11 +61,11 @@ export async function lintCommand(argv: string[]): Promise<number> {
     const badge = errs.length ? "✗" : warns.length ? "!" : "✓";
     process.stdout.write(`\n  ${badge} ${s.name}  ${factCount} facts\n`);
     for (const p of problems) {
-      const where = p.line ? `INDEX.md:${p.line}` : "notes/";
+      const where = p.line ? `INDEX.md:${p.line}` : (p.file ?? "notes/");
       process.stdout.write(
-        `      ${p.level === "error" ? "error " : "warn  "} ${where.padEnd(15)} ${p.message}\n`,
+        `      ${p.level === "error" ? "error " : "warn  "} ${where.padEnd(16)} ${p.message}\n`,
       );
-      process.stdout.write(`      ${" ".repeat(6)} ${" ".repeat(15)} (${p.rule})\n`);
+      process.stdout.write(`      ${" ".repeat(6)} ${" ".repeat(16)} (${p.rule})\n`);
     }
   }
 

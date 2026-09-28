@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -172,12 +172,60 @@ export interface LintProblem {
   message: string;
   line?: number;
   slug?: string;
+  /** Relative to the brain, for a finding about a whole file rather than a line. */
+  file?: string;
 }
 
-/** The line length beyond which "one line per fact" has stopped being true. */
-const MAX_FACT_CHARS = 400;
+/**
+ * How big a memory may get before lint says so.
+ *
+ * A live org's indexes reached 44 to 52KB, with single "one line" facts of 982 characters,
+ * and its "current month only" decision logs 61KB. Nothing stopped them, because the rules
+ * were prose and every run reads prose as advice. These are warnings, not errors: a run still
+ * works over budget, it just costs more to boot every day.
+ */
+export interface MemoryBudgets {
+  /** One fact's line, in characters. Past this "one line per fact" has stopped being true. */
+  factChars: number;
+  /** The whole of memory/INDEX.md, in KB. It is read in full at every boot. */
+  indexKb: number;
+  /** log/decisions.md, in KB. Not boot context, but a log nobody can open is not an audit trail. */
+  decisionsKb: number;
+}
 
-export function lintMemory(doc: MemoryDoc, dir: string): LintProblem[] {
+export const DEFAULT_BUDGETS: MemoryBudgets = { factChars: 400, indexKb: 24, decisionsKb: 24 };
+
+const BUDGET_KEYS: Record<keyof MemoryBudgets, string> = {
+  factChars: "max_fact_chars",
+  indexKb: "max_index_kb",
+  decisionsKb: "max_decisions_kb",
+};
+
+/**
+ * The budgets for one staff member: the defaults, then org.yaml's `memory:`, then their own
+ * staff.yaml's `memory:`. A value that is not a positive number is ignored rather than
+ * trusted, so a typo cannot switch a check off.
+ */
+export function budgetsFor(org: unknown, manifest?: unknown): MemoryBudgets {
+  const out = { ...DEFAULT_BUDGETS };
+  for (const source of [org, manifest]) {
+    const memory = (source as { memory?: Record<string, unknown> } | null | undefined)?.memory;
+    if (!memory || typeof memory !== "object") continue;
+    for (const [field, key] of Object.entries(BUDGET_KEYS) as Array<
+      [keyof MemoryBudgets, string]
+    >) {
+      const v = memory[key];
+      if (typeof v === "number" && v > 0) out[field] = v;
+    }
+  }
+  return out;
+}
+
+export function lintMemory(
+  doc: MemoryDoc,
+  dir: string,
+  budgets: MemoryBudgets = DEFAULT_BUDGETS,
+): LintProblem[] {
   const problems: LintProblem[] = [];
   const seen = new Map<string, number>();
   const linked = new Set<string>();
@@ -227,11 +275,11 @@ export function lintMemory(doc: MemoryDoc, dir: string): LintProblem[] {
       });
     }
 
-    if (f.raw.length > MAX_FACT_CHARS) {
+    if (f.raw.length > budgets.factChars) {
       problems.push({
         level: "warning",
         rule: "too-long",
-        message: `\`${f.slug}\` is ${f.raw.length} characters. Move the argument to notes/${f.slug}.md and keep the line one line.`,
+        message: `\`${f.slug}\` is ${f.raw.length} characters, over the ${budgets.factChars} budget. Move the argument to notes/${f.slug}.md and keep the line one line.`,
         ...at,
       });
     }
@@ -272,5 +320,43 @@ export function lintMemory(doc: MemoryDoc, dir: string): LintProblem[] {
     });
   }
 
+  problems.push(...overBudget(doc, dir, budgets));
   return problems;
+}
+
+/** Whole-file budgets, naming what to cut first rather than only the total. */
+function overBudget(doc: MemoryDoc, dir: string, budgets: MemoryBudgets): LintProblem[] {
+  const out: LintProblem[] = [];
+  const kb = (bytes: number) => Math.round(bytes / 1024);
+
+  const index = join(dir, "INDEX.md");
+  const indexBytes = existsSync(index) ? statSync(index).size : 0;
+  if (indexBytes > budgets.indexKb * 1024) {
+    const longest = [...doc.facts]
+      .sort((a, b) => b.raw.length - a.raw.length)
+      .slice(0, 3)
+      .map((f) => `\`${f.slug}\` (${f.raw.length})`);
+    out.push({
+      level: "warning",
+      rule: "index-too-big",
+      message:
+        `INDEX.md is ${kb(indexBytes)}KB, over the ${budgets.indexKb}KB budget, and every run reads all of it. ` +
+        `Delete what no longer changes a decision, and shorten the longest first: ${longest.join(", ")}.`,
+      file: "memory/INDEX.md",
+    });
+  }
+
+  const log = join(dir, "..", "log", "decisions.md");
+  const logBytes = existsSync(log) ? statSync(log).size : 0;
+  if (logBytes > budgets.decisionsKb * 1024) {
+    out.push({
+      level: "warning",
+      rule: "decisions-too-big",
+      message:
+        `log/decisions.md is ${kb(logBytes)}KB, over the ${budgets.decisionsKb}KB budget. ` +
+        `Move entries older than this month into log/decisions/<YYYY-MM>.md.`,
+      file: "log/decisions.md",
+    });
+  }
+  return out;
 }

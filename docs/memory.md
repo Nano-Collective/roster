@@ -48,6 +48,22 @@ rumour.
 Rule 5 is the one that gets skipped and the one that matters. Everything else degrades slowly;
 this one degrades the boot cost of every future run.
 
+## Budgets
+
+Rule 5 used to be prose, and prose is advice. A live org's indexes grew to 44 and 52KB with
+single "one line" facts of nearly 1,000 characters, and its decision logs to 61KB. So
+`roster lint` now warns past three budgets:
+
+| Budget | Default | Rule |
+|---|---|---|
+| One fact's line | 400 characters | `too-long`, naming the fact |
+| `memory/INDEX.md` | 24KB | `index-too-big`, naming the three longest facts |
+| `log/decisions.md` | 24KB | `decisions-too-big`: roll older entries into `log/decisions/<YYYY-MM>.md` |
+
+Change them under `memory:` in [org.yaml](org-yaml.md#memory), or per staff member in
+[staff.yaml](staff-yaml.md#memory). The daily prompt tells a staff member to check its sizes at
+hand-off and make pruning that run's job when it is over.
+
 ## What does not go in memory
 
 - **Why something was decided.** That is `log/decisions.md`, and it is not boot context.
@@ -64,7 +80,8 @@ opens an issue in that staff member's own repository asking them to fix it, whic
 right move: they wrote it, and an issue on their tracker is a thing that wakes them.
 
 It catches: a missing `So:`, a duplicate slug, a note nothing links to, a link to a note that
-does not exist, an over-long line, a `[measured]` fact with no `n`, and an "updated:" chain.
+does not exist, an over-long line, a `[measured]` fact with no `n`, an "updated:" chain, and an
+index or decision log over its budget.
 
 The same checks, for a terminal or for CI:
 

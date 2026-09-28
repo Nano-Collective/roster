@@ -1,5 +1,6 @@
 import { auditPrompt } from "../lib/audit.js";
-import { lintMemory, parseMemory } from "../lib/memory.js";
+import { readManifest } from "../lib/export.js";
+import { budgetsFor, lintMemory, parseMemory } from "../lib/memory.js";
 import { KINDS, promptView } from "../lib/prompt.js";
 import { findWorkspace, loadComposer, readOrg, type Workspace } from "../lib/workspace.js";
 import { collect } from "./doctor.js";
@@ -136,15 +137,17 @@ export async function gather(ws: Workspace, offline: boolean): Promise<FixItem[]
 
     try {
       const memDir = `${brainDir}/memory`;
-      for (const p of lintMemory(parseMemory(memDir), memDir)) {
+      const budgets = budgetsFor(org, readManifest(brainDir, parseYaml));
+      for (const p of lintMemory(parseMemory(memDir), memDir, budgets)) {
+        const file = `${dir}/${p.file ?? "memory/INDEX.md"}`;
         items.push({
           id: `lint.${p.rule}`,
           scope: entry.handle,
           level: p.level,
           title: p.message,
-          fix: `Correct it in ${dir}/memory/INDEX.md, in place.`,
+          fix: p.file ? `Prune ${file}.` : `Correct it in ${file}, in place.`,
           who: "agent",
-          path: `${dir}/memory/INDEX.md`,
+          path: file,
         });
       }
     } catch {
