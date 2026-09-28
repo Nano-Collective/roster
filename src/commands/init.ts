@@ -13,8 +13,8 @@ roster init --org <github-org> [--name "Acme"] [--human <login>] [--apply]
 
   What it deliberately does not do is write org/business.md. That file is what stops the
   agents producing generic slop, and it is the one thing here that has to come from someone
-  who knows the business. You get a stub with the questions in it, and a /discover command to
-  answer them with your own AI.
+  who knows the business. You get a stub with the questions in it, and
+  \`roster brief discover\` prints the brief to answer them with whichever agent you use.
 
   Nothing happens without --apply. On its own this prints the plan.
 
@@ -74,7 +74,7 @@ export async function initCommand(argv: string[]): Promise<number> {
       `       that is depends on the runner: roster help agents, or docs/agents.md.\n` +
       `    3. Write org/business.md. Everything the agents say is downstream of it.\n` +
       `    4. Write org/priorities.md: what matters this month, ranked, and what does not.\n` +
-      `    5. roster hire <handle>   then   roster app <handle>\n\n`,
+      `    5. roster hire <handle> --apply   then   roster app <handle> --apply\n\n`,
   );
 
   if (!opts.apply) {
@@ -270,10 +270,10 @@ It is composed into the top of every prompt, every run. An agent that cannot ans
 questions writes work that is plausible and generic — which is worse than no work, because it
 takes longer to notice.
 
-Write it with your own AI, which can read the site, the README and the recent commits:
+Write it with your own AI, which can read the site, the README and the recent commits.
+This prints a brief to paste into whichever agent you use (in Claude Code it is also /discover):
 
-    claude
-    /discover
+    roster brief discover
 
 Or answer these by hand. Short is better than complete.
 

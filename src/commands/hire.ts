@@ -26,7 +26,8 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
 
   It does not write the charter. That is the personality, it decides everything else, and a
   generated one produces exactly the generic agent this arrangement exists to avoid. What you
-  get is a stub and a /charter command to write it with your own AI.
+  get is a stub, and \`roster brief charter <handle>\` prints the brief to write it with
+  whichever agent you use.
 
   Nothing happens without --apply. On its own this prints the plan: every file, every repo,
   every label, and every existing staff member it would edit.
@@ -41,7 +42,6 @@ roster hire <handle> [--name "Chief Financial Officer"] [--apply]
   --app <slug>           this staff member's GitHub App. Defaults to the pattern its peers use.
   --public-app <slug>    the shared public identity. Defaults to whatever the peers use.
   --no-review-gate       leave the product repos' branch rules alone
-  --private             create the repo private (default)
   --apply                actually do it
 
   What it cannot do for you: create the GitHub App, or put its id and private key into the
@@ -355,7 +355,7 @@ function printPlan(plan: Plan, ws: Workspace) {
       `       and on every peer tracker it writes to.\n` +
       `    2. Put these secrets on ${staff.brain}:\n` +
       plan.secrets.map((s) => `         ${s}\n`).join("") +
-      `    3. Write the charter:  cd ${plan.dir} && claude  →  /charter\n` +
+      `    3. Write the charter:  roster brief charter ${staff.handle}, pasted into your agent\n` +
       `\n  Then: roster doctor ${staff.handle}\n\n`,
   );
 }
@@ -388,7 +388,8 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
     "-f",
     `name=${plan.dir}`,
     "-F",
-    `private=${opts.visibility !== "public"}`,
+    // A brain is a staff member's whole memory, and org.yaml records it as private.
+    "private=true",
     "-f",
     `description=${staff.name} — an agent-run brain, managed by roster`,
   ]);
@@ -601,10 +602,22 @@ export interface Flags {
   publicApp?: string;
   statusIssue?: number;
   agentSecret?: string;
-  visibility?: string;
   reviewGate?: boolean;
   apply?: boolean;
 }
+
+const VALUE_FLAGS = new Set([
+  "--ops",
+  "--name",
+  "--dir",
+  "--schedule",
+  "--model",
+  "--timeout",
+  "--mention-timeout",
+  "--secret-prefix",
+  "--app",
+  "--public-app",
+]);
 
 function parseFlags(argv: string[]): Flags {
   const out: Flags = {};
@@ -618,14 +631,9 @@ function parseFlags(argv: string[]): Flags {
       out.reviewGate = false;
       continue;
     }
-    if (flag === "--private") {
-      out.visibility = "private";
-      continue;
-    }
-    if (flag === "--public") {
-      out.visibility = "public";
-      continue;
-    }
+    // Named before its value is taken, so a flag that was removed says so rather than
+    // claiming it needs an argument.
+    if (!VALUE_FLAGS.has(flag!)) throw new Error(`unknown flag ${flag}`);
     const value = argv[++i];
     if (value === undefined) throw new Error(`${flag} needs a value`);
     if (flag === "--ops") out.ops = value;

@@ -11,10 +11,10 @@ between %%MENTION%% and everyone else.
 Write it before the first unattended run. A generated charter would produce a generic agent,
 which is the failure this whole arrangement exists to avoid.
 
-Write it with your own AI:
+Write it with your own AI. This prints a brief to paste into whichever agent you use (in
+Claude Code it is also /charter, from inside this repo):
 
-    cd %%DIR%% && claude
-    /charter
+    roster brief charter %%STAFF%%
 
 Or write it by hand. The headings below are the shape that has worked; the words are yours.
 

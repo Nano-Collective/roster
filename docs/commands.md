@@ -6,8 +6,10 @@ sidebar_order: 8
 
 # Commands
 
-Every command prints a plan and changes nothing unless you pass `--apply`, except `lint`,
-`prompt`, `export` and `portal`, which never change anything at all.
+Every command that changes anything prints a plan and changes nothing unless you pass
+`--apply`. `lint`, `prompt`, `export`, `brief`, `doctor` and `fix` never change anything.
+`portal` is the exception: it is interactive, and each change there is a button you press after
+seeing what it will do.
 
 ## `roster fix`
 
@@ -76,6 +78,7 @@ Create the GitHub App and put its credentials in the brain repo's secrets.
 --public       create the shared public identity instead
 --port <n>     localhost port for the hand-off. Default 4310.
 --no-open      print the URL rather than opening a browser
+--apply        actually create it; without it, prints the App name, secrets and repos
 ```
 
 Cannot install the App. See [manual steps](manual-steps.md).

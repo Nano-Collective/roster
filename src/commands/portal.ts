@@ -1360,7 +1360,6 @@ function hireFlags(params: URLSearchParams): Flags {
     secretPrefix: params.get("secretPrefix") ?? undefined,
     app: params.get("app") ?? undefined,
     publicApp: params.get("publicApp") ?? undefined,
-    visibility: params.get("visibility") ?? undefined,
   };
 }
 
