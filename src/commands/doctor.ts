@@ -1029,7 +1029,7 @@ async function checkStaffOnline(
               title: `${name}: ${all.length} recent triggers, all gated out before doing anything`,
               fix:
                 "Nothing in this repo has exercised the app grant. A skipped run proves only " +
-                "the trigger, so trigger one workflow here by hand before trusting any of them.",
+                `the trigger. Run it once before trusting any of them: roster run ${scope} --apply.`,
             },
       );
       continue;
