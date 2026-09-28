@@ -28,7 +28,7 @@ mention_timeout_minutes: 90
 
 bot: acme-cto[bot]
 public_bot: acme-robot[bot]
-public_token_env: PIPWEB_TOKEN
+public_token_env: PUBLIC_TOKEN
 agent_secret: CLAUDE_CODE_OAUTH_TOKEN
 
 identities:

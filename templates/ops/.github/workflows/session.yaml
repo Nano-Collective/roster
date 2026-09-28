@@ -182,6 +182,26 @@ jobs:
           GH_TOKEN: ${{ steps.public.outputs.token || steps.private.outputs.token }}
         run: node roster-ops/inflight.mjs --staff "${{ inputs.staff }}" --ops roster-ops --brains . --out .roster-run/inflight.md
 
+      # staff.yaml names the variable its prompts use for the public token (`public_token_env`),
+      # and an `env:` key cannot be an expression, so the name is exported here for every later
+      # step. PUBLIC_TOKEN is always set as well; this only adds the name the manifest chose.
+      - name: Export the public token under its manifest name
+        if: steps.public.outputs.token != ''
+        env:
+          BRAIN_DIR: ${{ steps.plan.outputs.brain_dir }}
+          TOKEN: ${{ steps.public.outputs.token }}
+        run: |
+          set -euo pipefail
+          name=$(sed -n 's/^public_token_env:[[:space:]]*//p' "$BRAIN_DIR/staff.yaml" | head -1 | tr -d "\"' ")
+          case "$name" in
+            ""|PUBLIC_TOKEN|GH_TOKEN|GITHUB_TOKEN) exit 0 ;;
+          esac
+          if ! [[ "$name" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+            echo "::warning::public_token_env '$name' is not a variable name; only PUBLIC_TOKEN is set"
+            exit 0
+          fi
+          echo "$name=$TOKEN" >> "$GITHUB_ENV"
+
       # Commits read as the bot, not as a human, so the git history stays legible.
       - name: Set git identity
         env:
@@ -263,8 +283,6 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.private.outputs.token }}
           PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
-          # Kept as an alias while charters and memory still name it. Retire once they do not.
-          PIPWEB_TOKEN: ${{ steps.public.outputs.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.AGENT_TOKEN }}
           # These repos are private and single-user, so the usual reason to hide a run's output does
@@ -291,7 +309,6 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.private.outputs.token }}
           PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
-          PIPWEB_TOKEN: ${{ steps.public.outputs.token }}
           AGENT_MODEL: ${{ steps.agent.outputs.model || inputs.model }}
           AGENT_FLAGS: ${{ steps.agent.outputs.flags }}
           # Kept for a custom `run` written before permissions existed.
