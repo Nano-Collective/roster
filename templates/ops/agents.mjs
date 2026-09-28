@@ -52,7 +52,11 @@ export const PRESETS = {
   claude: {
     kind: "cli",
     install: "npm install -g @anthropic-ai/claude-code",
-    run: 'claude -p --model "$AGENT_MODEL" $AGENT_FLAGS < "$AGENT_PROMPT_FILE"',
+    // JSON rather than text so the run record can read turns and cost off it. The log still
+    // carries the answer, inside the `result` field.
+    run:
+      'claude -p --model "$AGENT_MODEL" $AGENT_FLAGS --output-format json < "$AGENT_PROMPT_FILE"' +
+      ' | tee "$AGENT_RESULT_FILE"',
     token_env: "CLAUDE_CODE_OAUTH_TOKEN",
     model: "claude-opus-5-5",
     permissions: CLAUDE_TOOLS,

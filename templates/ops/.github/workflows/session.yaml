@@ -81,6 +81,10 @@ jobs:
       HAS_PUBLIC_APP: ${{ secrets.PUBLIC_APP_ID != '' }}
 
     steps:
+      # For the run record at the end. A job has no start time of its own to read back.
+      - name: Start the clock
+        run: echo "ROSTER_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Mint the private-tracker token
         id: private
         uses: actions/create-github-app-token@v2
@@ -243,6 +247,7 @@ jobs:
       # `uses:` cannot be an expression, so an Action-based runner has to be written out
       # literally. This is the reference one; every other agent goes through the step below.
       - name: Run the session
+        id: session_action
         if: steps.agent.outputs.kind == 'action'
         uses: anthropics/claude-code-action@v1
         env:
@@ -271,6 +276,7 @@ jobs:
       # argument: it is thousands of words containing quotes and backticks, and argv limits and
       # shell quoting fail at 07:00 rather than in review.
       - name: Run the session
+        id: session_cli
         if: steps.agent.outputs.kind == 'cli'
         env:
           GH_TOKEN: ${{ steps.private.outputs.token }}
@@ -296,6 +302,10 @@ jobs:
           # an `env:` key cannot be an expression.
           export "$TOKEN_ENV=$TOKEN"
           export AGENT_PROMPT_FILE="$PWD/.roster-prompt.txt"
+          # Where an agent that can report its own turns and cost writes them. Optional: the
+          # run record reads it if it is there and records what it cannot know as unknown.
+          mkdir -p .roster-run
+          export AGENT_RESULT_FILE="$PWD/.roster-run/agent-result.json"
 
           if [ -n "$INSTALL" ]; then
             echo "::group::install ${{ steps.agent.outputs.id }}"
@@ -303,6 +313,31 @@ jobs:
             echo "::endgroup::"
           fi
           eval "$RUN"
+
+      # What this run was and what it cost, in the job summary and as an artifact with a stable
+      # name, which is what the portal's Runs screen and `roster doctor` read back. Never fatal:
+      # a missing record costs a row in a table, and failing the job over it would cost the run.
+      - name: Write down the run
+        if: always()
+        continue-on-error: true
+        env:
+          STAFF: ${{ inputs.staff }}
+          KIND: ${{ inputs.kind }}
+          AGENT_ID: ${{ steps.agent.outputs.id }}
+          MODEL: ${{ steps.agent.outputs.model || inputs.model }}
+          AGENT_OUTCOME: ${{ steps.session_action.outcome != 'skipped' && steps.session_action.outcome || steps.session_cli.outcome }}
+          JOB_STATUS: ${{ job.status }}
+          RESULT_FILE: ${{ steps.session_action.outputs.execution_file || format('{0}/.roster-run/agent-result.json', github.workspace) }}
+        run: node roster-ops/run-record.mjs --out .roster-run/run.json
+
+      - name: Keep the run record
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: roster-run
+          path: .roster-run/run.json
+          if-no-files-found: ignore
 
       # A failed unattended run is otherwise a red X in a tab nobody opens, so every failure path
       # has to end somewhere a human reads.

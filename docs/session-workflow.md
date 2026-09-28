@@ -51,6 +51,7 @@ authentication error forty lines into a log.
 
 ## What it does, in order
 
+1. **Start the clock**, for the run record.
 1. **Mint the private-tracker token** from the staff member's App.
 2. **Mint the public-repo token**, if a public App was passed.
 3. **React to the request** with eyes, on a `mention` only. Before any checkout, so it lands in
@@ -67,7 +68,10 @@ authentication error forty lines into a log.
 12. **Work out which agent runs this**, by running `agents.mjs`.
 13. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
     CLI one. See [choosing a coding agent](agents.md).
-14. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
+14. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
+    and tokens where the agent reports them. Into the job summary, and kept as an artifact
+    called `roster-run`. Never fatal. See [cost](cost.md#what-each-run-cost).
+15. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
     woke a mention, linking the run.
 
 ## When the failure is the token
@@ -117,6 +121,7 @@ Consumed by later steps as `steps.plan.outputs.*`.
 | `GH_TOKEN` | private-tracker token, already authenticated |
 | `PUBLIC_TOKEN` | public product repo token |
 | `AGENT_PROMPT_FILE` | absolute path to the composed prompt |
+| `AGENT_RESULT_FILE` | where to write the agent's own result JSON, if it has one. Optional; it is how cost gets into the run record |
 | `AGENT_MODEL` | resolved model |
 | `AGENT_TOOLS` | the `allowed_tools` string |
 | *the agent's own* | its credential, under whatever name it declares |

@@ -119,7 +119,7 @@ The same agent through its plain CLI, if you would rather not depend on the Acti
 
 ```
 install:   npm install -g @anthropic-ai/claude-code
-run:       claude -p --model "$AGENT_MODEL" --allowedTools "$AGENT_TOOLS" < "$AGENT_PROMPT_FILE"
+run:       claude -p --model "$AGENT_MODEL" $AGENT_FLAGS --output-format json < "$AGENT_PROMPT_FILE" | tee "$AGENT_RESULT_FILE"
 token_env: CLAUDE_CODE_OAUTH_TOKEN
 ```
 
@@ -441,6 +441,7 @@ secret each repo is missing.
 | Variable | |
 |---|---|
 | `$AGENT_PROMPT_FILE` | absolute path to the composed prompt |
+| `$AGENT_RESULT_FILE` | where to write the agent's result JSON, if it prints one. Optional: it is how turns and cost reach the [run record](cost.md#what-each-run-cost) |
 | `$AGENT_MODEL` | the staff member's model, or the agent's default |
 | `$AGENT_TOOLS` | the `allowed_tools` string from the caller, which comes from `defaults.allowed_tools` in org.yaml |
 | `$GH_TOKEN` | a token for the private trackers, already authenticated |
