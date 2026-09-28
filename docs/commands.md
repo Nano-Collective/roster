@@ -271,7 +271,11 @@ which is the shortest way in.
 --port <n>    default 4300
 --host <a>    default 127.0.0.1. Anything else exposes write actions to the network.
 --dir <path>  where a tenant would be created or checked out. Default: here.
+--no-open     don't open a browser
 ```
+
+It opens the page in your browser when it starts. It stays closed in CI, over SSH, when output
+is not a terminal, or with `BROWSER=none`.
 
 **With no tenant where you started it, this is the setup screen**: it stands up a new org, or
 checks out one that already runs roster. Local only. See [the portal](portal.md).

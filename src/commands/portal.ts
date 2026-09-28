@@ -14,6 +14,7 @@ import {
 } from "../lib/appmanifest.js";
 import { attach, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
+import { openBrowser, shouldOpen } from "../lib/browser.js";
 import { accessLink, allowOrgCallers } from "../lib/callable.js";
 import { planCredential, readOrgSecret, writeCredential } from "../lib/credential.js";
 import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
@@ -72,6 +73,7 @@ roster portal
   --host <addr>  default 127.0.0.1. Anything else exposes write actions to the network.
   --ops <dir>    ops repo directory (default: found by walking up)
   --dir <path>   where a tenant would be created or checked out (default: here)
+  --no-open      don't open a browser (also off in CI, over SSH, or with BROWSER=none)
 `;
 
 const MIME: Record<string, string> = {
@@ -1514,6 +1516,9 @@ export async function portalCommand(argv: string[]): Promise<number> {
       process.stdout.write(
         `\n  roster portal\n  http://localhost:${port}\n${warn}\n  ${where}\n  Ctrl-C to stop.\n\n`,
       );
+      if (shouldOpen(process.env, Boolean(process.stdout.isTTY), opts.noOpen === true)) {
+        openBrowser(`http://localhost:${port}`);
+      }
     });
   });
 }
@@ -1659,9 +1664,13 @@ function workspaceRoots(org: {
 }
 
 function parseFlags(argv: string[]) {
-  const out: { port?: number; ops?: string; host?: string; dir?: string } = {};
+  const out: { port?: number; ops?: string; host?: string; dir?: string; noOpen?: boolean } = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
+    if (flag === "--no-open") {
+      out.noOpen = true;
+      continue;
+    }
     const value = argv[++i];
     if (value === undefined) throw new Error(`${flag} needs a value`);
     if (flag === "--port") out.port = Number(value);
