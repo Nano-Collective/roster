@@ -1,202 +1,156 @@
 ---
 title: "Manual steps"
-description: "Every human action, why it cannot be automated, and what breaks if you skip it."
+description: "What only a person can do, why, and what breaks if it is skipped."
 sidebar_order: 2
 ---
 
 # Manual steps
 
-Everything a human has to do, why it cannot be automated, and what it looks like when you skip
-it. This page exists because every item on it has cost somebody real time.
+What roster cannot do for you, why, and what it looks like when one is skipped. The
+[getting started](getting-started.md) path walks through each of these in order; this page is
+what to read when one of them bites.
 
-**The portal walks you through most of this now.** `roster` with no arguments opens a setup screen
-that deep-links item 1, runs items 2 and 3 for you as far as GitHub allows, and hands you a prompt
-for items 5 and 6. This page is still the *why*: it is what to read when one of them bites, and
-what to check when the page says something is not done.
-
-The portal's **Health** screen checks most of these, per staff member and for the org, with
-every finding carrying the sentence that fixes it. `roster doctor` prints the same from a
-terminal. Look after each step.
+**Health**, or `roster doctor`, checks each one it can, and every finding carries the sentence
+that fixes it.
 
 ---
 
-## 1. Allow the ops repo's workflow to be called
+## 1. Create the organisation
 
-**Do:** `<org>/roster-ops` -> Settings -> Actions -> General -> *Access* -> **Accessible from
-repositories in the organisation**. The setup screen links straight to that page.
+**Do:** make it on github.com, if you do not have one.
 
-**Why not automated:** it is an organisation permission on a repository, and the API for it
-needs admin rights that a token created for a different purpose should not have. roster reads
-it and tells you, but setting it is one click and it is yours.
-
-**If you skip it:** every caller fails with **"workflow not found"**. That reads like a typo in
-a path, or a missing file, or a bad branch reference. You will check all three. It is none of
-them, it is this.
-
-**Check:** Health, or `roster doctor`, reports `roster-ops is callable from the whole org`.
+**Why not automated:** GitHub has no API for creating an organisation.
 
 ---
 
-## 2. Create the GitHub App
+## 2. Confirm the GitHub App
 
-**Do:** the **GitHub App** button on a staff card in the portal, or `roster app <handle> --apply`
-in a terminal. Either opens a browser, GitHub asks you to confirm, and you come back.
-Credentials go straight into the repository's secrets.
+**Do:** press **GitHub App** on a staff card, or run `roster app <handle> --apply`. A tab
+opens; confirm on GitHub. The App's id and private key go straight into the brain repo's
+secrets.
 
-**Why not fully automated:** there is no API that creates a GitHub App. The only route is the
-App Manifest flow: POST a manifest to a settings page, a human confirms, GitHub returns a
-one-time code. roster does everything either side of that confirmation.
+**Why not automated:** there is no API that creates a GitHub App. The only route is the App
+Manifest flow, where a person confirms on a GitHub page. roster does everything either side of
+that.
 
-**If you skip it:** the run fails at the token-minting step with a message about the app not
-existing.
+**If you skip it:** the run fails at the token-minting step, saying the App does not exist.
 
-**Note:** the private key is handed to `gh` on standard input. It is never written to a file,
-never passed on a command line, and never appears in the process table. If the secret write
-fails after the App is created, the key is gone: generate a new one from the App's settings
-page and set the secret by hand. roster tells you this if it happens.
-
----
-
-## 3. Install the App, and grant it the right repositories
-
-**Do:** open the URL the portal shows, or that `roster app` prints. Choose repositories.
-
-**Why not automated:** installing is a grant of access to specific repositories, and GitHub
-requires a human to choose them. This is the correct behaviour and should not be worked around.
-
-**Grant it on every tracker the staff member writes to**, not just their own. The token is
-minted organisation-wide, and a peer's board is where a brief lands. Both the portal and
-`roster app` say so.
-
-**If you skip it, or under-grant it:** this is the trap that costs the most time, because of
-how it fails.
-
-> The API reports an App's **declaration** separately from an installation's **grant**.
-> `GET /apps/<slug>` will happily tell you the App exists and has `contents: write`. That says
-> nothing about whether it has been installed on the repository you care about. Two of our
-> Apps declare permissions they were never granted.
-
-So: **do not verify an installation by reading the API.** The only thing that proves the whole
-chain (App created, installed, granted, secrets right, workflow reachable) is a run that
-finished. `roster doctor` reads a window of recent runs for exactly this reason, and reports a
-workflow that has never run as **unproven** rather than as fine.
-
-**Check:** that staff member's Health screen, or `roster doctor <handle>`. Then trigger one run
-and look again.
+The private key is handed to `gh` on standard input. It is never written to a file, never on a
+command line, and never in the process table. If the secret write fails after the App is
+created, the key is gone: generate a new one from the App's settings page and set the secret by
+hand. roster says so if it happens.
 
 ---
 
-## 4. Set the agent's credential
+## 3. Confirm the App's install
 
-**Do:** put the coding agent's credential on each brain repo as a secret. The name follows the
-credential: `CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_API_KEY`, and so on. See
-[choosing a coding agent](agents.md).
+**Do:** press **Install it** in the portal, or open the link `roster app` prints. The page opens
+with the organisation and the repos this staff member needs already selected: its brain, each
+peer's tracker, and the product repos. Check the list and confirm.
+
+**Why not automated:** installing is a grant of access to specific repositories, and GitHub asks
+a person to confirm it. That is correct and should not be worked around.
+
+The pre-selection uses `suggested_target_id` and `repository_ids[]` on the install page. GitHub's
+own links use them, but they are not in GitHub's documentation. If the ids cannot be read, or
+GitHub stops honouring them, the link is the plain install page and you tick the repos yourself;
+the portal and `roster app` both list which.
+
+**If you under-grant it:** this is the trap that costs the most time, because the API reports an
+App's **declaration** separately from an installation's **grant**. `GET /apps/<slug>` will say
+the App exists and has `contents: write` without saying whether it is installed on the repo you
+care about. So **do not verify an installation by reading the API**. Run it once (item 5).
+
+---
+
+## 4. Get the agent's credential
+
+**Do:** get a credential for your coding agent (`claude setup-token` for Claude Code; the others
+are in [choosing a coding agent](agents.md#1-the-credential-exists-and-you-have-it)) and paste it
+into **Agent credential**, or pipe it to `roster credential --apply`. It is stored once, as an
+organisation secret shared with the brain repos, and each hire adds its repo to it.
 
 **Why not automated:** it is your account's credential and roster has no way to obtain one.
 
-**If you skip it:** the run fails immediately with `the caller passed no agent credential`.
-That check exists so it fails there rather than forty lines later inside the agent, after the
-checkouts have already happened.
+Where an org secret would not arrive, it goes on each brain repo instead and says why. On GitHub
+Free, org secrets do not reach private repos, and only an org owner can set one. Setting an org
+secret also needs the `admin:org` scope on your `gh` token; if it is missing, the credential goes
+on each repo and the output gives the command that adds the scope.
 
-**Check:** Health, or `roster doctor`, lists the secrets each caller references and whether
-they exist.
+**If you skip it:** the run fails immediately with `the caller passed no agent credential`.
+
+**Check:** Health, or `roster doctor`, lists the secrets each caller references and whether they
+exist, on the repo or shared from the org.
 
 ---
 
-## 5. Write `org/business.md`
+## 5. Watch the first run
 
-**Do:** the setup screen does both halves of this. **Copy the prompt** puts a brief on your
-clipboard with every file it refers to inlined, so a chat window with no filesystem is as useful
-as an agent standing in the repo; the box beneath it takes the reply, shows you a diff, and
-saves only when you press the button. `roster brief discover` prints the same brief for a
-terminal, and you can always just answer the questions in the file by hand.
+**Do:** **Run once now** on the staff card or on Health, or `roster run <handle> --apply`. It
+starts the daily workflow, follows it, and reports how it ended, with the log.
 
-Health reports `business.stub` while it is still the questions.
+**Why it is yours:** it is a real run. It does a day's work and costs what one does, so it is a
+button you press rather than something setup does behind your back.
+
+**Why it matters:** the only thing that proves the whole chain (App created, installed, granted,
+secrets right, ops repo callable) is a run that finished. `roster doctor` reports a workflow
+that has never run as **unproven** rather than fine, and one finished run clears it.
+
+---
+
+## 6. Write `org/business.md` and `org/priorities.md`
+
+**Do:** on the setup screen, **Copy the prompt** puts a brief on your clipboard with every file
+it refers to inside it; paste the reply back and you get a diff and a save button. `roster brief
+discover` prints the same brief. Then write `org/priorities.md`: a few ranked lines on what
+matters this month.
+
+Health reports `business.stub` and `priorities.stub` while either is still the stub.
 
 **Why not automated:** an agent that does not know the business writes work that is plausible
-and generic. That is worse than no work, because it takes longer to notice. This file is
-composed into the top of every prompt, every run.
+and generic. That is worse than no work, because it takes longer to notice.
 
-**If you skip it:** nothing errors. That is the problem. You get competent-looking output about
-a business that does not exist.
+**If you skip it:** nothing errors. That is the problem.
 
 ---
 
-## 6. Write each staff member's `CHARTER.md`
+## 7. Write each staff member's `CHARTER.md`
 
-**Do:** **Write the charter** on that staff member's card, which is the same copy-a-prompt,
-paste-the-answer-back round trip as item 5, aimed at `CHARTER.md`. The brief it copies carries
-the org layer, `business.md` and **the peers' charters**, because without those the model writes
-a second copy of whoever it was shown. `roster brief charter <handle>` prints the same brief, and
-[writing a charter](writing-a-charter.md) has the shape if you would rather write it yourself.
+**Do:** **Write the charter** on that staff member's card, the same round trip as item 6. The
+brief carries the org layer, `business.md`, the peers' charters, and where the role matches one,
+a [worked example](writing-a-charter.md#worked-examples) to model the shape on. `roster brief
+charter <handle>` prints the same brief.
 
-**Why not automated:** same reason, one level down. The charter is what makes a staff member
-different from the others.
+**Why not automated:** the charter is what makes a staff member different from the others, and
+a generated one is the generic agent this arrangement exists to avoid.
 
-**If you skip it:** `charter` reports it as present, because the stub is a file. `charter.stub`
-is the finding that says nobody has answered it. The agent has no personality and produces
-whatever the shared layer implies.
+**If you skip it:** `charter.stub` says nobody has answered it, and the agent produces whatever
+the shared layer implies.
 
 ---
 
-## 7. Commit and push what roster wrote into other repos
+## 8. Commit what `roster upgrade` wrote
 
-**Do:** hiring writes a whole brain repo and pushes it, so this is mostly about `roster
-upgrade`, which writes into repos on disk and leaves them for you. Review, commit, push.
+**Do:** review, commit and push what `roster upgrade --apply` changed in the brain repos.
 
-Hiring from the Staff screen still edits the *other* staff members' manifests on disk to wire the
-peers both ways, and those are yours to commit.
+**Why not automated:** **App tokens cannot push a change under `.github/workflows/`**, in any
+repository. That is a GitHub restriction, and it is why agents never update their own workflows
+and upgrades are run by a person. Hiring commits its own changes as you, and lists them first.
 
-**Why not automated:** roster does not commit on your behalf into repositories it did not
-create in that command. And **App tokens cannot push a change under `.github/workflows/` in any
-repository**, which is a GitHub restriction and not a configuration mistake. That is also why
-agents can never update their own workflows, and why upgrades are human-run by design.
-
-**If you skip it:** the change exists locally and nowhere else. `roster upgrade` will report it
-as still pending next time, which is the intended behaviour.
+**If you skip it:** the change exists locally and nowhere else, and `roster upgrade` reports it as
+pending next time.
 
 ---
 
-## 8. Gate the product repos on a review
+## What roster does for you
 
-**Do:** nothing, if `roster hire --apply` added its ruleset. Otherwise require a pull request
-with one approving review on each product repo's default branch, and keep the staff Apps off
-the bypass list. [Security](security.md#the-review-gate) has the clicks.
+Each of these is a step of a command, listed in its plan before it happens, and each falls back
+to telling you exactly what to click if GitHub refuses.
 
-**Why not automated:** it is, at hire time. After that it is a setting on a repo you own, and
-changing it is yours rather than a staff member's: it is the gate on them.
-
-**If you skip it:** an agent that can push can ship without you reading it. Nothing in the
-prompt can stop that, only the branch rule can.
-
-**Check:** Health, or `roster doctor`, reports `review-gate` per product repo.
-
----
-
-## Order
-
-For a new organisation:
-
-In the portal it is the screen you are looking at, in this order:
-
-```
-the setup screen                         1 is deep-linked from it, and 5 is on it
-Staff -> Hire someone                    then 7
-GitHub App, on the new staff card        2, then 3
-Write the charter, on the same card      6
-                                         4 is yours: a secret on the brain repo
-Health                                   until the ids are gone
-```
-
-From a terminal:
-
-```
-roster init --org <org> --apply          # 1 applies here
-roster hire <handle> --apply             # then 7; adds 8
-roster app <handle> --apply              # 2, then 3
-# 4, 5, 6
-roster doctor <handle>
-```
-
-Then trigger one run by hand before trusting the schedule. A workflow that has never run has
-proved nothing.
+| | |
+|---|---|
+| The ops repo's Actions access | `roster init --apply`, or **Set it for me** on the setup screen. Needs admin on the ops repo. Skipped, every caller fails with "workflow not found". |
+| Committing peer wiring | `roster hire --apply` commits and pushes each peer's `staff.yaml` and `org.yaml` as you. A push that fails is reported and left for you. |
+| Giving each new brain the credential | `roster hire --apply` adds the repo to the org secret. |
+| Choosing repos on the install page | pre-selected, as above. |
+| The review gate on product repos | `roster hire --apply` adds it where there is none. See [security](security.md#the-review-gate). |

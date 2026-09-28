@@ -25,8 +25,8 @@ Read in this order.
 |---|---|
 | [Getting started](getting-started.md) | One command, in a browser: stand up an org, or join one that exists. |
 | [The portal](portal.md) | Where the work happens: setup, every screen, every action. |
-| [Manual steps](manual-steps.md) | Every human action, why it cannot be automated, and what breaks if you skip it. **Read this one.** |
-| [Concepts](concepts.md) | What a charter, a manifest, a surface and the ops repo are. |
+| [Manual steps](manual-steps.md) | What only a person can do, why, and what breaks if it is skipped. |
+| [Concepts](concepts.md) | The six things you need to know, then the detail. |
 | [Choosing a coding agent](agents.md) | Claude, Codex, Nanocoder, or anything with a command line. |
 | [Writing a charter](writing-a-charter.md) | The one file nothing can generate for you. |
 | [Extending it](extending.md) | The four seams, and which one to reach for. |
@@ -97,7 +97,8 @@ deleted, and an air-gapped install is a supported case rather than a special one
   produces a generic agent, which is the failure this whole arrangement exists to avoid.
 - **Write `org/business.md`.** Everything the staff say is downstream of it.
 - **Install a GitHub App.** Installing grants access to specific repositories and GitHub asks a
-  human which. See [manual steps](manual-steps.md).
+  person to confirm. roster opens the page with the right repos already selected. See
+  [manual steps](manual-steps.md).
 
 None of those is a dead end. roster holds no model credential, so for the first two the portal
 does both halves of the round trip instead: it copies a brief that carries every file it refers

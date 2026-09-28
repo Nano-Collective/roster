@@ -22,8 +22,10 @@ a coding agent, split into what an agent can fix and what only a person can. `ro
 
 **Is:** the ops repo's Actions access is not set to organisation-wide.
 
-Settings -> Actions -> General on `roster-ops`. The setup screen deep-links that exact page,
-which is the fastest way to fix it; Health and `roster doctor` both check it explicitly.
+`roster init --apply` sets it, and so does *Set it for me* on the setup screen. If GitHub
+refused (it needs admin on the ops repo), set it by hand: Settings -> Actions -> General ->
+Access on `roster-ops`, "accessible from repositories in the organisation". Health and `roster
+doctor` both check it explicitly.
 
 ---
 

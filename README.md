@@ -25,8 +25,8 @@ Roster gets checked out instead, which is how you join one a colleague set up.
 
 You need `gh` [authenticated](https://cli.github.com), a GitHub organisation, and a credential
 for whichever [coding agent](docs/agents.md) you want to run. Then read
-[getting started](docs/getting-started.md) and [manual steps](docs/manual-steps.md): a few
-things only a person can do, and what breaks if you skip them.
+[getting started](docs/getting-started.md): about an hour and a half to a first staff member's
+first finished run, most of it writing what the business is and the staff member's charter.
 
 ## Usage
 

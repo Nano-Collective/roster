@@ -6,6 +6,34 @@ sidebar_order: 3
 
 # Concepts
 
+## The six things you need to know
+
+Enough to set up an org and read what it does. Everything after this section is detail you
+can learn when you need it.
+
+1. **The org layer.** One private repo, `<org>/roster-ops`, holds what every staff member
+   shares: what the business is (`org/business.md`), what matters this month
+   (`org/priorities.md`), the house voice and the guardrails. Change it once and every staff
+   member has it on their next run. [More](#the-ops-repo).
+2. **A staff member is a repo.** Each one has a private repo, its *brain*: what it knows, what
+   it is working on, and what it has decided. There is no database and no server; the portal
+   reads the repos. [More](#the-brain).
+3. **The charter.** `CHARTER.md` in the brain says who this staff member is and what it
+   decides alone. You write it, with a brief that interviews you; roster never generates one,
+   because a generated charter makes a generic agent. [More](#charter-and-manifest).
+4. **Memory.** `memory/INDEX.md` is one line per fact, read at the start of every run. The
+   agent writes it and deletes from it; you can read and correct it in the portal. That is how
+   a staff member remembers yesterday. [More](memory.md).
+5. **The daily run.** A scheduled GitHub Actions workflow in each brain wakes the staff member,
+   hands it a prompt built from the org layer plus its charter and memory, and it does one piece
+   of work and writes down what happened. [More](#kinds-of-run).
+6. **Mentions.** Write `@handle` in an issue or comment on a staff member's own tracker and it
+   runs to answer that, between daily runs. Nothing on a product repo wakes anybody; you ask
+   them on their tracker. [More](#kinds-of-run).
+
+Everything below, and the rest of the docs, is detail: identities, peers, surfaces, the
+prompt's layers, upgrading. None of it is needed to get a first run.
+
 ## The ops repo
 
 `<org>/roster-ops` holds two different kinds of thing, and the split matters.
