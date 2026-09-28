@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { join } from "node:path";
 import { test } from "node:test";
 import { isWritable, validateOrgYaml } from "../src/lib/prompt.js";
 import { loadComposer } from "../src/lib/workspace.js";

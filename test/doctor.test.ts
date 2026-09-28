@@ -76,9 +76,11 @@ test("a run one minute short of the ceiling still counts as a timeout", () => {
 
 const OPS = (await testWorkspace()).opsDir;
 
-test("doctor runs offline against the real workspace and finds it healthy", async () => {
-  /* The same bet as the portal tests: built from the live workspace, so it breaks when the
-     real data grows a shape doctor cannot read. Offline, so it needs no network and no auth. */
+test("doctor runs offline against a freshly generated workspace and finds it healthy", async () => {
+  /* A tenant straight out of `init` and `hire` must pass its own health check, or the first
+     thing a new org sees is doctor crying wolf. ROSTER_TEST_WORKSPACE points this at a real
+     org, which catches real data growing a shape doctor cannot read. Offline, so it needs no
+     network and no auth. */
   const r = (await collect({ offline: true, ops: OPS }))!;
   assert.ok(r, "the workspace should resolve");
   assert.equal(r.online, false);
@@ -101,7 +103,7 @@ test("doctor runs offline against the real workspace and finds it healthy", asyn
   assert.deepEqual(
     bad.map((f) => f.title),
     [],
-    "the live workspace should have no offline failures",
+    "a generated workspace should have no offline failures",
   );
 });
 

@@ -5,18 +5,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { isWritable, promptView, saveFile } from "../src/lib/prompt.js";
-import { findWorkspace, loadComposer, readOrg } from "../src/lib/workspace.js";
+import { loadComposer, readOrg } from "../src/lib/workspace.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**
  * The prompt screen and the one write path that touches a repo the agents run from.
  *
  * `saveFile` commits and pushes, so it is exercised against a scratch repo with a real
- * remote rather than against the live workspace. `promptView` runs against the live one,
- * because the thing worth catching is the real composition growing a shape it cannot walk.
+ * remote. `promptView` runs against the generated test workspace, or a real one through
+ * ROSTER_TEST_WORKSPACE, because the thing worth catching is a composition growing a shape it
+ * cannot walk.
  */
 
-const ROOT = join(import.meta.dirname, "..");
 const ws = await testWorkspace();
 const { compose, parseYaml } = await loadComposer(ws.opsDir);
 
