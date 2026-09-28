@@ -46,6 +46,10 @@ Stand up a new tenant: the ops repo, the org layer, and the recorded merge base.
 --apply
 ```
 
+With `--apply` it also sets the ops repo's Actions access to "accessible from repositories in
+the organisation", which is what lets every brain call its workflow. If GitHub refuses (it needs
+admin on the repo), it prints the reason and the settings page to click instead.
+
 Will not write `org/business.md`. That is yours.
 
 ## `roster hire <handle>`
@@ -67,8 +71,15 @@ pinned status issue, and peer wiring in both directions.
 --apply
 ```
 
-With `--apply` it also adds a review-before-merge ruleset to each product repo that does not
-already require an approving review. See [security](security.md#the-review-gate).
+With `--apply` it also:
+
+- commits and pushes, as you, what it changed in repos that already exist: each peer's
+  `staff.yaml`, `org.yaml`, and the new `staff.yaml` once the status issue has a number. The
+  plan lists each commit first, and a push that fails is reported and left for you.
+- adds the new brain to the agent credential's org secret, if there is one, so the credential is
+  never asked for again. See [`roster credential`](#roster-credential).
+- adds a review-before-merge ruleset to each product repo that does not already require an
+  approving review. See [security](security.md#the-review-gate).
 
 ## `roster app <handle>`
 
@@ -81,7 +92,52 @@ Create the GitHub App and put its credentials in the brain repo's secrets.
 --apply        actually create it; without it, prints the App name, secrets and repos
 ```
 
-Cannot install the App. See [manual steps](manual-steps.md).
+Cannot install the App: GitHub asks a person to confirm which repos it reaches. It prints a link
+to the install page with the org and every repo the staff member needs already selected (its
+brain, its peers' trackers, the product repos), so confirming is one click. The pre-selection uses
+`suggested_target_id` and `repository_ids[]`, which GitHub's own links use but does not document;
+when the ids cannot be read the link is the plain install page. See
+[manual steps](manual-steps.md).
+
+## `roster credential`
+
+Store the coding agent's credential once for the org.
+
+```
+--repo-secrets   a secret on each brain repo, even where an org secret would work
+--apply          read the credential and store it
+```
+
+By default it is one organisation secret, named after the agent's `token_env`, shared with every
+brain repo; `roster hire` adds each new brain to it. It uses a secret on each brain instead, and
+the plan says why, when an org secret would not arrive: on GitHub Free an org secret does not
+reach a private repo, and only an org owner can set one. Setting an org secret also needs the
+`admin:org` scope on your gh token (`gh auth refresh -h github.com -s admin:org`); if it is
+refused, the credential goes on each repo and the output says so.
+
+The value comes from standard input, or a prompt that does not echo, and goes to `gh` on its
+standard input. It is never on a command line and never on disk.
+
+```bash
+claude setup-token          # Claude Code; see docs/agents.md for the others
+roster credential --apply
+```
+
+## `roster run <handle>`
+
+Start one daily run now and follow it to the end.
+
+```
+--no-wait   start it and print the link, without following it
+--apply     start the run
+```
+
+Runs `gh workflow run <handle>-daily.yaml`, finds the run it started, and polls it until it
+finishes. It prints the outcome, the step it failed at if it did, and the log's link. A success
+is what `roster doctor` counts as proof that the App, its grant, the secrets and the callers all
+work, so its "unproven" warning goes away. It is a real run and spends what a scheduled one
+would, which is why it needs `--apply`. The staff card and Health have the same as
+**Run once now**.
 
 ## `roster retire <handle>`
 
@@ -153,6 +209,7 @@ amend <who>     change what a staff member is told, with the whole prompt attach
 ```
 --kind <k>      for amend: daily | mention  (default: daily)
 --want <text>   for amend: what you want changed
+--example <e>   for charter: cto, cmo, support or none (default: matched to the role)
 --ops <dir>
 ```
 
@@ -162,6 +219,11 @@ roster brief discover
 roster brief charter cto | pbcopy
 roster brief voice > /tmp/brief.md
 ```
+
+`charter` carries one of the [worked examples](writing-a-charter.md#worked-examples) as a
+model to adapt, matched to the role by handle or name. It is a model for the shape, not content
+to copy, and the brief still interviews you first. `--example` picks another; `--example none`
+leaves it out. The portal's copy-a-prompt has the same choice.
 
 `amend` is the different one. It carries the composed prompt and every file it is assembled
 from, so the agent you paste it into does not have to ask for any of them. The portal's Prompt
@@ -218,7 +280,8 @@ Views: Inbox, Org, Staff, Docs, and per staff member Brain, Prompt, Graph, What 
 
 It can act as you through your own `gh`: reply, close, reopen and open issues; hire and retire;
 edit and commit the org layer, prompt fragments and charters; create a staff member's GitHub App;
-and copy a prompt for authoring the two files nothing can generate.
+store the agent credential; set the ops repo's Actions access; start one run and follow it; and
+copy a prompt for authoring the two files nothing can generate.
 
 ## `roster export`
 

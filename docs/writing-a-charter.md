@@ -28,6 +28,13 @@ layer. That is the part that matters most, because without them the model writes
 of whoever it was shown. The brief then interviews you, drafts from your answers, and tells you
 what it cut and why.
 
+**So is a worked example, when one fits.** A staff member whose handle or role reads as a CTO, a
+CMO or support gets the matching [example](#worked-examples) inside the brief, labelled as a
+model for the shape and not content to copy. The copy-a-prompt panel has a picker to choose
+another or none; in a terminal it is `--example cto|cmo|support|none`. It is still a brief you
+answer: the interview comes first, and nothing in the charter should come from the example
+rather than from you.
+
 From a terminal, the same brief:
 
 ```bash
@@ -68,7 +75,8 @@ status issue, and the surfaces the manifest declares.
 Three, for an invented company called Acme: a [CTO](charters/cto.md), a [CMO](charters/cmo.md)
 and a [Head of Support](charters/support.md). They are examples to adapt, not templates to fill
 in. Read them for what a finished charter covers and how specific it gets, then write your own
-about your business. A charter copied from one of these describes Acme.
+about your business. A charter copied from one of these describes Acme. The brief carries the matching one for
+you; these links are for reading them first.
 
 ## Things worth being concrete about
 
