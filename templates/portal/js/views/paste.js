@@ -49,7 +49,19 @@ export function paste(opts) {
 
   let brief = null;
 
-  const NAMES = { cto: "the CTO example", cmo: "the CMO example", support: "the support example", none: "no example" };
+  const NAMES = {
+    cto: "the CTO example",
+    cmo: "the CMO example",
+    support: "the support example",
+    pm: "the product manager example",
+    designer: "the designer example",
+    qa: "the QA example",
+    devops: "the DevOps example",
+    writer: "the writer example",
+    analyst: "the analyst example",
+    community: "the community example",
+    none: "no example",
+  };
   model.onchange = () => {
     copy.disabled = true;
     getBrief(opts.kind, opts.staff, model.value, opts.about)

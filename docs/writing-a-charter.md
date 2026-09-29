@@ -28,10 +28,10 @@ layer. That is the part that matters most, because without them the model writes
 of whoever it was shown. The brief then interviews you, drafts from your answers, and tells you
 what it cut and why.
 
-**So is a worked example, when one fits.** A staff member whose handle or role reads as a CTO, a
-CMO or support gets the matching [example](#worked-examples) inside the brief, labelled as a
+**So is a worked example, when one fits.** A staff member whose handle or role reads as one of
+the ten roles below gets the matching [example](#worked-examples) inside the brief, labelled as a
 model for the shape and not content to copy. The copy-a-prompt panel has a picker to choose
-another or none; in a terminal it is `--example cto|cmo|support|none`. It is still a brief you
+another or none; in a terminal it is `--example <handle>` or `--example none`. It is still a brief you
 answer: the interview comes first, and nothing in the charter should come from the example
 rather than from you.
 
@@ -72,9 +72,22 @@ status issue, and the surfaces the manifest declares.
 
 ## Worked examples
 
-Three, for an invented company called Acme: a [CTO](charters/cto.md), a [CMO](charters/cmo.md)
-and a [Head of Support](charters/support.md). They are examples to adapt, not templates to fill
-in. Read them for what a finished charter covers and how specific it gets, then write your own
+Ten, for an invented company called Acme. The handle in brackets is the one `--example` takes.
+
+| Example | What they do |
+|---|---|
+| [CTO](charters/cto.md) (`cto`) | Builds the product: fixes, features and tests, as pull requests. |
+| [CMO](charters/cmo.md) (`cmo`) | Posts, SEO, copy and launch plans, as drafts to approve. |
+| [Head of Support](charters/support.md) (`support`) | Answers issues, writes help docs, and turns user reports into bugs. |
+| [Product Manager](charters/pm.md) (`pm`) | Turns ideas and user feedback into clear specs and a ranked backlog. |
+| [Designer](charters/designer.md) (`designer`) | Improves the product's look and usability, with accessibility fixes, as pull requests. |
+| [QA Engineer](charters/qa.md) (`qa`) | Tests the product, finds bugs, and writes clear reproductions and tests. |
+| [DevOps Engineer](charters/devops.md) (`devops`) | Keeps CI, deploys and dependencies healthy, and patches security updates. |
+| [Technical Writer](charters/writer.md) (`writer`) | Writes and keeps up the docs, guides and changelog. |
+| [Data Analyst](charters/analyst.md) (`analyst`) | Reads the numbers and writes a short weekly report on what changed. |
+| [Community Manager](charters/community.md) (`community`) | Answers discussions, welcomes contributors, and drafts release announcements. |
+
+They are examples to adapt, not templates to fill in. Read them for what a finished charter covers and how specific it gets, then write your own
 about your business. A charter copied from one of these describes Acme. The brief carries the matching one for
 you; these links are for reading them first.
 

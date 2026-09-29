@@ -666,6 +666,7 @@ function install(hash: string) {
 const ALIAS: Record<string, string> = {
   DATA: "data",
   STAFF_OPEN: "staffOpen",
+  READINESS: "readiness",
   INBOX: "inbox",
   RUNS: "runs",
   DOCS: "docs",
@@ -2692,7 +2693,17 @@ test("a role already hired is not offered again", async () => {
     .filter((n) => n.dataset?.role)
     .map((n) => n.dataset.role);
   // The fixture has hired cto and cmo.
-  assert.deepEqual(roles, ["support", "other"]);
+  assert.deepEqual(roles, [
+    "support",
+    "pm",
+    "designer",
+    "qa",
+    "devops",
+    "writer",
+    "analyst",
+    "community",
+    "other",
+  ]);
   const support = walkNodes(s._byId.main).find((n) => n.dataset?.role === "support");
   assert.match(support.textContent, /Answers issues, writes help docs/);
 });
@@ -2775,7 +2786,7 @@ test("a picked role is a numbered list: a plain summary, then steps locked until
     .map((n) => n.textContent);
   assert.deepEqual(titles, [
     "Hire",
-    "Create their GitHub App",
+    "Create and install their GitHub App",
     "Write their charter",
     "Add your agent credential",
     "Run once now",
@@ -3027,7 +3038,7 @@ test("a staff card offers both things hire deliberately does not do", async () =
   setup.onclick();
   const text = s._byId.main.textContent;
   assert.match(text, /Write their charter/);
-  assert.match(text, /Create their GitHub App/);
+  assert.match(text, /Create and install their GitHub App/);
 });
 
 test("the repo picker offers what org.yaml does not already list", async () => {
@@ -3091,9 +3102,28 @@ test("a link still wins over the default, and a finished org has no Getting star
   assert.equal(linked.view, "org", "somebody who asked for Org gets Org");
   assert.equal(linked._byId.setupnav.hidden, false, "with the way back still offered");
 
-  const done = await renderAll("", { ...ORG, unfinished: [] });
-  assert.equal(done.view, "inbox");
-  assert.equal(done._byId.setupnav.hidden, true, "nothing left, nothing offered");
+  // Finished means every staff member can run too: charters written, nothing left on GitHub.
+  const ready = ORG.staff.map((x: any) => ({ ...x, rig: { ...x.rig, charterStub: false } }));
+  const was = progressFixture;
+  try {
+    progressFixture = { app: true, installed: true, credential: true, ran: true };
+    const done = await renderAll("", { ...ORG, staff: ready, unfinished: [] });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(done.view, "inbox");
+    assert.equal(done._byId.setupnav.hidden, true, "nothing left, nothing offered");
+
+    // A hire that cannot run yet keeps it offered, which is what went missing.
+    progressFixture = { app: true, installed: false, credential: false, ran: false };
+    const notYet = await renderAll("", { ...ORG, staff: ready, unfinished: [] });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(
+      notYet._byId.setupnav.hidden,
+      false,
+      "a staff member who cannot run keeps Getting started",
+    );
+  } finally {
+    progressFixture = was;
+  }
 });
 
 test("saving priorities.md re-runs the check rather than leaving Health stale", async () => {
@@ -3136,7 +3166,19 @@ test("with nobody hired the picker is already open, and the App names are filled
   const roles = walkNodes(empty._byId.main)
     .filter((n) => n.dataset?.role)
     .map((n) => n.dataset.role);
-  assert.deepEqual(roles, ["cto", "cmo", "support", "other"]);
+  assert.deepEqual(roles, [
+    "cto",
+    "cmo",
+    "support",
+    "pm",
+    "designer",
+    "qa",
+    "devops",
+    "writer",
+    "analyst",
+    "community",
+    "other",
+  ]);
 
   const { s, asked } = await pickRole("cto", { ...ORG, staff: [] });
   assert.equal(field(s, "app").value, "acme-cto");

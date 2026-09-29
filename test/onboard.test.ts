@@ -365,6 +365,29 @@ test("a role is matched to the worked example it most resembles, and only when i
   assert.equal(matchExample("cfo", "Chief Financial Officer"), undefined);
 });
 
+test("the narrower roles are matched before the CTO takes every engineer", () => {
+  for (const handle of ["pm", "designer", "qa", "devops", "writer", "analyst", "community"]) {
+    assert.equal(matchExample(handle), handle);
+  }
+  assert.equal(matchExample("product", "Head of Product"), "pm");
+  assert.equal(matchExample("po", "Product Owner"), "pm");
+  assert.equal(matchExample("ux", "Product Designer"), "designer");
+  assert.equal(matchExample("test", "QA Engineer"), "qa");
+  assert.equal(matchExample("tester", "Test Engineer"), "qa");
+  assert.equal(matchExample("ops", "DevOps Engineer"), "devops");
+  assert.equal(matchExample("sre", "Site Reliability Engineer"), "devops");
+  assert.equal(matchExample("docs", "Technical Writer"), "writer");
+  assert.equal(matchExample("data", "Data Analyst"), "analyst");
+  assert.equal(matchExample("devrel", "Developer Advocate"), "community");
+  // The broad words still reach the CTO when nothing narrower claims them.
+  assert.equal(matchExample("eng", "Head of Engineering"), "cto");
+  assert.equal(matchExample("dev", "Developer"), "cto");
+  assert.equal(matchExample("tech", "Technical Lead"), "cto");
+  // A content writer is marketing, and product marketing is not product management.
+  assert.equal(matchExample("content", "Content Writer"), "cmo");
+  assert.equal(matchExample("pmm", "Product Marketing Manager"), "cmo");
+});
+
 test("the charter brief carries the example as a model, and stays a brief", () => {
   const brief = "Write or revise `CHARTER.md` for CTO.\n\n## Then interview\n";
   const out = withExample(brief, "cto", "CTO");

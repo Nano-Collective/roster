@@ -3,7 +3,50 @@ import { join } from "node:path";
 import { docsDir } from "./docs.js";
 
 /** The worked charters in docs/charters/, by the role each one is written for. */
-export const CHARTER_EXAMPLES = ["cto", "cmo", "support"] as const;
+export const CHARTER_EXAMPLES = [
+  "cto",
+  "cmo",
+  "support",
+  "pm",
+  "designer",
+  "qa",
+  "devops",
+  "writer",
+  "analyst",
+  "community",
+] as const;
+
+/** What each example's role is called, for saying which one a brief carries. */
+const TITLES: Record<string, string> = {
+  cto: "CTO",
+  cmo: "CMO",
+  support: "Head of Support",
+  pm: "Product Manager",
+  designer: "Designer",
+  qa: "QA Engineer",
+  devops: "DevOps Engineer",
+  writer: "Technical Writer",
+  analyst: "Data Analyst",
+  community: "Community Manager",
+};
+
+/**
+ * The words that point at each example, checked in this order. The narrower roles come first,
+ * because their names carry the broad words too: a QA Engineer and a DevOps Engineer are both
+ * engineers, a Technical Writer is technical, and none of them is the CTO.
+ */
+const PATTERNS: [string, RegExp][] = [
+  ["designer", /\b(design\w*|ux|ui|accessibility|a11y)\b/],
+  ["qa", /\b(qa|quality|test\w*)\b/],
+  ["devops", /\b(devops|sre|ops|infra\w*|reliability|deploy\w*|ci)\b/],
+  ["analyst", /\b(analyst|analytics|metrics|insights|bi|reporting|scientist)\b/],
+  ["community", /\b(community|devrel|advocate|evangelist|moderator)\b/],
+  ["cmo", /\b(cmo|market\w*|growth|brand|content|comms)\b/],
+  ["support", /\b(support|help\w*|success|customer\w*|cs|care)\b/],
+  ["writer", /\b(writer|writing|docs|documentation|changelog)\b/],
+  ["pm", /\b(pm|cpo|product (manager|owner|lead)|head of product|roadmap)\b/],
+  ["cto", /\b(cto|tech\w*|engineer\w*|dev\w*|platform)\b/],
+];
 
 /**
  * Which example a staff member's charter is most like, from its handle and role name.
@@ -15,10 +58,7 @@ export const CHARTER_EXAMPLES = ["cto", "cmo", "support"] as const;
 export function matchExample(handle: string, name = ""): string | undefined {
   if ((CHARTER_EXAMPLES as readonly string[]).includes(handle)) return handle;
   const words = `${handle} ${name}`.toLowerCase();
-  if (/\b(cto|tech\w*|engineer\w*|dev\w*|platform)\b/.test(words)) return "cto";
-  if (/\b(cmo|market\w*|growth|brand|content|comms)\b/.test(words)) return "cmo";
-  if (/\b(support|help\w*|success|customer\w*|cs|care)\b/.test(words)) return "support";
-  return undefined;
+  return PATTERNS.find(([, re]) => re.test(words))?.[0];
 }
 
 /**
@@ -34,7 +74,7 @@ export function exampleSection(choice: string): string {
   return [
     "## A worked example, to adapt",
     "",
-    `Below is an invented company's ${choice === "support" ? "Head of Support" : choice.toUpperCase()}`,
+    `Below is an invented company's ${TITLES[choice] ?? choice}`,
     "charter. Use it for its shape: which sections there are, how long it is, how specific the",
     "decision rights get. Do not copy its content. Every specific in it belongs to Acme, and a",
     "charter built from someone else's specifics is the generic agent this file exists to",
@@ -62,7 +102,7 @@ export function exampleOffer(handle: string): string {
   return [
     "## Worked examples",
     "",
-    `No worked example obviously matches "${handle}". There are three to model a charter on:`,
+    `No worked example obviously matches "${handle}". There are ${CHARTER_EXAMPLES.length} to model a charter on:`,
     `${CHARTER_EXAMPLES.join(", ")}. \`roster brief charter ${handle} --example <one>\` includes one.`,
     "",
   ].join("\n");

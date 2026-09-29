@@ -70,7 +70,7 @@ roster portal
   It can also act on GitHub as you: reply, close, reopen and open issues. Those go
   through your own gh, so they are indistinguishable from doing it on the site.
 
-  --port <n>     default 4300
+  --port <n>     default 4300, or the next free one
   --host <addr>  default 127.0.0.1. Anything else exposes write actions to the network.
   --ops <dir>    ops repo directory (default: found by walking up)
   --dir <path>   where a tenant would be created or checked out (default: here)
@@ -127,7 +127,8 @@ const appResults = new Map<string, Record<string, unknown>>();
 
 export async function portalCommand(argv: string[]): Promise<number> {
   const opts = parseFlags(argv);
-  const port = opts.port ?? 4300;
+  // Reassigned if 4300 is taken and nobody asked for a port: see the listen below.
+  let port = opts.port ?? 4300;
   const host = opts.host ?? "127.0.0.1";
   const startedIn = resolve(opts.ops ?? opts.dir ?? process.cwd());
 
@@ -847,12 +848,14 @@ export async function portalCommand(argv: string[]): Promise<number> {
         }
         const dir = entry.dir ?? entry.handle;
         const spec = specFromManifest(readManifest(join(w.root, dir), parseYaml), dir);
-        staffProgress(spec, dailyWorkflow(entry.handle))
+        staffProgress(org.org, spec, dailyWorkflow(entry.handle))
           .then((body) => {
             progressCache.set(handle, { at: Date.now(), body });
             json(res, body);
           })
-          .catch(() => json(res, { app: null, publicApp: null, ran: null }));
+          .catch(() =>
+            json(res, { app: null, publicApp: null, installed: null, credential: null, ran: null }),
+          );
         return;
       }
 
@@ -1551,15 +1554,29 @@ export async function portalCommand(argv: string[]): Promise<number> {
   });
 
   return new Promise((done) => {
+    /* A second portal (another workspace, or one left running) is common. Without --port the
+       next free port is fine; with it, the person asked for that one, so say it is taken. */
+    const tries = opts.port === undefined ? 20 : 1;
+    let tried = 1;
     server.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE" && tried < tries) {
+        tried++;
+        port++;
+        server.listen(port, host);
+        return;
+      }
       if (err.code === "EADDRINUSE") {
-        process.stderr.write(`roster: port ${port} is in use. Try --port ${port + 1}.\n`);
+        process.stderr.write(
+          tries > 1
+            ? `roster: ports ${port - tries + 1} to ${port} are all in use. Pass --port <n>.\n`
+            : `roster: port ${port} is in use. Try --port ${port + 1}.\n`,
+        );
       } else {
         process.stderr.write(`roster: ${err.message}\n`);
       }
       done(1);
     });
-    server.listen(port, host, () => {
+    server.on("listening", () => {
       const warn =
         host === "127.0.0.1"
           ? ""
@@ -1570,12 +1587,13 @@ export async function portalCommand(argv: string[]): Promise<number> {
         ? `workspace: ${ws.root}`
         : `no tenant in ${startedIn} yet — the page will set one up`;
       process.stdout.write(
-        `\n  roster portal\n  http://localhost:${port}\n${warn}\n  ${where}\n  Ctrl-C to stop.\n\n`,
+        `\n  Roster\n  http://localhost:${port}\n${warn}\n  ${where}\n  Ctrl-C to stop.\n\n`,
       );
       if (shouldOpen(process.env, Boolean(process.stdout.isTTY), opts.noOpen === true)) {
         openBrowser(`http://localhost:${port}`);
       }
     });
+    server.listen(port, host);
   });
 }
 
@@ -1655,16 +1673,32 @@ function json(res: import("node:http").ServerResponse, data: unknown, advice = f
   res.end(advice ? withBin(text) : text);
 }
 
-/** Whether a staff member's App secrets are set and whether a daily run has succeeded. */
+/**
+ * How far a staff member's setup has got, from GitHub: the App's keys on the repo, whether the
+ * App is installed on the org, whether the agent credential is stored, and whether a daily run
+ * has succeeded. Created and installed are separate because an App with keys and no install
+ * looked finished and could not run.
+ */
 async function staffProgress(
-  spec: { brain: string; secretPrefix: string; publicSecretPrefix: string },
+  org: string,
+  spec: {
+    brain: string;
+    app?: string;
+    publicApp?: string;
+    secretPrefix: string;
+    publicSecretPrefix: string;
+    agentSecret: string;
+  },
   workflow: string,
 ) {
-  const [repo, shared, runs] = await Promise.all([
+  const [repo, shared, runs, installs] = await Promise.all([
     api<{ secrets: Array<{ name: string }> }>(`repos/${spec.brain}/actions/secrets`),
     api<{ secrets: Array<{ name: string }> }>(`repos/${spec.brain}/actions/organization-secrets`),
     api<{ total_count: number }>(
       `repos/${spec.brain}/actions/workflows/${workflow}/runs?status=success&per_page=1`,
+    ),
+    api<{ installations: Array<{ app_slug: string; repository_selection: string }> }>(
+      `orgs/${org}/installations`,
     ),
   ]);
   const names = repo.ok
@@ -1673,9 +1707,23 @@ async function staffProgress(
         ...(shared.ok ? shared.data!.secrets.map((x) => x.name) : []),
       ])
     : null;
+  const install = (slug?: string) => {
+    if (!installs.ok || !slug) return null;
+    return (
+      installs.data!.installations.find((i) => i.app_slug.toLowerCase() === slug.toLowerCase()) ??
+      false
+    );
+  };
+  const priv = install(spec.app);
+  const pub = install(spec.publicApp);
   return {
     app: names ? names.has(`${spec.secretPrefix}_APP_ID`) : null,
     publicApp: names ? names.has(`${spec.publicSecretPrefix}_APP_ID`) : null,
+    installed: priv === null ? null : Boolean(priv),
+    // "selected" means only chosen repos, which has to include the ops repo for a run to start.
+    installSelection: priv ? priv.repository_selection : null,
+    publicInstalled: pub === null ? null : Boolean(pub),
+    credential: names ? names.has(spec.agentSecret) : null,
     ran: runs.ok ? (runs.data?.total_count ?? 0) > 0 : null,
   };
 }

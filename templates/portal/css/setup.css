@@ -182,3 +182,4 @@
 .pastenotes summary{cursor:pointer;font:600 12.5px var(--sans);color:var(--ink-dim);margin-bottom:6px}
 .pastenotes .md{border-left:3px solid var(--line);padding-left:12px}
 .pastefile .diff{white-space:pre-wrap;overflow-wrap:anywhere}
+.warnline{margin:10px 0 0;padding:8px 11px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--ink);font-size:13px}

@@ -38,6 +38,8 @@ export const S = {
   loadedAt: null,
   /** The role whose hire list is open on the Staff screen, kept across a refresh. */
   staffOpen: null,
+  /** Per staff member, what is left before they can run. See readiness.js. */
+  readiness: null,
 
   staffHandle: null,
   /* What is waiting on you, not whose brain you read last. The org-wide screens are where a

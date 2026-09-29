@@ -18,6 +18,7 @@ import {
 import { $, el, esc, toClipboard } from "../dom.js";
 import { go } from "../router.js";
 import { S as App } from "../state.js";
+import { checkAll, notReady, sentence } from "../readiness.js";
 import { checklist } from "./checklist.js";
 import { businessForm, prioritiesForm } from "./orgedit.js";
 import { credentialPanel } from "./credential.js";
@@ -60,8 +61,24 @@ export async function viewGettingStarted(main) {
   S = await getSetup();
   // Somebody may have clicked elsewhere while GitHub was answering.
   if (App.view !== "setup") return;
+  await checkAll();
+  if (App.view !== "setup") return;
   sub.textContent = "Work through these in order.";
-  main.append(afterCreate());
+  const list = afterCreate();
+
+  // Somebody hired but not ready to run is the most important thing left, so it comes first.
+  for (const s of notReady().reverse()) {
+    const t = todo("!", "Finish setting up " + s.name, false);
+    t.hint("Still to do: " + sentence(App.readiness?.[s.handle] ?? []) + ".");
+    const cont = el("button", { className: "btn primary", textContent: "Continue" });
+    cont.onclick = () => {
+      App.staffOpen = { handle: s.handle, name: s.name, dir: s.dir };
+      go({ view: "staff" });
+    };
+    t.body.append(el("div", { className: "row" }, [cont]));
+    list.prepend(t.card);
+  }
+  main.append(list);
 
   const health = step("!", "Other problems", false);
   healthHost = el("div", { style: "margin-top:12px" });
@@ -75,7 +92,7 @@ export async function viewGettingStarted(main) {
 export function paintSetupNav() {
   const nav = $("#setupnav");
   if (!nav) return;
-  nav.hidden = !App.data?.unfinished?.length && App.view !== "setup";
+  nav.hidden = !App.data?.unfinished?.length && !notReady().length && App.view !== "setup";
 }
 
 /* After a save: the checklist and the step list are both derived from disk, so both are asked

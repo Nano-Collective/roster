@@ -214,7 +214,7 @@ amend <who>     change what a staff member is told, with the whole prompt attach
 ```
 --kind <k>      for amend: daily | mention  (default: daily)
 --want <text>   for amend: what you want changed
---example <e>   for charter: cto, cmo, support or none (default: matched to the role)
+--example <e>   for charter: an example's handle, or none (default: matched to the role)
 --ops <dir>
 ```
 

@@ -39,10 +39,52 @@ const ROLES = [
     name: "Head of Support",
     about: "Answers issues, writes help docs, and turns user reports into bugs.",
   },
+  {
+    handle: "pm",
+    label: "Product manager",
+    name: "Product Manager",
+    about: "Turns ideas and user feedback into clear specs and a ranked backlog.",
+  },
+  {
+    handle: "designer",
+    label: "Designer",
+    name: "Designer",
+    about: "Improves the product's look and usability, with accessibility fixes, as pull requests.",
+  },
+  {
+    handle: "qa",
+    label: "QA",
+    name: "QA Engineer",
+    about: "Tests the product, finds bugs, and writes clear reproductions and tests.",
+  },
+  {
+    handle: "devops",
+    label: "DevOps",
+    name: "DevOps Engineer",
+    about: "Keeps CI, deploys and dependencies healthy, and patches security updates.",
+  },
+  {
+    handle: "writer",
+    label: "Writer",
+    name: "Technical Writer",
+    about: "Writes and keeps up the docs, guides and changelog.",
+  },
+  {
+    handle: "analyst",
+    label: "Analyst",
+    name: "Data Analyst",
+    about: "Reads the numbers and writes a short weekly report on what changed.",
+  },
+  {
+    handle: "community",
+    label: "Community",
+    name: "Community Manager",
+    about: "Answers discussions, welcomes contributors, and drafts release announcements.",
+  },
 ];
 
 /**
- * The roles as cards. The three with worked examples are offered until they are hired;
+ * The roles as cards. Each has a worked example, and is offered until it is hired;
  * Something else asks for a name and a sentence.
  * @param {{onPick: (role: {handle: string, name: string, dir: string, about?: string}) => void}} o
  */
@@ -141,7 +183,7 @@ export function hireFlow(o) {
   box.append(list);
 
   const hire = todo(1, "Hire", hired);
-  const app = todo(2, "Create their GitHub App", false);
+  const app = todo(2, "Create and install their GitHub App", false);
   const charter = todo(3, "Write their charter", hired && !s.rig?.charterStub);
   const cred = todo(4, "Add your agent credential", false);
   const run = todo(5, "Run once now", false);
@@ -182,14 +224,17 @@ export function hireFlow(o) {
 
   /* 2 · the App. The public identity only matters when a product repo is public, and hire
      treats one with no visibility written as public, so this does too. */
+  /* Done means installed, not created: an App with its keys saved and no install looked
+     finished, and every run would have failed. */
   let needPublic = false;
   const made = { private: false, public: false };
   const appDone = () => app.setDone(made.private && (!needPublic || made.public));
   const panels = el("div");
-  app.body.append(panels);
-  panels.append(
-    appPanel({ staff: s.handle, name: s.name, scope: "private", onDone: () => ((made.private = true), appDone()) }),
-  );
+  const installNote = el("p", { className: "warnline", hidden: true });
+  const recheck = el("button", { className: "ghbtn", textContent: "Check again" });
+  recheck.onclick = () => checkProgress();
+  app.body.append(panels, installNote, el("div", { className: "row" }, [recheck]));
+  panels.append(appPanel({ staff: s.handle, name: s.name, scope: "private", onDone: () => checkProgress() }));
   getRepos()
     .then((r) => {
       needPublic = (r.repos ?? []).some(
@@ -198,7 +243,7 @@ export function hireFlow(o) {
       if (needPublic) {
         app.hint("One of your product repos is public. Public work uses a second App, shared by all staff.");
         panels.append(
-          appPanel({ staff: s.handle, name: s.name, scope: "public", onDone: () => ((made.public = true), appDone()) }),
+          appPanel({ staff: s.handle, name: s.name, scope: "public", onDone: () => checkProgress() }),
         );
       }
       appDone();
@@ -225,15 +270,27 @@ export function hireFlow(o) {
     }),
   );
 
-  /* What only GitHub knows: the App's secrets on the repo, and whether a run has succeeded. */
-  getStaffProgress(s.handle, true)
-    .then((p) => {
-      if (p.app) made.private = true;
-      if (p.publicApp) made.public = true;
-      appDone();
-      if (p.ran) run.setDone(true);
-    })
-    .catch(() => {});
+  /* What only GitHub knows: whether the App is installed, whether the credential is stored,
+     and whether a run has succeeded. Asked again by Check again, after a trip to GitHub. */
+  function checkProgress() {
+    return getStaffProgress(s.handle, true)
+      .then((p) => {
+        made.private = p.installed === true;
+        made.public = p.publicInstalled === true;
+        appDone();
+        installNote.hidden = !(p.app && p.installed === false);
+        installNote.textContent =
+          "Created, but not installed yet. Press Install, and choose All repositories or include roster-ops.";
+        if (p.installed && p.installSelection === "selected") {
+          installNote.hidden = false;
+          installNote.textContent =
+            "Installed on selected repos. Make sure roster-ops is one of them, or runs will fail.";
+        }
+        if (p.ran) run.setDone(true);
+      })
+      .catch(() => {});
+  }
+  checkProgress();
 
   return box;
 }

@@ -5,9 +5,10 @@
  * and nothing happens until you say so.
  */
 
-import { getStaffProgress, post } from "../api.js";
+import { post } from "../api.js";
 import { askYes, sheet } from "../dialog.js";
 import { ago, el, esc } from "../dom.js";
+import { whatsLeft, sentence } from "../readiness.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { hireFlow, line, rolePicker } from "./hire.js";
@@ -88,10 +89,11 @@ export function viewStaff(m, o = {}) {
   if (!empty) {
     const list = el("div", { className: "grid", style: "margin-bottom:18px" });
     for (const s of S.data.staff) list.append(card(s));
-    m.append(list);
-    const hire = el("button", { className: "ghbtn primary", textContent: "Hire someone" });
+    // In the grid, where the next person would go, rather than a button under it.
+    const hire = el("button", { className: "hirecard", textContent: "Hire someone" });
     hire.onclick = pick;
-    m.append(el("div", { className: "row", style: "margin-bottom:14px" }, [hire]));
+    list.append(hire);
+    m.append(list);
   }
   m.append(pane);
 
@@ -128,18 +130,16 @@ export function viewStaff(m, o = {}) {
        from disk at once, and the App's secrets and a first run from GitHub when it answers. */
     const finish = el("button", { className: "ghbtn", textContent: "Set up" });
     finish.onclick = () => open(roleOf(s));
-    const unfinished = () => {
+    const warn = el("p", { className: "warnline", hidden: true });
+    whatsLeft(s).then((left) => {
+      if (!left.length) return;
       finish.textContent = "Finish setting up";
       finish.className = "ghbtn primary";
-    };
-    if (s.rig?.charterStub) unfinished();
-    else {
-      getStaffProgress(s.handle)
-        .then((p) => {
-          if (p.app === false || p.ran === false) unfinished();
-        })
-        .catch(() => {});
-    }
+      d.classList.add("notready");
+      warn.hidden = false;
+      warn.textContent = "Not ready to run. Still to do: " + sentence(left) + ".";
+    });
+    d.append(warn);
 
     d.append(
       el("div", { className: "row", style: "margin-top:10px" }, [finish, go, status]),

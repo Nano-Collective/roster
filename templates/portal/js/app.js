@@ -24,6 +24,7 @@ import { viewInbox, viewPrs } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
 import { viewRuns } from "./views/runs.js";
+import { sentence, whatsLeft } from "./readiness.js";
 import { paintSetupNav, viewGettingStarted, viewSetup } from "./views/setup.js";
 import { viewStaff } from "./views/staff.js";
 
@@ -112,6 +113,7 @@ export async function boot() {
   S.data = first;
   S.loadedAt = new Date();
   S.staffOpen = null; // an open hire list survives a refresh, not a page load
+  S.readiness = null;
   S.staffHandle = S.data.staff[0]?.handle ?? null;
   $("#orgname").textContent = S.data.name + " · " + S.data.staff.length + " staff";
 
@@ -262,11 +264,19 @@ function paintSidebar() {
     const head = el("button", { className: "nav staffrow" });
     head.dataset.staff = s.handle;
     head.setAttribute("aria-expanded", String(open));
+    const dot = el("span", { className: "readydot", hidden: true });
     head.append(
       icon("chevron", "caret"),
       el("span", { className: "t", textContent: s.name }),
+      dot,
       el("span", { className: "hh", textContent: s.handle }),
     );
+    whatsLeft(s).then((left) => {
+      if (!left.length) return;
+      dot.hidden = false;
+      head.title = "Not ready to run: " + sentence(left);
+      paintSetupNav();
+    });
 
     const views = el("div", { className: "staffviews" });
     views.hidden = !open;

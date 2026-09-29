@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { docAsset, docPages, searchDocs } from "../src/lib/docs.js";
+import { CHARTER_EXAMPLES } from "../src/lib/examples.js";
 import { testWorkspace } from "./helpers/workspace.js";
 
 /**
@@ -366,7 +367,11 @@ test("the example charters are examples, and about nobody real", () => {
      template gets filled in rather than rewritten. */
   const dir = join(DOCS, "charters");
   const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
-  assert.deepEqual(files.sort(), ["cmo.md", "cto.md", "support.md"]);
+  assert.deepEqual(files.sort(), CHARTER_EXAMPLES.map((e) => `${e}.md`).sort());
+  assert.equal(files.length, 10);
+  const guide = readFileSync(join(DOCS, "writing-a-charter.md"), "utf8");
+  for (const f of files)
+    assert.ok(guide.includes(`(charters/${f})`), `writing-a-charter.md does not list ${f}`);
   for (const f of files) {
     const body = readFileSync(join(dir, f), "utf8");
     assert.match(body, /An example to adapt, not a template/, `${f} has to say what it is`);

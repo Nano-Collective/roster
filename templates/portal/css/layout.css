@@ -148,3 +148,12 @@ main{padding:36px 44px 96px;max-width:1220px;overflow-x:hidden}
   .side{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}
   .sidefoot{margin-top:0}
 }
+
+/* A staff member who cannot run yet (readiness.js). */
+.readydot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;margin-left:4px}
+.staffcard.notready{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+.hirecard{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:120px;
+      border:1.5px dashed var(--border-strong);border-radius:var(--r-lg);background:none;color:var(--ink-dim);
+      font:600 14px var(--sans);cursor:pointer}
+.hirecard:hover{color:var(--ink);border-color:var(--accent)}
+.hirecard::before{content:"+";font-size:22px;line-height:1}

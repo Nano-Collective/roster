@@ -51,7 +51,7 @@ roster brief <kind> [handle]
 
   --kind <k>      for amend: daily | mention  (default: daily)
   --want <text>   for amend: what you want changed
-  --example <e>   for charter: cto, cmo, support or none (default: matched to the role)
+  --example <e>   for charter: an example's handle, or none (default: matched to the role)
   --ops <dir>     ops repo directory (default: found by walking up)
 `;
 
