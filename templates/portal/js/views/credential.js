@@ -12,11 +12,11 @@ export function credentialPanel(opts = {}) {
   if (!opts.bare) box.append(el("b", { textContent: "Agent credential" }));
   const body = el("div");
   box.append(body);
-  body.append(el("p", { className: "sub", textContent: "Looking at where it would go…" }));
+  body.append(el("p", { className: "sub", textContent: "Checking…" }));
 
   getCredential()
     .then((c) => {
-      opts.onStatus?.(Boolean(c.orgSecret));
+      opts.onStatus?.(Boolean(c.stored ?? c.orgSecret));
       draw(body, c, opts);
     })
     .catch((err) => body.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) })));
@@ -25,74 +25,60 @@ export function credentialPanel(opts = {}) {
 
 function draw(body, c, opts = {}) {
   body.replaceChildren();
-  if (c.howTo) body.append(el("p", { textContent: "Where to get one: " + c.howTo }));
 
   if (!(c.brains ?? []).length) {
     // Inside a step, the step's own hint already says when this opens.
-    if (opts.bare) return;
-    body.append(
-      el("p", {
-        className: "sub",
-        textContent:
-          "Available after your first hire. You only add it once.",
-      }),
-    );
+    if (!opts.bare) body.append(el("p", { className: "sub", textContent: "Available after your first hire. You only add it once." }));
     return;
   }
 
-  if (c.orgSecret) {
-    body.append(
-      el("p", {
-        className: "sub",
-        textContent:
-          c.name + " is already set. Paste a new one only to replace it.",
-      }),
-    );
-  }
-
-  body.append(
-    el("p", {
-      className: "sub",
-      textContent:
-        (c.plan.mode === "org"
-          ? "Stored as one org secret, " + c.name + ", shared with " + c.brains.join(", ") + ". "
-          : "Stored as " + c.name + " on each of " + c.brains.join(", ") + ", because " + c.plan.reason + ". ") +
-        "It's never written to disk.",
-    }),
+  const form = el("div", { className: "credform" });
+  const input = el("input", { type: "password", placeholder: "Paste it here", autocomplete: "off", className: "textfield" });
+  const go = el("button", { className: "btn primary", textContent: "Save" });
+  const out = el("div");
+  form.append(
+    ...(c.howTo ? [el("p", { className: "sub", textContent: "To get one, " + c.howTo })] : []),
+    input,
+    el("div", { className: "row" }, [go]),
+    out,
   );
 
-  const input = el("input", { type: "password", placeholder: c.name, autocomplete: "off" });
-  input.style.width = "100%";
-  const go = el("button", { className: "btn primary", textContent: "Store it" });
-  const out = el("div", { style: "margin-top:9px" });
-  body.append(input, el("div", { className: "row", style: "margin-top:9px" }, [go]), out);
+  // Stored already, on the org or on every brain repo: say so, and keep replacing it one click away.
+  if (c.stored ?? c.orgSecret) {
+    const replace = el("button", { className: "ghbtn", textContent: "Replace it" });
+    replace.onclick = () => {
+      replace.remove();
+      form.hidden = false;
+      input.focus?.();
+    };
+    form.hidden = true;
+    body.append(el("p", { className: "okline", textContent: "✓ Stored as " + c.name + "." }), replace, form);
+  } else {
+    body.append(form);
+  }
 
   go.onclick = async () => {
-    const value = input.value.trim();
+    const value = String(input.value ?? "").trim();
     if (!value) {
-      input.focus();
+      input.focus?.();
       return;
     }
     go.disabled = true;
-    out.replaceChildren(el("p", { className: "sub", textContent: "Storing…" }));
+    go.textContent = "Saving…";
     try {
       const r = await storeCredential(value, false);
       input.value = "";
       if (!r.ok) throw new Error(r.error);
       opts.onStatus?.(true);
       out.replaceChildren(
-        ...(r.fellBack ? [el("p", { className: "err", textContent: "The org secret was refused: " + r.fellBack })] : []),
-        el("p", {
-          textContent:
-            r.mode === "org"
-              ? "Saved."
-              : "Saved on " + r.repos.join(", ") + ".",
-        }),
+        ...(r.fellBack ? [el("p", { className: "sub", textContent: "Saved on each repo instead: " + r.fellBack })] : []),
+        el("p", { className: "okline", textContent: "✓ Saved." }),
       );
     } catch (err) {
       out.replaceChildren(el("p", { className: "err", textContent: String(err.message || err) }));
     } finally {
       go.disabled = false;
+      go.textContent = "Save";
     }
   };
 }

@@ -203,7 +203,7 @@ export function hireFlow(o) {
     hireStep(hire.body, role, o.onHired);
     for (const t of [app, charter, cred, run]) t.setLocked("Hire first");
     getCredential()
-      .then((c) => credStatus(Boolean(c.orgSecret)))
+      .then((c) => credStatus(Boolean(c.stored ?? c.orgSecret)))
       .catch(() => {});
     return box;
   }

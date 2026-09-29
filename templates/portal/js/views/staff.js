@@ -7,11 +7,37 @@
 
 import { post } from "../api.js";
 import { askYes, sheet } from "../dialog.js";
+import { pending } from "../inflight.js";
 import { ago, el, esc } from "../dom.js";
 import { whatsLeft, sentence } from "../readiness.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { hireFlow, line, rolePicker } from "./hire.js";
+
+/**
+ * Resolves once nothing is loading and `node` has stopped changing for a moment, or after a few
+ * seconds regardless. Quiet alone was not enough: while GitHub was still answering, nothing
+ * changed, and the half-built list was shown.
+ */
+function settled(node, quiet = 250, most = 6000) {
+  return new Promise((resolve) => {
+    if (typeof MutationObserver !== "function") return resolve();
+    let lastChange = Date.now();
+    const obs = new MutationObserver(() => {
+      lastChange = Date.now();
+    });
+    obs.observe(node, { childList: true, subtree: true, attributes: true, characterData: true });
+    const started = Date.now();
+    const tick = setInterval(() => {
+      const now = Date.now();
+      if ((pending() === 0 && now - lastChange >= quiet) || now - started >= most) {
+        clearInterval(tick);
+        obs.disconnect();
+        resolve();
+      }
+    }, 50);
+  });
+}
 
 /* The open dialog, if any. It lives on <body>, so it outlives a repaint of this screen, and a
    background refresh leaves whatever was typed into it alone. */
@@ -31,18 +57,27 @@ export function viewStaff(m, o = {}) {
   /* Tasks open in a dialog. Where there is no dialog element (the test shim) they draw into
      the pane instead, which is how this screen always drew them. */
   function present(node) {
-    if (current?.isOpen()) {
-      current.set(node);
-      return;
+    const spin = el("div", { className: "sheetloading" }, [el("span", { className: "spinner" })]);
+    if (current?.isOpen()) current.set(spin);
+    else {
+      current = sheet({
+        node: spin,
+        onClose: () => {
+          current = null;
+          S.staffOpen = null;
+        },
+      });
+      if (!current) {
+        pane.replaceChildren(node);
+        return;
+      }
     }
-    current = sheet({
-      node,
-      onClose: () => {
-        current = null;
-        S.staffOpen = null;
-      },
+    /* The list is built from half a dozen answers arriving one by one, and showing each as it
+       landed meant the dialog reflowed four times. It is shown once it has stopped changing. */
+    const mine = current;
+    settled(node).then(() => {
+      if (mine.isOpen() && current === mine) mine.set(node);
     });
-    if (!current) pane.replaceChildren(node);
   }
   function dismiss() {
     if (current) current.close();

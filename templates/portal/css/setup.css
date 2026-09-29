@@ -183,3 +183,11 @@
 .pastenotes .md{border-left:3px solid var(--line);padding-left:12px}
 .pastefile .diff{white-space:pre-wrap;overflow-wrap:anywhere}
 .warnline{margin:10px 0 0;padding:8px 11px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--ink);font-size:13px}
+
+/* A single-line text box, matching the question fields. */
+.textfield{width:100%;background:var(--bg-elev);border:1px solid var(--border-strong);color:var(--ink);
+      border-radius:var(--r);padding:8px 10px;font:13px var(--sans);outline:none}
+.textfield:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.credform{display:grid;gap:10px}
+.credform .row{margin:0}
+.okline{margin:0 0 8px;color:var(--accent);font:600 13px var(--sans)}

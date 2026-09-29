@@ -351,15 +351,22 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
       const agentId = String((org as any).agent?.id ?? (org as any).agent ?? "claude-code-action");
-      const [plan, orgSecret] = await Promise.all([
+      /* A credential can live on each brain repo instead of once for the org (older orgs, and
+         GitHub Free with private repos). Either way it is stored, and asking for it again made
+         a working org look unfinished. */
+      const [plan, orgSecret, onRepos] = await Promise.all([
         planCredential(org.org, name, brains),
         readOrgSecret(org.org, name),
+        Promise.all(brains.map((b) => api(`repos/${b}/actions/secrets/${name}`).then((r) => r.ok))),
       ]);
+      const repoSecrets = brains.filter((_, i) => onRepos[i]);
       json(res, {
         name,
         brains,
         plan,
         orgSecret,
+        repoSecrets,
+        stored: Boolean(orgSecret) || (brains.length > 0 && repoSecrets.length === brains.length),
         howTo: AGENTS.find((a) => a.id === agentId)?.howTo,
       });
       return;
