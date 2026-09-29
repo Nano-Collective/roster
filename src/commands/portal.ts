@@ -250,7 +250,14 @@ export async function portalCommand(argv: string[]): Promise<number> {
 
       // An App name is unique across GitHub, so the clash is worth catching before a browser
       // is opened rather than after a form is submitted.
-      const targets = installTargets(ws, org, parseYaml, entry.handle, spec);
+      const targets = installTargets(
+        ws,
+        org,
+        parseYaml,
+        entry.handle,
+        spec,
+        isPublic ? "public" : "private",
+      );
       const existing = await api<{ slug: string }>(`/apps/${name}`);
       if (existing.ok) {
         const install = await preselectedInstall(existing.data?.slug ?? name, org.org, targets);
@@ -667,9 +674,9 @@ export async function portalCommand(argv: string[]): Promise<number> {
             res.end(
               `<body style="font:15px/1.6 system-ui;max-width:34rem;margin:14vh auto;padding:0 1.4rem">` +
                 `<h1 style="font-size:1.3rem">${app.slug} created</h1>` +
-                `<p>Its id and private key went straight into ${pending.brain}'s secrets. The key was never written to disk.</p>` +
-                `<p><b>It still has to be installed</b>, and granted every tracker this staff member writes to — not just their own.</p>` +
-                `<p>Close this tab; the portal has the link.</p></body>`,
+                `<p>Its keys are saved in ${pending.brain}'s secrets.</p>` +
+                `<p><b>Next: install it.</b> Go back to the portal and press Install.</p>` +
+                `<p>You can close this tab.</p></body>`,
             );
           })
           .catch((err: Error) => {

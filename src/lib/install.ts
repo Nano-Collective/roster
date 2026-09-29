@@ -13,11 +13,14 @@ import type { Workspace } from "./workspace.js";
  */
 export function installTargets(
   ws: Workspace,
-  org: { staff?: Array<{ handle: string; dir?: string }> },
+  org: { org?: string; staff?: Array<{ handle: string; dir?: string }> },
   parseYaml: (t: string, f?: string) => Record<string, unknown>,
   handle: string,
   spec: { brain: string; worksIn: string[] },
+  scope: "private" | "public" = "private",
 ): string[] {
+  // The shared public identity only ever writes to the product repos.
+  if (scope === "public") return [...new Set(spec.worksIn)];
   const peers: string[] = [];
   for (const s of org.staff ?? []) {
     if (s.handle === handle) continue;
@@ -30,7 +33,10 @@ export function installTargets(
       /* a manifest that will not parse is doctor's problem, not the install's */
     }
   }
-  return [...new Set([spec.brain, ...spec.worksIn, ...peers])];
+  /* Every run starts by checking out the ops repo with this App's token, so an install that
+     leaves it out fails at the first step of the first run. */
+  const ops = org.org ? [`${org.org}/${ws.opsName}`] : [];
+  return [...new Set([spec.brain, ...ops, ...spec.worksIn, ...peers])];
 }
 
 /**

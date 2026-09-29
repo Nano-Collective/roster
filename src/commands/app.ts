@@ -78,7 +78,14 @@ export async function appCommand(argv: string[]): Promise<number> {
 
   // An App name is unique across GitHub, so a clash is the common failure and worth catching
   // before a browser is opened rather than after a form is submitted.
-  const targets = installTargets(ws, org, parseYaml, handle, spec);
+  const targets = installTargets(
+    ws,
+    org,
+    parseYaml,
+    handle,
+    spec,
+    opts.public ? "public" : "private",
+  );
   const existing = await api<{ slug: string }>(`/apps/${name}`);
   if (existing.ok) {
     const install = await preselectedInstall(existing.data?.slug ?? name, org.org, targets);

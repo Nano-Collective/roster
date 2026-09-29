@@ -156,8 +156,7 @@ export async function createApp(spec: AppSpec, opts: FlowOptions = {}): Promise<
           res.end(
             page(
               `${app.slug} created`,
-              "The private key went straight into the repository's secrets and was never written to disk. " +
-                "You can close this tab; the terminal has the next step.",
+              "Its keys are saved in the repository's secrets. You can close this tab; the terminal has the next step.",
             ),
           );
           finish(() => resolve(app));

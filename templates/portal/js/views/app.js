@@ -27,8 +27,7 @@ export function appPanel(opts) {
     }),
     el("p", {
       textContent:
-        "A tab opens, GitHub asks you to confirm, and the App's id and private key go straight " +
-        "into the repo's secrets. The key is held in memory and never written to disk.",
+        "A GitHub tab opens. Confirm there, then come back here to install it.",
     }),
   );
 

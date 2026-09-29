@@ -45,8 +45,9 @@ hand. roster says so if it happens.
 ## 3. Confirm the App's install
 
 **Do:** press **Install it** in the portal, or open the link `roster app` prints. The page opens
-with the organisation and the repos this staff member needs already selected: its brain, each
-peer's tracker, and the product repos. Check the list and confirm.
+with the organisation and the repos this staff member needs already selected: its brain, the
+ops repo (every run checks it out first), each peer's tracker, and the product repos. Check the
+list and confirm. Choosing **All repositories** instead also works.
 
 **Why not automated:** installing is a grant of access to specific repositories, and GitHub asks
 a person to confirm it. That is correct and should not be worked around.
