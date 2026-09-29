@@ -111,6 +111,7 @@ export async function boot() {
 
   S.data = first;
   S.loadedAt = new Date();
+  S.staffOpen = null; // an open hire list survives a refresh, not a page load
   S.staffHandle = S.data.staff[0]?.handle ?? null;
   $("#orgname").textContent = S.data.name + " · " + S.data.staff.length + " staff";
 

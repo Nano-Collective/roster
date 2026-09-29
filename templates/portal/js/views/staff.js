@@ -42,6 +42,8 @@ export function viewStaff(m, o = {}) {
   /* One staff member's steps, hired or not yet. A hire repaints the whole screen, so the new
      card is in the list and the steps reopen on the same person. */
   function open(role, result) {
+    // Remembered, so a refresh after a trip to GitHub (creating the App) reopens it.
+    S.staffOpen = role;
     pane.replaceChildren(
       hireFlow({
         role,
@@ -50,7 +52,11 @@ export function viewStaff(m, o = {}) {
           m.replaceChildren();
           viewStaff(m, { open: handle, result: r });
         },
-        onClose: () => (empty ? pick() : pane.replaceChildren()),
+        onClose: () => {
+          S.staffOpen = null;
+          if (empty) pick();
+          else pane.replaceChildren();
+        },
       }),
     );
     pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -67,7 +73,10 @@ export function viewStaff(m, o = {}) {
   m.append(pane);
 
   const opened = o.open && S.data.staff.find((s) => s.handle === o.open);
+  const kept = !opened && S.staffOpen;
+  const keptStaff = kept && S.data.staff.find((s) => s.handle === kept.handle);
   if (opened) open(roleOf(opened), o.result);
+  else if (kept) open(keptStaff ? roleOf(keptStaff) : kept);
   else if (empty) pick();
 
   /* --------------------------- one staff member --------------------------- */

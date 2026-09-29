@@ -665,6 +665,7 @@ function install(hash: string) {
    `S`, and these are the names 900 lines of assertions already use for it. */
 const ALIAS: Record<string, string> = {
   DATA: "data",
+  STAFF_OPEN: "staffOpen",
   INBOX: "inbox",
   RUNS: "runs",
   DOCS: "docs",

@@ -36,6 +36,8 @@ export const S = {
   runs: null,
   sync: null,
   loadedAt: null,
+  /** The role whose hire list is open on the Staff screen, kept across a refresh. */
+  staffOpen: null,
 
   staffHandle: null,
   /* What is waiting on you, not whose brain you read last. The org-wide screens are where a
