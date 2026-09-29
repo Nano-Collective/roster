@@ -7,6 +7,7 @@
  * Nothing here writes. The panel parses, shows a diff, and waits for a second click. */
 
 import { getBrief, parsePaste, saveFile } from "../api.js";
+import { mdlite } from "../md.js";
 import { el, toClipboard } from "../dom.js";
 import { unifiedDiff, diffStat } from "../textdiff.js";
 
@@ -123,23 +124,47 @@ export function paste(opts) {
       result.append(note);
     }
 
+    // What the AI said around the file: its caveats and "check these" are worth reading first.
+    const notes = String(answer.value ?? "")
+      .replace(/<<<ROSTER FILE [^>]+>>>[\s\S]*?<<<ROSTER END>>>/g, "")
+      .trim();
+
     for (const file of data.files ?? []) {
-      if (file.unchanged) continue;
       const card = el("div", { className: "pastefile" });
-      const stat = diffStat(file.before, file.text);
+      const name = file.path.split("/").slice(-2).join("/");
+      if (file.unchanged) {
+        card.append(el("p", { className: "verdict", textContent: "✓ Same as what's already in " + name + ". Nothing to save." }));
+        result.append(card);
+        continue;
+      }
       card.append(
-        el("b", { textContent: file.path }),
-        el("span", {
-          className: "meta",
-          textContent: `+${stat.added} −${stat.removed}` + (file.writable ? "" : " · not writable"),
+        el("p", {
+          className: "verdict" + (file.writable ? " ok" : " bad"),
+          textContent: file.writable
+            ? "✓ Looks good. Saving replaces " + name + " with this:"
+            : "✗ " + file.path + " can't be written from here.",
         }),
       );
-      const diff = el("pre", { className: "diff" });
-      diff.textContent = unifiedDiff(file.before, file.text, file.path);
-      card.append(diff);
+      card.append(el("div", { className: "md doc pastepreview", innerHTML: mdlite(file.text) }));
 
+      if (notes) {
+        const said = el("details", { className: "pastenotes", open: true });
+        said.append(el("summary", { textContent: "Your AI also said" }), el("div", { className: "md doc", innerHTML: mdlite(notes) }));
+        card.append(said);
+      }
+
+      const diff = el("pre", { className: "diff", hidden: true });
+      diff.textContent = unifiedDiff(file.before, file.text, file.path);
+      const stat = diffStat(file.before, file.text);
+      const toggle = el("button", { className: "ghbtn", textContent: `Show changes (+${stat.added} −${stat.removed})` });
+      toggle.onclick = () => {
+        diff.hidden = !diff.hidden;
+        toggle.textContent = (diff.hidden ? "Show changes" : "Hide changes") + ` (+${stat.added} −${stat.removed})`;
+      };
+
+      const row = el("div", { className: "row" });
       if (file.writable) {
-        const save = el("button", { className: "btn primary", textContent: "Save and commit" });
+        const save = el("button", { className: "btn primary", textContent: "Save" });
         save.onclick = async () => {
           save.disabled = true;
           save.textContent = "Saving…";
@@ -150,17 +175,19 @@ export function paste(opts) {
             opts.onSaved?.();
           } catch (err) {
             save.disabled = false;
-            save.textContent = "Save and commit";
+            save.textContent = "Save";
             card.append(el("p", { className: "err", textContent: String(err.message || err) }));
           }
         };
-        card.append(save);
+        row.append(save);
       }
+      row.append(toggle);
+      card.append(row, diff);
       result.append(card);
     }
 
     if (!(data.problems ?? []).length && !(data.files ?? []).length) {
-      result.append(el("p", { className: "sub", textContent: "Nothing to do." }));
+      result.append(el("p", { className: "verdict bad", textContent: "✗ No file found in that reply." }));
     }
   };
 

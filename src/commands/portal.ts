@@ -207,7 +207,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
     const route = url.pathname.slice("/api/setup/".length);
 
     if (route === "status") {
-      json(res, { ...(await setupStatus(startedIn)), startedIn });
+      json(res, { ...(await setupStatus(startedIn)), startedIn }, true);
       return;
     }
 
@@ -689,7 +689,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
          moment a tenant appears, and `collect` finds its own workspace anyway. */
       if (url.pathname === "/api/doctor") {
         collect({ ops: ws?.opsDir, offline: url.searchParams.get("offline") === "1" })
-          .then((report) => json(res, report ?? { findings: [], online: false, empty: true }))
+          .then((report) => json(res, report ?? { findings: [], online: false, empty: true }, true))
           .catch((err) => {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ findings: [], error: String(err?.message ?? err) }));
@@ -816,7 +816,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
               throw new Error(`"${handle}" is not in org.yaml`);
             }
             const plan = buildRetirePlan(w, org, handle, parseYaml);
-            json(res, { action, plan });
+            json(res, { action, plan }, true);
             return;
           }
           if (!/^[a-z][a-z0-9-]{1,20}$/.test(handle)) {
@@ -829,10 +829,11 @@ export async function portalCommand(argv: string[]): Promise<number> {
           const plan = buildPlan(w, org as OrgYaml, handle, flags, parseYaml);
           // The file bodies are megabytes of scaffold nobody reads in a plan. Names only.
           void readOrgSecret(org.org, plan.staff.agentSecret).then((orgSecret) =>
-            json(res, {
-              action,
-              plan: { ...plan, orgSecret, files: [...plan.files.keys()].sort() },
-            }),
+            json(
+              res,
+              { action, plan: { ...plan, orgSecret, files: [...plan.files.keys()].sort() } },
+              true,
+            ),
           );
         } catch (err) {
           res.writeHead(400, { "content-type": "application/json" });
@@ -928,7 +929,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
          "copy all instructions" button, and `roster fix` in the terminal, are the same text. */
       if (url.pathname === "/api/fix") {
         gather(w, url.searchParams.get("offline") === "1")
-          .then((items) => json(res, { items, text: fixBrief(w, items) }))
+          .then((items) => json(res, { items, text: fixBrief(w, items) }, true))
           .catch((err) => {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ items: [], error: String(err?.message ?? err) }));
@@ -1582,13 +1583,16 @@ function refuseWrite(res: import("node:http").ServerResponse) {
   res.end(JSON.stringify({ error: "write actions need a local POST from the portal" }));
 }
 
-function json(res: import("node:http").ServerResponse, data: unknown) {
+function json(res: import("node:http").ServerResponse, data: unknown, advice = false) {
   res.writeHead(200, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
   });
-  // Advice the portal shows ("run roster upgrade") has to work for somebody who started it with npx.
-  res.end(withBin(JSON.stringify(data)));
+  /* Advice the portal shows ("run roster upgrade") has to work for somebody who started it
+     with npx. Only advice: a response carrying a file's text is left exactly as it is, or a
+     save would write the rewrite back into the file. */
+  const text = JSON.stringify(data);
+  res.end(advice ? withBin(text) : text);
 }
 
 /** The hire flags the portal is allowed to set. Everything else keeps its default. */

@@ -17,6 +17,10 @@ const BUSINESS_QUESTIONS = [
 
 const val = (input) => String(input.value ?? "").trim();
 
+/* A file still in the shape it shipped in holds the questions, not answers, and pre-filling the
+   fields with "Not a segment. The person…" reads as if somebody had already answered them. */
+const isStub = (text) => /This file is a stub|Or answer these by hand/.test(text);
+
 /**
  * org/business.md as five questions. With `text`, the answers already in the file fill the
  * fields, so changing one answer does not mean retyping the other four.
@@ -25,7 +29,7 @@ const val = (input) => String(input.value ?? "").trim();
  */
 export function businessForm(o) {
   const form = el("div");
-  const known = sections(o.text ?? "");
+  const known = isStub(o.text ?? "") ? new Map() : sections(o.text ?? "");
   const fields = BUSINESS_QUESTIONS.map(([id, label, heading, required]) => {
     const input = id === "line" ? el("input", { type: "text" }) : el("textarea", { className: "pastebox", rows: 3 });
     const had = known.get(heading.toLowerCase());
@@ -64,7 +68,7 @@ export function businessForm(o) {
 /** org/priorities.md as three lines and an out-of-scope list, filled from the file if it has them. */
 export function prioritiesForm(o) {
   const form = el("div");
-  const { items, outs } = parsePriorities(o.text ?? "");
+  const { items, outs } = isStub(o.text ?? "") ? { items: [], outs: [] } : parsePriorities(o.text ?? "");
   const ranks = [1, 2, 3].map((i) => {
     const input = el("input", { type: "text", placeholder: i === 1 ? "e.g. Tasks can be ticked off and removed" : "" });
     if (items[i - 1]) input.value = items[i - 1];
