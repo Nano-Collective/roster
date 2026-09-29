@@ -158,3 +158,38 @@ export function askYes({ title, hint, confirm = "Continue" }) {
     cancel.focus();
   });
 }
+
+/**
+ * A larger dialog for a whole task: hiring someone, or finishing their setup. Native <dialog>
+ * again, appended to <body> rather than to the screen, so a background refresh repainting the
+ * screen leaves it open with whatever was typed into it.
+ *
+ * @returns {{set: (node: Node) => void, close: () => void, isOpen: () => boolean} | null}
+ *   null where there is no dialog element (the test shim), and the caller draws inline instead.
+ */
+export function sheet({ node, onClose }) {
+  const box = document.createElement("dialog");
+  if (typeof box.showModal !== "function") return null;
+  box.className = "sheet";
+  const body = el("div", { className: "sheetbody" });
+  body.append(node);
+  box.append(body);
+  let open = true;
+  const close = () => {
+    if (!open) return;
+    open = false;
+    box.close();
+    box.remove();
+    onClose?.();
+  };
+  box.addEventListener("cancel", (e) => {
+    e.preventDefault();
+    close();
+  });
+  box.addEventListener("click", (e) => {
+    if (onBackdrop(e, box.getBoundingClientRect())) close();
+  });
+  document.body.append(box);
+  box.showModal();
+  return { set: (n) => body.replaceChildren(n), close, isOpen: () => open };
+}

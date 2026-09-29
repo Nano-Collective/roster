@@ -2891,8 +2891,12 @@ test("a card says Finish setting up only while something is left", async () => {
   const cards = walkNodes(stub._byId.main).filter((n) =>
     String(n.className ?? "").includes("staffcard"),
   );
-  const finish = (c: any) => walkNodes(c).find((n) => n.textContent === "Finish setting up");
-  assert.equal(finish(cards[0]).hidden, false, "a stub charter is unfinished");
+  // One button on the card: Set up, which says Finish setting up while something is left.
+  const finish = (c: any) =>
+    walkNodes(c).find(
+      (n) => n.tagName === "BUTTON" && /^(Set up|Finish setting up)$/.test(n.textContent),
+    ).textContent;
+  assert.equal(finish(cards[0]), "Finish setting up", "a stub charter is unfinished");
 
   // Charter written, App set, and a run has succeeded: nothing left.
   const done = ORG.staff.map((x: any) => ({ ...x, rig: { ...x.rig, charterStub: false } }));
@@ -2904,7 +2908,7 @@ test("a card says Finish setting up only while something is left", async () => {
     const c = walkNodes(s._byId.main).filter((n) =>
       String(n.className ?? "").includes("staffcard"),
     );
-    assert.equal(finish(c[0]).hidden, true);
+    assert.equal(finish(c[0]), "Set up");
 
     // Never run: unfinished again, from GitHub rather than disk.
     progressFixture = { app: true, publicApp: true, ran: false };
@@ -2913,7 +2917,7 @@ test("a card says Finish setting up only while something is left", async () => {
     const rc = walkNodes(r._byId.main).filter((n) =>
       String(n.className ?? "").includes("staffcard"),
     );
-    assert.equal(finish(rc[0]).hidden, false);
+    assert.equal(finish(rc[0]), "Finish setting up");
   } finally {
     progressFixture = was;
   }
@@ -3015,10 +3019,15 @@ test("a staff card offers both things hire deliberately does not do", async () =
   /* `hire` writes the scaffold and stops: the charter is the personality and the App cannot be
      created without a human in a browser. Both used to be CLI-only, and neither was reachable
      from the screen that lists the person they belong to. */
+  // Both are steps in the one setup list the card opens.
   const s = await renderAll("#/cto/staff");
+  const setup = walkNodes(s._byId.main).find(
+    (n) => n.tagName === "BUTTON" && /^(Set up|Finish setting up)$/.test(n.textContent),
+  );
+  setup.onclick();
   const text = s._byId.main.textContent;
-  assert.match(text, /Write the charter/);
-  assert.match(text, /GitHub App/);
+  assert.match(text, /Write their charter/);
+  assert.match(text, /Create their GitHub App/);
 });
 
 test("the repo picker offers what org.yaml does not already list", async () => {

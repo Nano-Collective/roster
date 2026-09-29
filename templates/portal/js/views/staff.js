@@ -6,15 +6,15 @@
  */
 
 import { getStaffProgress, post } from "../api.js";
-import { askYes } from "../dialog.js";
+import { askYes, sheet } from "../dialog.js";
 import { ago, el, esc } from "../dom.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
-import { appPanel } from "./app.js";
-import { credentialPanel } from "./credential.js";
 import { hireFlow, line, rolePicker } from "./hire.js";
-import { paste } from "./paste.js";
-import { runOnce } from "./runonce.js";
+
+/* The open dialog, if any. It lives on <body>, so it outlives a repaint of this screen, and a
+   background refresh leaves whatever was typed into it alone. */
+let current = null;
 
 /**
  * @param {{open?: string, result?: object}} [o]  `open` keeps one staff member's steps on
@@ -27,24 +27,52 @@ export function viewStaff(m, o = {}) {
 
   const pane = el("div", { className: "hirepane" });
 
-  const pick = () => {
-    pane.replaceChildren(
-      ...(empty ? [] : [el("h3", { textContent: "Pick a role" })]),
-      rolePicker({ onPick: (role) => open(role) }),
-    );
-    if (!empty) {
-      const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
-      cancel.onclick = () => pane.replaceChildren();
-      pane.append(el("div", { className: "row" }, [cancel]));
+  /* Tasks open in a dialog. Where there is no dialog element (the test shim) they draw into
+     the pane instead, which is how this screen always drew them. */
+  function present(node) {
+    if (current?.isOpen()) {
+      current.set(node);
+      return;
     }
-  };
+    current = sheet({
+      node,
+      onClose: () => {
+        current = null;
+        S.staffOpen = null;
+      },
+    });
+    if (!current) pane.replaceChildren(node);
+  }
+  function dismiss() {
+    if (current) current.close();
+    else pane.replaceChildren();
+    S.staffOpen = null;
+    if (empty) pick();
+  }
+
+  // With nobody hired the roles are the page. After that they are a dialog behind Hire someone.
+  function pick() {
+    if (empty) {
+      pane.replaceChildren(rolePicker({ onPick: (role) => open(role) }));
+      return;
+    }
+    const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
+    cancel.onclick = dismiss;
+    present(
+      el("div", {}, [
+        el("h2", { className: "sheettitle", textContent: "Pick a role" }),
+        rolePicker({ onPick: (role) => open(role) }),
+        el("div", { className: "row", style: "margin-top:14px" }, [cancel]),
+      ]),
+    );
+  }
 
   /* One staff member's steps, hired or not yet. A hire repaints the whole screen, so the new
      card is in the list and the steps reopen on the same person. */
   function open(role, result) {
     // Remembered, so a refresh after a trip to GitHub (creating the App) reopens it.
     S.staffOpen = role;
-    pane.replaceChildren(
+    present(
       hireFlow({
         role,
         result,
@@ -52,14 +80,9 @@ export function viewStaff(m, o = {}) {
           m.replaceChildren();
           viewStaff(m, { open: handle, result: r });
         },
-        onClose: () => {
-          S.staffOpen = null;
-          if (empty) pick();
-          else pane.replaceChildren();
-        },
+        onClose: dismiss,
       }),
     );
-    pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }
 
   if (!empty) {
@@ -75,9 +98,10 @@ export function viewStaff(m, o = {}) {
   const opened = o.open && S.data.staff.find((s) => s.handle === o.open);
   const kept = !opened && S.staffOpen;
   const keptStaff = kept && S.data.staff.find((s) => s.handle === kept.handle);
+  if (empty) pick();
   if (opened) open(roleOf(opened), o.result);
-  else if (kept) open(keptStaff ? roleOf(keptStaff) : kept);
-  else if (empty) pick();
+  // An open dialog is still open; only the inline fallback has to be drawn again.
+  else if (kept && !current?.isOpen()) open(keptStaff ? roleOf(keptStaff) : kept);
 
   /* --------------------------- one staff member --------------------------- */
 
@@ -93,73 +117,32 @@ export function viewStaff(m, o = {}) {
 
     const status = el("span", { className: "meta" });
     const go = el("button", { className: "ghbtn", textContent: "Retire" });
-    go.onclick = () => retireForm(pane, s, status);
-
-    /* The charter is the one file `hire` deliberately does not write, and until now the only
-       route to it was a CLI command printing a brief. This is the same brief, with every file
-       it refers to already inside it and somewhere to put the answer. */
-    const write = el("button", { className: "ghbtn", textContent: "Write the charter" });
-    write.onclick = () => {
-      pane.replaceChildren(
-        el("div", { className: "card" }, [
-          paste({
-            kind: "charter",
-            staff: s.handle,
-            title: "Write " + s.name + "'s charter with your own AI",
-            onSaved: () => refreshAll(false),
-          }),
-        ]),
-      );
-      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    go.onclick = () => {
+      const host = el("div");
+      present(host);
+      retireForm(host, s, status);
     };
 
-    /* The step `hire` has always had to hand back: there is no API that creates a GitHub App,
-       so it is a browser hand-off either way. It may as well be this browser. */
-    const app = el("button", { className: "ghbtn", textContent: "GitHub App" });
-    app.onclick = () => {
-      pane.replaceChildren(
-        el("div", { className: "card" }, [
-          el("h3", { textContent: s.name + "'s identity" }),
-          appPanel({ staff: s.handle, name: s.name, scope: "private" }),
-          appPanel({ staff: s.handle, name: s.name, scope: "public" }),
-        ]),
-      );
-      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    };
-
-    /* The credential is once for the org, but the moment somebody looks for it is while setting
-       up one staff member, so it is reachable from each card. */
-    const cred = el("button", { className: "ghbtn", textContent: "Agent credential" });
-    cred.onclick = () => {
-      pane.replaceChildren(el("div", { className: "card" }, [credentialPanel()]));
-      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    };
-
-    const run = el("button", { className: "ghbtn", textContent: "Run once now" });
-    run.onclick = () => {
-      pane.replaceChildren(
-        el("div", { className: "card" }, [
-          runOnce({ staff: s.handle, name: s.name, onDone: (ok) => ok && refreshAll(true) }),
-        ]),
-      );
-      pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    };
-
-    /* Whether setup is finished, as far as can be told cheaply: the charter from disk at once,
-       and the App's secrets and a first run from GitHub when it answers. */
-    const finish = el("button", { className: "ghbtn primary", textContent: "Finish setting up", hidden: true });
+    /* Every setup step (the App, the charter, the credential, a run) is in the one list, so the
+       card has one way in. It says Finish setting up until setup looks finished: the charter
+       from disk at once, and the App's secrets and a first run from GitHub when it answers. */
+    const finish = el("button", { className: "ghbtn", textContent: "Set up" });
     finish.onclick = () => open(roleOf(s));
-    if (s.rig?.charterStub) finish.hidden = false;
+    const unfinished = () => {
+      finish.textContent = "Finish setting up";
+      finish.className = "ghbtn primary";
+    };
+    if (s.rig?.charterStub) unfinished();
     else {
       getStaffProgress(s.handle)
         .then((p) => {
-          if (p.app === false || p.ran === false) finish.hidden = false;
+          if (p.app === false || p.ran === false) unfinished();
         })
         .catch(() => {});
     }
 
     d.append(
-      el("div", { className: "row", style: "margin-top:10px" }, [finish, write, app, cred, run, go, status]),
+      el("div", { className: "row", style: "margin-top:10px" }, [finish, go, status]),
     );
     return d;
   }
@@ -206,7 +189,7 @@ export function viewStaff(m, o = {}) {
     const status = el("span", { className: "meta" });
     const go = el("button", { className: "ghbtn", textContent: "Retire " + plan.handle });
     const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
-    cancel.onclick = () => host.replaceChildren();
+    cancel.onclick = dismiss;
     go.onclick = () =>
       apply(
         { action: "retire", handle: plan.handle },

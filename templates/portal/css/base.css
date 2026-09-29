@@ -276,3 +276,12 @@ body[data-lightbox] {overflow:hidden}
 
 /* And the affordance on the document side: an image you can open should say so. */
 .md img,img.zoomable{cursor:zoom-in}
+
+/* ---------- a dialog for a whole task (sheet() in dialog.js) ---------- */
+dialog.sheet{border:1px solid var(--border-strong);border-radius:var(--r-lg);background:var(--bg);
+      color:var(--ink);padding:0;width:min(860px,calc(100vw - 32px));max-height:calc(100vh - 48px);
+      box-shadow:var(--shadow-lg)}
+dialog.sheet[open]{animation:dlgin .18s var(--ease)}
+dialog.sheet::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(8px)}
+.sheetbody{padding:22px 24px 26px;overflow:auto;max-height:calc(100vh - 50px)}
+.sheettitle{margin:0 0 14px;font:600 18px var(--sans);letter-spacing:-.02em}
