@@ -59,9 +59,9 @@ export function ForYou() {
         <div className="mt-4 flex flex-col gap-1 rounded-2xl bg-surface px-6 py-5 sm:flex-row sm:items-baseline sm:gap-6">
           <div className="shrink-0 text-[13px] font-semibold text-blue">Running cost</div>
           <p className="text-[14px] leading-[1.55] text-fg-2">
-            <span className="font-medium text-fg">The agents themselves.</span> Pip&apos;s staff run on
-            a Claude subscription, through a Claude Code token, so the cost is a flat subscription
-            rather than spend per token.{" "}
+            <span className="font-medium text-fg">Access to a coding agent.</span> Claude Code, Codex,
+            Nanocoder or your own. On a subscription plan the cost is flat rather than spend per
+            token.{" "}
             <a href={doc("cost")} className="link">
               More on cost
             </a>

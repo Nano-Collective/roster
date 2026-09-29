@@ -4,8 +4,8 @@ import { useState } from "react";
 import { readings } from "./pipReadings";
 
 const DAYS = 70;
-const MAX = 520;
-const ticksY = [0, 100, 200, 300, 400, 500];
+const MAX = 620;
+const ticksY = [0, 100, 200, 300, 400, 500, 600];
 const ticksX = [readings[0], readings[3], readings[6], readings[10]];
 const last = readings[readings.length - 1];
 
@@ -130,7 +130,7 @@ export function ProfilesChart() {
 
       <figcaption className="sr-only">
         Profiles created on Pip, week by week: about two dozen a week from launch on 23 July to
-        mid-August, then 42 to 83 a week, reaching 475 by 27 September.
+        mid-August, then 61 to 94 a week, reaching 566 by 27 September.
       </figcaption>
     </figure>
   );

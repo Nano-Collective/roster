@@ -12,9 +12,9 @@ Three separate bills, and they behave differently.
 
 The largest by far, and the one that scales with how much work you ask for.
 
-On a Claude subscription, through a Claude Code OAuth token, it is a flat subscription rather
-than spend per token, and what grows with a session is how much of its usage you take. That is
-how Pip's staff run.
+Roster needs access to a coding agent, not any one provider: Claude Code, Codex, Nanocoder or
+your own. On a subscription plan it is a flat cost rather than spend per token, and what grows
+with a session is how much of its usage you take. Pip's staff run that way.
 
 A session's cost is roughly its length. Ours run 11 to 55 minutes of wall clock, and a longer
 session is a bigger bill as well as a slower one. The lever that matters is not the model

@@ -3,8 +3,7 @@ import { Reveal } from "./Reveal";
 import { Section, SectionHead, Soft } from "./Section";
 
 const stats = [
-  { n: "475", l: "profiles created" },
-  { n: "91", l: "accounts" },
+  { n: "566", l: "profiles created" },
   { n: "117", l: "pull requests from the staff" },
   { n: "£0", l: "spent on marketing" },
 ];
@@ -30,7 +29,7 @@ export function CaseStudy() {
           </>
         }
       />
-      <div className="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-line lg:grid-cols-4">
+      <div className="mt-12 grid gap-px overflow-hidden rounded-2xl bg-line sm:grid-cols-3">
         {stats.map((s, i) => (
           <Reveal key={s.l} delay={i * 60} className="bg-surface">
             <div className="h-full px-5 py-6 sm:px-7 sm:py-8">
