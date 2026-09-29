@@ -122,37 +122,25 @@ function inboxScreen(m, opts) {
     placeholder: "Filter by title, label, repo…",
     value: S.query,
   });
-  const scope = el("select");
-  scope.append(
-    el("option", { value: "", textContent: "Everything" }),
-    el("option", { value: "mine", textContent: "On " + humanLabel() }),
-    // A decision is not a PR, so this one is only ever worth offering on the inbox.
-    ...(opts.prs ? [] : [el("option", { value: "decision", textContent: "Decisions" })]),
-  );
-  scope.value = opts.prs && S.inboxFilter !== "mine" ? "" : S.inboxFilter;
-
-  /* Open only by default. An inbox is what is waiting on somebody, and burying that under
-     five months of finished work would be answering a different question. */
-  const state = el("select", { title: "Which items to list" });
-  state.append(
-    el("option", { value: "", textContent: "Open" }),
-    el("option", { value: "closed", textContent: "Recently closed" }),
-    el("option", { value: "all", textContent: "Open and closed" }),
-  );
-  state.value = S.inboxState;
-
-  const whose = el("select", {
-    title: "Whose work: their brain repo, anything their bot wrote, and anything addressed to them",
-  });
-  whose.append(
-    el("option", { value: "", textContent: "Everyone" }),
-    ...S.data.staff.map((s) => el("option", { value: s.handle, textContent: s.name })),
-  );
-  whose.value = S.inboxStaff;
+  /* Open or closed, as a toggle. Who and what (a staff member, what is on you, decisions)
+     moved to the sidebar under Inbox, where a row of dropdowns used to be. */
+  if (S.inboxState === "all") S.inboxState = "";
+  const toggle = el("div", { className: "modes inboxstate" });
+  for (const [value, label] of [["", "Open"], ["closed", "Closed"]]) {
+    const b = el("button", { className: "mode", textContent: label });
+    b.classList.toggle("on", (S.inboxState || "") === value);
+    b.onclick = () => {
+      S.inboxState = value;
+      for (const x of toggle.children) x.classList.toggle("on", x === b);
+      writeHash(false);
+      paint();
+    };
+    toggle.append(b);
+  }
 
   const refresh = el("button", { className: "iconbtn", title: "Refresh from GitHub" });
   refresh.innerHTML = '<span class="sync">' + iconHTML("refresh") + "</span>";
-  const controls = [search, whose, state, scope, refresh];
+  const controls = [search, toggle, refresh];
   // A pull request comes from a branch, so there is nothing here that could open one.
   if (!opts.prs) {
     const newBtn = el("button", { className: "ghbtn", textContent: "New issue" });
@@ -171,9 +159,6 @@ function inboxScreen(m, opts) {
   m.append(split);
 
   search.oninput = () => { S.query = search.value; writeHash(false); paint(); };
-  scope.onchange = () => { S.inboxFilter = scope.value; writeHash(false); paint(); };
-  whose.onchange = () => { S.inboxStaff = whose.value; writeHash(false); paint(); };
-  state.onchange = () => { S.inboxState = state.value; writeHash(false); paint(); };
   refresh.onclick = () => { refresh.classList.add("spin"); load(true); };
 
   if (S.inbox) { stampCounts(); paint(); restore(); } else load(false);
@@ -245,7 +230,9 @@ function inboxScreen(m, opts) {
     // "On you" is on any of the humans this org answers to, not only the first one.
     const onAHuman = (i) => (i.assignees ?? []).some(isHuman);
 
-    const whoseStaff = S.inboxStaff ? S.data.staff.find((s) => s.handle === S.inboxStaff) : null;
+    // The sidebar's filters are the inbox's. Pending work has no control for them, so it ignores them.
+    const staffPick = opts.prs ? "" : S.inboxStaff;
+    const whoseStaff = staffPick ? S.data.staff.find((s) => s.handle === staffPick) : null;
     /* The two screens partition the org rather than overlap on it. Pending work is every pull
        request; the inbox is everything else. An inbox that also listed the PRs said the same
        thing twice and made the badge beside it a number you could not act on. */
@@ -261,8 +248,9 @@ function inboxScreen(m, opts) {
       (i) => !q || (i.title + " " + i.repo + " " + i.labels.join(" ") + " #" + i.number)
         .toLowerCase().includes(q),
     );
-    if (S.inboxFilter === "mine") items = items.filter(onAHuman);
-    else if (S.inboxFilter === "decision") items = items.filter((i) => i.labels.includes("decision"));
+    const filter = opts.prs ? "" : S.inboxFilter;
+    if (filter === "mine") items = items.filter(onAHuman);
+    else if (filter === "decision") items = items.filter((i) => i.labels.includes("decision"));
     /* `s=pr` was the inbox's "Open work (PRs)" scope, and Pending work is now that screen. An
        old bookmark carrying it is ignored rather than honoured into an empty list. */
 

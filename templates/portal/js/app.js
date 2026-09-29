@@ -14,7 +14,7 @@ import {
   syncNotice,
 } from "./refresh.js";
 import { onRender } from "./router.js";
-import { ORG_WIDE, S, VIEWS, applyHash, readHash, writeHash } from "./state.js";
+import { ORG_WIDE, S, VIEWS, applyHash, humanLabel, readHash, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
 import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
@@ -254,6 +254,7 @@ function initStaffFold() {
 }
 
 function paintSidebar() {
+  paintInboxLinks();
   const host = $("#stafflist");
   host.replaceChildren();
   paintedRoster = S.data.staff.map((s) => s.handle).join(" ");
@@ -315,7 +316,43 @@ function paintSidebar() {
 }
 
 /** Which rows are lit, and which staff member is unfolded. */
+/* The inbox's filters, as links under Inbox: everything, what is on you, decisions, then one
+   per staff member. They replaced two dropdowns on the Inbox screen itself. */
+function paintInboxLinks() {
+  const sub = $("#inboxsub");
+  if (!sub) return;
+  sub.replaceChildren();
+  const links = [
+    ["", "", "All"],
+    ["mine", "", "On " + humanLabel()],
+    ["decision", "", "Decisions"],
+    ...S.data.staff.map((s) => ["", s.handle, s.name]),
+  ];
+  for (const [filter, who, label] of links) {
+    const b = el("button", { className: "nav subnav inboxlink", textContent: label });
+    b.dataset.filter = filter;
+    b.dataset.who = who;
+    b.onclick = () => {
+      S.view = "inbox";
+      S.inboxFilter = filter;
+      S.inboxStaff = who;
+      S.inboxOpen = null;
+      render();
+    };
+    sub.append(b);
+  }
+}
+
 function markSidebar() {
+  const sub = $("#inboxsub");
+  if (sub) sub.hidden = S.view !== "inbox";
+  for (const b of document.querySelectorAll(".inboxlink")) {
+    const on =
+      S.view === "inbox" &&
+      b.dataset.filter === (S.inboxFilter || "") &&
+      b.dataset.who === (S.inboxStaff || "");
+    b.setAttribute("aria-current", String(on));
+  }
   for (const b of document.querySelectorAll(".nav")) {
     if (!b.dataset.view) continue;
     const mine = !b.dataset.staff || b.dataset.staff === S.staffHandle;

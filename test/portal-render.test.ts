@@ -2415,19 +2415,10 @@ test("the inbox lists open work by default, and closed only when asked", async (
   assert.ok(!titles.includes("Needs a ruling"), "and nothing that is still open");
   // The state filter widens what is listed; it does not pull the other screen's half back in.
   assert.ok(!titles.includes("A pull request that landed"), "a merged PR is still not here");
-
-  s.inboxState = "all";
-  s.render();
-  await new Promise((r) => setTimeout(r, 20));
-  titles = inboxTitles(s).join(" ");
-  for (const want of ["Needs a ruling", "A quiet question", "Something already settled"]) {
-    assert.ok(titles.includes(want), want + " should be listed under open and closed");
-  }
-  assert.ok(!titles.includes("A pull request that landed"), "and pull requests still are not");
 });
 
 test("a closed row is marked as closed rather than looking open", async () => {
-  const s = await renderAll("#/x/inbox?x=all");
+  const s = await renderAll("#/x/inbox?x=closed");
   await new Promise((r) => setTimeout(r, 30));
   const rows = walkNodes(s._byId.main).filter((n) =>
     String(n.className ?? "")
@@ -2437,11 +2428,7 @@ test("a closed row is marked as closed rather than looking open", async () => {
   const shut = rows.filter((r) => String(r.className).includes("shut"));
   assert.equal(shut.length, 1, "the closed issue; the merged PR is on the other screen");
   assert.match(shut[0].innerHTML, /class="ist /, "with a state marker on the row");
-  assert.equal(
-    rows.filter((r) => !String(r.className).includes("shut")).length,
-    2,
-    "and the open ones are not marked",
-  );
+  assert.equal(rows.length, 1, "and nothing open is listed under Closed");
 });
 
 test("the sidebar badge counts what is open, not what is loaded", async () => {
