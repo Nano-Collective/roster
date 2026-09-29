@@ -59,6 +59,7 @@ labels:
 | `handle` | yes | Must match `org.yaml`. The composer looks them up by the `org.yaml` one, so a mismatch composes the wrong brain. |
 | `name` | yes | Role name in prose. |
 | `mention` | yes | What wakes them, as in `@cto`. The caller's condition tests for this string. |
+| `icon` | no | The icon the portal shows for them: `code`, `megaphone`, `life-buoy`, `compass`, `brush`, `bug`, `server`, `book-open`, `bar-chart`, `users` or `person`. Unset, it is picked from the role. |
 | `brain` | yes | `owner/name` of this repo. Without it nothing can check secrets, labels or runs. |
 | `status_issue` | yes in practice | Number of the pinned status issue. The prompts reference it, so a run cannot compose without it. `roster hire --apply` writes it. |
 

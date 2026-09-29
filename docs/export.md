@@ -35,6 +35,7 @@ that reads it gets the same view without reimplementing the memory grammar.
 | `statusIssue` | pinned issue number |
 | `schedule` | cron |
 | `mention` | what wakes them |
+| `icon` | the icon set by `icon:` in staff.yaml, if any |
 | `bots[]` | every App login, `[bot]` suffix stripped |
 | `soloBots[]` | identities unique to this staff member |
 | `sharedBots[]` | identities shared with others |

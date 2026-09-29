@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { tidy } from "./gh.js";
 
 const run = promisify(execFile);
 
@@ -286,6 +287,11 @@ export async function fetchInbox(
     }),
   );
 
+  // The same failure on every repo (the API limit, gh signed out) is one message, not one per repo.
+  const reasons = errors.map((e) => e.slice(e.indexOf(": ") + 2));
+  if (errors.length > 1 && reasons.every((r) => r === reasons[0]))
+    errors.splice(0, errors.length, reasons[0]!);
+
   // Newest first. Must return 0 for a tie: a comparator that never does claims both
   // orders for equal keys, and the sort result becomes arbitrary.
   items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -482,6 +488,9 @@ function rollup(state?: string): InboxItem["checks"] {
 }
 
 function short(e: unknown): string {
+  // A failed `gh` says "Command failed: gh api graphql -f query=…"; what went wrong is on stderr.
+  const stderr = (e as { stderr?: string })?.stderr;
+  if (stderr) return tidy(String(stderr));
   const msg = e instanceof Error ? e.message : String(e);
   const line = msg.split("\n").find((l) => l.trim() && !/^\s*$/.test(l)) ?? msg;
   return line.length > 200 ? line.slice(0, 199) + "…" : line;

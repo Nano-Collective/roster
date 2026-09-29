@@ -157,3 +157,15 @@ main{padding:36px 44px 96px;max-width:1220px;overflow-x:hidden}
       font:600 14px var(--sans);cursor:pointer}
 .hirecard:hover{color:var(--ink);border-color:var(--accent)}
 .hirecard::before{content:"+";font-size:22px;line-height:1}
+
+/* The inbox toolbar: one height, one line. */
+.inboxbar{align-items:center}
+.inboxbar > *{height:34px;box-sizing:border-box}
+.inboxbar .modes{margin:0;padding:3px;align-items:stretch}
+.inboxbar .mode{display:flex;align-items:center}
+.inboxbar .iconbtn{width:34px;display:grid;place-items:center}
+.inboxbar .ghbtn{display:flex;align-items:center}
+/* Staff and issue icons in the sidebar. */
+.nav.inboxlink{display:flex;align-items:center;gap:8px}
+.nav.inboxlink .ic,.staffrow .ic{--ic:14px;color:var(--ink-faint);flex:none}
+.nav.inboxlink[aria-current="true"] .ic{color:var(--accent)}

@@ -2,7 +2,7 @@
 
 import { getOrg } from "./api.js";
 import { $, el, store } from "./dom.js";
-import { icon, iconHTML } from "./icons.js";
+import { icon, iconHTML, staffIcon } from "./icons.js";
 import { installLightbox } from "./lightbox.js";
 import { setPeople } from "./md.js";
 import {
@@ -268,6 +268,7 @@ function paintSidebar() {
     const dot = el("span", { className: "readydot", hidden: true });
     head.append(
       icon("chevron", "caret"),
+      icon(staffIcon(s), "ic"),
       el("span", { className: "t", textContent: s.name }),
       dot,
       el("span", { className: "hh", textContent: s.handle }),
@@ -322,20 +323,22 @@ function paintInboxLinks() {
   const sub = $("#inboxsub");
   if (!sub) return;
   sub.replaceChildren();
+  // Inbox itself is everything. Under it: each staff member, then the product repos' issues.
   const links = [
-    ["", "", "All"],
-    ["mine", "", "On " + humanLabel()],
-    ["decision", "", "Decisions"],
-    ...S.data.staff.map((s) => ["", s.handle, s.name]),
+    ...S.data.staff.map((s) => [s.handle, s.name, staffIcon(s)]),
+    ["@issues", "Issues", "issue-open"],
   ];
-  for (const [filter, who, label] of links) {
-    const b = el("button", { className: "nav subnav inboxlink", textContent: label });
-    b.dataset.filter = filter;
+  for (const [who, label, glyph] of links) {
+    const b = el("button", { className: "nav subnav inboxlink" }, [
+      icon(glyph, "ic"),
+      el("span", { className: "t", textContent: label }),
+    ]);
     b.dataset.who = who;
     b.onclick = () => {
       S.view = "inbox";
-      S.inboxFilter = filter;
-      S.inboxStaff = who;
+      // A second click on the one you are on goes back to everything.
+      S.inboxStaff = S.inboxStaff === who ? "" : who;
+      S.inboxFilter = "";
       S.inboxOpen = null;
       render();
     };
@@ -347,10 +350,7 @@ function markSidebar() {
   const sub = $("#inboxsub");
   if (sub) sub.hidden = S.view !== "inbox";
   for (const b of document.querySelectorAll(".inboxlink")) {
-    const on =
-      S.view === "inbox" &&
-      b.dataset.filter === (S.inboxFilter || "") &&
-      b.dataset.who === (S.inboxStaff || "");
+    const on = S.view === "inbox" && b.dataset.who === (S.inboxStaff || "");
     b.setAttribute("aria-current", String(on));
   }
   for (const b of document.querySelectorAll(".nav")) {

@@ -150,7 +150,7 @@ function inboxScreen(m, opts) {
     };
     controls.push(newBtn);
   }
-  m.append(el("div", { className: "row", style: "margin-bottom:16px" }, controls));
+  m.append(el("div", { className: "row inboxbar", style: "margin-bottom:16px" }, controls));
 
   const split = el("div", { className: "split" });
   const list = el("div", { className: "tree" });
@@ -232,12 +232,15 @@ function inboxScreen(m, opts) {
 
     // The sidebar's filters are the inbox's. Pending work has no control for them, so it ignores them.
     const staffPick = opts.prs ? "" : S.inboxStaff;
-    const whoseStaff = staffPick ? S.data.staff.find((s) => s.handle === staffPick) : null;
+    // "Issues" is the product repos: every repo a staff member works in.
+    const products = new Set(S.data.staff.flatMap((s) => s.worksIn ?? []));
+    const issuesOnly = staffPick === "@issues";
+    const whoseStaff = staffPick && !issuesOnly ? S.data.staff.find((s) => s.handle === staffPick) : null;
     /* The two screens partition the org rather than overlap on it. Pending work is every pull
        request; the inbox is everything else. An inbox that also listed the PRs said the same
        thing twice and made the badge beside it a number you could not act on. */
     const mine = S.inbox.items
-      .filter((i) => belongsTo(i, whoseStaff))
+      .filter((i) => (issuesOnly ? products.has(i.repo) : belongsTo(i, whoseStaff)))
       .filter((i) => (i.kind === "pr") === !!opts.prs);
     const isOpen = (i) => i.state === "OPEN";
     const scoped = mine.filter(

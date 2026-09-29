@@ -50,7 +50,10 @@ function httpStatus(stderr: string): number | undefined {
 }
 
 /** gh prints the request, the status and a docs link; only the message is worth showing. */
-function tidy(stderr: string): string {
+export function tidy(stderr: string): string {
+  // The one failure everybody hits after a busy hour, said plainly rather than as a 403.
+  if (/rate limit/i.test(stderr))
+    return "GitHub's API limit for this hour is used up. It resets within the hour.";
   const msg = /"message"\s*:\s*"([^"]+)"/.exec(stderr);
   if (msg) return msg[1]!;
   const first =

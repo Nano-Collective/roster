@@ -13,6 +13,26 @@
  */
 
 const PATHS = {
+  "code":
+    "<polyline points=\"16 18 22 12 16 6\" /> <polyline points=\"8 6 2 12 8 18\" />",
+  "megaphone":
+    "<path d=\"m3 11 18-5v12L3 14v-3z\" /> <path d=\"M11.6 16.8a3 3 0 1 1-5.8-1.6\" />",
+  "life-buoy":
+    "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m4.93 4.93 4.24 4.24\" /> <path d=\"m14.83 9.17 4.24-4.24\" /> <path d=\"m14.83 14.83 4.24 4.24\" /> <path d=\"m9.17 14.83-4.24 4.24\" /> <circle cx=\"12\" cy=\"12\" r=\"4\" />",
+  "compass":
+    "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polygon points=\"16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76\" />",
+  "brush":
+    "<path d=\"m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08\" /> <path d=\"M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z\" />",
+  "bug":
+    "<path d=\"m8 2 1.88 1.88\" /> <path d=\"M14.12 3.88 16 2\" /> <path d=\"M9 7.13v-1a3.003 3.003 0 1 1 6 0v1\" /> <path d=\"M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6\" /> <path d=\"M12 20v-9\" /> <path d=\"M6.53 9C4.6 8.8 3 7.1 3 5\" /> <path d=\"M6 13H2\" /> <path d=\"M3 21c0-2.1 1.7-3.9 3.8-4\" /> <path d=\"M20.97 5c0 2.1-1.6 3.8-3.5 4\" /> <path d=\"M22 13h-4\" /> <path d=\"M17.2 17c2.1.1 3.8 1.9 3.8 4\" />",
+  "server":
+    "<rect width=\"20\" height=\"8\" x=\"2\" y=\"2\" rx=\"2\" ry=\"2\" /> <rect width=\"20\" height=\"8\" x=\"2\" y=\"14\" rx=\"2\" ry=\"2\" /> <line x1=\"6\" x2=\"6.01\" y1=\"6\" y2=\"6\" /> <line x1=\"6\" x2=\"6.01\" y1=\"18\" y2=\"18\" />",
+  "book-open":
+    "<path d=\"M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z\" /> <path d=\"M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z\" />",
+  "bar-chart":
+    "<line x1=\"12\" x2=\"12\" y1=\"20\" y2=\"10\" /> <line x1=\"18\" x2=\"18\" y1=\"20\" y2=\"4\" /> <line x1=\"6\" x2=\"6\" y1=\"20\" y2=\"16\" />",
+  "users":
+    "<path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\" /> <circle cx=\"9\" cy=\"7\" r=\"4\" /> <path d=\"M22 21v-2a4 4 0 0 0-3-3.87\" /> <path d=\"M16 3.13a4 4 0 0 1 0 7.75\" />",
   "check":
     "<path d=\"M20 6 9 17l-5-5\" />",
   "chevron":
@@ -94,6 +114,23 @@ export function icon(name, cls = "") {
   const span = document.createElement("span");
   span.innerHTML = iconHTML(name, cls);
   return span.firstChild ?? span;
+}
+
+/* A staff member's icon: `icon:` in their staff.yaml, or one picked from their role. */
+const ROLE_ICONS = {
+  cto: "code",
+  cmo: "megaphone",
+  support: "life-buoy",
+  pm: "compass",
+  designer: "brush",
+  qa: "bug",
+  devops: "server",
+  writer: "book-open",
+  analyst: "bar-chart",
+  community: "users",
+};
+export function staffIcon(s) {
+  return s?.icon && hasIcon(s.icon) ? s.icon : (ROLE_ICONS[s?.handle] ?? "person");
 }
 
 export function hasIcon(name) {

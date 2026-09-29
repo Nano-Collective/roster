@@ -34,6 +34,8 @@ export interface StaffExport {
   statusIssue?: number;
   schedule?: string;
   mention?: string;
+  /** The icon the portal draws for them. `icon:` in staff.yaml; unset, the portal picks by role. */
+  icon?: string;
   /**
    * The app identities this staff member posts as, as GitHub reports them — the manifest
    * writes `acme-cto[bot]`, an authored issue says `acme-cto`, so the suffix is stripped here
@@ -145,6 +147,7 @@ export function buildExport(
       statusIssue: manifest.status_issue,
       schedule: entry.schedule ?? manifest.schedule,
       mention: manifest.mention,
+      icon: manifest.icon ? String(manifest.icon) : undefined,
       bots: [manifest.bot, manifest.public_bot].filter(Boolean).map(botName),
       soloBots: [],
       sharedBots: [],
