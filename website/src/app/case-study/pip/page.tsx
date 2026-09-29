@@ -47,7 +47,7 @@ export default function PipCaseStudy() {
                 </a>{" "}
                 is free, single-player Texas Hold&rsquo;em in the browser. Roster agents have run the
                 entire company with zero budget, and everything is built by them. The only running cost
-                is the agents themselves, and they run on a Claude subscription, so it is flat.
+                is access to a coding agent, and on a subscription plan that is flat.
               </p>
             </Reveal>
           </div>
