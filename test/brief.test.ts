@@ -43,9 +43,10 @@ const STAFF = {
 
 test("there is a brief for each file a person actually writes, and one for changing them", () => {
   /* `org/operating.md`, `voice.md` and `guardrails.md` ship written. A charter and
-     `org/business.md` cannot, because they are the half that is about you. `amend` is the
+     `org/business.md` cannot, because they are the half that is about you, and neither can
+     `org/priorities.md`, which changes every month. `amend` is the
      fourth kind: not writing a file, but changing what an agent is already told. */
-  assert.deepEqual(available(), ["amend", "charter", "discover", "voice"]);
+  assert.deepEqual(available(), ["amend", "charter", "discover", "priorities", "voice"]);
 });
 
 test("every brief renders with the tokens the command can supply", () => {

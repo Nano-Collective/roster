@@ -99,7 +99,12 @@ export function prioritiesForm(o) {
       (scoped.length ? "\n### Out of scope this month\n\n" + scoped.map((t) => `- ${t}`).join("\n") + "\n" : "");
     await saveAndSay(save, out, o.path, text, "portal: write org/priorities.md", o.onSaved);
   };
-  return modes([...(o.before ?? []), { label: "Fill in", node: form }, rawMode(o.path, o.onSaved)]);
+  return modes([
+    ...(o.before ?? []),
+    { label: "Fill in", node: form },
+    { label: "Let an AI interview you", node: paste({ kind: "priorities", title: "", onSaved: o.onSaved }) },
+    rawMode(o.path, o.onSaved),
+  ]);
 }
 
 /** Any org file as highlighted text, with Read ahead of it on the Org screen. */

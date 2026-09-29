@@ -30,6 +30,7 @@ export interface PasteBrief {
 const WRITES: Record<string, (ctx: Ctx) => string[]> = {
   discover: (c) => [`${c.opsName}/org/business.md`],
   voice: (c) => [`${c.opsName}/org/voice.md`],
+  priorities: (c) => [`${c.opsName}/org/priorities.md`],
   charter: (c) => [`${c.dir}/CHARTER.md`],
 };
 
@@ -40,6 +41,7 @@ const READS: Record<string, (ctx: Ctx) => string[]> = {
     `${c.opsName}/org/guardrails.md`,
   ],
   voice: (c) => [`${c.opsName}/org/business.md`, `${c.opsName}/org/guardrails.md`],
+  priorities: (c) => [`${c.opsName}/org/business.md`],
   /* A charter is the difference between this staff member and everyone else, so the peers'
      charters are the most useful thing in the room: without them the model writes a second
      copy of whoever it was shown. */

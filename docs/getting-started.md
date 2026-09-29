@@ -149,7 +149,8 @@ The same road, command by command. Each prints its plan and changes nothing with
 
 ```bash
 roster init --org acme --apply        # the ops repo, and its Actions access
-roster brief discover                 # a brief for org/business.md; write priorities.md too
+roster brief discover                 # a brief for org/business.md
+roster brief priorities               # a brief for org/priorities.md
 roster hire cto --apply               # the brain, the wiring, the commits as you
 roster app cto --apply                # the App, its secrets, and a pre-ticked install link
 roster credential --apply             # the agent credential, once for the org

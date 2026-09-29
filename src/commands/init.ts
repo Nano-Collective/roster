@@ -179,7 +179,7 @@ export async function initFiles(o: {
   files.set("org/priorities.md", prioritiesStub());
   /* The org-level briefs, as slash commands. `/discover` was named in this command's own
      output and in the docs for a while before it existed anywhere. */
-  for (const [rel, text] of briefCommands(["discover", "voice"], {
+  for (const [rel, text] of briefCommands(["discover", "priorities", "voice"], {
     ORG: o.org,
     ORG_NAME: o.name,
     OPS_REPO: `${o.org}/${o.opsName}`,

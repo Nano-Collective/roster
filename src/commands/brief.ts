@@ -26,6 +26,7 @@ roster brief <kind> [handle]
     discover        write org/business.md, which every prompt is composed on top of
     charter <who>   write a staff member's CHARTER.md
     voice           revise org/voice.md, the house style every surface inherits
+    priorities      write org/priorities.md, this month's priorities
     amend <who>     change what a staff member is told, with the whole prompt attached
 
   \`charter\` carries one of the worked examples in docs/charters as a model for the shape,
