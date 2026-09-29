@@ -1,47 +1,74 @@
-/* Hiring and retiring, from the portal.
+/* The Staff screen: a card per staff member, retiring, and the way in to hiring.
  *
- * Both run the CLI's own `buildPlan` and `applyPlan` on the server rather than describing
- * either again here. Two descriptions of how to create a repo is one too many, and the one in
- * the browser would be the one nobody updated.
- *
- * Plan then apply, the same as every roster command that changes something: you see every
- * file, every label and every existing staff member it would edit, and nothing happens until
- * you say so.
+ * Hiring itself is in hire.js. Retiring runs the CLI's own `buildRetirePlan` and
+ * `applyRetirePlan` on the server, plan then apply: you see what it stops and what it keeps,
+ * and nothing happens until you say so.
  */
 
-import { post } from "../api.js";
+import { getStaffProgress, post } from "../api.js";
 import { askYes } from "../dialog.js";
 import { ago, el, esc } from "../dom.js";
-import { icon } from "../icons.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { appPanel } from "./app.js";
 import { credentialPanel } from "./credential.js";
-import { cronText } from "./health.js";
+import { hireFlow, line, rolePicker } from "./hire.js";
 import { paste } from "./paste.js";
 import { runOnce } from "./runonce.js";
 
-export function viewStaff(m) {
+/**
+ * @param {{open?: string, result?: object}} [o]  `open` keeps one staff member's steps on
+ *   screen across a repaint, which is how a finished hire lands on step 2.
+ */
+export function viewStaff(m, o = {}) {
   m.append(el("h1", { textContent: "Staff" }));
-  m.append(
-    el("p", {
-      className: "sub",
-      textContent:
-        S.data.staff.length +
-        " on the roster. Hiring creates a repo, its workflows, its labels and its pinned issue, " +
-        "and wires it to everyone already here.",
-    }),
-  );
+  const empty = !S.data.staff.length;
+  if (empty) m.append(el("p", { className: "sub", textContent: "No staff yet. Pick a role to hire your first." }));
 
-  const list = el("div", { className: "grid", style: "margin-bottom:18px" });
-  for (const s of S.data.staff) list.append(card(s));
-  m.append(list);
+  const pane = el("div", { className: "hirepane" });
 
-  const hire = el("button", { className: "ghbtn primary", textContent: "Hire someone" });
-  const pane = el("div");
-  hire.onclick = () => hireForm(pane);
-  m.append(el("div", { className: "row", style: "margin-bottom:14px" }, [hire]));
+  const pick = () => {
+    pane.replaceChildren(
+      ...(empty ? [] : [el("h3", { textContent: "Pick a role" })]),
+      rolePicker({ onPick: (role) => open(role) }),
+    );
+    if (!empty) {
+      const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
+      cancel.onclick = () => pane.replaceChildren();
+      pane.append(el("div", { className: "row" }, [cancel]));
+    }
+  };
+
+  /* One staff member's steps, hired or not yet. A hire repaints the whole screen, so the new
+     card is in the list and the steps reopen on the same person. */
+  function open(role, result) {
+    pane.replaceChildren(
+      hireFlow({
+        role,
+        result,
+        onHired: (handle, r) => {
+          m.replaceChildren();
+          viewStaff(m, { open: handle, result: r });
+        },
+        onClose: () => (empty ? pick() : pane.replaceChildren()),
+      }),
+    );
+    pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
+
+  if (!empty) {
+    const list = el("div", { className: "grid", style: "margin-bottom:18px" });
+    for (const s of S.data.staff) list.append(card(s));
+    m.append(list);
+    const hire = el("button", { className: "ghbtn primary", textContent: "Hire someone" });
+    hire.onclick = pick;
+    m.append(el("div", { className: "row", style: "margin-bottom:14px" }, [hire]));
+  }
   m.append(pane);
+
+  const opened = o.open && S.data.staff.find((s) => s.handle === o.open);
+  if (opened) open(roleOf(opened), o.result);
+  else if (empty) pick();
 
   /* --------------------------- one staff member --------------------------- */
 
@@ -109,138 +136,23 @@ export function viewStaff(m) {
       pane.scrollIntoView?.({ behavior: "smooth", block: "start" });
     };
 
+    /* Whether setup is finished, as far as can be told cheaply: the charter from disk at once,
+       and the App's secrets and a first run from GitHub when it answers. */
+    const finish = el("button", { className: "ghbtn primary", textContent: "Finish setting up", hidden: true });
+    finish.onclick = () => open(roleOf(s));
+    if (s.rig?.charterStub) finish.hidden = false;
+    else {
+      getStaffProgress(s.handle)
+        .then((p) => {
+          if (p.app === false || p.ran === false) finish.hidden = false;
+        })
+        .catch(() => {});
+    }
+
     d.append(
-      el("div", { className: "row", style: "margin-top:10px" }, [write, app, cred, run, go, status]),
+      el("div", { className: "row", style: "margin-top:10px" }, [finish, write, app, cred, run, go, status]),
     );
     return d;
-  }
-
-  /* ------------------------------- hiring -------------------------------- */
-
-  function hireForm(host) {
-    /* App names are copied from whoever is already here. The first hire has nobody to copy
-       from, and the CLI asks for --app and --public-app at that point; these are those two. */
-    const first = !S.data.staff.length;
-    const box = el("div", { className: "card" });
-    box.append(
-      el("h3", { textContent: "Hire someone" }),
-      el("p", {
-        className: "sub",
-        style: "margin-bottom:14px",
-        textContent: first
-          ? "Only the handle is required. This is the first hire, so there is nobody to copy " +
-            "App names from: name them here, and later hires follow the pattern."
-          : "Only the handle is required. Everything else is copied from whoever is already " +
-            "here, because app slugs carry a house naming scheme and the public identity is " +
-            "genuinely shared.",
-      }),
-    );
-
-    const handle = field("handle", "cfo", "lowercase, digits and dashes");
-    const name = field("name", "Chief Financial Officer", "defaults to the handle, uppercased");
-    const dir = field("dir", "finance", "directory and repo name; defaults to the handle");
-    const schedule = scheduleField();
-    const fields = [handle, name, dir, schedule];
-    const apps = [];
-    if (first) {
-      const org = S.data.org;
-      apps.push(
-        ["app", field("app", org + "-cfo", "this staff member's GitHub App. Names are unique across GitHub, so prefix it")],
-        ["publicApp", field("public app", org + "-robot", "the shared identity for public product repos. Optional when they are all private")],
-      );
-      fields.push(...apps.map(([, f]) => f));
-    }
-    for (const f of fields) box.append(f.row);
-
-    const status = el("span", { className: "meta" });
-    const plan = el("button", { className: "ghbtn primary", textContent: "Show the plan" });
-    const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
-    cancel.onclick = () => host.replaceChildren();
-    box.append(el("div", { className: "row", style: "margin-top:12px" }, [plan, cancel, status]));
-
-    const out = el("div");
-    box.append(out);
-    host.replaceChildren(box);
-    handle.input.focus();
-
-    plan.onclick = async () => {
-      if (!handle.input.value.trim()) {
-        handle.input.focus();
-        return;
-      }
-      status.textContent = "planning…";
-      status.className = "meta";
-      out.replaceChildren();
-      const params = new URLSearchParams({ handle: handle.input.value.trim() });
-      for (const [key, f] of [["name", name], ["dir", dir], ["schedule", schedule], ...apps]) {
-        const value = (f.value ? f.value() : f.input.value).trim();
-        if (value) params.set(key, value);
-      }
-      try {
-        const data = await (await fetch("/api/staff/plan?" + params, { cache: "no-store" })).json();
-        if (data.error) throw new Error(data.error);
-        status.textContent = "";
-        out.replaceChildren(hirePlan(data.plan, params));
-      } catch (e) {
-        status.textContent = e.message;
-        status.className = "meta err";
-      }
-    };
-  }
-
-  function hirePlan(plan, params) {
-    const box = el("div", { className: "plan" });
-    box.append(el("div", { className: "planhead", textContent: "This would create" }));
-
-    const s = plan.staff;
-    box.append(
-      line("ok", s.brain + ", private"),
-      line("ok", plan.files.length + " files, including three caller workflows"),
-      line("ok", plan.labels.length + " labels: " + plan.labels.join(", ")),
-      line("ok", "a pinned status issue"),
-      line("ok", "runs at " + s.schedule + ", on " + s.model),
-    );
-    for (const p of plan.peers) {
-      box.append(line("ok", p.brain + " gains a " + p.label + " label"));
-    }
-    /* Commits into repos that already exist, as you. Listed because they are writes to
-       somebody else's repo, and a plan that hid them would be the silent kind. */
-    box.append(el("div", { className: "planhead", textContent: "Commits and pushes, as you" }));
-    for (const c of plan.commits ?? []) box.append(line("ok", c.repo + ": " + c.file + ", " + c.why));
-
-    const cred = s.agentSecret ?? "the agent credential";
-    box.append(
-      plan.orgSecret?.visibility === "selected"
-        ? line("ok", s.brain + " is added to the repos that can read the org secret " + cred)
-        : plan.orgSecret
-          ? line("ok", "the org secret " + cred + " already reaches " + plan.orgSecret.visibility + " repos")
-          : line("warn", "no org secret " + cred + " yet: store it once with Agent credential, after this"),
-    );
-
-    box.append(el("div", { className: "planhead", textContent: "Then, on the new card" }));
-    box.append(
-      line("todo", "Create their GitHub App, then install it on the repos it opens with ticked"),
-      line("todo", "Write the charter"),
-      line("todo", "Run once now, to check everything works"),
-    );
-    for (const w of plan.warnings ?? []) box.append(line("warn", S.data.staff.length ? w : portalWords(w)));
-
-    const status = el("span", { className: "meta" });
-    const go = el("button", { className: "ghbtn primary", textContent: "Hire " + s.handle });
-    go.onclick = () =>
-      apply(
-        {
-          action: "hire",
-          handle: s.handle,
-          flags: Object.fromEntries(params),
-        },
-        { title: "Create " + s.brain + " and wire it up?", hint: "This creates a repository on GitHub.", confirm: "Hire " + s.handle },
-        go,
-        status,
-        box,
-      );
-    box.append(el("div", { className: "row", style: "margin-top:14px" }, [go, status]));
-    return box;
   }
 
   /* ------------------------------- retiring ------------------------------- */
@@ -320,88 +232,7 @@ export function viewStaff(m) {
   }
 }
 
-/* The plan's warnings are the CLI's, and name its flags. Here the same two options are fields
-   on the form above, and a flag the page has no box for reads as a dead end. */
-function portalWords(warning) {
-  return warning
-    .replace(/pass --public-app\b/, "fill in public app above")
-    .replace(/pass --app\b/, "fill in app above");
-}
-
-function field(label, placeholder, hint) {
-  const input = el("input", { type: "search", placeholder, value: "", style: "width:100%" });
-  input.dataset.field = label;
-  const row = el("div", { className: "ffield" });
-  row.append(
-    el("label", { textContent: label }),
-    input,
-    el("small", { textContent: hint }),
-  );
-  return { row, input };
-}
-
-/**
- * When the daily run happens, as a time and a set of days rather than as cron.
- *
- * The value on the wire is still a cron expression, because that is what goes in the workflow
- * and what `roster hire` takes. But nobody hiring their first staff member knows that
- * `0 9 * * 1-5` is nine in the morning on weekdays, and a field that demands it is a field
- * that gets a wrong answer or an empty one.
- *
- * UTC, said out loud, with the local equivalent beside it: GitHub schedules in UTC, and an
- * agent that starts an hour off twice a year is worse than one you had to think about once.
- */
-function scheduleField() {
-  const time = el("input", { type: "time", value: "", step: "60", style: "width:130px" });
-  const days = el("select");
-  days.append(
-    el("option", { value: "1-5", textContent: "Weekdays" }),
-    el("option", { value: "*", textContent: "Every day" }),
-    el("option", { value: "1", textContent: "Mondays" }),
-    el("option", { value: "1,3,5", textContent: "Mon, Wed, Fri" }),
-  );
-  // Said rather than relying on "the first option is selected", which is true of a rendered
-  // <select> and not of one that has only been built.
-  days.value = "1-5";
-
-  const said = el("small");
-  const value = () => {
-    if (!time.value) return "";
-    const [h, m] = time.value.split(":");
-    return `${Number(m)} ${Number(h)} * * ${days.value}`;
-  };
-  const say = () => {
-    const cron = value();
-    said.textContent = cron
-      ? cronText(cron) + local(time.value)
-      : "Leave it empty for a slot clear of everyone else.";
-  };
-  time.oninput = say;
-  days.onchange = say;
-  say();
-
-  const row = el("div", { className: "ffield" });
-  row.append(
-    el("label", { textContent: "schedule" }),
-    el("div", { className: "row" }, [time, days, el("span", { className: "meta", textContent: "UTC" })]),
-    said,
-  );
-  return { row, input: time, value };
-}
-
-/** What that UTC time is where the person reading it is, when the two differ. */
-function local(hhmm) {
-  if (!hhmm) return "";
-  const [h, m] = hhmm.split(":").map(Number);
-  const at = new Date(Date.UTC(2026, 0, 5, h, m));
-  const here = at.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  return here === hhmm ? "" : " · " + here + " where you are";
-}
-
-const MARK = { ok: "check", stop: "closed", keep: "issue-open", todo: "dash", warn: "label" };
-
-function line(kind, text) {
-  const d = el("div", { className: "planline " + kind });
-  d.append(icon(MARK[kind] ?? "dot", "ic"), el("span", { textContent: text }));
-  return d;
+/** The flow's view of somebody already hired. */
+function roleOf(s) {
+  return { handle: s.handle, name: s.name, dir: s.dir };
 }

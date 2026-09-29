@@ -10,6 +10,7 @@ import {
   lintMemory,
   parseMemory,
 } from "./memory.js";
+import { looksUnwritten } from "./stub.js";
 import type { Workspace } from "./workspace.js";
 
 export interface Surface {
@@ -68,6 +69,8 @@ export interface StaffExport {
 export interface Rig {
   workflows: string[];
   hasCharter: boolean;
+  /** CHARTER.md is absent or still the scaffold, by the same test doctor's `charter.stub` uses. */
+  charterStub: boolean;
   hasManifest: boolean;
   /** Declared in staff.yaml but not on disk. A surface nobody can see is a broken promise. */
   missingSurfaces: string[];
@@ -214,6 +217,9 @@ function readRig(root: string, manifest: Record<string, any>, commits: Commit[])
           .sort()
       : [],
     hasCharter: existsSync(join(root, "CHARTER.md")),
+    charterStub:
+      !existsSync(join(root, "CHARTER.md")) ||
+      looksUnwritten(readFileSync(join(root, "CHARTER.md"), "utf8")),
     hasManifest: existsSync(join(root, "staff.yaml")),
     missingSurfaces: declared
       .filter((s) => s?.path && !existsSync(join(root, s.path)))

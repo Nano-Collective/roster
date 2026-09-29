@@ -22,6 +22,7 @@ import { checklist } from "./checklist.js";
 import { businessForm, prioritiesForm } from "./orgedit.js";
 import { credentialPanel } from "./credential.js";
 import { repoPicker } from "./repos.js";
+import { todo } from "./todo.js";
 
 let S = null; // /api/setup/status, refreshed after anything that changes the world
 
@@ -414,7 +415,7 @@ function afterCreate() {
   list.append(priorities.card);
 
   const hire = todo(++n, "Hire your first staff member", staffCount > 0);
-  hire.hint("Give them a role, like cto. You'll create their GitHub App and write their charter from their card.");
+  hire.hint("Pick a role. The Staff screen then lists each step to set them up.");
   const hireBtn = el("button", { className: "btn primary", textContent: "Hire someone" });
   hireBtn.onclick = () => {
     // Before the org has loaded, this screen is the whole app, so the Staff screen needs a reload.
@@ -434,46 +435,6 @@ function afterCreate() {
   list.append(access.card);
 
   return list;
-}
-
-/**
- * One numbered thing to do. Done ones fold to a single ticked line, and Change opens them again,
- * so the list shows what is left without hiding what was done.
- */
-function todo(n, title, done) {
-  const card = el("section", { className: "todo" });
-  const num = el("span", { className: "todon" });
-  const pill = el("span", { className: "todopill" });
-  const change = el("button", { className: "ghbtn todochange", textContent: "Change" });
-  const head = el("div", { className: "todohead" }, [num, el("h3", { textContent: title }), pill, change]);
-  const hintEl = el("p", { className: "sub todohint" });
-  const body = el("div", { className: "todobody" });
-  card.append(head, hintEl, body);
-  let open = false;
-  const setDone = (d) => {
-    card.classList.toggle("done", d);
-    num.textContent = d ? "✓" : String(n);
-    pill.textContent = d ? "Done" : "To do";
-    change.hidden = !d;
-    const shown = !d || open;
-    body.hidden = !shown;
-    hintEl.hidden = !shown || !hintEl.textContent;
-  };
-  change.onclick = () => {
-    open = !open;
-    change.textContent = open ? "Close" : "Change";
-    setDone(card.classList.contains("done"));
-  };
-  setDone(done);
-  return {
-    card,
-    body,
-    setDone,
-    hint: (text) => {
-      hintEl.textContent = text;
-      setDone(card.classList.contains("done"));
-    },
-  };
 }
 
 /**

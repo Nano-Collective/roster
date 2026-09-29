@@ -12,7 +12,8 @@ import { el, toClipboard } from "../dom.js";
 import { unifiedDiff, diffStat } from "../textdiff.js";
 
 /**
- * @param {{kind: string, staff?: string, title?: string, onSaved?: () => void}} opts
+ * @param {{kind: string, staff?: string, title?: string, about?: string, onSaved?: () => void}} opts
+ *   `about` is a sentence on what the role does, added to a charter brief.
  */
 export function paste(opts) {
   const box = el("div", { className: "paste" });
@@ -51,7 +52,7 @@ export function paste(opts) {
   const NAMES = { cto: "the CTO example", cmo: "the CMO example", support: "the support example", none: "no example" };
   model.onchange = () => {
     copy.disabled = true;
-    getBrief(opts.kind, opts.staff, model.value)
+    getBrief(opts.kind, opts.staff, model.value, opts.about)
       .then((data) => {
         if (data.error) throw new Error(data.error);
         brief = data;
@@ -66,7 +67,7 @@ export function paste(opts) {
       });
   };
 
-  getBrief(opts.kind, opts.staff)
+  getBrief(opts.kind, opts.staff, undefined, opts.about)
     .then((data) => {
       if (data.error) throw new Error(data.error);
       brief = data;

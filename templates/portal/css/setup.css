@@ -137,6 +137,30 @@
 .todohint{margin:8px 0 0 35px}
 .todobody{margin:12px 0 0 35px}
 .todobody .row{margin-top:10px}
+.todo.locked{background:transparent;border-style:dashed}
+.todo.locked h3{color:var(--ink-dim)}
+.todo.locked .todopill{background:none;border:1px solid var(--line);color:var(--ink-faint)}
+
+/* ---------- hiring on the Staff screen ---------- */
+
+.hirepane > h3{margin:0 0 10px;font:600 14.5px var(--sans)}
+.roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-width:920px}
+.role{display:grid;gap:5px;align-content:start;text-align:left;cursor:pointer;
+      background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;
+      color:var(--ink);font:inherit;
+      transition:border-color .15s var(--ease),box-shadow .15s var(--ease),transform .15s var(--ease)}
+.role:hover{border-color:var(--accent-dim);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.role:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.role b{font:600 14px var(--sans);letter-spacing:-.01em}
+.role span{color:var(--ink-dim);font:12.5px/1.5 var(--sans)}
+.roleform{max-width:560px;margin:14px 0 0}
+.roleform textarea{width:100%}
+.hireflow{max-width:920px}
+.hireflowhead{justify-content:space-between;margin:0 0 12px}
+.hireflowhead h2{margin:0;font:600 17px var(--sans);letter-spacing:-.015em}
+.hiresummary{margin:0;font:13.5px/1.55 var(--sans);color:var(--ink)}
+.hiresummary.err{color:var(--err)}
+.hireadvanced{margin-top:12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);max-width:560px}
 .qfield{display:grid;gap:5px;margin:0 0 12px}
 .qfield span{font:600 12.5px var(--sans)}
 .qfield input{background:var(--bg-elev);border:1px solid var(--border-strong);color:var(--ink);

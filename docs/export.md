@@ -99,6 +99,7 @@ Only surfaces that exist on disk appear. A declared surface that is missing show
 |---|---|
 | `workflows[]` | filenames under `.github/workflows/` |
 | `hasCharter`, `hasManifest` | |
+| `charterStub` | `CHARTER.md` is absent or still the scaffold, the same test as doctor's `charter.stub` |
 | `missingSurfaces[]` | declared, not on disk |
 | `memoryBytes` | size of `INDEX.md` |
 | `notesBytes` | total size of `memory/notes/` |

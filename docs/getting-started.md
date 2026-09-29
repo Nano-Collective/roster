@@ -71,49 +71,61 @@ See [concepts](concepts.md#priorities).
 
 ![The Staff screen, with a card per staff member and Hire someone underneath](images/staff.jpg)
 
-**Staff → Hire someone.** Only the handle is required. The plan shows the repo it creates, the
-schedule it chose, and the commits it will make **as you** in repos that already exist: each
-peer's `staff.yaml`, and `org.yaml`. Nothing is left uncommitted on disk.
+**Staff**, then pick a role: CTO, CMO, Support, or **Something else** with a name and a sentence
+about what they do. With nobody hired yet the Staff screen opens on the picker. The role fills
+in the handle, name and repo; they are under **Advanced** if you want to change them.
 
-For the first hire there is nobody to copy an App name from, so the form asks for two: this
-staff member's App, and the shared public App. Names are unique across GitHub, so prefix them
-with the org. The public one only matters if a product repo is public; leave it empty when they
-are all private.
+The role opens a numbered list: hire, create their GitHub App, write their charter, add your
+agent credential, run once now. The steps after the hire say *Hire first* until it is done.
+
+Step 1 says in one sentence what the hire creates and when they run. **Show details** has the
+full plan: the repo, the schedule and why, and the commits it will make **as you** in repos that
+already exist: each peer's `staff.yaml`, and `org.yaml`. Nothing is left uncommitted on disk.
+
+For the first hire there is nobody to copy an App name from, so **Advanced** also has two:
+this staff member's App, and the shared public App, filled in as `<org>-<handle>` and
+`<org>-robot`. Names are unique across GitHub, so keep the org prefix. The public one only
+matters if a product repo is public.
 
 Product repos come from `org.yaml`. Mark one on the setup screen, or later with **Org → Add a
 product repo**.
 
+After **Hire** the list stays on the same staff member, now on step 2. Leave and come back later
+with **Finish setting up** on their card.
+
 ## 4. Create the App, and confirm the install
 
-**GitHub App**, on the new card. GitHub has no API that creates an App, so a tab opens and you
+**Create the App**, in step 2. GitHub has no API that creates an App, so a tab opens and you
 confirm. The App's id and private key go straight into the repo's secrets and never touch disk.
+The public App is offered too when a product repo is public.
 
 Then **Install it**. The install page opens with the organisation and every repo this staff
 member needs already ticked: its brain, the trackers of its peers, and the product repos. Check
 the list and confirm. That confirmation is yours by design: installing grants access, and GitHub
 asks a person.
 
-## 5. Store the agent credential, once
+## 5. Write the charter
 
-**Agent credential**, on the card or on the setup screen. Paste the token from `claude
-setup-token` (or your agent's key; the box says where to get one). It is stored as one
-organisation secret, shared with the brain repos, and each later hire is added to it. It is not
-asked for again.
+Step 3. **Let an AI interview you** is the same copy-a-prompt loop as step 2 of this guide, aimed
+at `CHARTER.md`, carrying the org layer, the peers' charters and, where the role matches one, a
+[worked example](writing-a-charter.md#worked-examples) to model the shape on. **Start from the
+template** opens that example in an editor with your business's name in it; edit it so it fits
+before saving. **Edit the file** is the file as it is. roster never generates a charter, because
+a generated one makes exactly the generic agent this whole arrangement exists to avoid.
+
+## 6. Store the agent credential, once
+
+Step 4, shown only while no credential is stored. It is also on the card and on the setup
+screen. Paste the token from `claude setup-token` (or your agent's key; the box says where to
+get one). It is stored as one organisation secret, shared with the brain repos, and each later
+hire is added to it. It is not asked for again.
 
 On GitHub Free an org secret does not reach private repos, so there it goes on each brain repo
 instead, and the page says so. It is still one paste now; a later hire needs it once more.
 
-## 6. Write the charter
-
-**Write the charter**, on the card. The same copy-a-prompt loop as step 2, aimed at
-`CHARTER.md`, carrying the org layer, the peers' charters and, where the role matches one, a
-[worked example](writing-a-charter.md#worked-examples) to model the shape on. The brief
-interviews you; the charter is yours. roster never generates one, because a generated charter
-makes exactly the generic agent this whole arrangement exists to avoid.
-
 ## 7. Run it once
 
-**Run once now**, on the card or on **Health**. It starts the daily workflow, follows it, and
+**Run once now**, step 5, also on the card and on **Health**. It starts the daily workflow, follows it, and
 tells you how it ended, with the log.
 
 **A workflow that has never run has proved nothing**: not that the App is installed on the right

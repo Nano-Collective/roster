@@ -136,3 +136,15 @@ test("nothing ships a hand-maintained copy of a brief", () => {
   }
   assert.deepEqual(leftover, [], "templates/brain/.claude should be generated, not stored");
 });
+
+test("a charter started from an example carries the business's name, not Acme's", async () => {
+  const { charterStarter, CHARTER_EXAMPLES } = await import("../src/lib/examples.js");
+  for (const kind of CHARTER_EXAMPLES) {
+    const text = charterStarter(kind, "Pip");
+    assert.ok(!/\bAcme\b/.test(text), kind + " still says Acme");
+    assert.match(text, /^# Charter — Pip's/m, kind);
+    // The note says the company is invented, which is false once the name is swapped.
+    assert.ok(!/An example to adapt/.test(text), kind + " kept the example note");
+    assert.match(text, /## Who I am/, kind + " lost its body");
+  }
+});

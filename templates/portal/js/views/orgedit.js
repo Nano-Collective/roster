@@ -112,9 +112,15 @@ export function fileModes(o) {
   return modes([...(o.before ?? []), rawMode(o.path, o.onSaved, o.lang)]);
 }
 
-/** The file itself, for editing what is already there rather than starting again. */
-export function rawMode(path, onSaved, lang = "md") {
+/**
+ * The file itself, for editing what is already there rather than starting again.
+ * @param {{label?: string, note?: string, read?: () => Promise<string>}} o
+ *   `read` starts the editor from other text than the file, once, so switching tabs does not
+ *   throw away what was typed. `note` is a line above the editor.
+ */
+export function rawMode(path, onSaved, lang = "md", o = {}) {
   const node = el("div");
+  if (o.note) node.append(el("p", { className: "sub", textContent: o.note }));
   const ta = el("textarea", { className: "pastebox" });
   ta.rows = 12;
   const save = el("button", { className: "btn primary", textContent: "Save" });
@@ -133,16 +139,22 @@ export function rawMode(path, onSaved, lang = "md") {
     }
   });
   // Read when first shown, so it shows the file as it is then, not as it was at page load.
-  const load = () =>
-    // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
-    fetch(fileUrl(path), { cache: "no-store" })
-      .then((r) => (r.ok ? r.text() : ""))
-      .then((text) => {
-        ta.value = text;
-        grow(ta);
-        hl.repaint();
-      });
-  return { label: "Edit the file", node, onShow: load };
+  let read = false;
+  const load = () => {
+    if (o.read && read) return;
+    read = true;
+    return (
+      o.read
+        ? o.read()
+        : // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
+          fetch(fileUrl(path), { cache: "no-store" }).then((r) => (r.ok ? r.text() : ""))
+    ).then((text) => {
+      ta.value = text;
+      grow(ta);
+      hl.repaint();
+    });
+  };
+  return { label: o.label ?? "Edit the file", node, onShow: load };
 }
 
 /** Ways to do one thing, as a switcher across the top: one shown at a time. */

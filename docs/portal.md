@@ -262,21 +262,48 @@ have more than one human, and a card that names one of two reads as the only one
 
 Everyone on the roster, and the things you would otherwise do from a terminal.
 
-**Hiring** runs the same `buildPlan` and `applyPlan` that `roster hire` does, on the server.
-Only the handle is required; everything else is copied from whoever is already here. The first
-hire has nobody to copy App names from, so its form also asks for the App's name and the shared
-public App's, which are `--app` and `--public-app`. The public one only matters when a product
-repo is public; on private ones the session uses the staff member's own App. You see
-the plan first, listing every file, every label, the schedule it chose and why, the commits it
-will make as you in repos that already exist (each peer's `staff.yaml`, `org.yaml`), whether the
-new brain joins the credential's org secret, and what is left for you. Nothing happens until you
-apply. What the terminal would have printed is shown when it finishes.
+**Hiring** starts from a role. With nobody hired the Staff screen opens on the role picker;
+after that it is behind **Hire someone**. The cards are CTO, CMO and Support, each with a line
+on what they do, and **Something else**, which asks for the role's name and a sentence about it.
+A role that is already hired is not offered. Picking one fills in the handle, name and repo
+(`cto`, `cmo`, `support`, or a handle made from the name) and leaves the schedule empty, so the
+server picks a free slot. All four are under **Advanced**, still editable. The first hire has
+nobody to copy App names from, so Advanced also holds the App's name and the shared public
+App's, which are `--app` and `--public-app`, filled in as `<org>-<handle>` and `<org>-robot`.
+The public one only matters when a product repo is public; on private ones the session uses the
+staff member's own App.
+
+The role opens a numbered list on the same screen:
+
+1. **Hire.** One sentence from the plan: the repo it creates and when it runs. **Show details**
+   has the full plan, from the same `buildPlan` and `applyPlan` that `roster hire` runs on the
+   server: every file, every label, the schedule and why, the commits it makes as you in repos
+   that already exist (each peer's `staff.yaml`, `org.yaml`), and whether the new brain joins
+   the credential's org secret. **Hire** asks before it acts.
+2. **Create their GitHub App.** The private App, and the shared public one only when a product
+   repo in `org.yaml` is public (or has no visibility written, which hire treats as public).
+3. **Write their charter.** Three tabs: an AI interview (the default), the matching worked
+   example with your business's name in place of Acme's, and the file itself. A role that
+   matches no example has no template tab.
+4. **Add your agent credential.** Only while none is stored.
+5. **Run once now.**
+
+Steps 2 to 5 say *Hire first* until the hire is done. Each step's Done comes from real data:
+the hire from the staff member appearing in `org.yaml`, the charter from `CHARTER.md` no longer
+being the stub (the same test as doctor's `charter.stub`), the App from its `_APP_ID` secret on
+the brain repo, the credential from the org secret, and the run from a successful daily run.
+After **Hire** the screen reloads the org and stays on the same staff member, on step 2.
+
+A card whose setup is not finished (a stub charter, no App secrets, or no successful run yet)
+shows **Finish setting up**, which opens the same list for them. The App secrets and the run
+are read from GitHub, so offline only the charter counts.
 
 **Writing the charter** is the copy-a-prompt loop below, aimed at `CHARTER.md`. `hire`
 deliberately does not write it, because a generated charter produces exactly the generic agent
 this whole arrangement exists to avoid. It is the same brief as `roster brief charter
 <handle>`, with somewhere to put the answer, and a picker for the worked example it carries as a
-model: matched to the role, or another, or none.
+model: matched to the role, or another, or none. For a role added with **Something else**, the
+sentence you typed goes into the brief.
 
 **The GitHub App** is `roster app`, on this server rather than a second one. There is no API that
 creates an App: the only route is the manifest flow, where you post a manifest to a settings page,

@@ -19,8 +19,8 @@ import { openBrowser, shouldOpen } from "../lib/browser.js";
 import { accessLink, allowOrgCallers } from "../lib/callable.js";
 import { planCredential, readOrgSecret, writeCredential } from "../lib/credential.js";
 import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
-import { CHARTER_EXAMPLES, matchExample } from "../lib/examples.js";
-import { buildExport } from "../lib/export.js";
+import { CHARTER_EXAMPLES, charterStarter, matchExample } from "../lib/examples.js";
+import { buildExport, readManifest } from "../lib/export.js";
 import { api, ghJson, ghReady } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
@@ -167,6 +167,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
   /* The Runs screen. Same short cache as the inbox; the records behind it are cached for good
      in lib/runs.ts, so a refresh costs the run lists and nothing already seen. */
   let runsCache: { at: number; body: unknown } | null = null;
+  const progressCache = new Map<string, { at: number; body: unknown }>();
   const LABEL_TTL = 300_000;
 
   const brainDirs = () =>
@@ -178,6 +179,8 @@ export async function portalCommand(argv: string[]): Promise<number> {
       name: r.name,
       owner: org.org,
       role: r.role ?? "repo",
+      // As org.yaml has it. Absent on a hand-written entry, which hire treats as public.
+      visibility: r.visibility,
     }));
   };
 
@@ -803,6 +806,49 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* A worked charter to start from, in this business's name. `staff` picks the example
+         the same way the brief does; `kind` names one. */
+      if (url.pathname === "/api/charter-example") {
+        const org = readOrg(w.opsDir, parseYaml);
+        const handle = url.searchParams.get("staff") ?? "";
+        const entry = (org.staff ?? []).find((s) => s.handle === handle);
+        const asked = url.searchParams.get("kind") ?? matchExample(handle, entry?.name ?? "");
+        if (!asked || !(CHARTER_EXAMPLES as readonly string[]).includes(asked)) {
+          json(res, { kind: null, text: "" });
+          return;
+        }
+        json(res, { kind: asked, text: charterStarter(asked, String(org.name ?? org.org)) });
+        return;
+      }
+
+      /* What only GitHub knows about a staff member's setup: whether their App's secrets are
+         on the brain repo, and whether a daily run has ever succeeded. Two reads each, cached
+         for a minute, and `null` for anything that could not be read. */
+      if (url.pathname === "/api/staff/progress") {
+        const handle = url.searchParams.get("staff") ?? "";
+        const hit = progressCache.get(handle);
+        if (url.searchParams.get("fresh") !== "1" && hit && Date.now() - hit.at < 60_000) {
+          json(res, hit.body);
+          return;
+        }
+        const org = readOrg(w.opsDir, parseYaml);
+        const entry = (org.staff ?? []).find((s) => s.handle === handle);
+        if (!entry) {
+          res.writeHead(400, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: `no staff member "${handle}"` }));
+          return;
+        }
+        const dir = entry.dir ?? entry.handle;
+        const spec = specFromManifest(readManifest(join(w.root, dir), parseYaml), dir);
+        staffProgress(spec, dailyWorkflow(entry.handle))
+          .then((body) => {
+            progressCache.set(handle, { at: Date.now(), body });
+            json(res, body);
+          })
+          .catch(() => json(res, { app: null, publicApp: null, ran: null }));
+        return;
+      }
+
       /* Hiring and retiring, from the same plan-then-apply the CLI runs. The portal builds
          the plan with `buildPlan` and applies it with `applyPlan`, rather than describing
          either again: two descriptions of how to create a repo is one too many. */
@@ -950,6 +996,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
             kind,
             handle,
             url.searchParams.get("example") ?? undefined,
+            url.searchParams.get("about") ?? undefined,
           );
           json(res, {
             kind,
@@ -1538,6 +1585,7 @@ function buildPasteBrief(
   kind: string,
   handle: string,
   example?: string,
+  about?: string,
 ) {
   if (!pasteable(kind)) throw new Error(`there is no paste-mode brief for "${kind}"`);
   const org = readOrg(ws.opsDir, parseYaml);
@@ -1566,6 +1614,11 @@ function buildPasteBrief(
   const chosen =
     kind === "charter" ? (example ?? matchExample(handle, tokens.NAME ?? "") ?? "none") : undefined;
   if (chosen) rendered = withExample(rendered, handle, tokens.NAME ?? "", chosen);
+  /* The sentence somebody typed when they hired a role none of the examples match. The only
+     place it is kept is here, so the interview starts from it rather than from nothing. */
+  if (kind === "charter" && about?.trim()) {
+    rendered = `${rendered.trimEnd()}\n\n## What the owner said this role does\n\n${about.trim()}\n`;
+  }
   return { ...pasteBrief(ws, kind, rendered, { dir, peers }), example: chosen };
 }
 
@@ -1593,6 +1646,31 @@ function json(res: import("node:http").ServerResponse, data: unknown, advice = f
      save would write the rewrite back into the file. */
   const text = JSON.stringify(data);
   res.end(advice ? withBin(text) : text);
+}
+
+/** Whether a staff member's App secrets are set and whether a daily run has succeeded. */
+async function staffProgress(
+  spec: { brain: string; secretPrefix: string; publicSecretPrefix: string },
+  workflow: string,
+) {
+  const [repo, shared, runs] = await Promise.all([
+    api<{ secrets: Array<{ name: string }> }>(`repos/${spec.brain}/actions/secrets`),
+    api<{ secrets: Array<{ name: string }> }>(`repos/${spec.brain}/actions/organization-secrets`),
+    api<{ total_count: number }>(
+      `repos/${spec.brain}/actions/workflows/${workflow}/runs?status=success&per_page=1`,
+    ),
+  ]);
+  const names = repo.ok
+    ? new Set([
+        ...repo.data!.secrets.map((x) => x.name),
+        ...(shared.ok ? shared.data!.secrets.map((x) => x.name) : []),
+      ])
+    : null;
+  return {
+    app: names ? names.has(`${spec.secretPrefix}_APP_ID`) : null,
+    publicApp: names ? names.has(`${spec.publicSecretPrefix}_APP_ID`) : null,
+    ran: runs.ok ? (runs.data?.total_count ?? 0) > 0 : null,
+  };
 }
 
 /** The hire flags the portal is allowed to set. Everything else keeps its default. */

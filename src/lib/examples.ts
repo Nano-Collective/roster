@@ -45,6 +45,18 @@ export function exampleSection(choice: string): string {
   ].join("\n");
 }
 
+/**
+ * An example as the starting text of a real charter: the business's name in place of Acme's,
+ * and without the note saying Acme is invented, which stops being true once the name is swapped.
+ */
+export function charterStarter(choice: string, business: string): string {
+  const path = join(docsDir(), "charters", `${choice}.md`);
+  if (!existsSync(path)) throw new Error(`there is no example charter called "${choice}"`);
+  return readFileSync(path, "utf8")
+    .replace(/^> \*\*An example to adapt[\s\S]*?\n\n/m, "")
+    .replace(/\bAcme\b/g, business);
+}
+
 /** Said when nothing matched, so the choice is visible rather than silently skipped. */
 export function exampleOffer(handle: string): string {
   return [

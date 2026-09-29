@@ -374,125 +374,138 @@ function fixtureFetch(u: string) {
     json: async () =>
       url.startsWith("/api/runs")
         ? runsFixture
-        : url.startsWith("/api/repos")
-          ? { repos: [{ name: "product", owner: "acme", role: "product" }] }
-          : url.startsWith("/api/labels")
-            ? {
-                labels: [
-                  { name: "decision", color: "aaa", description: "" },
-                  { name: "build", color: "bbb", description: "" },
-                ],
-              }
-            : // Before /api/pr, which every one of these also starts with.
-              url.startsWith("/api/promptaudit")
-              ? {
-                  staff: "cto",
-                  errors: [],
-                  problems: PROMPT_FIXTURE.problems.map((p) => ({
-                    ...p,
-                    kind: "daily",
-                    kinds: ["daily"],
-                  })),
-                }
-              : url.startsWith("/api/prompt")
-                ? PROMPT_FIXTURE
-                : url.startsWith("/api/pr?")
-                  ? PR_FIXTURE
-                  : url.startsWith("/api/inbox")
-                    ? INBOX_FIXTURE
-                    : // Before /api/docs, which is a prefix of it.
-                      url.startsWith("/api/docsearch")
-                      ? DOC_HITS_FIXTURE
-                      : url.startsWith("/api/docs")
-                        ? [
-                            { file: "README.md", title: "Overview" },
-                            { file: "agents.md", title: "Choosing a coding agent" },
-                          ]
-                        : url.startsWith("/api/orglayer")
-                          ? ORG_LAYER_FIXTURE
-                          : url.startsWith("/api/staff/plan")
-                            ? url.includes("action=retire")
-                              ? {
-                                  action: "retire",
-                                  plan: {
-                                    handle: "cmo",
-                                    name: "Chief Marketing Officer",
-                                    dir: "marketing",
-                                    brain: "acme/marketing",
-                                    workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
-                                    peers: [
-                                      {
-                                        handle: "cto",
-                                        dir: "technology",
-                                        brain: "acme/technology",
-                                        label: "from-cmo",
-                                      },
-                                    ],
-                                    keeps: [
-                                      "acme/marketing is untouched",
-                                      "103 facts and everything in memory/notes/",
-                                    ],
-                                    warnings: [],
-                                  },
-                                }
-                              : {
-                                  action: "hire",
-                                  plan: {
-                                    dir: "finance",
-                                    files: ["CHARTER.md", "staff.yaml"],
-                                    labels: ["will", "cfo"],
-                                    secrets: ["CFO_APP_ID"],
-                                    peers: [
-                                      {
-                                        handle: "cto",
-                                        dir: "technology",
-                                        brain: "acme/technology",
-                                        label: "from-cfo",
-                                      },
-                                    ],
-                                    warnings: [
-                                      "schedule was chosen to sit clear of everyone else's",
-                                    ],
-                                    staff: {
-                                      handle: "cfo",
-                                      name: "Chief Financial Officer",
-                                      brain: "acme/finance",
-                                      schedule: "0 9 * * 1-5",
-                                      model: "a-model",
-                                    },
-                                  },
-                                }
-                            : url.startsWith("/api/prompt")
-                              ? PROMPT_FIXTURE
-                              : url.startsWith("/api/thread")
-                                ? INBOX_FIXTURE.items[1]
-                                : url.startsWith("/api/sync")
-                                  ? { results: [] }
-                                  : url.startsWith("/api/setup/repos")
-                                    ? {
-                                        repos: [
+        : url.startsWith("/api/charter-example")
+          ? charterExampleFixture
+          : url.startsWith("/api/staff/progress")
+            ? progressFixture
+            : url.startsWith("/api/repos")
+              ? { repos: [{ name: "product", owner: "acme", role: "product" }] }
+              : url.startsWith("/api/labels")
+                ? {
+                    labels: [
+                      { name: "decision", color: "aaa", description: "" },
+                      { name: "build", color: "bbb", description: "" },
+                    ],
+                  }
+                : // Before /api/pr, which every one of these also starts with.
+                  url.startsWith("/api/promptaudit")
+                  ? {
+                      staff: "cto",
+                      errors: [],
+                      problems: PROMPT_FIXTURE.problems.map((p) => ({
+                        ...p,
+                        kind: "daily",
+                        kinds: ["daily"],
+                      })),
+                    }
+                  : url.startsWith("/api/prompt")
+                    ? PROMPT_FIXTURE
+                    : url.startsWith("/api/pr?")
+                      ? PR_FIXTURE
+                      : url.startsWith("/api/inbox")
+                        ? INBOX_FIXTURE
+                        : // Before /api/docs, which is a prefix of it.
+                          url.startsWith("/api/docsearch")
+                          ? DOC_HITS_FIXTURE
+                          : url.startsWith("/api/docs")
+                            ? [
+                                { file: "README.md", title: "Overview" },
+                                { file: "agents.md", title: "Choosing a coding agent" },
+                              ]
+                            : url.startsWith("/api/orglayer")
+                              ? ORG_LAYER_FIXTURE
+                              : url.startsWith("/api/staff/plan")
+                                ? url.includes("action=retire")
+                                  ? {
+                                      action: "retire",
+                                      plan: {
+                                        handle: "cmo",
+                                        name: "Chief Marketing Officer",
+                                        dir: "marketing",
+                                        brain: "acme/marketing",
+                                        workflows: ["cmo-daily.yaml", "cmo-mention.yaml"],
+                                        peers: [
                                           {
-                                            name: "acme-web",
-                                            visibility: "PUBLIC",
-                                            description: "the site",
+                                            handle: "cto",
+                                            dir: "technology",
+                                            brain: "acme/technology",
+                                            label: "from-cmo",
                                           },
                                         ],
-                                      }
-                                    : url.startsWith("/api/setup/status")
-                                      ? SETUP_FIXTURE
-                                      : url.startsWith("/api/brief")
+                                        keeps: [
+                                          "acme/marketing is untouched",
+                                          "103 facts and everything in memory/notes/",
+                                        ],
+                                        warnings: [],
+                                      },
+                                    }
+                                  : {
+                                      action: "hire",
+                                      plan: {
+                                        dir: "finance",
+                                        files: ["CHARTER.md", "staff.yaml"],
+                                        labels: ["will", "cfo"],
+                                        secrets: ["CFO_APP_ID"],
+                                        peers: [
+                                          {
+                                            handle: "cto",
+                                            dir: "technology",
+                                            brain: "acme/technology",
+                                            label: "from-cfo",
+                                          },
+                                        ],
+                                        warnings: [
+                                          "schedule was chosen to sit clear of everyone else's",
+                                        ],
+                                        staff: {
+                                          handle: "cfo",
+                                          name: "Chief Financial Officer",
+                                          brain: "acme/finance",
+                                          schedule: "0 9 * * 1-5",
+                                          model: "a-model",
+                                        },
+                                      },
+                                    }
+                                : url.startsWith("/api/prompt")
+                                  ? PROMPT_FIXTURE
+                                  : url.startsWith("/api/thread")
+                                    ? INBOX_FIXTURE.items[1]
+                                    : url.startsWith("/api/sync")
+                                      ? { results: [] }
+                                      : url.startsWith("/api/setup/repos")
                                         ? {
-                                            kind: "discover",
-                                            text: BRIEF_TEXT,
-                                            targets: ["roster-ops/org/business.md"],
+                                            repos: [
+                                              {
+                                                name: "acme-web",
+                                                visibility: "PUBLIC",
+                                                description: "the site",
+                                              },
+                                            ],
                                           }
-                                        : (orgOverride ?? ORG),
+                                        : url.startsWith("/api/setup/status")
+                                          ? SETUP_FIXTURE
+                                          : url.startsWith("/api/brief")
+                                            ? {
+                                                kind: "discover",
+                                                text: BRIEF_TEXT,
+                                                targets: ["roster-ops/org/business.md"],
+                                              }
+                                            : (orgOverride ?? ORG),
     text: async () =>
       url.startsWith("/api/doc?")
         ? "# Choosing a coding agent\n\nSee [manual steps](manual-steps.md).\n"
         : "sample",
   };
 }
+
+/** What `/api/charter-example` answers with: a match, unless a test says there is none. */
+let charterExampleFixture: Record<string, unknown> = {
+  kind: "cto",
+  text: "# Charter — Acme's CTO\n\n## Who I am\n",
+};
+
+/** What `/api/staff/progress` answers with: App secrets set, never run. */
+let progressFixture: Record<string, unknown> = { app: true, publicApp: true, ran: false };
 
 /** What `/api/runs` answers with. Swapped for the offline shape by the test that needs it. */
 const RUNS_ONLINE = {
@@ -2631,32 +2644,80 @@ test("the general ask starts empty rather than guessing", async () => {
 
 /* ------------------------- staff, and the org layer ------------------------ */
 
+/** The Staff screen, with a role picked. `fetch` records every URL asked for. */
+async function pickRole(role: string, org: Record<string, unknown> | null = null) {
+  const s = await renderAll("#/-/staff", org);
+  if (!org || (org.staff as unknown[]).length) button(s._byId.main, "Hire someone").onclick();
+  const card = walkNodes(s._byId.main).find((n) => n.dataset?.role === role);
+  assert.ok(card, "no role card for " + role);
+  const asked: string[] = [];
+  const was = s.fetch;
+  s.fetch = async (u: string, init?: any) => {
+    asked.push(String(u));
+    return was(u, init);
+  };
+  card.onclick();
+  await new Promise((r) => setTimeout(r, 30));
+  return { s, asked };
+}
+
+const field = (s: any, name: string) =>
+  walkNodes(s._byId.main).find((n) => n.dataset?.field === name);
+
 test("hiring asks for a time, not for cron", async () => {
   /* `0 9 * * 1-5` is nine on weekdays, and nobody hiring their first staff member knows that.
      The value that goes to the server is still cron, because that is what the workflow takes. */
-  const s = await renderAll("#/-/staff");
-  await new Promise((r) => setTimeout(r, 20));
-  button(s._byId.main, "Hire someone").onclick();
-  await new Promise((r) => setTimeout(r, 20));
-
+  const { s, asked } = await pickRole("support");
   const nodes = walkNodes(s._byId.main);
   const time = nodes.find((n) => n.tagName === "INPUT" && n.type === "time");
   assert.ok(time, "a time picker, not a text box wanting five fields");
   const days = nodes.filter((n) => n.tagName === "OPTION").map((o: any) => o.textContent);
   assert.ok(days.includes("Weekdays"), "and the days in words: " + days.join(", "));
+  // Empty, so the server picks a slot clear of everyone else.
+  assert.ok(!asked.some((u) => u.includes("schedule=")), "no schedule until one is chosen");
 
-  let asked = "";
-  s.fetch = async (u: string) => {
-    if (String(u).includes("/api/staff/plan")) asked = String(u);
-    return { ok: true, json: async () => ({ error: "stop here" }), text: async () => "" };
-  };
-  const handle = nodes.find((n) => n.dataset?.field === "handle");
-  handle.value = "cfo";
   time.value = "07:30";
-  button(s._byId.main, "Show the plan").onclick();
+  time.onchange();
   await new Promise((r) => setTimeout(r, 20));
   // `+` rather than a space: URLSearchParams form-encodes, and decodeURIComponent leaves it.
-  assert.match(asked, /schedule=30\+7\+\*\+\*\+1-5/, "the server still gets cron: " + asked);
+  const plan = asked.filter((u) => u.startsWith("/api/staff/plan")).at(-1) ?? "";
+  assert.match(plan, /schedule=30\+7\+\*\+\*\+1-5/, "the server still gets cron: " + plan);
+});
+
+test("a role already hired is not offered again", async () => {
+  const s = await renderAll("#/-/staff");
+  button(s._byId.main, "Hire someone").onclick();
+  const roles = walkNodes(s._byId.main)
+    .filter((n) => n.dataset?.role)
+    .map((n) => n.dataset.role);
+  // The fixture has hired cto and cmo.
+  assert.deepEqual(roles, ["support", "other"]);
+  const support = walkNodes(s._byId.main).find((n) => n.dataset?.role === "support");
+  assert.match(support.textContent, /Answers issues, writes help docs/);
+});
+
+test("a role fills in the hire, and the rest waits under Advanced", async () => {
+  const { s, asked } = await pickRole("support");
+  const plan = asked.find((u) => u.startsWith("/api/staff/plan")) ?? "";
+  assert.match(plan, /handle=support/);
+  assert.match(plan, /name=Head\+of\+Support/);
+  assert.match(plan, /dir=support/);
+  assert.equal(field(s, "handle").value, "support", "still editable, under Advanced");
+  const advanced = walkNodes(s._byId.main).find((n) => String(n.className) === "hireadvanced");
+  assert.equal(advanced.hidden, true, "folded until asked for");
+  button(s._byId.main, "Advanced").onclick();
+  assert.equal(advanced.hidden, false);
+});
+
+test("something else derives a handle from the role's name", async () => {
+  const { s, asked } = await pickRole("other");
+  field(s, "role name").value = "Head of Finance";
+  field(s, "role about").value = "Tracks spending.";
+  button(s._byId.main, "Continue").onclick();
+  await new Promise((r) => setTimeout(r, 30));
+  const plan = asked.find((u) => u.startsWith("/api/staff/plan")) ?? "";
+  assert.match(plan, /handle=head-of-finance/, plan);
+  assert.match(plan, /name=Head\+of\+Finance/, plan);
 });
 
 test("the staff screen lists everyone with somewhere to go", async () => {
@@ -2692,22 +2753,169 @@ test("a retire plan says what it keeps as loudly as what it stops", async () => 
   assert.match(kept.map((k) => k.textContent).join(" "), /untouched/);
 });
 
-test("a hire plan names the repo it would create and what is left to you", async () => {
-  const s = await renderAll("#/-/staff");
-  button(s._byId.main, "Hire someone").onclick();
-
-  const handle = walkNodes(s._byId.main).find((n) => n.dataset?.field === "handle");
-  assert.ok(handle, "the form needs a handle field");
-  handle.value = "cfo";
-  button(s._byId.main, "Show the plan").onclick();
-  await new Promise((r) => setTimeout(r, 30));
-
-  const text = walkNodes(s._byId.main)
-    .map((n) => String(n.textContent ?? ""))
+test("a picked role is a numbered list: a plain summary, then steps locked until the hire", async () => {
+  const { s } = await pickRole("support");
+  const main = s._byId.main;
+  const text = walkNodes(main)
+    .map((n) => String(n._text ?? ""))
     .join(" ");
-  assert.match(text, /acme\/finance/, "the repo it would create");
-  assert.match(text, /pinned status issue/);
-  assert.match(text, /Create their GitHub App/, "and the manual step it cannot do");
+  assert.match(
+    text,
+    /Creates a private repo acme\/finance, its workflows and a pinned status issue\. Runs weekdays at 09:00 UTC\./,
+  );
+
+  const todos = walkNodes(main).filter((n) =>
+    String(n.className ?? "")
+      .split(/\s+/)
+      .includes("todo"),
+  );
+  const titles = walkNodes(main)
+    .filter((n) => n.tagName === "H3" && todos.some((t) => walkNodes(t).includes(n)))
+    .map((n) => n.textContent);
+  assert.deepEqual(titles, [
+    "Hire",
+    "Create their GitHub App",
+    "Write their charter",
+    "Add your agent credential",
+    "Run once now",
+  ]);
+  const pills = walkNodes(main)
+    .filter((n) => String(n.className) === "todopill")
+    .map((n) => n.textContent);
+  assert.deepEqual(pills, ["To do", "Hire first", "Hire first", "Hire first", "Hire first"]);
+  const bodies = walkNodes(main).filter((n) => String(n.className) === "todobody");
+  assert.deepEqual(
+    bodies.map((b) => b.hidden),
+    [false, true, true, true, true],
+    "a locked step shows nothing to press",
+  );
+
+  // The whole plan is still there, one click away.
+  const details = walkNodes(main).find((n) => String(n.className) === "hiredetails");
+  assert.ok(details?.hidden, "the plan is folded");
+  button(main, "Show details").onclick();
+  assert.equal(details.hidden, false);
+  assert.match(details.textContent, /pinned status issue/);
+  assert.ok(button(main, "Hire"), "and then the Hire button");
+});
+
+test("after Hire the list stays on the same person, now on step 2", async () => {
+  const hired = {
+    ...ORG.staff[0],
+    handle: "support",
+    name: "Head of Support",
+    dir: "support",
+    brain: "acme/support",
+    rig: { ...ORG.staff[0].rig, charterStub: true },
+  };
+  const { s } = await pickRole("support");
+  const posted: string[] = [];
+  const was = s.fetch;
+  s.fetch = async (u: string, init?: any) => {
+    const url = String(u);
+    if (init?.body) posted.push(url + " " + init.body);
+    if (url.startsWith("/api/staff/apply")) {
+      return { ok: true, json: async () => ({ ok: true, output: "created acme/support" }) };
+    }
+    if (url.startsWith("/api/org")) {
+      return { ok: true, json: async () => ({ ...ORG, staff: [...ORG.staff, hired] }) };
+    }
+    if (url.startsWith("/api/staff/plan")) {
+      // The shared fixture plans a cfo; this one plans what was picked.
+      const plan = await (await was(u, init)).json();
+      plan.plan.staff = { ...plan.plan.staff, handle: "support", brain: "acme/support" };
+      return { ok: true, json: async () => plan };
+    }
+    return was(u, init);
+  };
+  field(s, "handle").onchange();
+  await new Promise((r) => setTimeout(r, 20));
+  button(s._byId.main, "Hire").onclick();
+  await new Promise((r) => setTimeout(r, 60));
+
+  assert.ok(
+    posted.some((p) => p.startsWith("/api/staff/apply")),
+    "it hired: " + posted,
+  );
+  const main = s._byId.main;
+  const cards = walkNodes(main).filter((n) => String(n.className ?? "").includes("staffcard"));
+  assert.equal(cards.length, ORG.staff.length + 1, "the new card is in the list");
+  const pills = walkNodes(main)
+    .filter((n) => String(n.className) === "todopill")
+    .map((n) => n.textContent);
+  assert.equal(pills[0], "Done", "step 1 is done, read from the export: " + pills);
+  assert.ok(!pills.includes("Hire first"), "and nothing is locked: " + pills);
+  assert.match(main.textContent, /Hired\. Their repo is acme\/support\./);
+  assert.ok(!/Reading the plan/.test(main.textContent), "the plan is gone");
+});
+
+test("the charter step offers an interview, the template and the file", async () => {
+  const s = await renderAll("#/-/staff");
+  const card = walkNodes(s._byId.main).find((n) => String(n.className ?? "").includes("staffcard"));
+  button(card, "Finish setting up").onclick();
+  await new Promise((r) => setTimeout(r, 40));
+  const tabs = () =>
+    walkNodes(s._byId.main)
+      .filter((n) => String(n.className ?? "").startsWith("mode"))
+      .filter((n) => n.tagName === "BUTTON")
+      .map((n) => n.textContent);
+  assert.deepEqual(tabs(), ["Let an AI interview you", "Start from the template", "Edit the file"]);
+  button(s._byId.main, "Start from the template").onclick();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.match(s._byId.main.textContent, /Edit this so it fits your business before saving\./);
+  const ta = walkNodes(s._byId.main).find(
+    (n) => n.tagName === "TEXTAREA" && String(n.value).startsWith("# Charter"),
+  );
+  assert.ok(ta, "the example is in the editor");
+
+  // No example matches: the interview only, and the file.
+  const was = charterExampleFixture;
+  charterExampleFixture = { kind: null, text: "" };
+  try {
+    const t = await renderAll("#/-/staff");
+    const c = walkNodes(t._byId.main).find((n) => String(n.className ?? "").includes("staffcard"));
+    button(c, "Finish setting up").onclick();
+    await new Promise((r) => setTimeout(r, 40));
+    const got = walkNodes(t._byId.main)
+      .filter((n) => n.tagName === "BUTTON" && String(n.className ?? "").startsWith("mode"))
+      .map((n) => n.textContent);
+    assert.deepEqual(got, ["Let an AI interview you", "Edit the file"]);
+  } finally {
+    charterExampleFixture = was;
+  }
+});
+
+test("a card says Finish setting up only while something is left", async () => {
+  const stub = await renderAll("#/-/staff");
+  const cards = walkNodes(stub._byId.main).filter((n) =>
+    String(n.className ?? "").includes("staffcard"),
+  );
+  const finish = (c: any) => walkNodes(c).find((n) => n.textContent === "Finish setting up");
+  assert.equal(finish(cards[0]).hidden, false, "a stub charter is unfinished");
+
+  // Charter written, App set, and a run has succeeded: nothing left.
+  const done = ORG.staff.map((x: any) => ({ ...x, rig: { ...x.rig, charterStub: false } }));
+  const was = progressFixture;
+  progressFixture = { app: true, publicApp: true, ran: true };
+  try {
+    const s = await renderAll("#/-/staff", { ...ORG, staff: done });
+    await new Promise((r) => setTimeout(r, 20));
+    const c = walkNodes(s._byId.main).filter((n) =>
+      String(n.className ?? "").includes("staffcard"),
+    );
+    assert.equal(finish(c[0]).hidden, true);
+
+    // Never run: unfinished again, from GitHub rather than disk.
+    progressFixture = { app: true, publicApp: true, ran: false };
+    const r = await renderAll("#/-/staff", { ...ORG, staff: done });
+    await new Promise((r) => setTimeout(r, 20));
+    const rc = walkNodes(r._byId.main).filter((n) =>
+      String(n.className ?? "").includes("staffcard"),
+    );
+    assert.equal(finish(rc[0]).hidden, false);
+  } finally {
+    progressFixture = was;
+  }
 });
 
 test("the org screen offers every file the whole roster inherits", async () => {
@@ -2911,31 +3119,25 @@ test("saving priorities.md re-runs the check rather than leaving Health stale", 
   );
 });
 
-test("the first hire is asked for its App names, and they reach the plan", async () => {
+test("with nobody hired the picker is already open, and the App names are filled in", async () => {
   /* The plan used to say "pass --app" and "pass --public-app" on a page with no such flags. */
-  const s = await renderAll("#/-/staff", { ...ORG, staff: [] });
-  button(s._byId.main, "Hire someone").onclick();
-  const nodes = walkNodes(s._byId.main);
-  const input = (f: string) => nodes.find((n) => n.dataset?.field === f);
-  assert.ok(input("app") && input("public app"), "both fields, on a first hire");
+  const empty = await renderAll("#/-/staff", { ...ORG, staff: [] });
+  assert.match(empty._byId.main.textContent, /No staff yet\. Pick a role to hire your first\./);
+  const roles = walkNodes(empty._byId.main)
+    .filter((n) => n.dataset?.role)
+    .map((n) => n.dataset.role);
+  assert.deepEqual(roles, ["cto", "cmo", "support", "other"]);
 
-  let asked = "";
-  s.fetch = async (u: string) => {
-    if (String(u).includes("/api/staff/plan")) asked = String(u);
-    return { ok: true, json: async () => ({ error: "stop here" }), text: async () => "" };
-  };
-  input("handle").value = "cto";
-  input("app").value = "acme-cto";
-  input("public app").value = "acme-robot";
-  button(s._byId.main, "Show the plan").onclick();
-  await new Promise((r) => setTimeout(r, 20));
-  assert.match(asked, /app=acme-cto/);
-  assert.match(asked, /publicApp=acme-robot/);
+  const { s, asked } = await pickRole("cto", { ...ORG, staff: [] });
+  assert.equal(field(s, "app").value, "acme-cto");
+  assert.equal(field(s, "public app").value, "acme-robot");
+  const plan = asked.find((u) => u.startsWith("/api/staff/plan")) ?? "";
+  assert.match(plan, /app=acme-cto/);
+  assert.match(plan, /publicApp=acme-robot/);
 
-  const later = await renderAll("#/-/staff");
-  button(later._byId.main, "Hire someone").onclick();
+  const later = await pickRole("support");
   assert.ok(
-    !walkNodes(later._byId.main).some((n) => n.dataset?.field === "app"),
+    !field(later.s, "app"),
     "a later hire copies them from a peer, so the form stays short",
   );
 });

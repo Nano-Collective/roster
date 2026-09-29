@@ -86,12 +86,21 @@ export const planTenant = (params) =>
 export const createTenant = (params) => post(params, "/api/setup/apply");
 
 /** The copyable prompt, with every file it refers to carried inside it. */
-export const getBrief = (kind, staff, example) =>
+export const getBrief = (kind, staff, example, about) =>
   json(
     "/api/brief?kind=" + encodeURIComponent(kind) +
       (staff ? "&staff=" + encodeURIComponent(staff) : "") +
-      (example ? "&example=" + encodeURIComponent(example) : ""),
+      (example ? "&example=" + encodeURIComponent(example) : "") +
+      (about ? "&about=" + encodeURIComponent(about) : ""),
   );
+
+/** The worked charter that matches a staff member, with the business's name in it. */
+export const getCharterExample = (staff) =>
+  json("/api/charter-example?staff=" + encodeURIComponent(staff));
+
+/** Whether a staff member's App secrets are set and a daily run has succeeded. Online only. */
+export const getStaffProgress = (staff, fresh) =>
+  json("/api/staff/progress?staff=" + encodeURIComponent(staff) + (fresh ? "&fresh=1" : ""));
 
 /** Parse what came back from the model. Reads only: saving is a second, deliberate step. */
 export const parsePaste = (kind, staff, answer) =>
