@@ -6,6 +6,11 @@ sidebar_order: 8
 
 # Commands
 
+**`roster` here means either of these.** With nothing installed, run commands through npx:
+`npx @nanocollective/roster@latest upgrade`. Or install it once with
+`npm install -g @nanocollective/roster` and type `roster upgrade`. When you run through npx,
+the commands roster suggests are printed the npx way, so they can be pasted as they are.
+
 Every command that changes anything prints a plan and changes nothing unless you pass
 `--apply`. `lint`, `prompt`, `export`, `brief`, `doctor` and `fix` never change anything.
 `portal` is the exception: it is interactive, and each change there is a button you press after

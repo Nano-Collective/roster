@@ -219,13 +219,9 @@ export function viewStaff(m) {
 
     box.append(el("div", { className: "planhead", textContent: "Then, on the new card" }));
     box.append(
-      line(
-        "todo",
-        "GitHub App, or roster app " + s.handle + " --apply: creates it, sets its secrets, and " +
-          "opens the install page with the repos already ticked",
-      ),
+      line("todo", "Create their GitHub App, then install it on the repos it opens with ticked"),
       line("todo", "Write the charter"),
-      line("todo", "Run once now, or roster run " + s.handle + " --apply: the run that proves the wiring"),
+      line("todo", "Run once now, to check everything works"),
     );
     for (const w of plan.warnings ?? []) box.append(line("warn", S.data.staff.length ? w : portalWords(w)));
 

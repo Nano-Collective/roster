@@ -14,6 +14,7 @@ import {
 } from "../lib/appmanifest.js";
 import { attach, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
+import { withBin } from "../lib/bin.js";
 import { openBrowser, shouldOpen } from "../lib/browser.js";
 import { accessLink, allowOrgCallers } from "../lib/callable.js";
 import { planCredential, readOrgSecret, writeCredential } from "../lib/credential.js";
@@ -1586,7 +1587,8 @@ function json(res: import("node:http").ServerResponse, data: unknown) {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
   });
-  res.end(JSON.stringify(data));
+  // Advice the portal shows ("run roster upgrade") has to work for somebody who started it with npx.
+  res.end(withBin(JSON.stringify(data)));
 }
 
 /** The hire flags the portal is allowed to set. Everything else keeps its default. */

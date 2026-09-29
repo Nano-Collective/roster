@@ -24,7 +24,7 @@ export function Commands() {
               Browser or terminal. <Soft>Same files.</Soft>
             </>
           }
-          lede="Everything the portal does is also a command, doing the same work on the same files. The portal is the shorter road, not the only one."
+          lede="Everything the portal does is also a command. Run them with npx @nanocollective/roster@latest, or install it once with npm install -g @nanocollective/roster."
         />
         <Reveal delay={80}>
           <div className="window">

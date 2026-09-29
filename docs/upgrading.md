@@ -10,9 +10,9 @@ The framework writes templates out. A tenant runs its own copies. So the two dri
 `roster upgrade` is what reconciles them without eating your edits.
 
 ```bash
-roster upgrade                 # what would change
-roster upgrade --apply         # do it
-roster upgrade --check         # exit non-zero if anything is pending (for CI)
+npx @nanocollective/roster@latest upgrade           # what would change
+npx @nanocollective/roster@latest upgrade --apply   # do it
+npx @nanocollective/roster@latest upgrade --check   # exit non-zero if anything is pending (for CI)
 ```
 
 ## How it decides

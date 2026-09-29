@@ -33,6 +33,11 @@ first finished run, most of it writing what the business is and the staff member
 Everything the portal does is also a command, on the same files. Nothing changes anything
 without `--apply`.
 
+**`roster` here means either of these.** With nothing installed, run commands through npx:
+`npx @nanocollective/roster@latest upgrade`. Or install it once with
+`npm install -g @nanocollective/roster` and type `roster upgrade`. When you run through npx,
+the commands roster suggests are printed the npx way, so they can be pasted as they are.
+
 ```bash
 roster init --org acme          # ops repo, org layer, merge base
 roster hire cto                 # scaffold a staff member: repo, workflows, labels, peers

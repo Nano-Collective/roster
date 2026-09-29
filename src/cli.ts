@@ -13,6 +13,7 @@ import { promptCommand, promptHelp } from "./commands/prompt.js";
 import { retireCommand, retireHelp } from "./commands/retire.js";
 import { runCommand, runHelp } from "./commands/run.js";
 import { upgradeCommand, upgradeHelp } from "./commands/upgrade.js";
+import { bin, rewriteOutput } from "./lib/bin.js";
 
 const HELP = `
 roster — an agent-run org, powered by GitHub
@@ -71,6 +72,7 @@ const HELPS: Record<string, string> = {
 };
 
 async function main(argv: string[]): Promise<number> {
+  const raw = rewriteOutput();
   const [command, ...rest] = argv;
 
   /* No arguments opens the portal, which is the setup screen when there is no tenant here and
@@ -80,7 +82,17 @@ async function main(argv: string[]): Promise<number> {
 
   if (command === "help" || command === "--help" || command === "-h") {
     const topic = rest[0];
-    process.stdout.write(topic && HELPS[topic] ? HELPS[topic] : HELP);
+    if (!topic || !HELPS[topic]) {
+      const name = bin();
+      if (name !== "roster") {
+        raw(
+          `\n  Run these as ${name} <command>, or install it: npm install -g @nanocollective/roster\n`,
+        );
+      }
+      raw(HELP);
+      return 0;
+    }
+    process.stdout.write(HELPS[topic]);
     return 0;
   }
 

@@ -2707,7 +2707,7 @@ test("a hire plan names the repo it would create and what is left to you", async
     .join(" ");
   assert.match(text, /acme\/finance/, "the repo it would create");
   assert.match(text, /pinned status issue/);
-  assert.match(text, /roster app cfo/, "and the manual step it cannot do");
+  assert.match(text, /Create their GitHub App/, "and the manual step it cannot do");
 });
 
 test("the org screen offers every file the whole roster inherits", async () => {
