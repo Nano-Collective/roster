@@ -3321,3 +3321,44 @@ test("Runs offline says where runs live, rather than drawing an empty table", as
     runsFixture = RUNS_ONLINE;
   }
 });
+
+test("a staff member's inbox link lists their tracker, not every issue that names them", async () => {
+  /* An issue the CMO filed on the CTO's tracker, labelled from-cmo, stayed at the top of the
+     inbox under every staff member, because the link matched on who filed it too. */
+  const s = await renderAll("#/-/inbox");
+  // Let the fixture inbox finish loading first, or it lands on top of the one set below.
+  await new Promise((r) => setTimeout(r, 30));
+  const [a, b] = ORG.staff;
+  const item = (repo: string, number: number, title: string, labels: string[]) => ({
+    repo,
+    number,
+    title,
+    labels,
+    kind: "issue",
+    state: "OPEN",
+    author: "x",
+    assignees: [],
+    body: "",
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-02T00:00:00Z",
+    url: "",
+    events: [],
+    comments: [],
+  });
+  s.INBOX = {
+    items: [
+      item(a.brain, 1, "Filed by the other one", ["from-" + b.handle]),
+      item(b.brain, 2, "Their own", []),
+    ],
+    repos: [],
+    errors: [],
+  };
+  s.inboxStaff = b.handle;
+  s.inboxState = "";
+  s.query = "";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const titles = inboxTitles(s).join(" ");
+  assert.ok(titles.includes("Their own"));
+  assert.ok(!titles.includes("Filed by the other one"), "it belongs to the tracker it is on");
+});

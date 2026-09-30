@@ -240,7 +240,9 @@ function inboxScreen(m, opts) {
        request; the inbox is everything else. An inbox that also listed the PRs said the same
        thing twice and made the badge beside it a number you could not act on. */
     const mine = S.inbox.items
-      .filter((i) => (issuesOnly ? products.has(i.repo) : belongsTo(i, whoseStaff)))
+      /* A staff member's link is their tracker: what is in their repo, whoever filed it. Matching
+         on who filed or was named put an issue the CMO filed for the CTO under both of them. */
+      .filter((i) => (issuesOnly ? products.has(i.repo) : !whoseStaff || i.repo === whoseStaff.brain))
       .filter((i) => (i.kind === "pr") === !!opts.prs);
     const isOpen = (i) => i.state === "OPEN";
     const scoped = mine.filter(
