@@ -365,17 +365,20 @@ function inboxScreen(m, opts) {
     head.innerHTML =
       '<div class="meta">' + esc(item.repo) + " · " + (item.kind === "pr" ? "PR " : "") + "#" + item.number +
         ' · <span class="' + (item.state === "OPEN" ? "ok" : "") + '">' + esc(item.state) + "</span>" +
-        " · " + esc(item.author) + " · " + ago(item.updatedAt) + "</div>" +
+        " · " + esc(item.author) + " · " + ago(item.updatedAt) +
+        // The labels sit on this line, after the time, rather than taking a line of their own.
+        (item.labels.length
+          ? '<span class="tmetalabels">' +
+            item.labels.map((l) => '<span class="chip ' + tone(l) + '">' + esc(l) + "</span>").join("") +
+            "</span>"
+          : "") +
+        "</div>" +
       "<h3>" + esc(item.title) + "</h3>" +
       (item.mergeable === "CONFLICTING"
         ? '<p class="tconflict">This branch conflicts with its base and cannot be merged ' +
           "until someone rebases or merges the base into it.</p>"
         : "") +
-      (item.labels.length
-        ? '<div class="row tlabels">' +
-          item.labels.map((l) => '<span class="chip ' + tone(l) + '">' + esc(l) + "</span>").join("") +
-          "</div>"
-        : "");
+      "";
     head.append(threadActions(item));
     delete viewer.dataset.wait;
     viewer.replaceChildren(head);

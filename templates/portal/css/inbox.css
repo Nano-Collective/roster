@@ -57,7 +57,7 @@
 /* A bottom margin here would collapse against the row's own 16px and change nothing, so the
    extra room is put on the row. General sibling, not adjacent: labels can sit between them. */
 .tconflict ~ .tacts{margin-top:24px}
-.tlabels{margin-top:10px}
+.tmetalabels{display:inline-flex;gap:6px;margin-left:10px;vertical-align:middle;font-family:var(--sans)}
 /* A comment is a card with a header strip, so each message has a clear start and end. */
 .cmt{border:1px solid var(--line);border-radius:var(--r-lg);margin:14px 0;background:var(--panel);overflow:hidden}
 .cmt.human{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
