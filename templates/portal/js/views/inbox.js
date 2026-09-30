@@ -3,7 +3,7 @@
 import { getLabels, getPr, getThread, post, upload } from "../api.js";
 import { askText, askYes } from "../dialog.js";
 import { ago, el, esc, markCurrent, skeleton } from "../dom.js";
-import { icon, iconHTML } from "../icons.js";
+import { icon, iconHTML, staffIcon } from "../icons.js";
 import { mdlite } from "../md.js";
 import { attachMentions } from "../mention.js";
 import { ensureInbox, refreshAll, stampCounts } from "../refresh.js";
@@ -1047,15 +1047,36 @@ function xref(source, item, openThread) {
   return b;
 }
 
+/* Who wrote something, as a person would say it: a staff member by their role, with their
+   icon; one of the humans by name; anyone else by their login. */
+function whoWrote(login) {
+  const s = (S.data?.staff ?? []).find((x) => (x.soloBots ?? []).includes(login));
+  if (s) return { name: s.name, glyph: staffIcon(s), kind: "staff" };
+  if (isHuman(login)) {
+    const h = humansOf().find((x) => x.github === login);
+    return { name: h?.name ?? login, glyph: "person", kind: "human" };
+  }
+  return { name: login || "?", glyph: "person", kind: "other" };
+}
+
+/* A comment is a card: a header strip saying who and when, then what they said. As text
+   between thin rules, it was hard to see where one message ended and the next began. */
 function comment({ author, when, body, first, repo, badge, reactions }) {
-  const d = el("div", { className: "cmt" + (first ? " first" : "") });
-  const meta = el("div", { className: "meta" });
-  meta.append((author || "?") + " · " + new Date(when).toLocaleString());
-  if (badge) meta.append(el("span", { className: "pill", style: "margin-left:8px", textContent: badge }));
-  d.append(meta);
-  d.append(el("div", { className: "md cbody", innerHTML: mdlite(body || "_no description_", { repo }) }));
+  const who = whoWrote(author);
+  const d = el("div", { className: "cmt " + who.kind + (first ? " first" : "") });
+  const head = el("div", { className: "chead" });
+  head.append(icon(who.glyph, "ic"), el("b", { textContent: who.name }));
+  if (who.name !== author && author) head.append(el("span", { className: "clogin", textContent: author }));
+  if (badge) head.append(el("span", { className: "pill", textContent: badge }));
+  head.append(
+    el("span", { className: "cwhen", title: new Date(when).toLocaleString(), textContent: ago(when) }),
+  );
+  d.append(head);
+  const bodyEl = el("div", { className: "cbodywrap" });
+  bodyEl.append(el("div", { className: "md cbody", innerHTML: mdlite(body || "_no description_", { repo }) }));
   const marks = reactionRow(reactions);
-  if (marks) d.append(marks);
+  if (marks) bodyEl.append(marks);
+  d.append(bodyEl);
   return d;
 }
 
