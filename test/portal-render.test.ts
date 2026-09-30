@@ -1343,6 +1343,13 @@ test("issue and PR references become links you can click through to GitHub", asy
   assert.equal((out.match(/class="ref"/g) ?? []).length, 2);
 });
 
+test("a short repo reference, like pip-web#172, links within the same org", async () => {
+  const s = await renderAll();
+  const out = s.mdlite("merge pip-web#172 first", { repo: "playpip/cmo" });
+  assert.ok(out.includes('href="https://github.com/playpip/pip-web/issues/172"'), out);
+  assert.ok(out.includes(">pip-web#172</a>"), out);
+});
+
 test("a bare github URL collapses to a chip that says which PR it is", async () => {
   const s = await renderAll();
   const out = s.mdlite("see https://github.com/acme/acme-web/pull/98", {

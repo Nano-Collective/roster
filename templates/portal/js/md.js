@@ -361,7 +361,9 @@ function mdAsset(src, opts) {
   return path ? "/api/file?path=" + encodeURIComponent(opts.file.staffDir + "/" + path) : src;
 }
 
-const REF_RE = /(^|[\s(>])([\w.-]+\/[\w.-]+)?#(\d+)\b/g;
+/* #123, repo#123 and owner/repo#123. The short repo form is how the staff write about the other
+   repos in their own org (pip-web#172), and it was left as plain text. */
+const REF_RE = /(^|[\s(>])((?:[\w.-]+\/)?[\w.-]+)?#(\d+)\b/g;
 // GitHub's own username shape, plus the short aliases the agents answer to.
 const AT_RE = /(^|[\s(>])@([a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38})\b/gi;
 
@@ -381,7 +383,8 @@ export function chips(html, opts = {}) {
       if (inA) return p;
       return p
         .replace(REF_RE, (m, pre, repo, n) => {
-          const target = repo || opts.repo;
+          const owner = String(opts.repo ?? "").split("/")[0];
+          const target = !repo ? opts.repo : repo.includes("/") ? repo : owner ? owner + "/" + repo : "";
           if (!target) return m;
           // /issues/N redirects to /pull/N when it is a PR, so one form is always right.
           return pre + '<a class="ref" href="https://github.com/' + target + "/issues/" + n +
