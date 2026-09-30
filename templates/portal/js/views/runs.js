@@ -29,6 +29,11 @@ export function viewRuns(m) {
     return;
   }
   paint(m, S.runs);
+  /* Kept for the session, it could be days old: a tab opened during a rate limit went on
+     showing a two-week-old list. Anything older than a few minutes is asked for again. */
+  // Only a read with a time on it can be old, and only one re-read is asked for at a time.
+  const at = S.runs.fetchedAt ? new Date(S.runs.fetchedAt).getTime() : 0;
+  if (at && Date.now() - at > 5 * 60_000 && !asking) load(true);
 }
 
 let asking = false;

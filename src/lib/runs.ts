@@ -63,7 +63,8 @@ export async function staffRuns(
         "--created",
         `>=${since}`,
         "--limit",
-        "100",
+        // Skipped mentions (the gate saying no) count towards the limit, and there are hundreds.
+        kind === "mention" ? "500" : "100",
         "--json",
         "databaseId,conclusion,status,createdAt,updatedAt,url",
       ]).then((res) => ({ kind, res })),
