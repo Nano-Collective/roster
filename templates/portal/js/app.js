@@ -326,7 +326,6 @@ function paintInboxLinks() {
   // Inbox itself is everything. Under it: each staff member, then the product repos' issues.
   const links = [
     ["", "All", "inbox"],
-    ["@unread", "Unread", "dot"],
     ...S.data.staff.map((s) => [s.handle, s.name, staffIcon(s)]),
     ["@issues", "Issues", "issue-open"],
   ];

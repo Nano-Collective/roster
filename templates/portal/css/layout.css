@@ -78,13 +78,15 @@
 .sidefoot .nav:hover{color:var(--ink-dim)}
 
 /* ---------- main ---------- */
-main{padding:36px 44px 96px;max-width:1220px;overflow-x:hidden}
+/* clip, not hidden: hidden makes main a scroll container, and nothing inside it can be sticky. */
+main{padding:36px 44px 96px;max-width:1220px;overflow-x:clip}
 
 /* ---------- tree beside viewer ---------- */
 .split{display:grid;grid-template-columns:314px 1fr;gap:16px;align-items:start}
 @media (max-width:900px){.split{grid-template-columns:1fr}}
+/* The list beside a viewer stays in view while a long file or thread scrolls. */
 .tree{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:6px;
-      max-height:74vh;overflow:auto;box-shadow:var(--shadow-sm)}
+      max-height:calc(100vh - 40px);overflow:auto;box-shadow:var(--shadow-sm);position:sticky;top:20px}
 .tdir{font:600 11px var(--mono);color:var(--ink-faint);padding:9px 8px 4px;letter-spacing:.02em}
 .tdir.first{padding-top:3px}
 .tfile{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;background:none;
