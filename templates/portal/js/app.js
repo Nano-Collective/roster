@@ -325,6 +325,8 @@ function paintInboxLinks() {
   sub.replaceChildren();
   // Inbox itself is everything. Under it: each staff member, then the product repos' issues.
   const links = [
+    ["", "All", "inbox"],
+    ["@unread", "Unread", "dot"],
     ...S.data.staff.map((s) => [s.handle, s.name, staffIcon(s)]),
     ["@issues", "Issues", "issue-open"],
   ];
@@ -332,12 +334,12 @@ function paintInboxLinks() {
     const b = el("button", { className: "nav subnav inboxlink" }, [
       icon(glyph, "ic"),
       el("span", { className: "t", textContent: label }),
+      ...(who === "@unread" ? [el("span", { className: "n", id: "unreadcount" })] : []),
     ]);
     b.dataset.who = who;
     b.onclick = () => {
       S.view = "inbox";
-      // A second click on the one you are on goes back to everything.
-      S.inboxStaff = S.inboxStaff === who ? "" : who;
+      S.inboxStaff = who;
       S.inboxFilter = "";
       S.inboxOpen = null;
       render();

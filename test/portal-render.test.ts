@@ -3369,3 +3369,56 @@ test("a staff member's inbox link lists their tracker, not every issue that name
   assert.ok(titles.includes("Their own"));
   assert.ok(!titles.includes("Filed by the other one"), "it belongs to the tracker it is on");
 });
+
+test("unread threads are highlighted, and Unread lists only those", async () => {
+  const s = await renderAll("#/-/inbox");
+  await new Promise((r) => setTimeout(r, 30));
+  const [a] = ORG.staff;
+  const item = (number: number, title: string, unread: unknown) => ({
+    repo: a.brain,
+    number,
+    title,
+    labels: [],
+    kind: "issue",
+    state: "OPEN",
+    author: "x",
+    assignees: [],
+    body: "",
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-02T00:00:00Z",
+    url: "",
+    events: [],
+    comments: [],
+    unread,
+  });
+  s.INBOX = {
+    items: [
+      item(1, "Something new", { thread: "9", reason: "comment" }),
+      item(2, "Already read", null),
+    ],
+    repos: [],
+    errors: [],
+  };
+  s.inboxState = "";
+  s.query = "";
+  s.inboxStaff = "";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const rows = walkNodes(s._byId.main).filter((n) =>
+    String(n.className ?? "")
+      .split(/\s+/)
+      .includes("irow"),
+  );
+  assert.equal(
+    rows.filter((r) => String(r.className).includes("unread")).length,
+    1,
+    "one row is marked unread",
+  );
+
+  s.inboxStaff = "@unread";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const titles = inboxTitles(s).join(" ");
+  assert.ok(titles.includes("Something new"));
+  assert.ok(!titles.includes("Already read"));
+});

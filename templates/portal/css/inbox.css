@@ -190,3 +190,7 @@ textarea.dropping{border-color:var(--accent);background:color-mix(in srgb,var(--
 .tevmore[aria-expanded="true"] .caret{transform:none}
 .tevquiet{border-left:1px solid var(--line);margin-left:9px;padding-left:14px}
 .tevquiet .tev{padding:5px 0;font-size:12px}
+
+/* Unread, from GitHub's notifications: a bar on the left and a heavier title. Cleared on open. */
+.irow.unread{box-shadow:inset 3px 0 0 var(--accent)}
+.irow.unread .ititle{font-weight:700;color:var(--ink)}

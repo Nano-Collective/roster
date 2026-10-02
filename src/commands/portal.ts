@@ -25,6 +25,7 @@ import { api, ghJson, ghReady } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { installTargets, preselectedInstall } from "../lib/install.js";
+import { markRead, unreadFor } from "../lib/notifications.js";
 import { parsePaste } from "../lib/paste.js";
 import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
 import { isWritable, KINDS, promptView, saveFile, validateOrgYaml } from "../lib/prompt.js";
@@ -1305,6 +1306,29 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
+      /* Opening a thread marks it read on GitHub. The cached inbox is updated in place rather
+         than dropped, so the next paint does not bring the highlight back. */
+      if (url.pathname === "/api/notifications/read" && req.method === "POST") {
+        if (!writeAllowed(req)) {
+          refuseWrite(res);
+          return;
+        }
+        body(req)
+          .then(async (raw) => {
+            const payload = JSON.parse(raw || "{}") as { thread?: string; ref?: string };
+            const ok = await markRead(String(payload.thread ?? ""));
+            if (ok && cache && payload.ref) {
+              const data = JSON.parse(cache.body);
+              for (const i of data.items ?? [])
+                if (`${i.repo}#${i.number}` === payload.ref) i.unread = null;
+              cache = { at: cache.at, body: JSON.stringify(data) };
+            }
+            json(res, { ok });
+          })
+          .catch((err) => json(res, { ok: false, error: String(err?.message ?? err) }));
+        return;
+      }
+
       if (url.pathname === "/api/inbox") {
         const fresh = url.searchParams.get("refresh") === "1";
         if (!fresh && cache && Date.now() - cache.at < TTL) {
@@ -1315,10 +1339,16 @@ export async function portalCommand(argv: string[]): Promise<number> {
           res.end(cache.body);
           return;
         }
-        fetchInbox(knownRepos())
-          .then((data) => {
+        const owner = readOrg(w.opsDir, parseYaml).org;
+        Promise.all([fetchInbox(knownRepos()), unreadFor(owner).catch(() => new Map())])
+          .then(([data, unread]) => {
             const body = JSON.stringify({
               ...data,
+              // Marked from GitHub's notifications, so unread here is unread there.
+              items: data.items.map((i) => ({
+                ...i,
+                unread: unread.get(`${i.repo}#${i.number}`) ?? null,
+              })),
               repos: knownRepos(),
               fetchedAt: new Date().toISOString(),
             });

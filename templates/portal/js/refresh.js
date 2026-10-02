@@ -10,7 +10,7 @@
 import { getInbox, getOrg, getSync } from "./api.js";
 import { $, ago, el, esc } from "./dom.js";
 import { render } from "./router.js";
-import { openCount, openPrCount, S } from "./state.js";
+import { openCount, openPrCount, S, unreadCount } from "./state.js";
 
 /**
  * The inbox, fetched at most once at a time.
@@ -55,6 +55,7 @@ export function stampCounts() {
   for (const [sel, n] of [
     ["#inboxcount", openCount],
     ["#prcount", openPrCount],
+    ["#unreadcount", unreadCount],
   ]) {
     const slot = document.querySelector(sel);
     if (!slot) continue;

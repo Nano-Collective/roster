@@ -235,6 +235,7 @@ function inboxScreen(m, opts) {
     // "Issues" is the product repos: every repo a staff member works in.
     const products = new Set(S.data.staff.flatMap((s) => s.worksIn ?? []));
     const issuesOnly = staffPick === "@issues";
+    const unreadOnly = staffPick === "@unread";
     const whoseStaff = staffPick && !issuesOnly ? S.data.staff.find((s) => s.handle === staffPick) : null;
     /* The two screens partition the org rather than overlap on it. Pending work is every pull
        request; the inbox is everything else. An inbox that also listed the PRs said the same
@@ -242,7 +243,9 @@ function inboxScreen(m, opts) {
     const mine = S.inbox.items
       /* A staff member's link is their tracker: what is in their repo, whoever filed it. Matching
          on who filed or was named put an issue the CMO filed for the CTO under both of them. */
-      .filter((i) => (issuesOnly ? products.has(i.repo) : !whoseStaff || i.repo === whoseStaff.brain))
+      .filter((i) =>
+        unreadOnly ? Boolean(i.unread) : issuesOnly ? products.has(i.repo) : !whoseStaff || i.repo === whoseStaff.brain,
+      )
       .filter((i) => (i.kind === "pr") === !!opts.prs);
     const isOpen = (i) => i.state === "OPEN";
     const scoped = mine.filter(
@@ -301,7 +304,7 @@ function inboxScreen(m, opts) {
 
     for (const i of items) {
       const shutState = i.state === "MERGED" ? "merged" : i.state === "OPEN" ? "" : "closed";
-      const b = el("button", { className: "irow" + (shutState ? " shut" : "") });
+      const b = el("button", { className: "irow" + (shutState ? " shut" : "") + (i.unread ? " unread" : "") });
       const yours = onAHuman(i);
       const chips = i.labels
         .slice(0, 3)
@@ -360,6 +363,14 @@ function inboxScreen(m, opts) {
     }
     const row = list.querySelector('[data-ref="' + item.repo + "#" + item.number + '"]');
     if (row) markCurrent(list, row);
+    // Opening it is reading it: cleared here at once, and on GitHub in the background.
+    if (item.unread) {
+      const thread = item.unread.thread;
+      item.unread = null;
+      row?.classList.remove("unread");
+      stampCounts();
+      post({ thread, ref: item.repo + "#" + item.number }, "/api/notifications/read").catch(() => {});
+    }
 
     const head = el("div", { className: "thead" });
     head.innerHTML =

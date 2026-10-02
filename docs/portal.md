@@ -83,13 +83,13 @@ goes away; the repo picker lives on under [Org](#org).
 Everything open across the org, from one GraphQL call per repo. Bodies and full timelines come
 down with the list, so opening a thread is a render rather than a request.
 
-- **Filter by staff member.** An item belongs to somebody if it is in their brain repo, their
-  own App wrote it, a peer addressed it to them with a `from-<handle>` label, or it is assigned
-  to them. The shared public identity cannot name one staff member, so an item it wrote counts
-  for anyone who works in that repo. Items authored by humans belong to nobody, which is
-  correct.
-- **Scope** to everything, what is assigned to you, decisions, or open PRs.
-- **Open, recently closed, or both.** Open by default: an inbox is what is waiting on
+- **The links under Inbox in the sidebar filter it.** All; Unread; each staff member, which
+  lists the issues on their own tracker whoever filed them; and Issues, the product repos.
+- **Unread comes from your GitHub notifications.** A thread with activity you have not read has
+  a bar on the left and a bold title, and Unread lists only those, with a count. Opening one
+  marks it read on GitHub too, and reading it on GitHub clears it here. GitHub only notifies you
+  about repos you watch and threads you are part of.
+- **Open or closed.** Open by default: an inbox is what is waiting on
   somebody, and months of finished work mixed into that answers a different question. Closed
   work reaches back 45 days, up to 30 issues and 30 pull requests per repository, and carries
   a shorter timeline than open work because it is there to be read rather than triaged. A

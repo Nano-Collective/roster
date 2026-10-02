@@ -86,6 +86,10 @@ export const S = {
 export const openCount = () =>
   (S.inbox?.items ?? []).filter((i) => i.state === "OPEN" && i.kind !== "pr").length;
 
+/** Issues with activity you have not read, from GitHub's notifications. */
+export const unreadCount = () =>
+  (S.inbox?.items ?? []).filter((i) => i.unread && i.state === "OPEN" && i.kind !== "pr").length;
+
 /** The same, for the screen that is only pull requests. */
 export const openPrCount = () =>
   (S.inbox?.items ?? []).filter((i) => i.state === "OPEN" && i.kind === "pr").length;
