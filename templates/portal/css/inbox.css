@@ -192,5 +192,5 @@ textarea.dropping{border-color:var(--accent);background:color-mix(in srgb,var(--
 .tevquiet .tev{padding:5px 0;font-size:12px}
 
 /* Unread, from GitHub's notifications: a bar on the left and a heavier title. Cleared on open. */
-.irow.unread{box-shadow:inset 3px 0 0 var(--accent)}
+.irow.unread{box-shadow:inset 3px 0 0 var(--blue);background:color-mix(in srgb,var(--blue) 6%,transparent)}
 .irow.unread .ititle{font-weight:700;color:var(--ink)}

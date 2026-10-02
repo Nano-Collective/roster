@@ -169,3 +169,5 @@ main{padding:36px 44px 96px;max-width:1220px;overflow-x:hidden}
 .nav.inboxlink{display:flex;align-items:center;gap:8px}
 .nav.inboxlink .ic,.staffrow .ic{--ic:14px;color:var(--ink-faint);flex:none}
 .nav.inboxlink[aria-current="true"] .ic{color:var(--accent)}
+/* The unread count matches the unread rows. Empty, it stays grey like every other badge. */
+#unreadcount:not(:empty):not(.wait){background:var(--blue);color:#fff}

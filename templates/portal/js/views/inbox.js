@@ -294,9 +294,15 @@ function inboxScreen(m, opts) {
       list.append(el("div", { className: "tdir err", textContent: e }));
     }
 
-    // Newest first, flat. Grouping by repo buried a fresh comment under whichever project
-    // happened to sort first; the project moves onto the row instead.
-    items = items.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    // Unread first, then newest first, flat. Grouping by repo buried a fresh comment under
+    // whichever project happened to sort first; the project moves onto the row instead.
+    items = items
+      .slice()
+      .sort(
+        (a, b) =>
+          Number(Boolean(b.unread)) - Number(Boolean(a.unread)) ||
+          String(b.updatedAt).localeCompare(String(a.updatedAt)),
+      );
     if (!items.length) {
       list.append(el("p", { className: "empty", textContent: "Nothing matches." }));
       return;
