@@ -92,6 +92,10 @@ export function belongsTo(item, s) {
   return false;
 }
 
+/* Threads read so far, by repo#number, kept for the session. Each is reused while its
+   updatedAt matches the list's, so a thread is fetched again only when it has changed. */
+const THREADS = new Map();
+
 export const viewInbox = (m) => inboxScreen(m, {});
 
 /**
@@ -337,9 +341,9 @@ function inboxScreen(m, opts) {
             : "") +
           // How much conversation is on a thread, which is most of what tells a live one from
           // something that was filed and never answered.
-          (i.comments.length
-            ? '<span class="cc" title="' + i.comments.length + ' comments">' +
-              iconHTML("review") + i.comments.length + "</span>"
+          ((i.commentCount ?? i.comments.length)
+            ? '<span class="cc" title="' + (i.commentCount ?? i.comments.length) + ' comments">' +
+              iconHTML("review") + (i.commentCount ?? i.comments.length) + "</span>"
             : "") +
           chips +
           '<span class="when">' + ago(i.updatedAt) + "</span>" +
@@ -378,6 +382,36 @@ function inboxScreen(m, opts) {
       post({ thread, ref: item.repo + "#" + item.number }, "/api/notifications/read").catch(() => {});
     }
 
+    /* The list carries no bodies or timelines (carrying them cost most of an hour's GitHub
+       allowance per load), so a thread is read when it is opened, and kept until GitHub says
+       it has changed. Reopening one costs nothing. */
+    if (item.partial) {
+      const key = item.repo + "#" + item.number;
+      const kept = THREADS.get(key);
+      const keep = { role: item.role, unread: item.unread };
+      if (kept && kept.updatedAt === item.updatedAt) {
+        Object.assign(item, kept, keep, { partial: false });
+      } else {
+        viewer.dataset.want = key;
+        viewer.replaceChildren(...skeleton("head", 1), ...skeleton("line", 8));
+        getThread(item.repo, item.number, item.kind)
+          .then((fresh) => {
+            if (!fresh || fresh.error) throw new Error(fresh?.error ?? "could not read it");
+            THREADS.set(key, fresh);
+            Object.assign(item, fresh, keep, { partial: false });
+          })
+          .catch((e) => {
+            item.partial = false;
+            item.loadError = String(e.message || e);
+          })
+          .finally(() => {
+            // Somebody may have opened another thread while this one was loading.
+            if (viewer.dataset.want === key) openThread(ref);
+          });
+        return;
+      }
+    }
+
     const head = el("div", { className: "thead" });
     head.innerHTML =
       '<div class="meta">' + esc(item.repo) + " · " + (item.kind === "pr" ? "PR " : "") + "#" + item.number +
@@ -406,6 +440,11 @@ function inboxScreen(m, opts) {
        for a wrapper that would only ever hold one thing. */
     const pane = item.kind === "pr" ? el("div") : viewer;
     if (item.kind === "pr") viewer.append(prTabs(item, pane), pane);
+    if (item.loadError) {
+      pane.append(el("p", { className: "err", textContent: "Couldn't load the conversation: " + item.loadError }));
+      delete item.loadError;
+      item.partial = true; // so opening it again tries again
+    }
     conversation(pane, item);
     viewer.scrollTop = 0;
   }
@@ -762,7 +801,12 @@ function inboxScreen(m, opts) {
         const at = S.inbox.items.findIndex(
           (i) => i.repo === item.repo && i.number === item.number,
         );
-        if (at >= 0) S.inbox.items[at] = { ...S.inbox.items[at], ...fresh };
+        if (at >= 0) {
+          const old = S.inbox.items[at];
+          THREADS.set(item.repo + "#" + item.number, fresh);
+          // A single thread does not know which part of the org it is in, or whether it is unread.
+          S.inbox.items[at] = { ...old, ...fresh, role: old.role, unread: old.unread, partial: false };
+        }
       }
     } catch {
       /* the comment posted; a stale pane is not worth an error */

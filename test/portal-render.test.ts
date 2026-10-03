@@ -3436,3 +3436,69 @@ test("a reply starts with an @mention of whoever the issue is with", async () =>
   );
   assert.equal(s.addressee({ repo: "acme/elsewhere", author: "a-human" }), "", "nobody to address");
 });
+
+test("a thread from the list is read when it is opened, and kept until it changes", async () => {
+  /* The list used to carry every timeline, which cost most of an hour's GitHub allowance per
+     load. Now a thread is fetched on opening, once. */
+  const s = await renderAll("#/-/inbox");
+  await new Promise((r) => setTimeout(r, 30));
+  const [a] = ORG.staff;
+  const light = {
+    repo: a.brain,
+    number: 41,
+    title: "From the list",
+    labels: [],
+    kind: "issue",
+    state: "OPEN",
+    author: "x",
+    assignees: [],
+    body: "",
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-02T00:00:00Z",
+    url: "",
+    events: [],
+    comments: [],
+    commentCount: 2,
+    partial: true,
+  };
+  s.INBOX = { items: [light], repos: [], errors: [] };
+  s.inboxState = "";
+  s.query = "";
+  s.inboxStaff = "";
+  let asked = 0;
+  s.fetch = async (u: string) => {
+    if (String(u).startsWith("/api/thread")) {
+      asked++;
+      return {
+        ok: true,
+        json: async () => ({
+          ...light,
+          partial: false,
+          body: "The whole body",
+          events: [
+            {
+              type: "comment",
+              actor: "someone",
+              createdAt: "2026-09-02T00:00:00Z",
+              body: "A reply",
+            },
+          ],
+        }),
+        text: async () => "",
+      };
+    }
+    return fixtureFetch(u);
+  };
+  s.inboxOpen = { repo: a.brain, number: 41, kind: "issue" };
+  s.render();
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(asked, 1, "read once on opening");
+  assert.ok(
+    walkNodes(s._byId.main).some((n) => String(n.innerHTML ?? "").includes("A reply")),
+    "and the conversation is drawn",
+  );
+
+  s.render();
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(asked, 1, "and not again while it has not changed");
+});

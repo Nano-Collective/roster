@@ -113,6 +113,14 @@ export interface InboxItem {
   mergeable?: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
   /** Kept because a count of replies is worth having without walking the timeline. */
   comments: Comment[];
+  /** How many replies, known from the list before the thread itself has been read. */
+  commentCount?: number;
+  /**
+   * True when this came from the list, which carries no body or timeline. The thread is read
+   * on its own when it is opened: carrying every timeline in the list cost most of an hour's
+   * GitHub API allowance per load.
+   */
+  partial?: boolean;
   events: TimelineEvent[];
   /** On the opening post, as opposed to on any of the replies. */
   reactions: Reaction[];
@@ -168,7 +176,6 @@ const TIMELINE_PR = `
    read, not triaged, and the whole org's history at full depth is a payload nobody asked for
    on a screen that refreshes every forty-five seconds. */
 const CLOSED_FIRST = 30;
-const CLOSED_TIMELINE = 40;
 /** How far back "recently closed" reaches. Older than this and you want GitHub's search. */
 const CLOSED_DAYS = 45;
 
@@ -192,58 +199,53 @@ const PR_TYPES = `[ISSUE_COMMENT, CROSS_REFERENCED_EVENT, REFERENCED_EVENT, CLOS
  * It runs through the human's own `gh`, so it shows exactly what they would see signed
  * in, private repos included, without the portal holding a token.
  */
+/* The list: what a row shows and what the filters read, and nothing else. GitHub prices a query
+   by how much it could return, and the old one asked for every timeline, every comment and
+   every reactor in four lists per repo, which priced one inbox load at most of an hour's
+   allowance. */
+const LIGHT = `number title url state createdAt updatedAt
+        author { login }
+        labels(first:12) { nodes { name } }
+        assignees(first:8) { nodes { login } }
+        comments { totalCount }`;
+const LIGHT_PR = `${LIGHT} isDraft mergeable
+        commits(last:1) { nodes { commit { statusCheckRollup { state } } } }`;
+
 const QUERY = `
 query($owner:String!, $name:String!) {
   repository(owner:$owner, name:$name) {
-    issues(states:OPEN, first:60, orderBy:{field:UPDATED_AT, direction:DESC}) {
-      nodes {
+    issues(states:OPEN, first:60, orderBy:{field:UPDATED_AT, direction:DESC}) { nodes { ${LIGHT} } }
+    pullRequests(states:OPEN, first:60, orderBy:{field:UPDATED_AT, direction:DESC}) { nodes { ${LIGHT_PR} } }
+    closedIssues: issues(states:CLOSED, first:${CLOSED_FIRST}, orderBy:{field:UPDATED_AT, direction:DESC}) {
+      nodes { ${LIGHT} }
+    }
+    closedPullRequests: pullRequests(
+      states:[CLOSED, MERGED], first:${CLOSED_FIRST}, orderBy:{field:UPDATED_AT, direction:DESC}
+    ) { nodes { ${LIGHT_PR} } }
+  }
+}`;
+
+/* One thread, whole: its body, its reactions and its timeline. Asked for when it is opened. */
+const THREAD_QUERY = `
+query($owner:String!, $name:String!, $number:Int!) {
+  repository(owner:$owner, name:$name) {
+    issueOrPullRequest(number:$number) {
+      ... on Issue {
         number title body url state createdAt updatedAt
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
         assignees(first:8) { nodes { login } }
-        timelineItems(last:80, itemTypes:${ISSUE_TYPES}) { nodes { ${TIMELINE_COMMON} } }
+        timelineItems(last:100, itemTypes:${ISSUE_TYPES}) { nodes { ${TIMELINE_COMMON} } }
       }
-    }
-    pullRequests(states:OPEN, first:60, orderBy:{field:UPDATED_AT, direction:DESC}) {
-      nodes {
+      ... on PullRequest {
         number title body url state createdAt updatedAt isDraft mergeable
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
         assignees(first:8) { nodes { login } }
         commits(last:1) { nodes { commit { statusCheckRollup { state } } } }
-        timelineItems(last:80, itemTypes:${PR_TYPES}) {
-          nodes { ${TIMELINE_COMMON} ${TIMELINE_PR} }
-        }
-      }
-    }
-    closedIssues: issues(
-      states:CLOSED, first:${CLOSED_FIRST}, orderBy:{field:UPDATED_AT, direction:DESC}
-    ) {
-      nodes {
-        number title body url state createdAt updatedAt
-        author { login }
-        ${REACTIONS}
-        labels(first:12) { nodes { name } }
-        assignees(first:8) { nodes { login } }
-        timelineItems(last:${CLOSED_TIMELINE}, itemTypes:${ISSUE_TYPES}) {
-          nodes { ${TIMELINE_COMMON} }
-        }
-      }
-    }
-    closedPullRequests: pullRequests(
-      states:[CLOSED, MERGED], first:${CLOSED_FIRST}, orderBy:{field:UPDATED_AT, direction:DESC}
-    ) {
-      nodes {
-        number title body url state createdAt updatedAt isDraft
-        author { login }
-        ${REACTIONS}
-        labels(first:12) { nodes { name } }
-        assignees(first:8) { nodes { login } }
-        timelineItems(last:${CLOSED_TIMELINE}, itemTypes:${PR_TYPES}) {
-          nodes { ${TIMELINE_COMMON} ${TIMELINE_PR} }
-        }
+        timelineItems(last:100, itemTypes:${PR_TYPES}) { nodes { ${TIMELINE_COMMON} ${TIMELINE_PR} } }
       }
     }
   }
@@ -328,6 +330,9 @@ function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxI
     comments: events
       .filter((e) => e.type === "comment")
       .map((e) => ({ author: e.actor, createdAt: e.createdAt, body: e.body ?? "" })),
+    // From the list, the count comes without the comments; from a thread, they are counted.
+    commentCount: n.comments?.totalCount ?? events.filter((e) => e.type === "comment").length,
+    partial: !n.timelineItems,
     events,
     reactions: reactions(n),
   };
@@ -468,16 +473,31 @@ function event(e: any): TimelineEvent | null {
     closing something from the portal is exactly when it stops being in the open one. */
 export async function fetchThread(repo: string, number: number, kind: "issue" | "pr") {
   const [owner, name] = repo.split("/");
-  const data = await query(owner!, name!);
-  const lists =
-    kind === "pr"
-      ? [data?.pullRequests?.nodes, data?.closedPullRequests?.nodes]
-      : [data?.issues?.nodes, data?.closedIssues?.nodes];
-  for (const nodes of lists) {
-    const found = (nodes ?? []).find((n: any) => n.number === number);
-    if (found) return shape(found, repo, "", kind);
+  const { stdout } = await run(
+    "gh",
+    [
+      "api",
+      "graphql",
+      "-f",
+      `query=${THREAD_QUERY}`,
+      "-F",
+      `owner=${owner}`,
+      "-F",
+      `name=${name}`,
+      "-F",
+      `number=${number}`,
+    ],
+    { maxBuffer: 64 * 1024 * 1024 },
+  );
+  const n = JSON.parse(stdout)?.data?.repository?.issueOrPullRequest;
+  if (!n) throw new Error(`${repo}#${number} was not found in ${repo}`);
+  const item = shape(n, repo, "", kind);
+  if (kind === "pr") {
+    item.draft = n.isDraft;
+    item.checks = rollup(n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state);
+    item.mergeable = n.mergeable;
   }
-  throw new Error(`${repo}#${number} was not found in ${repo}`);
+  return item;
 }
 
 function rollup(state?: string): InboxItem["checks"] {
