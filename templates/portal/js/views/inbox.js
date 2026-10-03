@@ -686,7 +686,20 @@ function inboxScreen(m, opts) {
           body: body || undefined,
         });
         DRAFTS.delete(key);
-        await refreshAll(false);
+        /* What changed is known, so it is changed here rather than re-reading every repo,
+           which redrew the whole inbox for one issue. The next refresh confirms it. */
+        const me = humansOf()[0]?.github ?? "you";
+        const now = new Date().toISOString();
+        item.events = [
+          ...(item.events ?? []),
+          ...(body ? [{ type: "comment", actor: me, createdAt: now, body }] : []),
+          { type: closing ? "closed" : "reopened", actor: me, createdAt: now },
+        ];
+        item.state = closing ? "CLOSED" : "OPEN";
+        item.updatedAt = now;
+        stampCounts();
+        paint();
+        openThread({ repo: item.repo, number: item.number, kind: item.kind });
       } catch (e) { failed(e); }
     };
     buttons.push(closeBtn);
@@ -714,7 +727,12 @@ function inboxScreen(m, opts) {
         busy(true, "merging…");
         try {
           await post({ action: "merge", repo: item.repo, number: item.number });
-          await refreshAll(false);
+          // As with closing: the change is known, so it is made here rather than re-reading every repo.
+          item.state = "MERGED";
+          item.updatedAt = new Date().toISOString();
+          stampCounts();
+          paint();
+          openThread({ repo: item.repo, number: item.number, kind: item.kind });
         } catch (e) { failed(e); }
       };
       buttons.push(merge);
@@ -780,6 +798,19 @@ function inboxScreen(m, opts) {
  * you are still typing and the button has to stay as it was; once it closes there is a request
  * in flight against GitHub that can take seconds, and that is what needs saying.
  */
+/**
+ * Who a reply is for, by default: the staff member whose tracker the issue is on, or whose App
+ * opened it. They are only woken by an @mention, so a reply without one reached nobody.
+ */
+export function addressee(item) {
+  const staff = S.data?.staff ?? [];
+  const s =
+    staff.find((x) => x.brain === item.repo) ??
+    staff.find((x) => (x.soloBots ?? []).includes(item.author));
+  if (!s) return "";
+  return (s.mention || "@" + s.handle) + " ";
+}
+
 async function openReply(item, anchor, onSend) {
   const key = item.repo + "#" + item.number + (anchor ? " · " + anchor.path : "");
   let deaf = null;
@@ -788,7 +819,7 @@ async function openReply(item, anchor, onSend) {
     title: "Reply to " + item.repo + " #" + item.number,
     hint: anchor ? anchor.path : item.title,
     confirm: "Comment",
-    value: DRAFTS.get(key) ?? "",
+    value: DRAFTS.get(key) ?? addressee(item),
     /* It goes out through whoever's `gh` is signed in here, which is only knowably one person
        when the org has one. With two it would be a guess, and a wrong name on a reply box is
        worse than no name. */
@@ -799,6 +830,10 @@ async function openReply(item, anchor, onSend) {
         else DRAFTS.delete(key);
       };
       deaf = deafNote(ta, item, anchor);
+      // Typing starts after the @mention, not in front of it.
+      setTimeout(() => {
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      }, 0);
       return el("div", {}, [attachBox(ta, () => item.repo).node, deaf.node]);
     },
   });

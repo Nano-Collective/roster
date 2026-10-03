@@ -757,6 +757,7 @@ async function renderAll(hash = "", org: Record<string, unknown> | null = null) 
     inline: m.md.inline,
     markCurrent: m.dom.markCurrent,
     belongsTo: m.inbox.belongsTo,
+    addressee: m.inbox.addressee,
     renderDiff: m.changed.renderDiff,
     cronText: m.health.cronText,
     askToFix: m.health.askToFix,
@@ -3421,4 +3422,17 @@ test("unread threads are highlighted, and Unread lists only those", async () => 
   const titles = inboxTitles(s).join(" ");
   assert.ok(titles.includes("Something new"));
   assert.ok(!titles.includes("Already read"));
+});
+
+test("a reply starts with an @mention of whoever the issue is with", async () => {
+  // Staff are only woken by an @mention, so a reply without one reached nobody.
+  const s = await renderAll();
+  const [a] = ORG.staff;
+  const want = (a.mention || "@" + a.handle) + " ";
+  assert.equal(s.addressee({ repo: a.brain, author: "someone" }), want, "on their tracker");
+  assert.equal(
+    s.addressee({ repo: "acme/elsewhere", author: (a.soloBots ?? [])[0] ?? "nope" }),
+    (a.soloBots ?? []).length ? want : "",
+  );
+  assert.equal(s.addressee({ repo: "acme/elsewhere", author: "a-human" }), "", "nobody to address");
 });
