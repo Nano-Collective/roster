@@ -112,6 +112,34 @@ function head(writes: string[]): string {
   ].join("\n");
 }
 
+/**
+ * The hand-back rules for a brief that may change any of several files, such as a prompt fix,
+ * where the model chooses which layer to edit.
+ */
+export function handBackAnyOf(paths: string[]): string {
+  return [
+    "---",
+    "",
+    "## How to hand it back",
+    "",
+    "Wrap each file you changed like this, and only the files you changed:",
+    "",
+    "```",
+    `${BEGIN(paths[0] ?? "path/to/file.md")}\n...the whole file, exactly as it should be saved...\n${END}`,
+    "```",
+    "",
+    "**Rules**, because the answer is parsed rather than read:",
+    "",
+    "- The sentinel lines go on their own lines, spelled exactly as above, with the file's path.",
+    "- Between them goes the **whole file**, exactly as it should be saved. No fences around it,",
+    "  no commentary inside it.",
+    "- Anything you want to say goes **outside** the block.",
+    "- The files you may write are these, and no others:",
+    ...paths.map((p) => `  - \`${p}\``),
+    "",
+  ].join("\n");
+}
+
 /** And again after them, because this is the part that decides whether the answer is usable. */
 function tail(writes: string[]): string[] {
   const example = writes

@@ -11,7 +11,7 @@
 
 import { highlighted } from "../mdedit.js";
 import { getFile, post } from "../api.js";
-import { askText, askYes } from "../dialog.js";
+import { askYes, sheet } from "../dialog.js";
 import { el, esc, grow, kb, toClipboard } from "../dom.js";
 import { icon } from "../icons.js";
 import { mdlite } from "../md.js";
@@ -19,6 +19,7 @@ import { render } from "../router.js";
 import { S, staff, writeHash } from "../state.js";
 import { diffStat, unifiedDiff } from "../textdiff.js";
 import { renderDiff } from "./changed.js";
+import { showPasteResult } from "./paste.js";
 
 const KINDS = [
   ["daily", "Daily", "the scheduled run"],
@@ -26,48 +27,98 @@ const KINDS = [
 ];
 
 /**
- * Build the paste-ready brief on the server, where compose.mjs lives, and copy it.
+ * Fix a prompt with your own AI, in a side sheet: what is wrong, what you want changed, the
+ * prompt as it is today, a brief to copy, and a box for the reply. The reply is parsed into
+ * whole files and shown as diffs; nothing is saved until you press Save on one.
  *
- * A finding pre-fills the box rather than skipping it: what it wrote is a starting point, and
- * "and keep it in operating.md" is exactly the sort of thing you want to add.
- *
- * Exported because the findings themselves live on Health now, and the fix for one of them is
- * the same brief whichever screen you asked from.
+ * @param {{handle: string, name?: string, kind: string, want?: string, title?: string,
+ *   detail?: string}} o
+ * @returns {{box: object | null, body: HTMLElement, want: HTMLTextAreaElement}} what it built,
+ *   so a caller (or a test, where there is no <dialog>) can see it.
  */
-export async function copyAmendBrief(handle, kind, want, btn, note) {
-  const label = btn.textContent;
-  const asked = await askText({
-    title: "What do you want changed?",
-    hint:
-      "This goes at the top of a brief carrying the whole prompt and every file it is " +
-      "made of. Say it the way you would say it to a person.",
-    value: want,
+export function amendSheet(o) {
+  const body = el("div", { className: "amend" });
+  const x = el("button", { className: "iconbtn", title: "Close (Esc)", ariaLabel: "Close" });
+  x.append(icon("close"));
+  body.append(el("div", { className: "sidebar-x" }, [x]));
+
+  body.append(el("h3", { className: "sheettitle", textContent: o.title ?? "Change what they are told" }));
+  if (o.detail) body.append(el("p", { className: "sub", textContent: o.detail }));
+
+  const want = el("textarea", {
+    className: "pastebox",
+    rows: 3,
+    value: o.want ?? "",
     placeholder: "stop opening decision issues for anything reversible",
-    confirm: "Copy the brief",
   });
-  if (!asked) return;
-  btn.disabled = true;
-  btn.textContent = "building…";
-  try {
-    const url =
-      "/api/amend?staff=" + encodeURIComponent(handle) +
-      "&kind=" + encodeURIComponent(kind) +
-      "&want=" + encodeURIComponent(asked);
-    const text = await (await fetch(url, { cache: "no-store" })).text();
-    btn.disabled = false;
-    toClipboard(text, btn, label);
-    if (note) {
-      note.textContent = "paste it into whatever agent you use";
-      note.className = "meta";
+  body.append(el("label", { className: "amendlabel", textContent: "1. What you want changed" }), want);
+
+  const copy = el("button", { className: "btn primary", textContent: "Copy the prompt" });
+  const copied = el("span", { className: "meta" });
+  copy.onclick = async () => {
+    copy.disabled = true;
+    try {
+      const url =
+        "/api/amend?staff=" + encodeURIComponent(o.handle) +
+        "&kind=" + encodeURIComponent(o.kind) +
+        "&want=" + encodeURIComponent(want.value);
+      const text = await (await fetch(url, { cache: "no-store" })).text();
+      await toClipboard(text, copy, "Copy the prompt");
+      copied.textContent = "Paste it into Claude, ChatGPT or any other AI.";
+      copied.className = "meta";
+    } catch (e) {
+      copied.textContent = String(e.message || e);
+      copied.className = "meta err";
+    } finally {
+      copy.disabled = false;
     }
-  } catch (e) {
-    btn.disabled = false;
-    btn.textContent = label;
-    if (note) {
-      note.textContent = e.message;
-      note.className = "meta err";
+  };
+  body.append(
+    el("label", { className: "amendlabel", textContent: "2. Copy the prompt into your AI" }),
+    el("div", { className: "row" }, [copy, copied]),
+  );
+
+  // The prompt this is about, to read before deciding what to ask for.
+  const today = el("details", { className: "amendtoday" });
+  const summary = el("summary", { textContent: "The " + o.kind + " prompt as it is today" });
+  const text = el("pre", { className: "briefpreview", textContent: "Composing…" });
+  today.append(summary, text);
+  body.append(today);
+  fetch("/api/prompt?staff=" + encodeURIComponent(o.handle) + "&kind=" + encodeURIComponent(o.kind), { cache: "no-store" })
+    .then((r) => r.json())
+    .then((v) => {
+      if (v.error) throw new Error(v.error);
+      const words = String(v.composed ?? "").split(/\s+/).filter(Boolean).length;
+      summary.textContent = "The " + o.kind + " prompt as it is today · " + words.toLocaleString() + " words";
+      text.textContent = v.composed ?? "";
+    })
+    .catch((e) => {
+      text.textContent = String(e.message || e);
+    });
+
+  const answer = el("textarea", { className: "pastebox", rows: 8, placeholder: "Paste its whole reply here." });
+  const check = el("button", { className: "btn", textContent: "Check the answer" });
+  const result = el("div", { className: "pasteresult" });
+  check.onclick = async () => {
+    if (!answer.value.trim()) return;
+    result.replaceChildren(el("p", { className: "sub", textContent: "Reading…" }));
+    try {
+      const data = await post({ staff: o.handle, kind: o.kind, answer: answer.value }, "/api/amend/check");
+      showPasteResult(result, data, answer.value, () => {});
+    } catch (e) {
+      result.replaceChildren(el("p", { className: "err", textContent: String(e.message || e) }));
     }
-  }
+  };
+  body.append(
+    el("label", { className: "amendlabel", textContent: "3. Paste its reply" }),
+    answer,
+    el("div", { className: "row" }, [check]),
+    result,
+  );
+
+  const box = sheet({ node: body, side: true });
+  if (box) x.onclick = () => box.close();
+  return { box, body, want };
 }
 
 export function viewPrompt(m) {
@@ -91,7 +142,7 @@ export function viewPrompt(m) {
   };
   /* The point of the screen: you can see the prompt, and you can get help changing it
      without first working out which of eight files to open. */
-  const help = el("button", { className: "ghbtn primary", textContent: "Copy a brief for changing this" });
+  const help = el("button", { className: "ghbtn primary", textContent: "Change this with your AI" });
   help.onclick = () => copyAmend("");
   const copy = el("button", { className: "ghbtn", textContent: "Copy the prompt" });
   copy.onclick = () => {
@@ -100,7 +151,7 @@ export function viewPrompt(m) {
   const note = el("span", { className: "meta" });
   m.append(el("div", { className: "row", style: "margin-bottom:16px" }, [kind, help, copy, note]));
 
-  const copyAmend = (want, btn) => copyAmendBrief(s.handle, S.promptKind, want, btn ?? help, note);
+  const copyAmend = (want) => amendSheet({ handle: s.handle, name: s.name, kind: S.promptKind, want });
 
   const split = el("div", { className: "split" });
   const tree = el("div", { className: "tree" });

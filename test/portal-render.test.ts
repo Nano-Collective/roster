@@ -2591,7 +2591,7 @@ test("a prompt problem is rendered with the fix you can hand to an AI", async ()
   assert.equal(cards.length, 2, "one row per finding, in the prompt section");
   assert.ok(String(cards[0].className).includes("fail"), "the worst one first");
   assert.match(cards[0].textContent, /business\.md is still the scaffold/);
-  assert.match(cards[0].textContent, /Copy a prompt to fix this/, "with the fix beside it");
+  assert.match(cards[0].textContent, /Fix this with your AI/, "with the fix beside it");
 
   // A finding that names a file offers to open it; one about the whole prompt does not.
   assert.match(cards[0].textContent, /Open the file/);
@@ -2641,23 +2641,29 @@ test("asking for a change pre-fills what the finding already worked out", async 
   const card = walkNodes(
     walkNodes(s._byId.main).find((n) => String(n.className ?? "") === "hbody prompts"),
   ).find((n) => String(n.className ?? "").startsWith("check "));
-  button(card, "Copy a prompt to fix this").onclick();
+  // It opens a sheet rather than asking in a dialog, with the wording already in the box.
+  const opened = button(card, "Fix this with your AI").onclick();
   await new Promise((r) => setTimeout(r, 20));
 
-  assert.equal(s._asked.length, 1, "it should ask before copying");
+  assert.equal(s._asked.length, 0, "no dialog: the sheet is where you say what you want");
   assert.match(
-    s._asked[0],
+    opened.want.value,
     /business\.md.*scaffold/,
-    "pre-filled with the finding's own wording: " + s._asked[0],
+    "pre-filled with the finding's own wording: " + opened.want.value,
   );
+  const labels = walkNodes(opened.body)
+    .map((n) => n.textContent ?? "")
+    .join(" ");
+  assert.match(labels, /Copy the prompt/);
+  assert.match(labels, /Paste its reply/, "and somewhere to put the answer");
 });
 
 test("the general ask starts empty rather than guessing", async () => {
   const s = await renderAll("#/cto/prompt");
   await new Promise((r) => setTimeout(r, 30));
-  button(s._byId.main, "Copy a brief for changing this").onclick();
+  const opened = button(s._byId.main, "Change this with your AI").onclick();
   await new Promise((r) => setTimeout(r, 20));
-  assert.deepEqual(s._asked, [""], "nothing to pre-fill when nothing found it");
+  assert.equal(opened.want.value, "", "nothing to pre-fill when nothing found it");
 });
 
 /* ------------------------- staff, and the org layer ------------------------ */

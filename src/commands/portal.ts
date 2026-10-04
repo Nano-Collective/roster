@@ -176,6 +176,15 @@ export async function portalCommand(argv: string[]): Promise<number> {
   const brainDirs = () =>
     (readOrg(ws!.opsDir, parseYaml).staff ?? []).map((s) => s.dir ?? s.handle);
 
+  /** The files a prompt fix may write: every layer of that prompt the portal is allowed to save. */
+  const amendTargets = (view: { layers: Array<{ path: string; missing?: boolean }> }) => [
+    ...new Set(
+      view.layers
+        .filter((l) => !l.missing && isWritable(ws!, l.path, brainDirs()))
+        .map((l) => l.path),
+    ),
+  ];
+
   const knownRepos = () => {
     const org = readOrg(ws!.opsDir, parseYaml) as any;
     return (org.repos ?? []).map((r: any) => ({
@@ -1124,7 +1133,52 @@ export async function portalCommand(argv: string[]): Promise<number> {
           "content-type": "text/plain; charset=utf-8",
           "cache-control": "no-store",
         });
-        res.end(amendBrief(w, view, tokens, want));
+        res.end(amendBrief(w, view, tokens, want, amendTargets(view)));
+        return;
+      }
+
+      /* The way back from a prompt fix: the reply pasted in, parsed against the files that
+         prompt is made of. Parses, never writes; saving is /api/save, after the diff. */
+      if (url.pathname === "/api/amend/check") {
+        if (req.method !== "POST") {
+          res.writeHead(405).end("POST only");
+          return;
+        }
+        body(req)
+          .then((raw) => {
+            const payload = JSON.parse(raw || "{}") as {
+              staff?: string;
+              kind?: string;
+              answer?: string;
+            };
+            const org = readOrg(w.opsDir, parseYaml);
+            const entry = (org.staff ?? []).find((s) => s.handle === payload.staff);
+            const kind = payload.kind ?? "daily";
+            if (!entry || !(KINDS as readonly string[]).includes(kind))
+              throw new Error("bad request");
+            const dir = entry.dir ?? entry.handle;
+            const view = promptView(w, compose, entry.handle, join(w.root, dir), kind);
+            const targets = amendTargets(view).map((path) => ({
+              path,
+              before: existsSync(join(w.root, path))
+                ? readFileSync(join(w.root, path), "utf8")
+                : "",
+            }));
+            const result = parsePaste(payload.answer ?? "", targets);
+            const before = new Map(targets.map((t) => [t.path, t.before]));
+            json(res, {
+              ...result,
+              files: result.files.map((f) => ({
+                ...f,
+                before: before.get(f.path) ?? "",
+                writable: isWritable(w, f.path, brainDirs()),
+              })),
+            });
+          })
+          .catch((err) => {
+            res.writeHead(400, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
+          });
         return;
       }
 

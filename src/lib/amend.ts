@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { handBackAnyOf } from "./pastebrief.js";
 import type { PromptView } from "./prompt.js";
 import { briefTemplateDir } from "./render.js";
 import type { Workspace } from "./workspace.js";
@@ -20,6 +21,7 @@ export function amendBrief(
   view: PromptView,
   tokens: Record<string, string>,
   want: string,
+  writable: string[] = [],
 ): string {
   const template = readFileSync(join(briefTemplateDir(), "amend.md"), "utf8");
   const head = template.replace(/%%([A-Z_]+)%%/g, (m, name: string) => {
@@ -50,6 +52,8 @@ export function amendBrief(
     if (layer.missing) continue;
     parts.push(`- \`${layer.path}\` — ${size(read(ws, layer.path))}`);
   }
+  // Whole files back, in the envelope the portal parses, so the answer can be checked and saved.
+  if (writable.length) parts.push("", handBackAnyOf(writable));
   return parts.join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
 }
 

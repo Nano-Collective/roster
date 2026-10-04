@@ -427,11 +427,15 @@ half complaints answered neither well.
 
 ### Getting help changing it
 
-**Copy a brief for changing this** asks what you want changed, in a box big enough to say it
-in, and copies the same thing: a
-self-contained prompt carrying the composed text, every layer with its path and blast radius,
-and what may and may not be edited. `roster brief amend <handle> --want "…"` prints the same
-from the terminal.
+**Change this with your AI** opens a side sheet in three steps:
+1. What you want changed, in a box big enough to say it in.
+2. **Copy the prompt**: a self-contained brief carrying the composed text, every layer with its
+   path and blast radius, and what may and may not be edited. It only copies. The prompt as it
+   composes today is under it, to read first.
+3. Paste your AI's reply. It hands back whole files, which are checked against the layers this
+   prompt is made of and shown as diffs, each with Save. Nothing is written until you press it.
+
+`roster brief amend <handle> --want "…"` prints the same brief from the terminal.
 
 It carries the state rather than asking for it, because working out which of eight files to
 open is the difficulty being solved. A brief that says "read your layers first" has handed
@@ -550,11 +554,9 @@ worse than no linter. A finding true of more than one prompt is one row, and it 
 | it names a file that is not there | an instruction to read something absent is a quiet no-op inside a run nobody watches |
 | an included layer is empty | it contributes nothing and costs a line of includes |
 
-**Every finding carries the fix.** "Copy a prompt to fix this" builds a brief containing the
-finding, the composed prompt, and every layer, and puts it on your clipboard. Paste it into
-whatever agent you use. Knowing there is a problem is the hard part; writing the paragraph is
-not. The box comes pre-filled with what the finding worked out, so you can add to it rather
-than retype it. "Open the file" takes you to that layer on the Prompt screen.
+**Every finding carries the fix.** "Fix this with your AI" opens the same sheet as the Prompt
+screen's, with the finding at the top and the box pre-filled with what it worked out, so you
+can add to it rather than retype it. Copy the prompt, paste the reply back, save the diff. "Open the file" takes you to that layer on the Prompt screen.
 
 **Memory problems** are the same checks `roster lint` runs. Each one has a button that opens an
 issue in that staff member's own repo asking them to fix it, which is usually right, because

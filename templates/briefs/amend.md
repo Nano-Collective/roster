@@ -44,7 +44,8 @@ If what is wanted needs one of these, say so and stop. Do not work around it.
 
 1. **Say which file, and why that one.** Prefer the narrowest file that achieves it. If the
    change is about %%NAME%% specifically, it does not belong in `org/`.
-2. **Show a diff, not a rewritten file.** %%HUMAN%% has to be able to see exactly what moved.
+2. **Hand back the whole file you changed**, in the block described at the end. The tool
+   %%HUMAN%% pastes your answer into shows them the diff, so they see exactly what moved.
 3. **Do not restate.** Every layer is already in the composed text below. A rule added to
    `org/voice.md` that `org/operating.md` already states makes the prompt longer and no
    clearer.
@@ -56,5 +57,5 @@ If what is wanted needs one of these, say so and stop. Do not work around it.
 
 ## Then
 
-Give %%HUMAN%% the diff, the one-line reason for the file you chose, and what you cut. They
-apply it: in the portal's Prompt screen, or by editing the file and committing it.
+Outside the block: the one-line reason for the file you chose, and what you cut. Inside it:
+the whole changed file. Nothing is saved until %%HUMAN%% has seen the diff and pressed Save.

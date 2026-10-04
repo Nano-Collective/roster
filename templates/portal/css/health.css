@@ -23,6 +23,11 @@
 .hsect i{margin-left:auto;font:11.5px var(--mono);font-style:normal;letter-spacing:0;
       text-transform:none;color:var(--ink-faint)}
 .hbody{padding-top:2px}
+/* Findings sit in a card, as Home's lists do: the marker carries the colour, the words stay
+   readable. The row's warn or fail class used to colour the whole sentence amber. */
+.hlist{padding:2px 16px;margin:12px 0 0}
+.hlist .check{color:var(--ink)}
+.hlist .check b{color:var(--ink)}
 /* What the section is, in one line, before any of its findings. */
 .hnote{margin:10px 0 0;font:12.5px/1.55 var(--sans);color:var(--ink-faint)}
 .hacts{margin-top:12px}
@@ -60,3 +65,11 @@
 .ffield label{display:block;font:600 11px var(--sans);letter-spacing:.05em;
       text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}
 .ffield small{display:block;margin-top:3px;font:11px var(--sans);color:var(--ink-faint)}
+
+/* ---------- fixing a prompt with your own AI (amendSheet in prompt.js) ---------- */
+.amend .sheettitle{padding-right:44px}
+.amendlabel{display:block;font:600 13px var(--sans);color:var(--ink);margin:20px 0 8px}
+.amend .pastebox{width:100%;box-sizing:border-box}
+.amendtoday{margin-top:14px;font-size:12.5px;color:var(--ink-dim)}
+.amendtoday summary{cursor:pointer}
+.amendtoday pre{max-height:45vh;overflow:auto;margin-top:8px}

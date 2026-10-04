@@ -111,7 +111,7 @@ export function auditPrompt(ws: Workspace, view: PromptView, roots: string[]): A
       want:
         `This prompt is ${words.toLocaleString()} words and is read in full on every run. ` +
         `Find what can go: anything restated, anything that was true once, anything an agent ` +
-        `would do anyway. Show me the cuts, not a rewrite.`,
+        `would do anyway. Cut more than you add, and tell me what you cut.`,
     });
   }
 

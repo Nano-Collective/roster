@@ -7,7 +7,7 @@ import { inline } from "../md.js";
 import { render } from "../router.js";
 import { S, staff } from "../state.js";
 import { checklist } from "./checklist.js";
-import { copyAmendBrief } from "./prompt.js";
+import { amendSheet } from "./prompt.js";
 import { runOnce } from "./runonce.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -141,6 +141,8 @@ function memoryProblems({ body, actions, say }, s) {
   );
   if (!s.problems.length) return;
 
+  const list = el("div", { className: "card hlist" });
+  body.append(list);
   for (const p of s.problems) {
     const { row, body: text } = finding(
       p.level === "error" ? "error" : "warning",
@@ -158,7 +160,7 @@ function memoryProblems({ body, actions, say }, s) {
     }
     acts.append(status);
     text.append(acts);
-    body.append(row);
+    list.append(row);
   }
 
   /* The portal's one power over an agent is that it acts as the human, so "fix this" is an
@@ -235,13 +237,16 @@ async function promptProblems({ body, say }, s) {
   /* Worst first, and each one carrying the sentence that fixes it. Knowing there is a problem
      is the hard part; writing the paragraph that asks for the change is not. */
   const rank = { error: 0, warning: 1, note: 2 };
+  const list = el("div", { className: "card hlist" });
+  body.append(list);
   for (const p of [...problems].sort((a, b) => (rank[a.level] ?? 3) - (rank[b.level] ?? 3))) {
     const { row, body: text } = finding(p.level, { text: p.title }, [(p.kinds ?? []).join(", ")]);
     text.append(el("p", { textContent: p.detail }));
 
     const note = el("span", { className: "meta" });
-    const fix = el("button", { className: "ghbtn", textContent: "Copy a prompt to fix this" });
-    fix.onclick = () => copyAmendBrief(s.handle, p.kind, p.want, fix, note);
+    const fix = el("button", { className: "ghbtn", textContent: "Fix this with your AI" });
+    fix.onclick = () =>
+      amendSheet({ handle: s.handle, name: s.name, kind: p.kind, want: p.want, title: p.title, detail: p.detail });
     const actions = el("div", { className: "row facts" }, [fix]);
     if (p.path) {
       const go = el("button", { className: "ghbtn", textContent: "Open the file" });
@@ -256,7 +261,7 @@ async function promptProblems({ body, say }, s) {
     }
     actions.append(note);
     text.append(actions);
-    body.append(row);
+    list.append(row);
   }
 }
 

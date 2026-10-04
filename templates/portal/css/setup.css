@@ -41,8 +41,9 @@
 .btn:active{opacity:.8}
 /* The full accent, not the dim one. Dim on the page background is pale-green-on-white with
    near-white text: the button that does the main thing on the screen read as disabled. */
-.btn.primary{background:var(--accent-fill);border-color:transparent;color:var(--accent-ink);font-weight:600}
-.btn.primary:hover{background:var(--accent-fill);opacity:.88}
+/* The same green as every other primary button, so a screen never shows two. */
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{background:var(--accent);opacity:.88}
 .btn[disabled]{opacity:.45;cursor:default}
 
 .cmd{background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;
