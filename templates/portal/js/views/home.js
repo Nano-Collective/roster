@@ -344,6 +344,16 @@ function outcome(r) {
   return r.conclusion === "success" ? "finished" : r.conclusion === "failure" ? "failed" : (r.conclusion ?? "ended");
 }
 
+/**
+ * A timer that never keeps a process alive. In the browser this is setTimeout; under the
+ * tests' Node shim the polling loop would otherwise hold a test file open forever.
+ */
+function later(fn, ms) {
+  const t = setTimeout(fn, ms);
+  t?.unref?.();
+  return t;
+}
+
 function poll() {
   clearTimeout(timer);
   getLive()
@@ -357,7 +367,7 @@ function poll() {
     .finally(() => {
       if (S.view !== "home") return;
       const busy = (S.live?.staff ?? []).some((l) => l.running?.length);
-      timer = setTimeout(poll, busy ? FAST : SLOW);
+      timer = later(poll, busy ? FAST : SLOW);
     });
 }
 
@@ -376,18 +386,25 @@ const WHY = {
 
 /** Something on a staff member's tracker, or elsewhere, with activity you have not seen. */
 function unreadRow(e) {
-  return clickable(e.item, "homerow", [
+  return clickable(e.item, "homerow homelist", [
     el("span", { className: "chip", textContent: WHY[e.why] ?? "Issue" }),
-    openLink(e.item),
-    el("span", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
+    el("div", {}, [
+      openLink(e.item),
+      el("div", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
+    ]),
   ]);
 }
 
 function requestRow(e) {
-  return clickable(e.item, "homerow", [
-    el("span", { className: "chip " + (e.status === "answered" ? "cool" : e.status === "working" ? "warm" : ""), textContent: STATUS[e.status] }),
-    openLink(e.item),
-    el("span", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
+  return clickable(e.item, "homerow homelist", [
+    el("span", {
+      className: "chip " + (e.status === "answered" ? "cool" : e.status === "working" ? "warm" : ""),
+      textContent: STATUS[e.status],
+    }),
+    el("div", {}, [
+      openLink(e.item),
+      el("div", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
+    ]),
   ]);
 }
 
@@ -497,5 +514,5 @@ function refreshSoon() {
   ensureInbox(true)
     .then(() => S.view === "home" && !document.querySelector("dialog[open]") && repaintInPlace())
     .catch(() => {});
-  setTimeout(poll, 3_000);
+  later(poll, 3_000);
 }
