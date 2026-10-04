@@ -372,7 +372,7 @@ already declared `memory/` as a surface.
 The navigator has three boxes, because a parsed memory section and a file on disk are
 different kinds of thing.
 
-**Memory** is the fact sections, the notes behind them, and `INDEX.md` itself. A note is the
+**What they know** is the fact sections, the notes behind them, and `INDEX.md` itself. A note is the
 argument behind one fact, read only when that fact is in play, which is what keeps the index
 cheap enough to read at every boot. Both live here rather than among the files: `INDEX.md` is
 literally what "All facts" renders.

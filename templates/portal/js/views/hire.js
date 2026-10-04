@@ -353,6 +353,16 @@ function hireStep(host, role, onHired) {
     app = field("app", org + "-" + role.handle, "This staff member's GitHub App. App names are unique across GitHub.");
     const pub = field("public app", org + "-robot", "The App all staff share for public product repos.");
     fields.push(["app", app], ["publicApp", pub]);
+    /* Only shown when a product repo is public, which is the only time the shared App is
+       created. Hidden, it still sends the same default, so nothing changes underneath. */
+    pub.row.hidden = true;
+    getRepos()
+      .then((r) => {
+        pub.row.hidden = !(r.repos ?? []).some(
+          (x) => x.role === "product" && String(x.visibility ?? "").toLowerCase() !== "private",
+        );
+      })
+      .catch(() => {});
   }
 
   const advanced = el("div", { className: "hireadvanced", hidden: true }, [

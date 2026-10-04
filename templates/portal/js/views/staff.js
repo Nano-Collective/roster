@@ -142,6 +142,14 @@ export function viewStaff(m, o = {}) {
 
   /* --------------------------- one staff member --------------------------- */
 
+  /** " · works with Chief Marketing Officer". The labels and wiring behind it are roster's. */
+  function worksWith(s) {
+    const names = (s.peers ?? [])
+      .map((p) => S.data.staff.find((x) => x.handle === p.handle)?.name ?? p.handle)
+      .filter(Boolean);
+    return names.length ? " · works with " + esc(names.join(", ")) : "";
+  }
+
   function card(s) {
     const d = el("div", { className: "kv staffcard" });
     const rig = s.rig ?? {};
@@ -150,6 +158,7 @@ export function viewStaff(m, o = {}) {
       '<div class="v">' + esc(s.name) +
         "<small>" + esc(s.brain ?? s.dir) + " · " + s.facts.length + " facts · " +
         (rig.lastCommit ? "last commit " + esc(ago(rig.lastCommit.date)) : "no commits") +
+        worksWith(s) +
         "</small></div>";
 
     const status = el("span", { className: "meta" });

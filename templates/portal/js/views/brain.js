@@ -150,7 +150,7 @@ export function viewBrain(m) {
     const fileHits = plain.filter((f) => !q || f.path.toLowerCase().includes(q));
 
     /* ---- memory ---- */
-    const mem = group("Memory", s.facts.length + " facts");
+    const mem = group("What they know", s.facts.length + " facts");
     if (q) {
       for (const f of hits.slice(0, 200)) mem.append(row("fact:" + f.slug, f.slug, "", "tmem"));
       if (!hits.length) {

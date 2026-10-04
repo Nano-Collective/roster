@@ -6,31 +6,24 @@ sidebar_order: 3
 
 # Concepts
 
-## The six things you need to know
+## The three things you need to know
 
 Enough to set up an org and read what it does. Everything after this section is detail you
 can learn when you need it.
 
-1. **The org layer.** One private repo, `<org>/roster-ops`, holds what every staff member
-   shares: what the business is (`org/business.md`), what matters this month
-   (`org/priorities.md`), the house voice and the guardrails. Change it once and every staff
-   member has it on their next run. [More](#the-ops-repo).
-2. **A staff member is a repo.** Each one has a private repo, its *brain*: what it knows, what
-   it is working on, and what it has decided. There is no database and no server; the portal
-   reads the repos. [More](#the-brain).
-3. **The charter.** `CHARTER.md` in the brain says who this staff member is and what it
-   decides alone. You write it, with a brief that interviews you; roster never generates one,
-   because a generated charter makes a generic agent. [More](#charter-and-manifest).
-4. **Memory.** `memory/INDEX.md` is one line per fact, read at the start of every run. The
-   agent writes it and deletes from it; you can read and correct it in the portal. That is how
-   a staff member remembers yesterday. [More](memory.md).
-5. **The daily run.** A scheduled GitHub Actions workflow in each brain wakes the staff member,
-   hands it a prompt built from the org layer plus its charter and memory, and it does one piece
-   of work and writes down what happened. [More](#kinds-of-run).
-6. **Mentions.** Write `@handle` in an issue or comment on a staff member's own tracker and it
-   runs to answer that, between daily runs. A peer's ask wakes them the same way, and a daily
-   run with the next step ready starts another. Nothing on a product repo wakes anybody; you ask
-   them on their tracker. [More](#kinds-of-run).
+1. **The org files everyone shares.** One private repo, `<org>/roster-ops`, holds what every
+   staff member reads: what the business is (`org/business.md`), what matters this month
+   (`org/priorities.md`), the house voice and the guardrails. Change one and every staff member
+   has it on their next run. [More](#the-ops-repo).
+2. **One repo per staff member.** Each staff member is a private repo, its *brain*. In it,
+   `CHARTER.md` says who they are and what they decide alone. You write it; roster never
+   generates one, because a generated charter makes a generic agent. `memory/INDEX.md` is what
+   they know, one line per fact, which they keep and you can correct. There is no database and
+   no server; the portal reads the repos. [More](#the-brain).
+3. **The daily run, and asking.** Each weekday a scheduled run wakes them: it reads the org
+   files, their charter and their memory, does one piece of work, and hands it to you as a pull
+   request or a question. Between runs, write `@handle` on their tracker and they answer that.
+   [More](#kinds-of-run).
 
 Everything below, and the rest of the docs, is detail: identities, peers, surfaces, the
 prompt's layers, upgrading. None of it is needed to get a first run.

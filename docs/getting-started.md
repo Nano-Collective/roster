@@ -30,7 +30,7 @@ hour is the part not to rush.
 - **A credential for your [coding agent](agents.md).** For Claude Code, run
   `claude setup-token` and keep the token it prints for step 5.
 
-You only need [the six things in Concepts](concepts.md#the-six-things-you-need-to-know) to follow
+You only need [the three things in Concepts](concepts.md#the-three-things-you-need-to-know) to follow
 this. Everything else can wait.
 
 ## 1. Say which organisation, then read the plan

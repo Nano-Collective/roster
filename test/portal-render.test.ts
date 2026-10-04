@@ -2222,7 +2222,7 @@ test("the brain navigator separates what is known from what is held", async () =
     .map((n) => String(n._text ?? ""));
   assert.deepEqual(
     heads,
-    ["Memory", "Identity", "Files"],
+    ["What they know", "Identity", "Files"],
     "three named boxes: what it knows, who it is, what it holds. Got: " + heads,
   );
 
