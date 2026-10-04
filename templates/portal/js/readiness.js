@@ -33,3 +33,38 @@ export function sentence(left) {
   if (left.length < 2) return left.join("");
   return left.slice(0, -1).join(", ") + " and " + left.at(-1);
 }
+
+/** Per staff member: hire, the GitHub App, the charter, the agent credential, a first run. */
+const STAFF_STEPS = 5;
+
+/**
+ * Setup as a count, from the same answers as everything above: the org's three steps (create
+ * it, business.md, priorities.md), then five per staff member. With nobody hired, the first
+ * hire's five are counted as still to do.
+ *
+ * Null until every staff member's readiness has answered. A count that starts high and drops
+ * when GitHub replies reads as steps coming undone.
+ */
+export function progress(
+  unfinished = S.data?.unfinished ?? [],
+  staff = S.data?.staff ?? [],
+  readiness = S.readiness ?? {},
+) {
+  const orgSteps = 3;
+  let done = orgSteps - unfinished.filter((id) => id !== "hire").length;
+  let total = orgSteps;
+  if (!staff.length) return { done, total: total + STAFF_STEPS };
+  for (const s of staff) {
+    const left = readiness[s.handle];
+    if (!left) return null;
+    total += STAFF_STEPS;
+    done += STAFF_STEPS - left.length;
+  }
+  return { done, total };
+}
+
+/** One staff member's own count, or null before their readiness is known. */
+export function staffProgress(handle, readiness = S.readiness ?? {}) {
+  const left = readiness[handle];
+  return left ? { done: STAFF_STEPS - left.length, total: STAFF_STEPS } : null;
+}

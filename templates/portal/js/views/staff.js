@@ -9,7 +9,7 @@ import { post } from "../api.js";
 import { askYes, sheet } from "../dialog.js";
 import { pending } from "../inflight.js";
 import { ago, el, esc } from "../dom.js";
-import { whatsLeft, sentence } from "../readiness.js";
+import { sentence, staffProgress, whatsLeft } from "../readiness.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { hireFlow, line, rolePicker } from "./hire.js";
@@ -172,7 +172,10 @@ export function viewStaff(m, o = {}) {
       finish.className = "ghbtn primary";
       d.classList.add("notready");
       warn.hidden = false;
-      warn.textContent = "Not ready to run. Still to do: " + sentence(left) + ".";
+      const p = staffProgress(s.handle);
+      warn.textContent =
+        "Not ready to run. " + (p ? `${p.done} of ${p.total} done. ` : "") +
+        "Still to do: " + sentence(left) + ".";
     });
     d.append(warn);
 

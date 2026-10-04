@@ -274,10 +274,10 @@ function paintSidebar() {
       el("span", { className: "hh", textContent: s.handle }),
     );
     whatsLeft(s).then((left) => {
+      paintSetupNav();
       if (!left.length) return;
       dot.hidden = false;
       head.title = "Not ready to run: " + sentence(left);
-      paintSetupNav();
     });
 
     const views = el("div", { className: "staffviews" });

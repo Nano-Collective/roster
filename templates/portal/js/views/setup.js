@@ -18,7 +18,7 @@ import {
 import { $, el, esc, toClipboard } from "../dom.js";
 import { go } from "../router.js";
 import { S as App } from "../state.js";
-import { checkAll, notReady, sentence } from "../readiness.js";
+import { checkAll, notReady, progress, sentence } from "../readiness.js";
 import { checklist } from "./checklist.js";
 import { businessForm, prioritiesForm } from "./orgedit.js";
 import { credentialPanel } from "./credential.js";
@@ -63,7 +63,8 @@ export async function viewGettingStarted(main) {
   if (App.view !== "setup") return;
   await checkAll();
   if (App.view !== "setup") return;
-  sub.textContent = "Work through these in order.";
+  const p = progress();
+  sub.textContent = (p ? `${p.done} of ${p.total} done. ` : "") + "Work through these in order.";
   const list = afterCreate();
 
   // Somebody hired but not ready to run is the most important thing left, so it comes first.
@@ -93,6 +94,9 @@ export function paintSetupNav() {
   const nav = $("#setupnav");
   if (!nav) return;
   nav.hidden = !App.data?.unfinished?.length && !notReady().length && App.view !== "setup";
+  const count = $("#setupcount");
+  const p = progress();
+  if (count) count.textContent = p ? `${p.done}/${p.total}` : "";
 }
 
 /* After a save: the checklist and the step list are both derived from disk, so both are asked

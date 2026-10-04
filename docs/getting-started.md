@@ -51,7 +51,8 @@ can call its workflow. Without that every run fails with "workflow not found". I
 (it needs admin on the repo), the page says why and links to the setting to click instead.
 
 The rest of the steps stay on the same page. Reload it and the portal opens on **Getting
-started**, which keeps them in the sidebar until they are done, with hiring first.
+started**, which keeps them in the sidebar until they are done, with hiring first. The sidebar
+counts them: three for the org, five for each staff member.
 
 ## 2. Say what the business is
 
