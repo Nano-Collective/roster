@@ -247,7 +247,7 @@ async function act(note, actions, payload, ok) {
     await post(payload);
     note.textContent = ok;
     // Done is done: the card goes now, rather than when GitHub next answers.
-    const card = actions.closest?.(".homecard, .homerun");
+    const card = actions.closest?.(".homecard, .homeline");
     if (card) {
       card.classList.add("gone");
       setTimeout(() => card.remove(), 220);
@@ -379,23 +379,18 @@ function listBox(rows) {
 }
 
 /**
- * One row in the shape Working now uses: who, a status chip, the title with one line under it,
- * and a button on the right. The whole row opens the thread, except the button.
+ * One row in a list card: a status chip, the title with one line under it, and a button on the
+ * right. The whole row opens the thread, except the button.
  */
 function listRow(e, { chip, tone = "", sub, action = null }) {
-  const s = e.staff;
   const row = el(
     "div",
-    { className: "homerun homeclick" + (e.item.unread ? " unread" : ""), tabIndex: 0, role: "button" },
+    { className: "homeline homeclick" + (e.item.unread ? " unread" : ""), tabIndex: 0, role: "button" },
     [
-      el("span", { className: "homewho2" }, [
-        icon(s ? staffIcon(s) : "issue-open", "ic"),
-        el("b", { textContent: s?.name ?? (e.item.repo.split("/")[1] ?? e.item.repo) }),
-      ]),
       el("span", { className: "chip homestate " + tone, textContent: chip }),
       el("div", { className: "homerunwhat" }, [
         el("div", { className: "homerowtitle", textContent: e.item.title }),
-        el("div", { className: "homerunsub", textContent: sub }),
+        el("div", { className: "homerunsub", textContent: `${whereOf(e)} · ${sub}` }),
       ]),
       el("div", { className: "homerunlog" }, action ? [action] : []),
     ],
@@ -426,7 +421,7 @@ function unreadRow(e) {
   return listRow(e, {
     chip: WHY[e.why] ?? "Issue",
     tone: "cool",
-    sub: `#${e.item.number} · ${ago(e.item.updatedAt)}`,
+    sub: ago(e.item.updatedAt),
   });
 }
 
@@ -436,7 +431,7 @@ function requestRow(e) {
   return listRow(e, {
     chip: STATUS[e.status],
     tone: e.status === "answered" ? "cool" : e.status === "working" ? "ok" : "",
-    sub: `#${e.item.number} · ${ago(e.item.updatedAt)}`,
+    sub: ago(e.item.updatedAt),
   });
 }
 
@@ -448,7 +443,7 @@ function closedRow(e) {
   const holder = el("div", { className: "row" }, [note, reopen]);
   return listRow(e, {
     chip: "Closed",
-    sub: `#${e.item.number} · ${e.reason || "No reason given."}`,
+    sub: e.reason || "No reason given.",
     action: holder,
   });
 }
