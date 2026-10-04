@@ -40,7 +40,7 @@
 }
 
 .homeworking{display:flex;flex-direction:column;padding:4px 16px}
-.homerun{display:grid;grid-template-columns:minmax(150px,220px) auto 1fr auto;align-items:center;
+.homerun{display:grid;grid-template-columns:minmax(150px,220px) 84px 1fr auto;align-items:center;
          gap:12px;padding:12px 0;font-size:13.5px}
 .homerun + .homerun{border-top:1px solid var(--line)}
 .homewho2{display:inline-flex;align-items:center;gap:8px;min-width:0}
@@ -60,27 +60,16 @@
   .homerunwhat{grid-area:what}.homerunlog{grid-area:log}
 }
 
-.homerow{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:8px 2px;
-         border-bottom:1px solid var(--line);font-size:13px}
-.homerow .homeopen{font-weight:500;font-size:13.5px}
-.homelist{display:grid;grid-template-columns:auto 1fr;align-items:start;gap:4px 12px}
-.homelist > .chip{margin-top:2px}
-.homelist .meta{margin-top:3px}
-.homeclick{cursor:pointer;border-radius:8px;padding-left:8px;padding-right:8px;margin:0 -8px}
-.homeclick:hover{background:var(--hover)}
-.homeclick:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.homeclosed{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 14px}
-.homeclosed .meta{margin-top:3px}
 .homerest{margin-top:26px}
-.homecard.gone,.homerow.gone{opacity:0;transform:translateX(12px);
+.homecard.gone,.homerun.gone{opacity:0;transform:translateX(12px);
          transition:opacity .2s var(--ease),transform .2s var(--ease)}
 
 /* Activity you have not seen, as Trackers marks it: a blue edge and a bold title. Opening the
    thread marks it read, here and on GitHub. */
 .homecard.unread{box-shadow:inset 3px 0 0 var(--blue)}
-.homerow.unread{box-shadow:inset 3px 0 0 var(--blue);background:color-mix(in srgb,var(--blue) 6%,transparent)}
-.unread .homeopen{font-weight:700}
-.unread .homeopen::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+.homerun.unread{box-shadow:inset 3px 0 0 var(--blue);margin:0 -16px;padding-left:13px;padding-right:16px}
+.unread .homeopen,.unread .homerowtitle{font-weight:700}
+.unread .homeopen::before,.unread .homerowtitle::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
          background:var(--blue);margin:0 7px 1px 0;vertical-align:middle}
 
 .homereports{display:flex;flex-direction:column;gap:14px;padding:14px 16px}
@@ -93,3 +82,9 @@
 @media (max-width:640px){
   .homehead{flex-wrap:wrap}
 }
+
+/* Rows in the Working now card that open a thread. */
+.homerun.homeclick{cursor:pointer}
+.homerun.homeclick:hover .homerowtitle{color:var(--accent)}
+.homerun.homeclick:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.homerowtitle{font-weight:600;color:var(--ink)}

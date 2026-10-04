@@ -75,7 +75,7 @@ export function viewHome(m) {
 
   if (h.unread.length) {
     page.append(section("Unread", h.unread.length));
-    for (const e of h.unread) page.append(unreadRow(e));
+    page.append(listBox(h.unread.map(unreadRow)));
   }
 
   page.append(section("Working now"));
@@ -83,12 +83,12 @@ export function viewHome(m) {
 
   if (h.requests.length) {
     page.append(section("Your requests", h.requests.length));
-    for (const e of h.requests) page.append(requestRow(e));
+    page.append(listBox(h.requests.map(requestRow)));
   }
 
   if (h.closedToday.length) {
     page.append(section("Closed today", h.closedToday.length));
-    for (const e of h.closedToday) page.append(closedRow(e));
+    page.append(listBox(h.closedToday.map(closedRow)));
   }
 
   page.append(rest(h));
@@ -247,7 +247,7 @@ async function act(note, actions, payload, ok) {
     await post(payload);
     note.textContent = ok;
     // Done is done: the card goes now, rather than when GitHub next answers.
-    const card = actions.closest?.(".homecard, .homerow");
+    const card = actions.closest?.(".homecard, .homerun");
     if (card) {
       card.classList.add("gone");
       setTimeout(() => card.remove(), 220);
@@ -373,7 +373,44 @@ function poll() {
 
 /* ------------------------------ your requests ---------------------------- */
 
-const STATUS = { waiting: "Waiting", working: "Being worked on", answered: "Answered" };
+/** A card of rows, laid out like Working now. */
+function listBox(rows) {
+  return el("div", { className: "card homeworking" }, rows);
+}
+
+/**
+ * One row in the shape Working now uses: who, a status chip, the title with one line under it,
+ * and a button on the right. The whole row opens the thread, except the button.
+ */
+function listRow(e, { chip, tone = "", sub, action = null }) {
+  const s = e.staff;
+  const row = el(
+    "div",
+    { className: "homerun homeclick" + (e.item.unread ? " unread" : ""), tabIndex: 0, role: "button" },
+    [
+      el("span", { className: "homewho2" }, [
+        icon(s ? staffIcon(s) : "issue-open", "ic"),
+        el("b", { textContent: s?.name ?? (e.item.repo.split("/")[1] ?? e.item.repo) }),
+      ]),
+      el("span", { className: "chip homestate " + tone, textContent: chip }),
+      el("div", { className: "homerunwhat" }, [
+        el("div", { className: "homerowtitle", textContent: e.item.title }),
+        el("div", { className: "homerunsub", textContent: sub }),
+      ]),
+      el("div", { className: "homerunlog" }, action ? [action] : []),
+    ],
+  );
+  row.onclick = (ev) => {
+    if (!ev.target.closest("button, a")) openThread(e.item);
+  };
+  row.onkeydown = (ev) => {
+    if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
+      ev.preventDefault();
+      openThread(e.item);
+    }
+  };
+  return row;
+}
 
 const WHY = {
   status: "Status",
@@ -386,58 +423,34 @@ const WHY = {
 
 /** Something on a staff member's tracker, or elsewhere, with activity you have not seen. */
 function unreadRow(e) {
-  return clickable(e.item, "homerow homelist", [
-    el("span", { className: "chip", textContent: WHY[e.why] ?? "Issue" }),
-    el("div", {}, [
-      openLink(e.item),
-      el("div", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
-    ]),
-  ]);
+  return listRow(e, {
+    chip: WHY[e.why] ?? "Issue",
+    tone: "cool",
+    sub: `#${e.item.number} · ${ago(e.item.updatedAt)}`,
+  });
 }
+
+const STATUS = { waiting: "Waiting", working: "Working", answered: "Answered" };
 
 function requestRow(e) {
-  return clickable(e.item, "homerow homelist", [
-    el("span", {
-      className: "chip " + (e.status === "answered" ? "cool" : e.status === "working" ? "warm" : ""),
-      textContent: STATUS[e.status],
-    }),
-    el("div", {}, [
-      openLink(e.item),
-      el("div", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
-    ]),
-  ]);
-}
-
-/** A row that opens its thread from anywhere on it, except a button inside it. */
-function clickable(item, className, kids) {
-  const row = el(
-    "div",
-    { className: className + " homeclick" + (item.unread ? " unread" : ""), tabIndex: 0, role: "button" },
-    kids,
-  );
-  row.onclick = (ev) => {
-    if (!ev.target.closest("button, a")) openThread(item);
-  };
-  row.onkeydown = (ev) => {
-    if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
-      ev.preventDefault();
-      openThread(item);
-    }
-  };
-  return row;
+  return listRow(e, {
+    chip: STATUS[e.status],
+    tone: e.status === "answered" ? "cool" : e.status === "working" ? "ok" : "",
+    sub: `#${e.item.number} · ${ago(e.item.updatedAt)}`,
+  });
 }
 
 function closedRow(e) {
   const note = el("span", { className: "meta" });
-  const reopen = button("Reopen", false, () => act(note, row, { action: "reopen", repo: e.item.repo, number: e.item.number }, "Reopened."));
-  const row = clickable(e.item, "homerow homeclosed", [
-    el("div", {}, [
-      openLink(e.item),
-      el("div", { className: "meta", textContent: whereOf(e) + " · " + (e.reason || "No reason given.") }),
-    ]),
-    el("div", { className: "row" }, [note, reopen]),
-  ]);
-  return row;
+  const reopen = button("Reopen", false, () =>
+    act(note, holder, { action: "reopen", repo: e.item.repo, number: e.item.number }, "Reopened."),
+  );
+  const holder = el("div", { className: "row" }, [note, reopen]);
+  return listRow(e, {
+    chip: "Closed",
+    sub: `#${e.item.number} · ${e.reason || "No reason given."}`,
+    action: holder,
+  });
 }
 
 /* --------------------------------- rest --------------------------------- */
