@@ -357,6 +357,9 @@ export function compose({ opsDir, brainsDir, staff, kind, runDir }) {
       product: (self.works_in ?? [])[0] ?? null,
       // Absent from manifests written before it existed; the callers fall back to the same.
       max_runs_per_day: self.max_runs_per_day ?? 6,
+      // One staff member drafts next month's org/priorities.md, so there is one draft rather
+      // than one per person: whoever org.yaml lists first.
+      drafts_priorities: (org.staff ?? [])[0]?.handle === staff,
     },
     peers,
     peer: peers[0] ?? null,

@@ -54,6 +54,11 @@ ranked, and what is out of scope. It is composed into every daily run, a run pic
 serves it, and a PR names the priority it serves. Keep it to three priorities or fewer, and
 rewrite it when the month turns.
 
+In the last three days of each month the staff member `org.yaml` lists first opens a pull
+request on the ops repo with a draft for next month, built from this month's, what shipped and
+the other staff's status issues. It shows on Home with Merge; edit it first if you like. Until it
+is merged, this month's stand.
+
 Without it each staff member picks its own work from its own charter, and they drift. `roster
 init` writes a stub; `roster doctor` warns while it is missing or still the stub. An org that
 predates it just adds the file.

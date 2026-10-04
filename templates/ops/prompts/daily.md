@@ -97,6 +97,13 @@ writing a plan for {{human.name}} to approve.
    `mkdir -p "$GITHUB_WORKSPACE/.roster-run" && echo "<the step>" > "$GITHUB_WORKSPACE/.roster-run/continue"`.
    Another run starts when this one ends, up to {{staff.max_runs_per_day}} a day that nobody asked
    for. Leave it out when there is nothing that cannot wait until tomorrow.
+{{#if staff.drafts_priorities}}
+10. **In the last three days of a month, draft next month's priorities.** If there is no open pull
+    request on `{{ops.dir}}` changing `org/priorities.md` already, open one from a branch: at
+    most three ranked priorities and what is out of scope, built from this month's, what shipped,
+    and the other staff's status issues. The body says what changed from this month and why, in a
+    few lines. {{human.name}} edits and merges it; until then this month's stand.
+{{/if}}
 
 {{> org/guardrails.md}}
 

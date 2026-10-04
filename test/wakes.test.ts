@@ -125,3 +125,29 @@ test("each caller grants every permission session.yaml's jobs ask for", () => {
     }
   }
 });
+
+test("one staff member drafts next month's priorities: whoever org.yaml lists first", async () => {
+  const root = mkdtempSync(join(tmpdir(), "roster-prio-"));
+  const before = process.env.ROSTER_CONTEXT;
+  try {
+    const ws = await makeTenant(root, {
+      staff: [
+        { handle: "ops", name: "Head of Operations", schedule: "0 7 * * 1-5" },
+        { handle: "qa", name: "Quality", schedule: "40 7 * * 1-5" },
+      ],
+    });
+    const { compose, parseYaml } = await loadComposer(ws.opsDir);
+    const org = parseYaml(readFileSync(join(ws.opsDir, "org.yaml"), "utf8")) as any;
+    const handles = (org.staff ?? []).map((s: any) => s.handle);
+    assert.ok(handles.length >= 2, "the fixture needs two staff");
+    delete process.env.ROSTER_CONTEXT;
+    const daily = (staff: string) =>
+      compose({ opsDir: ws.opsDir, brainsDir: ws.root, staff, kind: "daily" });
+    assert.match(daily(handles[0]), /draft next month's priorities/);
+    assert.doesNotMatch(daily(handles[1]), /draft next month's priorities/);
+  } finally {
+    if (before === undefined) delete process.env.ROSTER_CONTEXT;
+    else process.env.ROSTER_CONTEXT = before;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
