@@ -207,6 +207,36 @@ test("the run is written down whatever happened, under a name the portal can fin
   );
 });
 
+test("a session cannot end its turn waiting on a background job", () => {
+  /* A test suite past Claude Code's ten-minute cap was moved to the background, the agent ended
+     its turn to wait for it, and the session ended with the merge unpushed. Twice. */
+  assert.match(SESSION_CODE, /^ {6}CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"$/m);
+  assert.match(SESSION_CODE, /^ {6}BASH_MAX_TIMEOUT_MS: "\d+"$/m);
+});
+
+test("a mention that ends unanswered fails the job and says so in the thread", () => {
+  const check = step("Check the request was answered");
+  assert.match(check, /inputs\.kind == 'mention'/);
+  assert.match(
+    check,
+    /state.*closed/s,
+    "a forwarded request answers elsewhere and closes the issue",
+  );
+  assert.match(check, /\.user\.login == \\"\$BOT\\"/, "only the staff member's own reply counts");
+  assert.match(check, /unanswered=true/);
+  assert.match(check, /exit 1/, "a green job is how nobody found out");
+  assert.ok(
+    SESSION_CODE.indexOf("- name: Check the request was answered") <
+      SESSION_CODE.indexOf("- name: Write down the run"),
+    "the record has to know",
+  );
+  assert.match(
+    step("Write down the run"),
+    /UNANSWERED: \$\{\{ steps\.answered\.outputs\.unanswered \}\}/,
+  );
+  assert.match(step("Say so if the run did not finish"), /UNANSWERED/);
+});
+
 test("human work in flight is gathered before the prompt, and never fails the run", () => {
   const gather = step("Gather human work in flight");
   assert.match(gather, /continue-on-error: true/);
