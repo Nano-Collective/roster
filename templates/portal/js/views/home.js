@@ -246,6 +246,12 @@ async function act(note, actions, payload, ok) {
   try {
     await post(payload);
     note.textContent = ok;
+    // Done is done: the card goes now, rather than when GitHub next answers.
+    const card = actions.closest?.(".homecard, .homerow");
+    if (card) {
+      card.classList.add("gone");
+      setTimeout(() => card.remove(), 220);
+    }
     refreshSoon();
   } catch (err) {
     note.textContent = String(err.message || err);

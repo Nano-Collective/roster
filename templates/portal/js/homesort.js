@@ -121,17 +121,22 @@ export function placeOf(item, owner, people, markers) {
     (item.assignees ?? []).some((a) => people.has(lower(a))) ||
     labels.some((l) => markers.has(l));
   const byPerson = people.has(lower(item.author));
+  /* You had the last word on an ask: approved it, answered it, said go with the default. It is
+     waiting on them now, so it is one of your requests until they reply or close it. If they
+     reply, the last word is theirs and it is back on you. */
+  const youAnswered = Boolean(item.lastComment) && people.has(lower(item.lastComment.author));
 
   if (!owner) {
-    return onPerson && !byPerson
-      ? { place: "needs", kind: kindOf(labels) }
-      : { place: "elsewhere", why: item.role === "product" ? "contributor" : "other" };
+    if (!onPerson || byPerson) {
+      return { place: "elsewhere", why: item.role === "product" ? "contributor" : "other" };
+    }
+    return youAnswered ? { place: "requests" } : { place: "needs", kind: kindOf(labels) };
   }
   if (item.number === owner.statusIssue || labels.includes("keep-open")) {
     return { place: "staff", why: "status" };
   }
   if (byPerson) return { place: "requests" };
-  if (onPerson) return { place: "needs", kind: kindOf(labels) };
+  if (onPerson) return youAnswered ? { place: "requests" } : { place: "needs", kind: kindOf(labels) };
   return {
     place: "staff",
     why: labels.some((l) => l.startsWith("from-")) ? "peer" : "own",

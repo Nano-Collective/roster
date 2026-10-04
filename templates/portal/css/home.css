@@ -66,6 +66,8 @@
 .homeclosed{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 14px}
 .homeclosed .meta{margin-top:3px;line-height:1.5;font-family:var(--sans);font-size:12px}
 .homerest{margin-top:26px}
+.homecard.gone,.homerow.gone{opacity:0;transform:translateX(12px);
+         transition:opacity .2s var(--ease),transform .2s var(--ease)}
 
 /* Activity you have not seen, as Trackers marks it: a blue edge and a bold title. Opening the
    thread marks it read, here and on GitHub. */

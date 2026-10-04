@@ -95,7 +95,8 @@ Where the portal opens. An Ask box at the top, then these, in order.
   - a pull request has **Merge**, unless its checks fail, are still running, or it conflicts.
 
   Answers go out as you, with the staff member's `@handle`, so they act on them straight away.
-  When nothing is waiting, it says so.
+  Once you have had the last word, the card leaves Needs you for Your requests, since it is
+  waiting on them now. If they reply, it comes back. When nothing is waiting, it says so.
 - **Unread.** Anything on a staff member's own tracker, or elsewhere, with activity you have not
   seen: a peer's ask, a status issue, their own work. Unread comes from your GitHub
   notifications, as on Trackers. Cards and rows anywhere on Home carry the same blue mark, and
@@ -105,7 +106,7 @@ Where the portal opens. An Ask box at the top, then these, in order.
   they are idle, how their last run ended. Peer and follow-on runs today are counted against
   `max_runs_per_day`. This asks GitHub every few seconds while a run is going and every half
   minute otherwise, and only while Home is on screen.
-- **Your requests.** What you asked for: waiting, being worked on (a run for it is going), or
+- **Your requests.** What you asked for, and asks of theirs you have answered: waiting, being worked on (a run for it is going), or
   answered (a staff member had the last word).
 - **Closed today.** What the staff closed today, with the line they closed it with, and
   **Reopen** beside each. Staff close finished issues themselves, so this is where you check.

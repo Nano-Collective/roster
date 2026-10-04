@@ -194,3 +194,23 @@ test("unread activity off Home's main lists still shows, newest first", () => {
     "an ask keeps its own mark, and is not listed twice",
   );
 });
+
+test("an ask you have answered waits on them, and comes back when they reply", () => {
+  const ask = (lastComment: unknown) =>
+    item({ title: "approve", labels: ["ada", "review"], assignees: ["ada"], lastComment });
+  const sent = sortHome([ask({ author: "ada", body: "@ops Approved." })], staff, humans, [], NOW);
+  assert.equal(sent.needs.length, 0, "approved, so not on you any more");
+  assert.deepEqual(
+    sent.requests.map((e: any) => [e.item.title, e.status]),
+    [["approve", "waiting"]],
+  );
+
+  const back = sortHome(
+    [ask({ author: "acme-ops", body: "One question first" })],
+    staff,
+    humans,
+    [],
+    NOW,
+  );
+  assert.equal(back.needs.length, 1, "they replied, so it is on you again");
+});
