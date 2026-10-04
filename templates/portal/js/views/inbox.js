@@ -1323,9 +1323,22 @@ function newIssueForm(viewer) {
         body: body.value,
         labels: picked.chosen(),
       });
-      status.innerHTML =
-        'created · <a href="' + esc(r.url ?? "") + '" target="_blank" rel="noopener">open it</a>';
-      await refreshAll(true);
+      /* The form is done once GitHub has the issue. What you sent is shown as what it now is,
+         a thread in the inbox, open and selected, rather than a link out to github.com beside
+         a form still holding what you typed. The filters are set so its row is on the list. */
+      const number = Number(String(r.url ?? "").match(/\/issues\/(\d+)/)?.[1]);
+      S.inboxOpen = number ? { repo: s.brain, number, kind: "issue" } : null;
+      S.inboxState = "";
+      S.inboxFilter = "";
+      S.query = "";
+      if (S.inboxStaff && S.inboxStaff !== s.handle) S.inboxStaff = s.handle;
+      writeHash(false);
+      status.textContent = "sent · opening it…";
+      // It is sent either way. A refresh that fails must not read as a send that failed.
+      await refreshAll(false).catch(() => {
+        status.textContent = "sent · refresh to see it";
+      });
+      return;
     } catch (e) {
       status.textContent = e.message;
       status.className = "meta err";
