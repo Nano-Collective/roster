@@ -72,8 +72,10 @@ test("the loop guard is on the sender, not on the author", () => {
 test("one spelling of the mention is enough", () => {
   // GitHub documents `contains` as not case sensitive, so the pre-migration file's second
   // uppercase test was redundant rather than load-bearing. Asserted so nobody re-adds it.
+  // Two in the job's condition, one per route, and the same two in the run's name, which says
+  // whether the condition will pass.
   const occurrences = MENTION_CODE.match(/%%MENTION%%/g) ?? [];
-  assert.equal(occurrences.length, 2, "one contains() per route, no case variants");
+  assert.equal(occurrences.length, 4, "one contains() per route, twice, no case variants");
   assert.ok(!/%%MENTION_UPPER%%|'@%%STAFF_UPPER%%'/.test(MENTION_CODE));
 });
 

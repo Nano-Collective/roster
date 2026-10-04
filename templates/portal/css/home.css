@@ -1,6 +1,8 @@
 /* Home: what needs you, who is working, your requests, closed today. */
 
-.home{max-width:820px}
+.home{max-width:820px;margin-top:22px}
+/* The placeholder lines up with the title, as the cards that replace it do. */
+.home > .sk-row{padding-left:0;padding-right:0}
 /* Secondary text on Home is read, not scanned for numbers: the readable face and colour, not
    the faint monospace the rest of the portal uses for metadata. */
 .home .meta{font:12.5px/1.5 var(--sans);color:var(--ink-dim)}

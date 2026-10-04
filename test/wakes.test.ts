@@ -32,7 +32,10 @@ test("a peer's ask wakes on a new issue only, from an App that is not this staff
 });
 
 test("both callers name their runs by trigger, which is what the limit counts", () => {
-  assert.match(MENTION, /^run-name: >-\n\s+%%STAFF%% \$\{\{ .*'mention' \|\| 'peer' \}\}/m);
+  assert.match(
+    MENTION,
+    /^run-name: >-\n\s+%%STAFF%% \$\{\{[\s\S]*'mention'[\s\S]*'peer' \|\| 'ignored'\)\s*\}\} #/m,
+  );
   assert.match(
     DAILY,
     /^run-name: "%%STAFF%% \$\{\{ .*'daily' \|\| inputs\.trigger \|\| 'manual' \}\}"/m,
@@ -150,4 +153,12 @@ test("one staff member drafts next month's priorities: whoever org.yaml lists fi
     else process.env.ROSTER_CONTEXT = before;
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("the mention queue is on the job, so an event that wakes nobody never waits in it", () => {
+  assert.doesNotMatch(MENTION, /^concurrency:/m, "not at workflow level");
+  assert.match(
+    MENTION,
+    /^\s{4}concurrency:\n\s+group: %%STAFF%%-mention-\$\{\{ github\.event\.issue\.number \}\}/m,
+  );
 });

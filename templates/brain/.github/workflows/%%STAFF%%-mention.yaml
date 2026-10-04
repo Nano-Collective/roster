@@ -11,9 +11,19 @@ name: %%STAFF_UPPER%% on a mention
 
 # What the run is and what started it, as the Actions list shows it. The portal reads this back
 # to link a live run to the request behind it, and the daily limit counts peer runs by it.
+# Most events here are nobody asking (a comment without the mention, this staff member's own
+# reply), and those are named `ignored`, so nothing reads one as work while it waits to be
+# skipped.
 run-name: >-
-  %%STAFF%% ${{ contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.sender.login) && 'mention' || 'peer' }}
-  #${{ github.event.issue.number }}
+  %%STAFF%% ${{
+    (contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.sender.login) &&
+      (contains(github.event.comment.body, '%%MENTION%%') ||
+       (github.event_name == 'issues' && contains(github.event.issue.body, '%%MENTION%%'))))
+    && 'mention'
+    || ((github.event_name == 'issues' && github.event.action == 'opened' &&
+         endsWith(github.event.sender.login, '[bot]') &&
+         github.event.sender.login != '%%APP%%[bot]') && 'peer' || 'ignored')
+  }} #${{ github.event.issue.number }}
 
 on:
   # A mention in the body of a brand new issue, which is often the faster route: one box, rather
@@ -28,12 +38,6 @@ on:
   # current file with the comment and its uploads intact.
   issue_comment:
     types: [created, edited]
-
-# Per issue, not global. Several comments in a row are the normal case and a shared group would
-# silently drop all but one of them.
-concurrency:
-  group: %%STAFF%%-mention-${{ github.event.issue.number }}
-  cancel-in-progress: false
 
 jobs:
   answer:
@@ -58,6 +62,14 @@ jobs:
     # accounts that can open an issue on a private tracker are the people and Apps it is
     # installed for. A peer run may not file on another peer, and session.yaml holds peer runs
     # to the day's limit, so two staff cannot wake each other forever.
+    # Per issue, not global: several comments in a row are the normal case, and a shared group
+    # would silently drop all but one of them. On the job rather than the workflow, so the
+    # condition below is decided first. At workflow level every event queued here, including
+    # this staff member's own replies, and GitHub keeps one waiting run per group, so a reply
+    # waiting to be skipped could knock out a real mention waiting behind a run.
+    concurrency:
+      group: %%STAFF%%-mention-${{ github.event.issue.number }}
+      cancel-in-progress: false
     if: >-
       (
         contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.sender.login) &&

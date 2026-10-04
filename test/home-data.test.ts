@@ -62,6 +62,7 @@ test("live runs: running, finished in the last hours, and today's automatic coun
       run(3, "cto mention #9", "completed", "skipped", "2026-10-04T11:00:00Z"),
       run(4, "cto daily", "completed", "success", "2026-10-03T07:00:00Z"),
       run(5, "cto peer #2", "completed", "success", "2026-10-03T23:00:00Z"),
+      run(6, "cto ignored #104", "queued", null, "2026-10-04T11:59:00Z"),
     ],
     6,
     now,

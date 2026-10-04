@@ -8,7 +8,7 @@ import { ghJson } from "./gh.js";
  * before the callers carried a name fall back to the workflow's, and say less.
  */
 
-export type Trigger = "daily" | "manual" | "follow-on" | "mention" | "peer" | "unknown";
+export type Trigger = "daily" | "manual" | "follow-on" | "mention" | "peer" | "ignored" | "unknown";
 
 export interface LiveRun {
   id: number;
@@ -58,7 +58,7 @@ export function parseTitle(
   issue: number | null;
 } {
   const m = new RegExp(
-    `^${handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} (daily|manual|follow-on|mention|peer)(?: #(\\d+))?\\s*$`,
+    `^${handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} (daily|manual|follow-on|mention|peer|ignored)(?: #(\\d+))?\\s*$`,
   ).exec(title.trim());
   if (m) return { trigger: m[1] as Trigger, issue: m[2] ? Number(m[2]) : null };
   // Before the callers named their runs: the workflow name is all there is.
@@ -80,9 +80,11 @@ export function shapeLive(
   const out: LiveStaff = { handle, brain, running: [], finished: [], automatic: 0, limit };
 
   for (const r of raw) {
-    // A skipped run is a caller whose condition said no. Nothing ran.
+    // A skipped run is a caller whose condition said no. Nothing ran. An `ignored` one is the
+    // same, named before GitHub has got round to skipping it.
     if (r.conclusion === "skipped") continue;
     const { trigger, issue } = parseTitle(handle, r.displayTitle ?? "", r.workflowName ?? "");
+    if (trigger === "ignored") continue;
     const run: LiveRun = {
       id: Number(r.databaseId),
       trigger,
