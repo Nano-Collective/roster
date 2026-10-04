@@ -112,12 +112,12 @@ function inboxScreen(m, opts) {
   /* "Pending work", not "Pull requests". Every one of these is a piece of work a staff member
      has finished and cannot land on their own, which is the thing you are being asked about.
      That it arrives as a pull request is how it is delivered, not what it is. */
-  m.append(el("h1", { textContent: opts.prs ? "Pending work" : "Inbox" }));
+  m.append(el("h1", { textContent: opts.prs ? "Pending work" : "Trackers" }));
   const sub = el("p", {
     className: "sub",
     textContent: opts.prs
       ? "Work the staff have finished and cannot land themselves."
-      : "Everything open across the org. Pull requests are in Pending work.",
+      : "Every issue on each staff member's tracker and the product repos. What needs you is on Home.",
   });
   m.append(sub);
 

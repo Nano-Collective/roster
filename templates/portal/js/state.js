@@ -22,7 +22,7 @@ export const VIEWS = [
 export const VIEW_ALIAS = { memory: "brain" };
 
 /** Screens that belong to the org rather than to one staff member. */
-export const ORG_WIDE = new Set(["setup", "inbox", "prs", "runs", "org", "staff", "docs"]);
+export const ORG_WIDE = new Set(["setup", "home", "inbox", "prs", "runs", "org", "staff", "docs"]);
 
 /** The two screens that read the inbox, and so share its filters and its `?t=` thread. */
 const INBOXY = new Set(["inbox", "prs"]);
@@ -44,7 +44,7 @@ export const S = {
   staffHandle: null,
   /* What is waiting on you, not whose brain you read last. The org-wide screens are where a
      session starts, which is also why the Staff list below them opens folded. */
-  view: "inbox",
+  view: "home",
   /** The inbox filter box. Brain and "what changed" keep their own, below. */
   query: "",
 
@@ -89,10 +89,6 @@ export const openCount = () =>
 /** Issues with activity you have not read, from GitHub's notifications. */
 export const unreadCount = () =>
   (S.inbox?.items ?? []).filter((i) => i.unread && i.state === "OPEN" && i.kind !== "pr").length;
-
-/** The same, for the screen that is only pull requests. */
-export const openPrCount = () =>
-  (S.inbox?.items ?? []).filter((i) => i.state === "OPEN" && i.kind === "pr").length;
 
 export const staff = () => S.data.staff.find((s) => s.handle === S.staffHandle) ?? S.data.staff[0];
 

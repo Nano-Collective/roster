@@ -20,6 +20,7 @@ import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
 import { viewGraph } from "./views/graph.js";
 import { viewHealth } from "./views/health.js";
+import { viewHome } from "./views/home.js";
 import { viewInbox, viewPrs } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
 import { viewPrompt } from "./views/prompt.js";
@@ -30,6 +31,7 @@ import { viewStaff } from "./views/staff.js";
 
 const SCREEN = {
   setup: viewGettingStarted,
+  home: viewHome,
   inbox: viewInbox,
   prs: viewPrs,
   runs: viewRuns,
@@ -57,8 +59,8 @@ const NEEDS = ["org", "name", "opsName", "staff"];
 /** The org-wide screens in the sidebar, by button. */
 const NAV = [
   ["#setupnav", "setup"],
+  ["#homenav", "home"],
   ["#inboxnav", "inbox"],
-  ["#prsnav", "prs"],
   ["#runsnav", "runs"],
   ["#staffnav", "staff"],
   ["#orgnav", "org"],
@@ -100,7 +102,7 @@ export async function boot() {
     /* Every one of these reads a tenant, so during setup they answer 409 and the sidebar is a
        row of four dead ends beside an empty Staff heading. There is one thing to do on this
        screen; the navigation comes back with the org. */
-    for (const el of document.querySelectorAll("#inboxnav, #prsnav, #runsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
+    for (const el of document.querySelectorAll("#homenav, #inboxnav, #runsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
       el.hidden = true;
     }
     for (const slot of document.querySelectorAll("[data-icon]")) {

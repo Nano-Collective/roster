@@ -111,6 +111,16 @@ export interface InboxItem {
    * about.
    */
   mergeable?: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
+  /** When it was closed, and by whom. Home's "Closed today" is staff closing things. */
+  closedAt?: string;
+  closedBy?: string;
+  /** The newest reply, from the list: who has the last word is what a request's state is. */
+  lastComment?: Comment;
+  /**
+   * A decision's default, from the line the prompts ask for: "If I hear nothing by
+   * <YYYY-MM-DD>, I'll <do X>." Home shows it, with the days left.
+   */
+  due?: { date: string; action: string };
   /** Kept because a count of replies is worth having without walking the timeline. */
   comments: Comment[];
   /** How many replies, known from the list before the thread itself has been read. */
@@ -203,11 +213,15 @@ const PR_TYPES = `[ISSUE_COMMENT, CROSS_REFERENCED_EVENT, REFERENCED_EVENT, CLOS
    by how much it could return, and the old one asked for every timeline, every comment and
    every reactor in four lists per repo, which priced one inbox load at most of an hour's
    allowance. */
-const LIGHT = `number title url state createdAt updatedAt
+const LIGHT = `number title url state createdAt updatedAt closedAt body
         author { login }
         labels(first:12) { nodes { name } }
         assignees(first:8) { nodes { login } }
-        comments { totalCount }`;
+        comments { totalCount }
+        last: comments(last:1) { nodes { author { login } createdAt body } }
+        closer: timelineItems(last:1, itemTypes:[CLOSED_EVENT]) {
+          nodes { ... on ClosedEvent { actor { login } } }
+        }`;
 const LIGHT_PR = `${LIGHT} isDraft mergeable
         commits(last:1) { nodes { commit { statusCheckRollup { state } } } }`;
 
@@ -319,7 +333,10 @@ function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxI
     kind,
     number: n.number,
     title: n.title ?? "",
-    body: n.body ?? "",
+    // The list carries the body only to find a decision's default; a row never shows it, and
+    // a thread that is opened is read whole on its own.
+    body: n.timelineItems ? (n.body ?? "") : "",
+    ...extras(n),
     labels: (n.labels?.nodes ?? []).map((l: any) => l.name),
     assignees: (n.assignees?.nodes ?? []).map((a: any) => a.login),
     author: n.author?.login ?? "",
@@ -336,6 +353,36 @@ function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxI
     events,
     reactions: reactions(n),
   };
+}
+
+/** What a row needs beyond its title: who closed it, the last word, a decision's default. */
+function extras(n: any): Partial<InboxItem> {
+  const out: Partial<InboxItem> = {};
+  if (n.closedAt) out.closedAt = n.closedAt;
+  const closer = n.closer?.nodes?.[0]?.actor?.login;
+  if (closer) out.closedBy = closer;
+  const last = n.last?.nodes?.[0];
+  if (last) {
+    out.lastComment = {
+      author: last.author?.login ?? "",
+      createdAt: last.createdAt,
+      body: String(last.body ?? "").slice(0, 800),
+    };
+  }
+  const due = dueOf(n.body ?? "");
+  if (due) out.due = due;
+  return out;
+}
+
+/** "If I hear nothing by 2026-10-09, I'll ship it." The date and what happens then. */
+export function dueOf(body: string): InboxItem["due"] | undefined {
+  const m = /if i hear nothing by \**(\d{4}-\d{2}-\d{2})\**,?\s*i(?:'|’)?ll\s+([^\n]+)/i.exec(body);
+  if (!m) return undefined;
+  const action = m[2]!
+    .replace(/[*_"“”]+/g, "")
+    .replace(/\.\s*$/, "")
+    .trim();
+  return { date: m[1]!, action };
 }
 
 /** GitHub sends a group per reaction type whether or not anyone used it. Empty ones are noise. */

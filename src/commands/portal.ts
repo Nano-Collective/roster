@@ -25,6 +25,7 @@ import { api, ghJson, ghReady } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { installTargets, preselectedInstall } from "../lib/install.js";
+import { liveFor } from "../lib/live.js";
 import { markRead, unreadFor } from "../lib/notifications.js";
 import { parsePaste } from "../lib/paste.js";
 import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
@@ -1360,6 +1361,34 @@ export async function portalCommand(argv: string[]): Promise<number> {
             res.writeHead(500, { "content-type": "application/json" });
             res.end(JSON.stringify({ items: [], errors: [String(err?.message ?? err)] }));
           });
+        return;
+      }
+
+      /**
+       * Who is running right now, what started it, and what finished in the last few hours.
+       *
+       * Home polls this every few seconds while a run is live, so it is never cached: a stale
+       * copy would show a run as going after it ended, which is the one thing it is for.
+       */
+      if (url.pathname === "/api/live") {
+        const org = readOrg(w.opsDir, parseYaml) as any;
+        const staff = (org.staff ?? []).map((s: any) => {
+          const dir = s.dir ?? s.handle;
+          let m: Record<string, any> = {};
+          try {
+            m = readManifest(join(w.root, dir), parseYaml) as Record<string, any>;
+          } catch {
+            // A manifest that does not parse is a doctor finding; this still lists the brain.
+          }
+          return {
+            handle: String(s.handle),
+            brain: String(m.brain ?? `${org.org}/${dir}`),
+            limit: Number(m.max_runs_per_day ?? 6),
+          };
+        });
+        liveFor(staff)
+          .then((list) => json(res, { fetchedAt: new Date().toISOString(), staff: list }))
+          .catch((err) => json(res, { error: String(err?.message ?? err), staff: [] }));
         return;
       }
 

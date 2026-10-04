@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/assets/css/markdown.css">
 <link rel="stylesheet" href="/assets/css/brain.css">
 <link rel="stylesheet" href="/assets/css/inbox.css">
+<link rel="stylesheet" href="/assets/css/home.css">
 <link rel="stylesheet" href="/assets/css/graph.css">
 <link rel="stylesheet" href="/assets/css/diff.css">
 <link rel="stylesheet" href="/assets/css/health.css">
@@ -32,17 +33,15 @@
       <span class="ic" data-icon="task-done"></span> Getting started
       <span class="n" id="setupcount"></span>
     </button>
-    <button class="nav top" id="inboxnav" data-view="inbox">
-      <span class="ic" data-icon="inbox"></span> Inbox
+    <button class="nav top" id="homenav" data-view="home" title="What needs you, and who is working">
+      <span class="ic" data-icon="inbox"></span> Home
+      <span class="n" id="homecount"></span>
+    </button>
+    <button class="nav" id="inboxnav" data-view="inbox" title="Every open issue on each staff member's tracker">
+      <span class="ic" data-icon="issue-open"></span> Trackers
       <span class="n" id="inboxcount"></span>
     </button>
     <div class="staffviews" id="inboxsub" hidden></div>
-    <!-- "Pending work", not "Pull requests": what is behind it is finished work waiting on you,
-         and the word for how it is delivered is not the word for what it is. -->
-    <button class="nav" id="prsnav" data-view="prs" title="Finished work waiting on you to merge">
-      <span class="ic" data-icon="merged"></span> Pending work
-      <span class="n" id="prcount"></span>
-    </button>
     <button class="nav" id="runsnav" data-view="runs" title="What ran, how it ended, and what it cost">
       <span class="ic" data-icon="play"></span> Runs
     </button>

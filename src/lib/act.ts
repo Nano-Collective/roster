@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { type AskRequest, askBody, askTitle } from "./ask.js";
+import { type AskRequest, askBody, askFollowUp, askHead, askTitle } from "./ask.js";
 
 const run = promisify(execFile);
 
@@ -92,11 +92,24 @@ export async function act(req: ActRequest): Promise<ActResult> {
       throw new Error(`an ask goes to ${ask.staff.brain}, not to ${repo}`);
     if (!ask.body?.trim()) throw new Error("an empty ask is not an ask");
 
-    const title = (req.title ?? "").trim() || askTitle(ask);
-    const args = ["issue", "create", "--repo", repo, "--title", title, "--body-file", "-"];
-    for (const l of req.labels ?? []) args.push("--label", l);
-    const { stdout } = await execWithStdin(args, askBody(ask));
-    const url = stdout.trim().split("\n").pop();
+    /* One thread per pull request. A second ask about the same one while the first is still
+       open goes on that issue as a comment, which wakes them the same way. Two open issues
+       about one pull request was the usual result of asking twice. */
+    const open = await openAskFor(repo, askHead(ask));
+    let url: string | undefined;
+    if (open) {
+      const { stdout } = await execWithStdin(
+        ["issue", "comment", String(open), "--repo", repo, "--body-file", "-"],
+        askFollowUp(ask),
+      );
+      url = stdout.trim().split("\n").pop();
+    } else {
+      const title = (req.title ?? "").trim() || askTitle(ask);
+      const args = ["issue", "create", "--repo", repo, "--title", title, "--body-file", "-"];
+      for (const l of req.labels ?? []) args.push("--label", l);
+      const { stdout } = await execWithStdin(args, askBody(ask));
+      url = stdout.trim().split("\n").pop();
+    }
 
     if (!req.alsoOnPr) return { ok: true, action, url };
 
@@ -176,6 +189,37 @@ export async function act(req: ActRequest): Promise<ActResult> {
   }
 
   throw new Error(`unknown action "${action}"`);
+}
+
+/** The open tracker issue already asking about this pull request, if there is one. */
+async function openAskFor(repo: string, head: string): Promise<number | null> {
+  try {
+    const { stdout } = await run(
+      "gh",
+      [
+        "issue",
+        "list",
+        "--repo",
+        repo,
+        "--state",
+        "open",
+        "--limit",
+        "20",
+        "--search",
+        `in:title "${head.replace(/ — $/, "")}"`,
+        "--json",
+        "number,title",
+      ],
+      { encoding: "utf8" },
+    );
+    const found = (JSON.parse(stdout) as Array<{ number: number; title: string }>).find((i) =>
+      i.title.startsWith(head),
+    );
+    return found?.number ?? null;
+  } catch {
+    // Not finding one is the ordinary case, and a search that fails should not stop the ask.
+    return null;
+  }
 }
 
 export interface PrState {

@@ -21,8 +21,8 @@ Keep the repos checked out beside each other, in the same shape the runner uses.
 Anything that asks before it acts (a merge, a push, a hire, a retire, a paid run) asks in the
 page's own dialog, never the browser's `confirm()`, which blocks the whole tab.
 
-**The counts are right on load.** The badges beside Inbox and Pending work are fetched once at
-boot, and the Inbox screen shares that request rather than making a second one. A sidebar that
+**The counts are right on load.** The badges beside Home and Trackers are fetched once at
+boot, and the screens share that request rather than making a second one. A sidebar that
 says nothing until you look at it is not a sidebar.
 
 While the first answer is outstanding the badge is a placeholder rather than blank, because an
@@ -78,12 +78,45 @@ staff member* first, then the Actions setting, the credential, the repo picker, 
 what doctor still says. A link to another screen still wins. When the list is empty the entry
 goes away; the repo picker lives on under [Org](#org).
 
-## Inbox
+## Home
+
+Where the portal opens. An Ask box at the top, then these, in order.
+
+- **Ask.** Pick a staff member, type what you want, **Send**. It opens an issue on their
+  tracker with their `@handle` in front, which wakes them in about a minute.
+- **Latest reports.** Each staff member's run report from the last day: the three lines they
+  post on their status issue at the end of a daily run. Nothing shows until there is one.
+- **Needs you.** Every ask a staff member has put on you, and every pull request ready to
+  merge, oldest first. Each card has its action on it:
+  - a `decision` has an answer box, and **Go with the default** when it carries one. The
+    default and its date are shown, and turn amber once the date has passed.
+  - a `review` has **Approve**.
+  - a `chore` has **Done**, which closes it.
+  - a pull request has **Merge**, unless its checks fail, are still running, or it conflicts.
+
+  Answers go out as you, with the staff member's `@handle`, so they act on them straight away.
+  When nothing is waiting, it says so.
+- **Working now.** Each staff member: what they are running and what started it (the daily run,
+  a follow-on, answering an issue, a peer's ask), for how long, with a link to the log. When
+  they are idle, how their last run ended. Peer and follow-on runs today are counted against
+  `max_runs_per_day`. This asks GitHub every few seconds while a run is going and every half
+  minute otherwise, and only while Home is on screen.
+- **Your requests.** What you asked for: waiting, being worked on (a run for it is going), or
+  answered (a staff member had the last word).
+- **Closed today.** What the staff closed today, with the line they closed it with, and
+  **Reopen** beside each. Staff close finished issues themselves, so this is where you check.
+
+**Nothing is missed.** Every open issue and pull request has exactly one place: on Home, or on
+the staff member's own tracker (their status issue, a peer's ask, their own work), or elsewhere
+(draft pull requests, contributor issues). The line at the bottom counts the last two, with a
+link to Trackers. Clicking any title opens its thread there.
+
+## Trackers
 
 Everything open across the org, from one GraphQL call per repo. Bodies and full timelines come
 down with the list, so opening a thread is a render rather than a request.
 
-- **The links under Inbox in the sidebar filter it.** All; Unread; each staff member, which
+- **The links under Trackers in the sidebar filter it.** All; Unread; each staff member, which
   lists the issues on their own tracker whoever filed them; and Issues, the product repos.
 - **Unread comes from your GitHub notifications.** A thread with activity you have not read has
   a bar on the left and a bold title, and Unread lists only those, with a count. Opening one
@@ -144,7 +177,7 @@ down with the list, so opening a thread is a render rather than a request.
 
 ## Pending work
 
-The same screen, scoped to pull requests, in its own place in the sidebar. An inbox is what is
+The same screen, scoped to pull requests. It is where a pull request opens from Home. An inbox is what is
 waiting on you; a pull request is work that is finished and waiting on a merge, and the count
 that matters is not how many are open but how many are green and still sitting there.
 

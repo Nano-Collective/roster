@@ -668,6 +668,7 @@ const ALIAS: Record<string, string> = {
   STAFF_OPEN: "staffOpen",
   READINESS: "readiness",
   INBOX: "inbox",
+  LIVE: "live",
   RUNS: "runs",
   DOCS: "docs",
   view: "view",
@@ -2465,10 +2466,9 @@ test("the sidebar badge counts what is open, not what is loaded", async () => {
   const s = await renderAll("#/x/inbox?x=all");
   await new Promise((r) => setTimeout(r, 30));
   assert.equal(s.INBOX.items.length, 6, "the fixture holds open and closed");
-  // Two open issues. The two open PRs are Pending work's, and counting them in both places
-  // would bill you twice for the same pile.
+  // Two open issues on Trackers. Home's badge counts what needs you, which is its own number.
   assert.equal(s._byId.inboxcount.textContent, "2", "but the badge counts the open ones");
-  assert.equal(s._byId.prcount.textContent, "2", "and the PR badge counts its own");
+  assert.match(s._byId.homecount.textContent, /^\d+$/, "and Home's badge is a count");
 });
 
 test("every state field is reachable through the harness", async () => {

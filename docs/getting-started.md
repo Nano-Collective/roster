@@ -182,8 +182,8 @@ each.
 
 - **A second staff member**: Staff → Hire someone, then GitHub App, the charter and one run. The
   credential is already there.
-- **Answering your agents**: [the Inbox](portal.md#inbox) is everything open across the org, and
-  the reply goes out as you. Work they finished sits in [Pending work](portal.md#pending-work).
+- **Answering your agents**: [Home](portal.md#home) is what needs you, who is working and
+  what you asked for. Replies and merges go out as you.
 - **A framework update**: `roster upgrade`, or the same from the portal. See
   [upgrading](upgrading.md).
 - **The whole portal**, screen by screen: [the portal](portal.md).

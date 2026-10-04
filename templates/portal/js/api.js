@@ -10,6 +10,9 @@ export const getSync = () => json("/api/sync").catch(() => null);
 /** Every staff member's recent runs and 30-day spend. Online only; offline it says so. */
 export const getRuns = (force) => json("/api/runs" + (force ? "?refresh=1" : ""));
 
+/** Who is running now, what started it, and what finished in the last few hours. Never cached. */
+export const getLive = () => json("/api/live");
+
 /** The repos org.yaml lists. Off disk, so the new-issue form does not wait on the inbox. */
 export const getRepos = () => json("/api/repos");
 

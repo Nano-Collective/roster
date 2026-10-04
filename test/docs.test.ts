@@ -303,6 +303,8 @@ test("portal.md names every screen the router can show", () => {
     // finished work waiting on you, and the word for how it arrives is not the word for what
     // it is.
     prs: "pending work",
+    // The router's inbox is called Trackers on the page, since Home took the inbox's job.
+    inbox: "trackers",
   };
   const page = read("portal.md").toLowerCase();
   const missing = screens

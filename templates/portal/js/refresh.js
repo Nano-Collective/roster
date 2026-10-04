@@ -10,7 +10,8 @@
 import { getInbox, getOrg, getSync } from "./api.js";
 import { $, ago, el, esc } from "./dom.js";
 import { render } from "./router.js";
-import { openCount, openPrCount, S, unreadCount } from "./state.js";
+import { sortHome } from "./homesort.js";
+import { humansOf, openCount, S, unreadCount } from "./state.js";
 
 /**
  * The inbox, fetched at most once at a time.
@@ -53,8 +54,8 @@ export function ensureInbox(force) {
 export function stampCounts() {
   const waiting = !S.inbox;
   for (const [sel, n] of [
+    ["#homecount", needsCount],
     ["#inboxcount", openCount],
-    ["#prcount", openPrCount],
     ["#unreadcount", unreadCount],
   ]) {
     const slot = document.querySelector(sel);
@@ -71,6 +72,12 @@ export function stampCounts() {
  * which in practice meant "after you visit the Inbox". A sidebar that says nothing until you
  * look at it is not a sidebar.
  */
+/** What Home's "Needs you" holds, for the sidebar. */
+function needsCount() {
+  if (!S.inbox || !S.data) return 0;
+  return sortHome(S.inbox.items ?? [], S.data.staff, humansOf(), S.live?.staff ?? []).needs.length;
+}
+
 export function countInBackground() {
   stampCounts();
   return ensureInbox(false)

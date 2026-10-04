@@ -72,9 +72,28 @@ const MAX_PATCH_LINES = 40;
  * dozen other asks and "which PR is this" is the thing being scanned for. Truncated at a width
  * GitHub does not itself truncate.
  */
-export function askTitle(req: AskRequest): string {
+/** How every ask about one pull request starts its title: `pip-web#161 — `. */
+export function askHead(req: AskRequest): string {
   const name = req.pr.repo.split("/")[1] ?? req.pr.repo;
-  const head = `${name}#${req.pr.number} — `;
+  return `${name}#${req.pr.number} — `;
+}
+
+/**
+ * A second ask on the issue already open about the same pull request. The first one carried
+ * the instructions; this is the new words, the mention that wakes them, and where to answer.
+ */
+export function askFollowUp(req: AskRequest): string {
+  const said = req.body.trim();
+  const it = req.pr.kind === "issue" ? "issue" : "pull request";
+  const first = stripLeadingMention(said, req.staff.mention)
+    ? `${req.staff.mention} ${said}`
+    : said;
+  const where = req.anchor?.path ? `\n\nThey were looking at \`${req.anchor.path}\`.` : "";
+  return `${first}${where}\n\nSame as above: answer on the ${it}, then close this issue.\n`;
+}
+
+export function askTitle(req: AskRequest): string {
+  const head = askHead(req);
   const room = 120 - head.length;
   const title = req.pr.title.trim() || "a pull request";
   return head + (title.length > room ? `${title.slice(0, room - 1).trimEnd()}…` : title);

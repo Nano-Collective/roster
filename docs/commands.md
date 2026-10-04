@@ -286,7 +286,7 @@ is not a terminal, or with `BROWSER=none`.
 **With no tenant where you started it, this is the setup screen**: it stands up a new org, or
 checks out one that already runs roster. Local only. See [the portal](portal.md).
 
-Views: Inbox, Org, Staff, Docs, and per staff member Brain, Prompt, Graph, What changed, Health.
+Views: Home, Trackers, Runs, Org, Staff, Docs, and per staff member Brain, Prompt, Graph, What changed, Health.
 
 It can act as you through your own `gh`: reply, close, reopen and open issues; hire and retire;
 edit and commit the org layer, prompt fragments and charters; create a staff member's GitHub App;
