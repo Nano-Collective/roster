@@ -167,11 +167,83 @@ export async function act(req: ActRequest): Promise<ActResult> {
     const args = ["pr", "merge", n, "--repo", repo, flag];
     // A rebase produces no merge commit, so there is nothing for a body to be the body of.
     if (req.body?.trim() && how !== "rebase") args.push("--body", req.body.trim());
-    await run("gh", args, { encoding: "utf8" });
+    try {
+      await run("gh", args, { encoding: "utf8" });
+    } catch (err) {
+      throw new Error(whyNotMerged(errText(err), await prState(repo, n)));
+    }
     return { ok: true, action, mergedBy: how };
   }
 
   throw new Error(`unknown action "${action}"`);
+}
+
+export interface PrState {
+  mergeStateStatus?: string;
+  statusCheckRollup?: {
+    name?: string;
+    context?: string;
+    status?: string;
+    state?: string;
+    conclusion?: string;
+  }[];
+}
+
+/**
+ * A refused merge, said plainly.
+ *
+ * `gh pr merge` refuses a blocked pull request with "the base branch policy prohibits the
+ * merge" and advice about its own flags, which tells the person at the page neither what is
+ * wrong nor what to do. The usual cause is a required check still running, so the checks are
+ * read and named. Anything else falls back to gh's own first line, without the flag advice.
+ */
+export function whyNotMerged(ghError: string, pr: PrState | null): string {
+  const checks = pr?.statusCheckRollup ?? [];
+  const name = (c: (typeof checks)[number]) => c.name || c.context || "a check";
+  const running = checks.filter(
+    (c) =>
+      (c.status && c.status !== "COMPLETED") || c.state === "PENDING" || c.state === "EXPECTED",
+  );
+  const failing = checks.filter((c) =>
+    ["FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "ERROR"].includes(
+      String(c.conclusion || c.state || ""),
+    ),
+  );
+  const list = (cs: typeof checks) => cs.map(name).join(", ");
+
+  if (pr?.mergeStateStatus === "BLOCKED" && failing.length)
+    return `Not merged: checks failed (${list(failing)}).`;
+  if (pr?.mergeStateStatus === "BLOCKED" && running.length)
+    return `Not merged: checks are still running (${list(running)}). Merge again once they pass.`;
+  if (pr?.mergeStateStatus === "BLOCKED")
+    return "Not merged: the branch rules require something first, such as a review. Open it in GitHub to see what.";
+  if (pr?.mergeStateStatus === "BEHIND")
+    return "Not merged: the branch is behind its base, and the branch rules require it to be up to date.";
+  if (pr?.mergeStateStatus === "DIRTY") return "Not merged: the branch conflicts with its base.";
+
+  const line = ghError
+    .split("\n")
+    .map((l) => l.replace(/^[!X✗]\s*/, "").trim())
+    .find((l) => l && !l.startsWith("Command failed") && !/--auto|--admin/.test(l));
+  return `Not merged: ${line ?? "GitHub refused it without saying why."}`;
+}
+
+function errText(err: unknown): string {
+  const e = err as { stderr?: string; message?: string };
+  return `${e?.stderr ?? ""}\n${e?.message ?? ""}`;
+}
+
+async function prState(repo: string, n: string): Promise<PrState | null> {
+  try {
+    const { stdout } = await run(
+      "gh",
+      ["pr", "view", n, "--repo", repo, "--json", "mergeStateStatus,statusCheckRollup"],
+      { encoding: "utf8" },
+    );
+    return JSON.parse(stdout) as PrState;
+  } catch {
+    return null;
+  }
 }
 
 /**

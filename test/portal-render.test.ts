@@ -1952,6 +1952,27 @@ test("a mergeable pull request still offers the Merge button", async () => {
   assert.ok(!button(s._byId.main, "Merge").disabled, "nothing is wrong with this one");
 });
 
+test("a refused merge leaves its reason on screen", async () => {
+  /* The error handler cleared the status line in the same breath as writing it, so a merge
+     GitHub refused showed "merging…", then nothing, with the button back as if untouched. */
+  const s = await renderAll("#/-/prs");
+  await new Promise((r) => setTimeout(r, 30));
+  s.inboxOpen = { repo: "acme/product", number: 7, kind: "pr" };
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+
+  const why = "Not merged: checks are still running (gate). Merge again once they pass.";
+  s.fetch = async () => ({ ok: false, status: 400, json: async () => ({ error: why }) });
+  const merge = button(s._byId.main, "Merge");
+  merge.onclick();
+  await new Promise((r) => setTimeout(r, 20));
+
+  const shown = walkNodes(s._byId.main).find((n: any) => n.className === "meta err");
+  assert.ok(shown, "an error is on screen");
+  assert.equal(shown.textContent, why);
+  assert.equal(merge.disabled, false, "and the button is back for when the checks pass");
+});
+
 test("replying is a dialog on the header, not a box at the end of the thread", async () => {
   /* The reply box used to be under the last comment, so answering a long thread meant
      scrolling to the end of it. The actions are about the thread, not about its last message. */
