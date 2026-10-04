@@ -627,10 +627,11 @@ function inboxScreen(m, opts) {
       status.textContent = msg ?? "";
       status.className = "meta";
     };
+    // busy(false) clears the status line, so it goes first: the other way round wiped the
+    // error as it was written, and a refused merge looked like nothing happening at all.
     const failed = (e) => {
-      status.textContent = e.message;
-      status.className = "meta err";
       busy(false);
+      status.textContent = e.message;
       status.className = "meta err";
     };
 
