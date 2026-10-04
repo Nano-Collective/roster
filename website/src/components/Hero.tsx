@@ -25,8 +25,9 @@ export function Hero() {
           className="fade-up mx-auto mt-6 max-w-[600px] text-[19px] leading-[1.5] text-fg-2 sm:text-[21px]"
           style={{ animationDelay: "120ms" }}
         >
-          Each staff member is a GitHub repo: a charter, a memory, and a morning session that does
-          a day&apos;s work and hands it to you as a pull request. You read it, and you merge it.
+          Each staff member is a GitHub repo: a charter, a memory, and a session every morning, with
+          more when a colleague asks or the next step is ready. The work comes to you as a pull
+          request. You read it, and you merge it.
         </p>
 
         <div
