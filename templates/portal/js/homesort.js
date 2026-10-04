@@ -7,6 +7,10 @@
  *   staff      a staff member's own work: their status issue, a peer's ask, their own issues
  *   elsewhere  draft pull requests, and product or ops issues nobody has put on a person
  *
+ * `unread` is not a place: it lists what in `staff` and `elsewhere` has activity you have not
+ * seen (from your GitHub notifications), since those two are otherwise off Home. Items in the
+ * other places carry their own unread mark.
+ *
  * Closed items only matter when a staff member closed them today: that is "Closed today", with
  * Reopen beside each, because staff now close things without asking. */
 
@@ -45,7 +49,15 @@ export function sortHome(items, staff, humans, live = [], now = new Date()) {
     for (const r of l.running ?? []) if (s && r.issue) working.add(`${s.brain}#${r.issue}`);
   }
 
-  const out = { reports: [], needs: [], requests: [], staff: [], elsewhere: [], closedToday: [] };
+  const out = {
+    reports: [],
+    needs: [],
+    requests: [],
+    staff: [],
+    elsewhere: [],
+    unread: [],
+    closedToday: [],
+  };
   const today = dayOf(now);
 
   for (const item of items) {
@@ -92,6 +104,9 @@ export function sortHome(items, staff, humans, live = [], now = new Date()) {
   out.needs.sort(oldest);
   out.requests.sort((a, b) => b.item.updatedAt.localeCompare(a.item.updatedAt));
   out.closedToday.sort((a, b) => b.item.closedAt.localeCompare(a.item.closedAt));
+  out.unread = [...out.staff, ...out.elsewhere]
+    .filter((e) => e.item.unread)
+    .sort((a, b) => b.item.updatedAt.localeCompare(a.item.updatedAt));
   return out;
 }
 

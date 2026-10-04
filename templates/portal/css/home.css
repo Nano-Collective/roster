@@ -67,6 +67,14 @@
 .homeclosed .meta{margin-top:3px;line-height:1.5;font-family:var(--sans);font-size:12px}
 .homerest{margin-top:26px}
 
+/* Activity you have not seen, as Trackers marks it: a blue edge and a bold title. Opening the
+   thread marks it read, here and on GitHub. */
+.homecard.unread{box-shadow:inset 3px 0 0 var(--blue)}
+.homerow.unread{box-shadow:inset 3px 0 0 var(--blue);background:color-mix(in srgb,var(--blue) 6%,transparent)}
+.unread .homeopen{font-weight:700}
+.unread .homeopen::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+         background:var(--blue);margin:0 7px 1px 0;vertical-align:middle}
+
 .homereports{display:flex;flex-direction:column;gap:14px;padding:14px 16px}
 .homereport{display:grid;grid-template-columns:190px 1fr;gap:12px;font-size:13px;line-height:1.5}
 .homereport p{margin:0 0 3px;color:var(--ink-dim)}

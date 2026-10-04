@@ -96,6 +96,10 @@ Where the portal opens. An Ask box at the top, then these, in order.
 
   Answers go out as you, with the staff member's `@handle`, so they act on them straight away.
   When nothing is waiting, it says so.
+- **Unread.** Anything on a staff member's own tracker, or elsewhere, with activity you have not
+  seen: a peer's ask, a status issue, their own work. Unread comes from your GitHub
+  notifications, as on Trackers. Cards and rows anywhere on Home carry the same blue mark, and
+  opening one marks it read here and on GitHub.
 - **Working now.** Each staff member: what they are running and what started it (the daily run,
   a follow-on, answering an issue, a peer's ask), for how long, with a link to the log. When
   they are idle, how their last run ended. Peer and follow-on runs today are counted against

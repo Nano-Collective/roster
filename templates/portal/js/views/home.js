@@ -73,6 +73,11 @@ export function viewHome(m) {
   if (h.needs.length) for (const e of h.needs) page.append(needCard(e));
   else page.append(el("p", { className: "homeempty", textContent: "Nothing needs you." }));
 
+  if (h.unread.length) {
+    page.append(section("Unread", h.unread.length));
+    for (const e of h.unread) page.append(unreadRow(e));
+  }
+
   page.append(section("Working now"));
   page.append(working(staff));
 
@@ -147,7 +152,11 @@ function needCard(e) {
   const { item, kind } = e;
   /* The whole card opens the thread; the one quick action on it does not. Answering in words
      happens in the thread, where what was asked is in front of you. */
-  const card = el("div", { className: "card homecard", tabIndex: 0, role: "button" });
+  const card = el("div", {
+    className: "card homecard" + (item.unread ? " unread" : ""),
+    tabIndex: 0,
+    role: "button",
+  });
   card.onclick = (ev) => {
     if (!ev.target.closest("button, a, textarea")) openThread(item);
   };
@@ -350,6 +359,24 @@ function poll() {
 
 const STATUS = { waiting: "Waiting", working: "Being worked on", answered: "Answered" };
 
+const WHY = {
+  status: "Status",
+  peer: "Peer ask",
+  own: "Their work",
+  draft: "Draft",
+  contributor: "Issue",
+  other: "Issue",
+};
+
+/** Something on a staff member's tracker, or elsewhere, with activity you have not seen. */
+function unreadRow(e) {
+  return clickable(e.item, "homerow", [
+    el("span", { className: "chip", textContent: WHY[e.why] ?? "Issue" }),
+    openLink(e.item),
+    el("span", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
+  ]);
+}
+
 function requestRow(e) {
   return clickable(e.item, "homerow", [
     el("span", { className: "chip " + (e.status === "answered" ? "cool" : e.status === "working" ? "warm" : ""), textContent: STATUS[e.status] }),
@@ -360,7 +387,11 @@ function requestRow(e) {
 
 /** A row that opens its thread from anywhere on it, except a button inside it. */
 function clickable(item, className, kids) {
-  const row = el("div", { className: className + " homeclick", tabIndex: 0, role: "button" }, kids);
+  const row = el(
+    "div",
+    { className: className + " homeclick" + (item.unread ? " unread" : ""), tabIndex: 0, role: "button" },
+    kids,
+  );
   row.onclick = (ev) => {
     if (!ev.target.closest("button, a")) openThread(item);
   };

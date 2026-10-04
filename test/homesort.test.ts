@@ -158,3 +158,39 @@ test("each staff member's latest run report, from their status issue, if it is r
   );
   assert.equal(mine.reports.length, 0, "a person's comment is not a report");
 });
+
+test("unread activity off Home's main lists still shows, newest first", () => {
+  const h = sortHome(
+    [
+      item({
+        title: "peer ask",
+        repo: "acme/qa",
+        labels: ["from-ops"],
+        unread: { thread: "1" },
+        updatedAt: "2026-10-03T00:00:00Z",
+      }),
+      item({ title: "own, read" }),
+      item({
+        title: "status",
+        number: 1,
+        labels: ["keep-open"],
+        unread: { thread: "2" },
+        updatedAt: "2026-10-04T00:00:00Z",
+      }),
+      item({ title: "decide", assignees: ["ada"], labels: ["decision"], unread: { thread: "3" } }),
+    ],
+    staff,
+    humans,
+    [],
+    NOW,
+  );
+  assert.deepEqual(
+    h.unread.map((e: any) => e.item.title),
+    ["status", "peer ask"],
+  );
+  assert.equal(
+    h.needs[0].item.unread.thread,
+    "3",
+    "an ask keeps its own mark, and is not listed twice",
+  );
+});

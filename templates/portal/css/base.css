@@ -283,6 +283,10 @@ dialog.sheet{border:1px solid var(--border-strong);border-radius:var(--r-lg);bac
       color:var(--ink);padding:0;width:min(860px,calc(100vw - 32px));max-height:calc(100vh - 48px);
       box-shadow:var(--shadow-lg)}
 dialog.sheet[open]{animation:dlgin .18s var(--ease)}
+/* Pinned to the window. The graph's own `.sheet` panel is position:absolute, and that rule
+   reached this dialog too, so one opened on a scrolled page sat at the top of the document,
+   half off the screen. */
+dialog.sheet{position:fixed}
 dialog.sheet::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(8px)}
 .sheetbody{padding:22px 24px 26px;overflow:auto;max-height:calc(100vh - 50px)}
 
@@ -295,6 +299,12 @@ dialog.sheet.side .sheetbody{max-height:100vh;height:100%;box-sizing:border-box;
 @media (prefers-reduced-motion:reduce){dialog.sheet.side[open]{animation:none}}
 .sidebar-x{position:sticky;top:0;display:flex;justify-content:flex-end;margin:-6px -6px 4px;z-index:1}
 dialog.sheet.side .viewer{border:0;box-shadow:none;padding:0;min-height:0;background:none}
+/* The title and its actions stay in view while a long thread scrolls under them. The close
+   button floats over the header's right edge, so the header leaves room for it. */
+dialog.sheet.side .thead{position:sticky;top:-18px;z-index:1;background:var(--bg);
+      padding-top:18px;margin-top:-18px;padding-right:44px}
+dialog.sheet.side .sidebar-x{position:sticky;top:0;height:0;margin:0;z-index:2;overflow:visible}
+dialog.sheet.side .sidebar-x .iconbtn{margin-top:-4px}
 .sheettitle{margin:0 0 14px;font:600 18px var(--sans);letter-spacing:-.02em}
 .sheetloading{display:grid;place-items:center;min-height:260px}
 .spinner{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);
