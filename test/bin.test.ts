@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { bin, withBin } from "../src/lib/bin.js";
 
@@ -24,4 +25,19 @@ test("only a command is rewritten, not the word roster", () => {
   assert.equal(withBin("0 on the roster. Hire someone", n), "0 on the roster. Hire someone");
   assert.equal(withBin("roster-ops is callable", n), "roster-ops is callable");
   assert.equal(withBin("run roster upgrade", "roster"), "run roster upgrade");
+});
+
+test("flags with no command go to the portal, not to unknown command", () => {
+  const cli = (args: string[]) =>
+    spawnSync(process.execPath, ["--import", "tsx", "src/cli.ts", ...args], { encoding: "utf8" });
+
+  // An unknown flag is the portal's to refuse, which proves the portal was the one asked.
+  const flag = cli(["--not-a-flag", "x"]);
+  assert.match(flag.stderr, /unknown flag --not-a-flag/);
+  assert.doesNotMatch(flag.stderr, /unknown command/);
+
+  // Help is still help, not the portal.
+  const help = cli(["--help"]);
+  assert.equal(help.status, 0);
+  assert.match(help.stdout, /roster help \[command\]/);
 });

@@ -270,7 +270,8 @@ ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","repo":"o/r"}' \
 ## `roster portal`
 
 Serve a local UI over the checked-out repositories. **`roster` with no arguments does the same**,
-which is the shortest way in.
+which is the shortest way in. It takes the same flags: `roster --no-open` is `roster portal
+--no-open`.
 
 ```
 --port <n>    default 4300

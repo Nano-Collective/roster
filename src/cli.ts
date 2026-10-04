@@ -80,7 +80,13 @@ async function main(argv: string[]): Promise<number> {
      a help page is a worse answer to it than the thing itself. */
   if (!command) return portalCommand([]);
 
-  if (command === "help" || command === "--help" || command === "-h") {
+  const asksHelp = command === "help" || command === "--help" || command === "-h";
+
+  /* Flags with no command are the portal's, for the same reason: `roster --no-open` is the
+     bare command with an option, not an unknown command called "--no-open". */
+  if (command.startsWith("-") && !asksHelp) return portalCommand(argv);
+
+  if (asksHelp) {
     const topic = rest[0];
     if (!topic || !HELPS[topic]) {
       const name = bin();
