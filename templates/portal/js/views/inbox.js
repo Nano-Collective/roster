@@ -117,6 +117,14 @@ export const viewPrs = (m) => inboxScreen(m, { prs: true });
  * what they do on Trackers too.
  */
 export function threadInto(host, ref) {
+  /* Read fresh. Home can be minutes behind GitHub, and the reason to open something is usually
+     to read the reply that made its row change. Reading it again also brings the row up to
+     date, so Home is right when the sheet closes. */
+  const item = (S.inbox?.items ?? []).find((i) => i.repo === ref.repo && i.number === ref.number);
+  if (item) {
+    THREADS.delete(item.repo + "#" + item.number);
+    item.partial = true;
+  }
   host.append(inboxScreen(el("div"), { prs: ref.kind === "pr", only: ref }));
 }
 

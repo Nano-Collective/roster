@@ -27,7 +27,10 @@ const KIND_TONE = { decision: "hot", review: "warm", chore: "cool", ask: "", mer
    a reply just started shows up without a reload. Only while Home is on screen. */
 const FAST = 5_000;
 const SLOW = 30_000;
+/** How old the issues on Home may get while it is open before they are read again. */
+const ISSUES_STALE = 120_000;
 let timer = null;
+let issuesAt = Date.now();
 
 export function viewHome(m) {
   m.append(el("h1", { textContent: "Home" }));
@@ -360,8 +363,16 @@ function poll() {
     .then((data) => {
       // Only a change repaints: a poll every few seconds must not move the page under you.
       const changed = JSON.stringify(data.staff) !== JSON.stringify(S.live?.staff);
+      /* A run that just ended has usually replied, closed or opened something, so that is when
+         the issues are read again. Otherwise every couple of minutes while Home is open. */
+      const ended = S.live && finishedCount(data) !== finishedCount(S.live);
       S.live = data;
-      if (changed && S.view === "home" && !document.querySelector("dialog[open]")) repaintInPlace();
+      if (ended || Date.now() - issuesAt > ISSUES_STALE) {
+        issuesAt = Date.now();
+        refreshSoon(false);
+      } else if (changed && S.view === "home" && !document.querySelector("dialog[open]")) {
+        repaintInPlace();
+      }
     })
     .catch(() => {})
     .finally(() => {
@@ -517,10 +528,19 @@ function button(label, primary, onclick) {
   return b;
 }
 
-/** After a write: re-read the inbox, and look for the run it starts. */
-function refreshSoon() {
+/** How many runs have finished across the staff, to notice one ending. */
+function finishedCount(live) {
+  return (live?.staff ?? []).reduce((n, l) => n + (l.finished?.length ?? 0), 0);
+}
+
+/**
+ * Re-read the issues and repaint where you were. After a write it also looks for the run the
+ * write starts; from the poll it does not, since the poll is already running.
+ */
+function refreshSoon(lookForRun = true) {
+  issuesAt = Date.now();
   ensureInbox(true)
     .then(() => S.view === "home" && !document.querySelector("dialog[open]") && repaintInPlace())
     .catch(() => {});
-  later(poll, 3_000);
+  if (lookForRun) later(poll, 3_000);
 }

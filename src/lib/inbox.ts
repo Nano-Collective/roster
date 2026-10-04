@@ -239,13 +239,21 @@ query($owner:String!, $name:String!) {
   }
 }`;
 
+/* What a row is sorted by on Home, so a thread read on its own can replace its row: when it
+   closed and who closed it, and who had the last word. */
+const ROW_EXTRAS = `closedAt
+        last: comments(last:1) { nodes { author { login } createdAt body } }
+        closer: timelineItems(last:1, itemTypes:[CLOSED_EVENT]) {
+          nodes { ... on ClosedEvent { actor { login } } }
+        }`;
+
 /* One thread, whole: its body, its reactions and its timeline. Asked for when it is opened. */
 const THREAD_QUERY = `
 query($owner:String!, $name:String!, $number:Int!) {
   repository(owner:$owner, name:$name) {
     issueOrPullRequest(number:$number) {
       ... on Issue {
-        number title body url state createdAt updatedAt
+        number title body url state createdAt updatedAt ${ROW_EXTRAS}
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
@@ -253,7 +261,7 @@ query($owner:String!, $name:String!, $number:Int!) {
         timelineItems(last:100, itemTypes:${ISSUE_TYPES}) { nodes { ${TIMELINE_COMMON} } }
       }
       ... on PullRequest {
-        number title body url state createdAt updatedAt isDraft mergeable
+        number title body url state createdAt updatedAt isDraft mergeable ${ROW_EXTRAS}
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
