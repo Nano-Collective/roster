@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { askKinds, OWNED_LABELS } from "../lib/asks.js";
 import { accessLink } from "../lib/callable.js";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
@@ -612,7 +613,8 @@ async function checkStaff(
   }
 
   if (online && manifest.brain) {
-    out.push(...(await checkStaffOnline(scope, manifest, callers)));
+    const logins = readHumans(org).flatMap((h) => (h.github ? [h.github] : []));
+    out.push(...(await checkStaffOnline(scope, manifest, callers, logins)));
   }
 
   return out;
@@ -817,6 +819,7 @@ async function checkStaffOnline(
   scope: string,
   manifest: Manifest,
   callers: Caller[],
+  humans: string[] = [],
 ): Promise<Finding[]> {
   const out: Finding[] = [];
   const repo = manifest.brain!;
@@ -827,7 +830,7 @@ async function checkStaffOnline(
     for (const m of c.text.matchAll(/secrets\.([A-Z0-9_]+)/g)) needed.add(m[1]!);
   }
 
-  const [secrets, orgSecrets, labels, runs, pinned, workflows] = await Promise.all([
+  const [secrets, orgSecrets, labels, runs, pinned, workflows, open] = await Promise.all([
     api<{ secrets: Array<{ name: string }> }>(`repos/${repo}/actions/secrets`),
     /* An agent credential kept once for the org, and shared with this repo, is as good as one
        on the repo: Actions resolves `secrets.X` from either. Read separately because the two
@@ -861,6 +864,7 @@ async function checkStaffOnline(
       : Promise.resolve(null),
     // The callers are read in detail below, so only everything else in the repo is looked at.
     checkWorkflows(scope, repo, new Set(callers.map((c) => c.name))),
+    api<Array<OpenIssue>>(`repos/${repo}/issues?state=open&per_page=100`),
   ]);
   out.push(...workflows);
 
@@ -922,7 +926,10 @@ async function checkStaffOnline(
           }
         : { scope, level: "ok", id: "labels", title: "every declared label exists" },
     );
+    out.push(ownedLabels(scope, repo, have));
   }
+
+  if (open.ok) out.push(...unkindedAsks(scope, repo, open.data!, humans));
 
   /* A peer label lives on the *peer's* tracker, not here: `from-cto` is how the CTO marks an
      ask it files on the CMO's board. Checking it against the wrong repo reports both of a
@@ -1341,4 +1348,59 @@ function parseFlags(argv: string[]): Flags {
     else throw new Error(`unknown flag ${argv[i]}`);
   }
   return out;
+}
+
+type OpenIssue = {
+  number: number;
+  title: string;
+  pull_request?: unknown;
+  labels: Array<{ name: string }>;
+  assignees?: Array<{ login: string }>;
+};
+
+/**
+ * The labels roster's own prompts apply: the three ask kinds and `keep-open`. Checked whatever
+ * staff.yaml declares, because a brain hired before they existed declares none of them, and
+ * the first agent to apply one would get an API error mid-run.
+ */
+export function ownedLabels(scope: string, repo: string, have: Set<string>): Finding {
+  const gone = OWNED_LABELS.filter((l) => !have.has(l));
+  return gone.length
+    ? {
+        scope,
+        level: "warn",
+        id: "owned-labels",
+        title: `roster's labels are missing from ${repo}: ${gone.join(", ")}`,
+        fix: gone.map((l) => `gh label create ${l} --repo ${repo} --force`).join("\n"),
+      }
+    : { scope, level: "ok", id: "owned-labels", title: "roster's own labels exist" };
+}
+
+/**
+ * An open ask on a human with no kind, or more than one. The portal sorts what needs a person by
+ * kind, so an ask without one is an ask that lands nowhere.
+ */
+export function unkindedAsks(
+  scope: string,
+  repo: string,
+  issues: OpenIssue[],
+  humans: string[],
+): Finding[] {
+  const on = new Set(humans.map((h) => h.toLowerCase()));
+  const bad = issues.filter(
+    (i) =>
+      !i.pull_request &&
+      (i.assignees ?? []).some((a) => on.has(a.login.toLowerCase())) &&
+      askKinds(i.labels.map((l) => l.name)).length !== 1,
+  );
+  if (!bad.length) return [];
+  return [
+    {
+      scope,
+      level: "warn",
+      id: "ask-kind",
+      title: `${bad.length} open ask${bad.length === 1 ? "" : "s"} on ${repo} without exactly one of decision, review or chore: ${bad.map((i) => "#" + i.number).join(", ")}`,
+      fix: "Label each with one kind. The next daily sweep does this too.",
+    },
+  ];
 }

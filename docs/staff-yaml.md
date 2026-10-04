@@ -49,7 +49,7 @@ surfaces:
 
 labels:
   owner: [will, cto, cmo]
-  kind: [decision, setup, build, blocked]
+  kind: [decision, review, chore, keep-open, build, blocked]
 ```
 
 ## Identity
@@ -154,6 +154,19 @@ A surface is a promise: `roster doctor` warns when one is declared and not on di
 Labels this staff member expects to exist on its own tracker, grouped for readability. Every
 value across every group is checked by `roster doctor`. An agent applying a label that does not
 exist gets an API error mid-run.
+
+Four labels are roster's own and are checked on every tracker whatever this lists:
+
+| Label | Means |
+|---|---|
+| `decision` | An ask for the human to rule on. It carries a default and a date; past the date, the staff member acts on the default and closes it. |
+| `review` | An ask for the human to read or approve something. |
+| `chore` | Something only the human can do: a setting, an account, a key. |
+| `keep-open` | A standing thread. A sweep never closes it. `roster hire` puts it on the status issue. |
+
+Every ask on the human carries exactly one of the first three, which is how the portal sorts
+what needs them. Staff close any issue on their tracker once nothing is left to do on it,
+including the human's requests, with one line saying what closed it.
 
 ## `memory`
 

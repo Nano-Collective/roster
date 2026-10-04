@@ -321,7 +321,18 @@ const SECRETS = [
   "BOT_APP_PRIVATE_KEY",
   "CLAUDE_CODE_OAUTH_TOKEN",
 ];
-const LABELS = ["boss", "cto", "decision", "setup", "build", "blocked", "from-cto", "from-cmo"];
+const LABELS = [
+  "boss",
+  "cto",
+  "decision",
+  "review",
+  "chore",
+  "keep-open",
+  "build",
+  "blocked",
+  "from-cto",
+  "from-cmo",
+];
 
 const iso = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
 /** A finished run that started `startedAgo` minutes ago and lasted `lasted` minutes. */
@@ -341,6 +352,7 @@ function world(over: Route[] = []): Route[] {
     { match: /actions\/permissions\/access$/, stdout: { access_level: "organization" } },
     { match: /actions\/secrets$/, stdout: { secrets: SECRETS.map((name) => ({ name })) } },
     { match: /\/labels\?per_page=100$/, stdout: LABELS.map((name) => ({ name })) },
+    { match: /\/issues\?state=open/, stdout: [] },
     {
       match: /^api graphql /,
       stdout: { data: { repository: { pinnedIssues: { nodes: [{ issue: { number: 1 } }] } } } },
@@ -372,6 +384,7 @@ test("online against a healthy org: nothing fails, and every check actually ran"
     "secrets",
     "labels",
     "peer-labels",
+    "owned-labels",
     "status-issue",
   ]) {
     assert.equal(findings(r, id)[0]?.level, "ok", `${id}: ${JSON.stringify(findings(r, id))}`);
@@ -460,7 +473,10 @@ test("a declared label missing from the tracker warns; an unpinned status issue 
   ]);
   const [labels] = findings(r, "labels", "cto");
   assert.equal(labels?.level, "warn");
-  assert.match(labels!.title, /not on acme\/technology: cto, decision, setup, build, blocked/);
+  assert.match(
+    labels!.title,
+    /not on acme\/technology: cto, decision, review, chore, keep-open, build, blocked/,
+  );
   const [pin] = findings(r, "status-issue", "cto");
   assert.equal(pin?.level, "warn");
   assert.match(pin!.title, /#1 is declared as the status issue but is not pinned/);
@@ -544,4 +560,42 @@ test("run history that cannot be read is a warning, not a silent pass", async ()
   ]);
   const [f] = runFinding(r, "runs", "cannot read runs for cto-daily.yaml");
   assert.equal(f?.level, "warn");
+});
+
+test("roster's own labels are checked whatever staff.yaml declares, with the command that adds them", async () => {
+  const { r } = await online([
+    {
+      match: /^api repos\/acme\/technology\/labels/,
+      stdout: LABELS.filter((l) => l !== "chore" && l !== "keep-open").map((name) => ({ name })),
+    },
+  ]);
+  const [f] = findings(r, "owned-labels", "cto");
+  assert.equal(f?.level, "warn");
+  assert.match(f!.title, /missing from acme\/technology: chore, keep-open/);
+  assert.match(f!.fix!, /gh label create keep-open --repo acme\/technology --force/);
+});
+
+test("an open ask on the human needs exactly one kind; PRs and other people's issues are left alone", async () => {
+  const issue = (number: number, labels: string[], assignee = "someone", pr = false) => ({
+    number,
+    title: "t",
+    labels: labels.map((name) => ({ name })),
+    assignees: [{ login: assignee }],
+    ...(pr ? { pull_request: {} } : {}),
+  });
+  const { r } = await online([
+    {
+      match: /^api repos\/acme\/technology\/issues\?state=open/,
+      stdout: [
+        issue(1, ["boss", "decision"]),
+        issue(2, ["boss"]),
+        issue(3, ["decision", "chore"]),
+        issue(4, [], "someone-else"),
+        issue(5, [], "someone", true),
+      ],
+    },
+  ]);
+  const [f] = findings(r, "ask-kind", "cto");
+  assert.equal(f?.level, "warn");
+  assert.match(f!.title, /2 open asks on acme\/technology .*: #2, #3$/);
 });

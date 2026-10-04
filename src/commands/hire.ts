@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { ASK_KINDS } from "../lib/asks.js";
 import { commitAndPush } from "../lib/commit.js";
 import { readOrgSecret, shareOrgSecret } from "../lib/credential.js";
 import { api, ghJson, ghReady } from "../lib/gh.js";
@@ -257,8 +258,8 @@ export function buildPlan(
     ...new Set([
       orgSpec.humanMarker,
       handle,
-      "decision",
-      "setup",
+      ...ASK_KINDS,
+      "keep-open",
       "build",
       "blocked",
       ...peers.map((p) => `from-${p.handle}`),
@@ -521,6 +522,9 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
     "title=📍 Where we are (living status - always current)",
     "-f",
     `body=${statusBody(staff)}`,
+    // A sweep closes anything with nothing left to do on it. This one never runs out.
+    "-f",
+    "labels[]=keep-open",
   ]);
   if (issue.ok && issue.data?.number) {
     await ghJson([

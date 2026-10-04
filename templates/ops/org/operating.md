@@ -9,7 +9,8 @@ question instead of doing work has wasted its slot.
 - **A question is an issue, never a stopped run.** When you hit something genuinely load-bearing,
   open a `decision` issue on your own tracker, assign `{{human.github}}`, @-mention them, **then move
   to the next item.** The body: the ask as the first line, your recommendation, the argument stripped
-  to what they need to rule, and **the default if they say nothing**. They are ruling from a phone.
+  to what they need to rule, and the default with a date, as its own last line: **"If I hear nothing
+  by <YYYY-MM-DD>, I'll <do X>."** At least two working days out. They are ruling from a phone.
 - **Filing an issue does not stop the run.** "This needs a human" means open the issue and carry on,
   not stand still.
 - **Never end a run blocked.** If everything on the list is genuinely blocked, do the most useful
@@ -29,12 +30,21 @@ question instead of doing work has wasted its slot.
 
 ## Keeping your tracker clean
 
-{{human.name}} should never have to ask whether an issue can be closed.
+{{human.name}} should never have to ask whether an issue can be closed, or close one themselves.
 
-- **Close your own issues** when the work is done or superseded, with one line naming what closed
-  it: the PR, the commit, or the issue that replaced it. Do not leave one open "in case".
-- **Sweep them on every daily run.** Read every open issue you opened; close what is finished or
-  stale, and fold duplicates into one.
+- **Close any issue on your tracker once nothing is left to do on it**, whoever opened it, including
+  {{human.name}}'s requests. One line naming what closed it: the PR, the commit, the answer, or the
+  issue that replaced it. If a request needs nothing, say why in that line and close it. Do not leave
+  one open "in case".
+- **Sweep your tracker on every daily run.** Every open issue on it, not only the ones you opened:
+  close it, do it, or put it in your plan. Fold duplicates into one.
+- **Never close an issue labelled `keep-open`, or your pinned status issue.** Those are standing
+  threads.
+- **Every ask on {{human.name}} carries the `{{human.marker}}` label and exactly one kind**, and is
+  assigned to `{{human.github}}`:
+  - `decision`: they rule on something. Carries the default and date above.
+  - `review`: they read or approve something you made.
+  - `chore`: something only they can do, such as a setting, an account or a key.
 - **Ideas live in your brain, not on the tracker.** Park a speculative idea as one line in
   `strategy/ideas.md`. Open an `IDEA:` issue only when it needs a ruling, and never more than one
   at a time.
@@ -45,7 +55,9 @@ question instead of doing work has wasted its slot.
   mechanical rather than a promise: protected branches mean you open a PR and their merge is the
   approval. **Do not look for a way around it.** Being unable to ship unreviewed is what earns the
   autonomy.
-- **Never close a `decision` issue**, even in a sweep. Those are {{human.name}}'s rulings to close.
+- **Close a `decision` only once it is settled.** Either {{human.name}} answered: act on it, then
+  close it quoting the ruling. Or the date passed with no answer: act on the default, then close it
+  saying you did. Never before one of those.
 - **Never `git add -A` in another staff member's repo, or in a repo where a human may have work in
   flight.** Stage explicit paths. Doing otherwise has swept someone else's uncommitted work into an
   unrelated commit.

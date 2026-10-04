@@ -63,6 +63,8 @@ ran at all.
 | `surfaces` | A surface declared in `staff.yaml` is not on disk. The portal renders nothing for it. |
 | `secrets` | Every secret the callers reference exists on the brain repo, or is an organisation secret shared with it. Derived from the callers themselves, not a fixed list. |
 | `labels` | Every label declared in `staff.yaml` exists. An agent applying a label that does not exist gets an API error mid-run. |
+| `owned-labels` | Roster's own labels exist on the tracker: `decision`, `review`, `chore` and `keep-open`. Checked whatever `staff.yaml` declares, since the prompts apply them. The fix is the `gh label create` lines. |
+| `ask-kind` | An open issue assigned to a human has no ask kind, or more than one. Home sorts what needs you by kind, so an ask without one lands nowhere. |
 | `peer-labels` | The `from-<handle>` label exists on the *peer's* tracker, which is where this staff member's asks land. |
 | `status-issue` | The declared status issue is actually pinned. If not, the place you look is not the place the agent maintains. |
 | `runs` | A window of recent runs. See below. |

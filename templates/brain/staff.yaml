@@ -40,4 +40,4 @@ surfaces:
 
 labels:
   owner: [%%HUMAN_MARKER%%, %%STAFF%%]
-  kind: [decision, setup, build, blocked]
+  kind: [decision, review, chore, keep-open, build, blocked]

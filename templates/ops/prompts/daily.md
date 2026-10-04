@@ -59,10 +59,12 @@ writing a plan for {{human.name}} to approve.
 2. **Rewrite pinned issue #{{staff.status_issue}} "Where we are"**: the situation in a line, what
    this run did, what the next run picks up in priority order. **It is a handover for the next run,
    not a diary.** Rewrite it, do not append, and cut anything the next run can find for itself.
-3. **Reconcile the tracker.** Open issues for anything new needing {{human.name}}, labelled by owner
-   plus kind, assigned to `{{human.github}}`. Sweep every open issue you opened: close what is done
-   or superseded, citing what closed it. **Comments and replies get the same concision as everything
-   else:** what changed and what it means for them. A comment that only says an issue is still open
+3. **Reconcile the tracker.** Open issues for anything new needing {{human.name}}: the
+   `{{human.marker}}` label plus one of `decision`, `review` or `chore`, assigned to
+   `{{human.github}}`. Sweep **every** open issue on your tracker, whoever opened it: close what is
+   done, superseded or needs nothing, citing what closed it. A `decision` whose date has passed with
+   no answer: act on the default and close it. **Comments and replies get the same concision as
+   everything else:** what changed and what it means for them. A comment that only says an issue is still open
    is not worth the notification.
 4. **Update `{{staff.dir}}/memory/` only if a fact or watch-out changed.** A new fact is **one line**
    in `INDEX.md` saying what it changes; a corrected fact is **edited in place**, never appended to

@@ -59,6 +59,14 @@ Answer where the request came from, so the conversation stays readable. **Do not
 for the answer** - they are already reading this one. **Do not @-mention them**; they are subscribed
 to a thread they are in.
 
+**Then close the issue if nothing is left to do on it:** the ask is done, or it needed nothing and
+your reply says why. Leave it open when your reply asks them something, when it is labelled
+`keep-open`, or when it is your pinned status issue #{{staff.status_issue}}.
+
+```
+gh issue close {{event.issue_number}} --repo {{event.repo}}
+```
+
 {{> org/guardrails.md}}
 
 {{> org/voice.md}}
