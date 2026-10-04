@@ -6,12 +6,25 @@ name: %%STAFF_UPPER%% daily run
 #
 # NOTE: %%TOKENS%% are filled by `roster hire`; GitHub's own ${{ }} are left alone.
 
+# The trigger and the date, as the Actions list shows it. The daily limit counts follow-on runs
+# by this name.
+run-name: "%%STAFF%% ${{ github.event_name == 'schedule' && 'daily' || inputs.trigger || 'manual' }}"
+
 on:
   schedule:
     - cron: "%%SCHEDULE%%"
+  # By hand, from Run once now, or as a follow-on: a daily run that ended with the next step
+  # ready starts one more, up to max_runs_per_day.
   workflow_dispatch:
+    inputs:
+      trigger:
+        description: "manual | follow-on"
+        required: false
+        default: manual
+        type: string
 
-# A second run while one is in flight would fight it over the tracker and the branch state.
+# A second run while one is in flight would fight it over the tracker and the branch state. A
+# follow-on is started from inside the run before it, so it waits here until that one ends.
 concurrency:
   group: %%STAFF%%-session
   cancel-in-progress: false
@@ -21,13 +34,19 @@ jobs:
     # The ceiling on what session.yaml's job token may do: reading the checkout, and the one
     # comment that says a run failed when the App that would normally say so is what broke.
     # A called workflow cannot raise these, so they have to be granted here.
+    #
+    # `actions` is for the daily limit, which reads this repo's runs, and for starting a
+    # follow-on run, which the job token may do: a workflow_dispatch it sends still starts a run.
     permissions:
       contents: read
       issues: write
+      actions: write
     uses: %%OPS_REPO%%/.github/workflows/session.yaml@main
     with:
       staff: %%STAFF%%
       kind: daily
+      trigger: ${{ github.event_name == 'schedule' && 'daily' || inputs.trigger || 'manual' }}
+      max_runs_per_day: %%MAX_RUNS%%
       ops_repo: %%OPS_REPO%%
       model: %%MODEL%%
       timeout_minutes: %%TIMEOUT%%

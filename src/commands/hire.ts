@@ -118,7 +118,12 @@ export interface OrgYaml {
   human?: { github?: string; marker?: string };
   /** The plural spelling. Both are read; see lib/humans.ts. */
   humans?: Array<{ github?: string; name?: string; marker?: string; role?: string }>;
-  defaults?: { model?: string; timeout_minutes?: number; mention_timeout_minutes?: number };
+  defaults?: {
+    model?: string;
+    timeout_minutes?: number;
+    mention_timeout_minutes?: number;
+    max_runs_per_day?: number;
+  };
   staff?: Array<{ handle: string; dir?: string; name?: string; schedule?: string }>;
   repos?: Array<{ name: string; visibility?: string; role?: string }>;
   review_gate?: unknown;
@@ -211,6 +216,7 @@ export function buildPlan(
     publicApp: publicApp || `${org.org}-robot`,
     publicTokenEnv: String(sample?.public_token_env ?? "PUBLIC_TOKEN"),
     agentSecret: opts.agentSecret ?? agentTokenEnv(org),
+    maxRunsPerDay: Number(org.defaults?.max_runs_per_day ?? 6),
   };
   if (!opts.name) warnings.push(`no --name given, so the role is called "${staff.name}"`);
   if (staff.worksIn.length) {

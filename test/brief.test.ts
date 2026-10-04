@@ -39,6 +39,7 @@ const STAFF = {
   publicApp: "acme-robot",
   publicTokenEnv: "PIPWEB_TOKEN",
   agentSecret: "AGENT_TOKEN",
+  maxRunsPerDay: 6,
 };
 
 test("there is a brief for each file a person actually writes, and one for changing them", () => {

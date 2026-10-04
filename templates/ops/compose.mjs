@@ -323,6 +323,16 @@ export function compose({ opsDir, brainsDir, staff, kind, runDir }) {
   // sends it to a 404 before it has read anything. So the absence is a value of its own.
   if (Object.keys(event).length) event = { ...event, no_comment: !event.comment_id };
 
+  // Who started this run, as flags: the prompt language has `{{#if}}` and nothing to compare
+  // with. A peer's ask reads differently from a person's, and a follow-on picks up mid-task.
+  const trigger = String(event.trigger ?? "");
+  event = {
+    ...event,
+    from_peer: trigger === "peer",
+    from_human: trigger !== "peer",
+    follow_on: trigger === "follow-on",
+  };
+
   // What people have open on the product repos, gathered by inflight.mjs just before this runs.
   // Read as a value and never rendered as a template: it is PR titles, which are a person's
   // words, and a `{{` in one must not be able to break composition.
@@ -345,6 +355,8 @@ export function compose({ opsDir, brainsDir, staff, kind, runDir }) {
       // The repo this role contributes to but does not own. Named explicitly in the
       // prompt because "a repo you do not own" is vaguer than an agent needs.
       product: (self.works_in ?? [])[0] ?? null,
+      // Absent from manifests written before it existed; the callers fall back to the same.
+      max_runs_per_day: self.max_runs_per_day ?? 6,
     },
     peers,
     peer: peers[0] ?? null,

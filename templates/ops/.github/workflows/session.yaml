@@ -19,6 +19,16 @@ on:
         required: false
         default: daily
         type: string
+      # What started the run: daily | manual | follow-on | mention | peer. Peer and follow-on
+      # runs start without a person asking, so they are the ones held to max_runs_per_day.
+      trigger:
+        required: false
+        default: ""
+        type: string
+      max_runs_per_day:
+        required: false
+        default: 6
+        type: number
       ops_repo:
         description: "owner/name of the ops repo holding org.yaml and the prompts"
         required: true
@@ -65,16 +75,69 @@ permissions:
   contents: read
 
 jobs:
+  # Two staff can ask each other things, and a daily run can start a follow-on, so runs can start
+  # runs. This is what stops that at max_runs_per_day. A mention is a person asking and is never
+  # held back, so only peer and follow-on runs are counted, and only the ones that ran: a caller
+  # whose condition did not match leaves a skipped run behind under the same name.
+  budget:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      issues: write
+    outputs:
+      go: ${{ steps.count.outputs.go }}
+    steps:
+      - name: Count today's runs nobody asked for
+        id: count
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGER: ${{ inputs.trigger }}
+          STAFF: ${{ inputs.staff }}
+          LIMIT: ${{ inputs.max_runs_per_day }}
+          ISSUE: ${{ inputs.issue_number }}
+        run: |
+          set -uo pipefail
+          case "$TRIGGER" in
+            peer|follow-on) ;;
+            *) echo "go=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          today=$(date -u +%F)
+          # Includes this run, which is in progress and named like the rest.
+          filter="[.workflow_runs[]
+            | select(.display_title | test(\"^$STAFF (peer|follow-on)( |\$)\"))
+            | select(.conclusion != \"skipped\")] | length"
+          # One count per page, summed. pipefail makes a failed read fail the whole line.
+          if ! n=$(gh api --paginate "repos/${{ github.repository }}/actions/runs?created=>=$today&per_page=100" \
+              --jq "$filter" | awk '{s += $1} END {print s + 0}'); then
+            # Unknown is not under the limit. A run held back costs a day; a loop costs a bill.
+            echo "::warning::could not count today's runs, so this one does not start"
+            n=999999
+          fi
+          echo "$n of $LIMIT runs today that nobody asked for, this one included"
+          if [ "$n" -le "$LIMIT" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "go=false" >> "$GITHUB_OUTPUT"
+          msg="Not started: $STAFF has had $LIMIT runs today that nobody asked for, which is max_runs_per_day. The next daily run picks this up, or mention them to start one now."
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --repo "${{ github.repository }}" --body "$msg" || true
+          fi
+
   session:
+    needs: budget
+    if: needs.budget.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout_minutes }}
 
     # `issues: write` is for the failure notice alone, which falls back to this job's own token
-    # when the App's cannot be minted. A called workflow cannot raise what its caller granted, so
-    # the callers ask for the same.
+    # when the App's cannot be minted. `actions: write` starts a follow-on run. A called workflow
+    # cannot raise what its caller granted, so the callers ask for the same.
     permissions:
       contents: read
       issues: write
+      actions: write
 
     # secrets are not usable in a step-level `if`, so the presence check is hoisted here.
     env:
@@ -256,7 +319,8 @@ jobs:
             {"issue_number":"${{ inputs.issue_number }}",
              "comment_id":"${{ inputs.comment_id }}",
              "repo":"${{ github.repository }}",
-             "actor":"${{ github.actor }}"}
+             "actor":"${{ github.actor }}",
+             "trigger":"${{ inputs.trigger }}"}
         run: |
           node roster-ops/compose.mjs --staff "${{ inputs.staff }}" --kind "${{ inputs.kind }}" --ops roster-ops --brains . > .roster-prompt.txt
           {
@@ -379,6 +443,25 @@ jobs:
           echo "unanswered=true" >> "$GITHUB_OUTPUT"
           echo "::error::the session ended without replying on #$ISSUE or closing it"
           exit 1
+
+      # A daily run that ended with the next step ready says so in .roster-run/continue, and one
+      # more run starts once this one ends: it waits on the caller's concurrency group. Only
+      # after a run that finished, and the budget job above holds the chain to the day's limit.
+      # The job token can do this: a workflow_dispatch it sends still starts a run.
+      - name: Start a follow-on run
+        if: >-
+          inputs.kind == 'daily' && success()
+          && (steps.session_action.outcome == 'success' || steps.session_cli.outcome == 'success')
+          && hashFiles('.roster-run/continue') != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CALLER: ${{ github.workflow_ref }}
+        run: |
+          set -uo pipefail
+          file=$(basename "${CALLER%@*}")
+          gh workflow run "$file" --repo "${{ github.repository }}" -f trigger=follow-on
+          { echo "Started a follow-on run:"; head -c 300 .roster-run/continue; echo; } >> "$GITHUB_STEP_SUMMARY"
 
       # What this run was and what it cost, in the job summary and as an artifact with a stable
       # name, which is what the portal's Runs screen and `roster doctor` read back. Never fatal:

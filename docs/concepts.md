@@ -28,7 +28,8 @@ can learn when you need it.
    hands it a prompt built from the org layer plus its charter and memory, and it does one piece
    of work and writes down what happened. [More](#kinds-of-run).
 6. **Mentions.** Write `@handle` in an issue or comment on a staff member's own tracker and it
-   runs to answer that, between daily runs. Nothing on a product repo wakes anybody; you ask
+   runs to answer that, between daily runs. A peer's ask wakes them the same way, and a daily
+   run with the next step ready starts another. Nothing on a product repo wakes anybody; you ask
    them on their tracker. [More](#kinds-of-run).
 
 Everything below, and the rest of the docs, is detail: identities, peers, surfaces, the
@@ -126,6 +127,20 @@ control.
 |---|---|
 | `daily` | the scheduled session. Boot, work, hand off. |
 | `mention` | `@handle` in a comment or a new issue body. A task, not a session. |
+
+What starts a run:
+
+| Trigger | Runs | Counts against `max_runs_per_day` |
+|---|---|---|
+| the schedule | `daily` | no |
+| **Run once now**, or Actions → Run workflow | `daily` | no |
+| a person writing `@handle` on the staff member's tracker | `mention` | no |
+| a peer opening an issue there with their `from-<handle>` label | `mention`, framed as a peer's ask | yes |
+| a daily run that ended with the next step ready | `daily`, as a follow-on | yes |
+
+A person commenting without the `@handle` wakes nobody, so people can discuss on an issue
+among themselves. A run started by a peer may not file on another peer, and the limit (6 a day
+unless `staff.yaml` says otherwise) stops a chain of runs that nobody asked for.
 
 A `mention` prompt refuses to compose without trigger context, because it is written for the
 comment that woke it. That is correct behaviour, not a bug.

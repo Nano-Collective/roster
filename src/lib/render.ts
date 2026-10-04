@@ -35,6 +35,8 @@ export interface StaffSpec {
   publicTokenEnv: string;
   /** The repo secret holding the agent's credential, named after the credential itself. */
   agentSecret: string;
+  /** Peer and follow-on runs a day. Mentions never count against it. */
+  maxRunsPerDay: number;
 }
 
 export interface OrgSpec {
@@ -129,6 +131,7 @@ export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
     PUBLIC_APP: s.publicApp,
     PUBLIC_TOKEN_ENV: s.publicTokenEnv,
     AGENT_SECRET: s.agentSecret,
+    MAX_RUNS: String(s.maxRunsPerDay),
   };
 }
 
@@ -278,5 +281,7 @@ export function specFromManifest(m: Record<string, any>, dir: string): StaffSpec
     publicApp: String(pub.app ?? ""),
     publicTokenEnv: String(m.public_token_env ?? "PUBLIC_TOKEN"),
     agentSecret: String(m.agent_secret ?? "CLAUDE_CODE_OAUTH_TOKEN"),
+    // Peer and follow-on runs a day. Mentions are a person asking and never count.
+    maxRunsPerDay: Number(m.max_runs_per_day ?? 6),
   };
 }

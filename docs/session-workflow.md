@@ -33,6 +33,8 @@ repositories in this organisation**. Without it, callers fail with "workflow not
 | `allowed_tools` | string | `Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch` | Tool permissions, for agents that take them. |
 | `issue_number` | string | `""` | Trigger context. |
 | `comment_id` | string | `""` | Trigger context. |
+| `trigger` | string | `""` | What started the run: `daily`, `manual`, `follow-on`, `mention` or `peer`. Passed to the prompt. |
+| `max_runs_per_day` | number | `6` | How many `peer` and `follow-on` runs may start in a UTC day. Mentions are never counted. |
 
 ## Secrets
 
@@ -50,6 +52,14 @@ before any checkout, so a missing credential is an obvious failure rather than a
 authentication error forty lines into a log.
 
 ## What it does, in order
+
+Before the session job, a small **budget** job. For a `peer` or `follow-on` run it counts this
+brain's runs today with those names in their `run-name`, this one included and skipped ones
+left out. Over `max_runs_per_day`, the session does not start and the issue that woke it gets a
+comment saying so. If the runs cannot be read, the run does not start either: a run held back
+costs a day, and a loop costs a bill. Every other trigger goes straight through.
+
+Then the session:
 
 1. **Start the clock**, for the run record.
 2. **Mint the private-tracker token** from the staff member's App.
@@ -70,6 +80,10 @@ authentication error forty lines into a log.
 14. **Work out which agent runs this**, by running `agents.mjs`.
 15. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
     CLI one. See [choosing a coding agent](agents.md).
+    Then, for a mention, **check the request was answered**: a reply in the thread, or the issue
+    closed. Neither fails the job, so the notice below tells the human.
+    Then, for a daily run that finished and wrote `.roster-run/continue`, **start a follow-on
+    run**: one more daily run with `trigger: follow-on`, which waits for this one to end.
 16. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
     and tokens where the agent reports them. Into the job summary, and kept as an artifact
     called `roster-run`. Never fatal. See [cost](cost.md#what-each-run-cost).

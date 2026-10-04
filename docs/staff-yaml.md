@@ -25,6 +25,7 @@ schedule: "0 7 * * 1-5"
 model: claude-opus-5-5
 timeout_minutes: 90
 mention_timeout_minutes: 90
+max_runs_per_day: 6
 
 bot: acme-cto[bot]
 public_bot: acme-robot[bot]
@@ -71,6 +72,7 @@ labels:
 | `model` | org default | Model id. |
 | `timeout_minutes` | 90 | Ceiling on the daily session. |
 | `mention_timeout_minutes` | 90 | Ceiling on a mention run. |
+| `max_runs_per_day` | 6 | Runs a UTC day that start without a person asking: a peer's ask, or a follow-on to a daily run. Mentions never count. Rendered into the callers, so change it and run `roster upgrade`. |
 
 The three ceilings are separate on purpose. Raising the daily one because sessions have grown
 should not double the budget for a PR amendment. A job killed by a ceiling is reported by

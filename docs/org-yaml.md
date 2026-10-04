@@ -126,6 +126,7 @@ Fallbacks for staff members who do not set their own.
 | `model` | Model id passed to the agent. |
 | `timeout_minutes` | Ceiling on a daily session. `90` if unset. |
 | `mention_timeout_minutes` | Ceiling on a mention run. Falls back to `timeout_minutes`, then `90`. |
+| `max_runs_per_day` | What a new hire's `max_runs_per_day` starts at. `6` when unset. |
 | `allowed_tools` | Claude's own spelling of a permission level, kept because it predates `agent.permissions` and still wins for the agents that take a tool list. Nothing translates it for the others: a list written for one agent is not a permission level for another. Prefer [`agent.permissions`](agents.md#permissions), which every agent understands. |
 
 ### `memory`

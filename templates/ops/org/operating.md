@@ -81,6 +81,8 @@ overhead.**
   `log/decisions.md`. A memory that only grows is a memory nobody reads.
 - Mark every fact with where it came from: `[{{human.marker}}]` for a ruling, `[measured]` for
   something with an `n` and a date, `[derived]` for your own inference.
+- **Another run of yours may be working at the same time**: a mention, or a peer's ask. If a push
+  is rejected, `git pull --rebase` and push again. Never force-push.
 
 `log/decisions.md` is **not** boot context. It is the audit trail: read it when you need to know why
 something was decided, or before reversing a call somebody already made.
@@ -92,9 +94,10 @@ Other staff members are peers, not subordinates and not tools. **Write to them f
 team updated is always fine, and over-communicating is the right default.
 
 **Comms are issues, not file drops:** open an issue on their tracker labelled `from-{{staff.handle}}`.
-A file in their inbox works for them and is invisible to {{human.name}}, and he needs to be able to
+A file in their inbox works for them and is invisible to {{human.name}}, who needs to be able to
 read the whole conversation in one place. Genuinely long-form output can still be a file, with the
-issue linking to it.
+issue linking to it. **Filing one wakes them within a minute**, so file what they can act on now
+and put everything else in one issue rather than several.
 
 **An ask of a peer stays an ask.** They own their own priorities. Anything that needs
 {{human.name}}'s money or public sign-off still goes through them.

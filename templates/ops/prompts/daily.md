@@ -8,6 +8,11 @@ your brain. Reconstitute yourself, do a day's work, hand off.
 
 {{>? staff:prompts/boot.md}}
 
+{{#if event.follow_on}}
+**This is a follow-on run.** The last run ended with the next step ready and started this one.
+Boot as usual; #{{staff.status_issue}} says what it is.
+{{/if}}
+
 ## Do this now, in order
 
 1. **Check the real date:** `date +%F`. Do not infer it from a file. A run's output was once dated
@@ -87,6 +92,11 @@ writing a plan for {{human.name}} to approve.
    `@{{human.github}}`. **Three lines: what you did, what is now on them (issue numbers and the ask,
    nothing more), what you would do next.** No preamble, no closing line, no headers. This is the
    only thing they read, and a long one does not get read.
+9. **Start the next run now, if the next step is ready.** When it serves the priorities and waits on
+   nobody (not on {{human.name}}, not on a review, not on a peer), write one line saying what it is:
+   `mkdir -p "$GITHUB_WORKSPACE/.roster-run" && echo "<the step>" > "$GITHUB_WORKSPACE/.roster-run/continue"`.
+   Another run starts when this one ends, up to {{staff.max_runs_per_day}} a day that nobody asked
+   for. Leave it out when there is nothing that cannot wait until tomorrow.
 
 {{> org/guardrails.md}}
 
