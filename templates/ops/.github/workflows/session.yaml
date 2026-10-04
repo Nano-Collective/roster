@@ -79,6 +79,14 @@ jobs:
     # secrets are not usable in a step-level `if`, so the presence check is hoisted here.
     env:
       HAS_PUBLIC_APP: ${{ secrets.PUBLIC_APP_ID != '' }}
+      # Nothing is listening once the agent ends its turn: the session is over and a background
+      # job dies with the runner. Claude Code moves any command past its timeout (ten minutes by
+      # default) into the background, and an agent told "you will be notified" ends its turn to
+      # wait, so a slow test suite cost the whole run, unpushed, reported as a success. With
+      # background tasks off a slow command stays in the foreground, and the higher cap lets a
+      # long gate finish inside the turn. timeout-minutes is still the real bound.
+      CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
+      BASH_MAX_TIMEOUT_MS: "2700000"
 
     steps:
       # For the run record at the end. A job has no start time of its own to read back.
@@ -341,6 +349,37 @@ jobs:
           fi
           eval "$RUN"
 
+      # A session can exit cleanly without doing what it was asked: the success above only means
+      # the agent stopped. A mention is answered by a reply in its thread, or by the issue being
+      # closed when the request said to answer somewhere else. When neither happened the job
+      # fails, so the notice below tells the human instead of leaving them waiting.
+      #
+      # Never fails on its own account: if the issue cannot be read, nothing is claimed.
+      - name: Check the request was answered
+        id: answered
+        if: >-
+          inputs.kind == 'mention' && inputs.issue_number != ''
+          && (steps.session_action.outcome == 'success' || steps.session_cli.outcome == 'success')
+        env:
+          GH_TOKEN: ${{ steps.private.outputs.token }}
+          BOT: ${{ steps.private.outputs.app-slug }}[bot]
+          ISSUE: ${{ inputs.issue_number }}
+        run: |
+          set -uo pipefail
+          since=$(date -u -d "@$ROSTER_STARTED" +%Y-%m-%dT%H:%M:%SZ)
+          if ! state=$(gh api "repos/${{ github.repository }}/issues/$ISSUE" --jq .state) ||
+             ! replies=$(gh api --paginate "repos/${{ github.repository }}/issues/$ISSUE/comments?since=$since" \
+               --jq ".[] | select(.user.login == \"$BOT\" and .created_at >= \"$since\") | .id"); then
+            echo "::warning::could not read #$ISSUE, so whether it was answered is unknown"
+            exit 0
+          fi
+          if [ "$state" = "closed" ] || [ -n "$replies" ]; then
+            exit 0
+          fi
+          echo "unanswered=true" >> "$GITHUB_OUTPUT"
+          echo "::error::the session ended without replying on #$ISSUE or closing it"
+          exit 1
+
       # What this run was and what it cost, in the job summary and as an artifact with a stable
       # name, which is what the portal's Runs screen and `roster doctor` read back. Never fatal:
       # a missing record costs a row in a table, and failing the job over it would cost the run.
@@ -354,6 +393,7 @@ jobs:
           MODEL: ${{ steps.agent.outputs.model || inputs.model }}
           AGENT_OUTCOME: ${{ steps.session_action.outcome != 'skipped' && steps.session_action.outcome || steps.session_cli.outcome }}
           JOB_STATUS: ${{ job.status }}
+          UNANSWERED: ${{ steps.answered.outputs.unanswered }}
           RESULT_FILE: ${{ steps.session_action.outputs.execution_file || format('{0}/.roster-run/agent-result.json', github.workspace) }}
         run: node roster-ops/run-record.mjs --out .roster-run/run.json
 
@@ -383,6 +423,7 @@ jobs:
           BRAIN_DIR: ${{ steps.plan.outputs.brain_dir }}
           BRAIN_REPO: ${{ steps.plan.outputs.brain_repo || github.repository }}
           ISSUE: ${{ inputs.issue_number }}
+          UNANSWERED: ${{ steps.answered.outputs.unanswered }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -uo pipefail
@@ -402,6 +443,9 @@ jobs:
           fi
 
           body="This run did not finish, so there is no answer coming. [Run ${GITHUB_RUN_ID}]($RUN_URL) has the error."
+          if [ "$UNANSWERED" = "true" ]; then
+            body="This run stopped without replying here or closing the issue, so there is no answer coming. [Run ${GITHUB_RUN_ID}]($RUN_URL) shows where it stopped."
+          fi
           if [ -n "$APP_TOKEN" ] && GH_TOKEN="$APP_TOKEN" gh issue comment "$issue" --repo "$BRAIN_REPO" --body "$body"; then
             exit 0
           fi

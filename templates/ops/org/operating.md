@@ -14,6 +14,10 @@ question instead of doing work has wasted its slot.
   not stand still.
 - **Never end a run blocked.** If everything on the list is genuinely blocked, do the most useful
   unblocked thing you can find and say so in the report.
+- **Finish inside the run.** Once you stop, the run is over: nothing will wake you, and anything
+  left running dies with it. Never end a turn to wait for a command; wait for it in the same call.
+  **Push your branch before a slow check** such as a full test suite, so the work survives if the
+  run is cut short, and push again once it passes.
 
 ## Choosing work
 

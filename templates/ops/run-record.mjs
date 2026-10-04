@@ -64,9 +64,11 @@ export function readResult(text) {
  * What happened, in one word.
  *
  * The agent step's own outcome when it ran. When it never ran, the job's status says whether
- * that was a cancel (a timeout is one) or a failure somewhere in the setup before it.
+ * that was a cancel (a timeout is one) or a failure somewhere in the setup before it. A mention
+ * the agent exited from cleanly without answering is not a success, whatever the agent says.
  */
-export function outcomeOf(agentOutcome, jobStatus) {
+export function outcomeOf(agentOutcome, jobStatus, unanswered = false) {
+  if (agentOutcome === "success" && unanswered) return "unanswered";
   if (["success", "failure", "cancelled"].includes(agentOutcome)) return agentOutcome;
   if (jobStatus === "cancelled") return "cancelled";
   return "setup-failure";
@@ -79,7 +81,7 @@ export function buildRecord(env, resultText, now = Date.now()) {
     v: 1,
     staff: env.STAFF ?? "",
     kind: env.KIND ?? "",
-    outcome: outcomeOf(env.AGENT_OUTCOME, env.JOB_STATUS),
+    outcome: outcomeOf(env.AGENT_OUTCOME, env.JOB_STATUS, env.UNANSWERED === "true"),
     started: started ? new Date(started * 1000).toISOString() : null,
     duration_s: started ? Math.max(0, Math.round(now / 1000 - started)) : null,
     agent: env.AGENT_ID || null,

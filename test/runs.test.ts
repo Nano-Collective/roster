@@ -61,6 +61,18 @@ test("the outcome knows a failure before the agent from a failure of the agent",
   assert.equal(outcomeOf("success", "success"), "success");
 });
 
+test("a mention the agent exited from without answering is not a success", () => {
+  /* An agent that ended its turn to wait on a background job exited cleanly, so the step was
+     green and the record said success, while nothing was pushed and nobody was answered. */
+  assert.equal(outcomeOf("success", "failure", true), "unanswered");
+  assert.equal(outcomeOf("failure", "failure", true), "failure", "a real failure stays one");
+  const record = buildRecord(
+    { STAFF: "cto", KIND: "mention", AGENT_OUTCOME: "success", UNANSWERED: "true" },
+    "",
+  );
+  assert.equal(record.outcome, "unanswered");
+});
+
 test("a record carries duration from the clock the job started, and a link to its log", () => {
   const record = buildRecord(
     {
