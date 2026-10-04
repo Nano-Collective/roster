@@ -87,9 +87,9 @@ Where the portal opens. An Ask box at the top, then these, in order.
 - **Latest reports.** Each staff member's run report from the last day: the three lines they
   post on their status issue at the end of a daily run. Nothing shows until there is one.
 - **Needs you.** Every ask a staff member has put on you, and every pull request ready to
-  merge, oldest first. Each card has its action on it:
-  - a `decision` has an answer box, and **Go with the default** when it carries one. The
-    default and its date are shown, and turn amber once the date has passed.
+  merge, oldest first. Each card has one action on its right:
+  - a `decision` has **Reply**, and **Go with the default** when it carries one. The default
+    and its date are shown, and turn amber once the date has passed.
   - a `review` has **Approve**.
   - a `chore` has **Done**, which closes it.
   - a pull request has **Merge**, unless its checks fail, are still running, or it conflicts.
@@ -106,10 +106,14 @@ Where the portal opens. An Ask box at the top, then these, in order.
 - **Closed today.** What the staff closed today, with the line they closed it with, and
   **Reopen** beside each. Staff close finished issues themselves, so this is where you check.
 
+**Every item opens in a side sheet.** Click anywhere on a card or a row and its thread opens
+on the right: the conversation, Reply, Close or Reopen, Merge for a pull request, and Open in
+GitHub. Escape or the × closes it, and Home repaints where you were.
+
 **Nothing is missed.** Every open issue and pull request has exactly one place: on Home, or on
 the staff member's own tracker (their status issue, a peer's ask, their own work), or elsewhere
 (draft pull requests, contributor issues). The line at the bottom counts the last two, with a
-link to Trackers. Clicking any title opens its thread there.
+link to Trackers.
 
 ## Trackers
 

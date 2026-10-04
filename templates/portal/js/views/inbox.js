@@ -108,6 +108,18 @@ export const viewInbox = (m) => inboxScreen(m, {});
  */
 export const viewPrs = (m) => inboxScreen(m, { prs: true });
 
+/**
+ * One thread, drawn into `host` on its own: the header, its actions, the reply box and the
+ * conversation, with no list beside it. Home opens a card this way, in a side sheet.
+ *
+ * It is the same screen as Trackers, built off-page, with only its viewer kept. Replying,
+ * closing and merging repaint a list nobody can see and then reopen this thread, which is
+ * what they do on Trackers too.
+ */
+export function threadInto(host, ref) {
+  host.append(inboxScreen(el("div"), { prs: ref.kind === "pr", only: ref }));
+}
+
 function inboxScreen(m, opts) {
   /* "Pending work", not "Pull requests". Every one of these is a piece of work a staff member
      has finished and cannot land on their own, which is the thing you are being asked about.
@@ -166,10 +178,15 @@ function inboxScreen(m, opts) {
   refresh.onclick = () => { refresh.classList.add("spin"); load(true); };
 
   if (S.inbox) { stampCounts(); paint(); restore(); } else load(false);
+  if (opts.only) return viewer;
 
   /** A `?t=` in the URL names a thread. It used to be read into the state and then never
       acted on, because only the already-loaded branch opened one. */
   function restore() {
+    if (opts.only) {
+      openThread(opts.only);
+      return;
+    }
     if (!S.inboxOpen) return;
     // The two screens share one open thread, and each holds half the org. Whatever was open on
     // the other one is not in this list, so it is dropped rather than opened beside it.

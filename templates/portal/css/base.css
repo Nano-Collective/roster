@@ -155,6 +155,7 @@ svg.ic{width:var(--ic,15px);height:var(--ic,15px);display:block;flex:none}
 .chip.hot{color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent)}
 .chip.warm{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,transparent)}
 .chip.cool{color:var(--ruled);background:color-mix(in srgb,var(--ruled) 12%,transparent)}
+.chip.ok{color:var(--accent);background:var(--accent-soft)}
 .pill{font:11px var(--mono);color:var(--ink-dim);border:1px solid transparent;
       background:color-mix(in srgb,var(--ink) 4%,transparent);
       border-radius:999px;padding:2px 9px;font-variant-numeric:tabular-nums}
@@ -284,6 +285,16 @@ dialog.sheet{border:1px solid var(--border-strong);border-radius:var(--r-lg);bac
 dialog.sheet[open]{animation:dlgin .18s var(--ease)}
 dialog.sheet::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(8px)}
 .sheetbody{padding:22px 24px 26px;overflow:auto;max-height:calc(100vh - 50px)}
+
+/* The side sheet: a thread opened from Home, full height on the right. */
+dialog.sheet.side{margin:0 0 0 auto;height:100vh;max-height:100vh;width:min(780px,100vw);
+      border-radius:0;border-width:0 0 0 1px}
+dialog.sheet.side[open]{animation:sidein .22s var(--ease)}
+dialog.sheet.side .sheetbody{max-height:100vh;height:100%;box-sizing:border-box;padding:18px 22px 40px}
+@keyframes sidein{from{transform:translateX(24px);opacity:0}}
+@media (prefers-reduced-motion:reduce){dialog.sheet.side[open]{animation:none}}
+.sidebar-x{position:sticky;top:0;display:flex;justify-content:flex-end;margin:-6px -6px 4px;z-index:1}
+dialog.sheet.side .viewer{border:0;box-shadow:none;padding:0;min-height:0;background:none}
 .sheettitle{margin:0 0 14px;font:600 18px var(--sans);letter-spacing:-.02em}
 .sheetloading{display:grid;place-items:center;min-height:260px}
 .spinner{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);

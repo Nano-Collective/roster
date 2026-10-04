@@ -167,10 +167,11 @@ export function askYes({ title, hint, confirm = "Continue" }) {
  * @returns {{set: (node: Node) => void, close: () => void, isOpen: () => boolean} | null}
  *   null where there is no dialog element (the test shim), and the caller draws inline instead.
  */
-export function sheet({ node, onClose }) {
+export function sheet({ node, onClose, side = false }) {
   const box = document.createElement("dialog");
   if (typeof box.showModal !== "function") return null;
-  box.className = "sheet";
+  // `side` slides in from the right at full height, for reading a thread beside the page.
+  box.className = side ? "sheet side" : "sheet";
   const body = el("div", { className: "sheetbody" });
   body.append(node);
   box.append(body);

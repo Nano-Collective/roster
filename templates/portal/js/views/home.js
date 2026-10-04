@@ -1,15 +1,17 @@
 /* Home: what needs you, who is working, what you asked for, and what was closed today.
  *
  * Built from the inbox list and /api/live, sorted by homesort.js, which is where the rule that
- * every open item has exactly one place lives. Clicking an item opens its thread on the
- * Trackers screen, which is the same thread view the inbox always had. */
+ * every open item has exactly one place lives. Clicking an item opens its thread in a side
+ * sheet, the same thread view Trackers has, with the reply box in it. */
 
 import { getLive, post } from "../api.js";
+import { sheet } from "../dialog.js";
 import { ago, el, skeleton } from "../dom.js";
 import { daysUntil, sortHome } from "../homesort.js";
-import { icon, staffIcon } from "../icons.js";
+import { icon, iconHTML, staffIcon } from "../icons.js";
 import { ensureInbox, stampCounts } from "../refresh.js";
 import { go, render } from "../router.js";
+import { threadInto } from "./inbox.js";
 import { humansOf, S } from "../state.js";
 
 const KIND_LABEL = {
@@ -143,26 +145,37 @@ function titleOf(said) {
 
 function needCard(e) {
   const { item, kind } = e;
-  const card = el("div", { className: "card homecard" });
-  card.append(
+  /* The whole card opens the thread; the one quick action on it does not. Answering in words
+     happens in the thread, where what was asked is in front of you. */
+  const card = el("div", { className: "card homecard", tabIndex: 0, role: "button" });
+  card.onclick = (ev) => {
+    if (!ev.target.closest("button, a, textarea")) openThread(item);
+  };
+  card.onkeydown = (ev) => {
+    if (ev.target === card && (ev.key === "Enter" || ev.key === " ")) {
+      ev.preventDefault();
+      openThread(item);
+    }
+  };
+  // What it is on the left, what you can do about it on the right.
+  const about = el("div", { className: "homeabout" }, [
     el("div", { className: "homehead" }, [
       el("span", { className: "chip " + (KIND_TONE[kind] ?? ""), textContent: KIND_LABEL[kind] }),
       openLink(item),
     ]),
     el("div", { className: "meta", textContent: whereOf(e) + " · " + ago(item.createdAt) }),
-  );
+  ]);
+  card.append(about);
 
-  if (kind === "decision" && item.due) card.append(dueLine(item.due));
-  if (kind === "merge") card.append(checksLine(item));
+  if (kind === "decision" && item.due) about.append(dueLine(item.due));
+  if (kind === "merge") about.append(checksLine(item));
 
+  // The note comes first so that what happened sits just left of the button that did it.
   const note = el("span", { className: "meta" });
-  const actions = el("div", { className: "row homeacts" });
+  const actions = el("div", { className: "row homeacts" }, [note]);
 
   if (kind === "decision" || kind === "ask") {
-    const box = el("textarea", { className: "homeanswer", rows: 2, placeholder: "Your answer" });
-    const send = button("Send", true, () => say(e, box.value, note, actions));
-    card.append(box);
-    actions.append(send);
+    actions.append(button("Reply", true, () => openThread(item)));
     if (item.due) actions.append(button("Go with the default", false, () => say(e, "Go with your default.", note, actions)));
   } else if (kind === "review") {
     actions.append(button("Approve", true, () => say(e, "Approved.", note, actions)));
@@ -174,7 +187,6 @@ function needCard(e) {
     merge.disabled = blocked || item.checks === "pending";
     actions.append(merge);
   }
-  actions.append(button("Open", false, () => openThread(item)), note);
   card.append(actions);
   return card;
 }
@@ -248,45 +260,69 @@ function whatRun(r) {
 function working(staff) {
   const box = el("div", { className: "card homeworking" });
   if (!S.live) {
-    box.append(el("p", { className: "meta", textContent: "Asking GitHub…" }));
+    box.append(el("p", { className: "homerunwhat", textContent: "Asking GitHub…" }));
     return box;
   }
   for (const s of staff) {
     const l = (S.live.staff ?? []).find((x) => x.handle === s.handle);
-    const row = el("div", { className: "homerun" });
-    row.append(el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]));
+    const runs = l && !l.error ? (l.running ?? []) : [];
+    const busy = runs.length > 0;
+    const last = l?.finished?.[0];
+
+    const what = el("div", { className: "homerunwhat" });
+    let log = null;
     if (!l || l.error) {
-      row.append(el("span", { className: "meta err", textContent: l?.error ?? "not read" }));
-    } else if (l.running?.length) {
-      for (const r of l.running) row.append(runLink(s, r, true));
-    } else {
-      const last = l.finished?.[0];
-      row.append(
-        el("span", {
-          className: "meta",
-          textContent: last ? `Idle. Last run: ${whatRun(last)}, ${outcome(last)} ${ago(last.updatedAt)}.` : "Idle.",
-        }),
+      what.append(el("span", { className: "err", textContent: l?.error ?? "Could not read their runs." }));
+    } else if (busy) {
+      for (const r of runs) {
+        what.append(el("div", { textContent: `${cap(whatRun(r))} · ${minutes(r.createdAt)} so far` }));
+      }
+      log = runs[0].url;
+    } else if (last) {
+      what.append(
+        el("div", { textContent: `${cap(whatRun(last))}, ${outcome(last)} ${ago(last.updatedAt)}` }),
       );
-      if (last) row.append(el("a", { className: "meta", href: last.url, target: "_blank", rel: "noopener", textContent: "log" }));
+      log = last.url;
+    } else {
+      what.append(el("div", { textContent: "No runs in the last few hours." }));
     }
     if (l && !l.error && l.automatic) {
-      row.append(el("span", { className: "pill", title: "Runs today that nobody asked for", textContent: `${l.automatic}/${l.limit} automatic` }));
+      what.append(
+        el("div", {
+          className: "homerunsub",
+          textContent: `${l.automatic} of ${l.limit} runs today that nobody asked for`,
+        }),
+      );
     }
-    box.append(row);
+
+    const state = el("span", {
+      className: "chip homestate " + (busy ? "ok" : ""),
+      textContent: busy ? (runs[0].status === "queued" ? "Queued" : "Working") : "Idle",
+    });
+    const actions = el("div", { className: "homerunlog" });
+    if (log) {
+      actions.append(
+        el("a", { className: "ghbtn", href: log, target: "_blank", rel: "noopener", textContent: "Log" }),
+      );
+    }
+
+    box.append(
+      el("div", { className: "homerun" + (busy ? " busy" : "") }, [
+        el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
+        state,
+        what,
+        actions,
+      ]),
+    );
   }
   return box;
 }
 
-function runLink(s, r, live) {
-  const what = whatRun(r);
-  const mins = Math.max(1, Math.round((Date.now() - new Date(r.createdAt).getTime()) / 60000));
-  return el("a", {
-    className: "homelive",
-    href: r.url,
-    target: "_blank",
-    rel: "noopener",
-    textContent: (live && r.status === "queued" ? "Queued: " : "Working: ") + what + ` · ${mins} min · log`,
-  });
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+function minutes(since) {
+  const m = Math.max(1, Math.round((Date.now() - new Date(since).getTime()) / 60000));
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
 }
 
 function outcome(r) {
@@ -297,8 +333,10 @@ function poll() {
   clearTimeout(timer);
   getLive()
     .then((data) => {
+      // Only a change repaints: a poll every few seconds must not move the page under you.
+      const changed = JSON.stringify(data.staff) !== JSON.stringify(S.live?.staff);
       S.live = data;
-      if (S.view === "home") render();
+      if (changed && S.view === "home" && !document.querySelector("dialog[open]")) repaintInPlace();
     })
     .catch(() => {})
     .finally(() => {
@@ -313,17 +351,32 @@ function poll() {
 const STATUS = { waiting: "Waiting", working: "Being worked on", answered: "Answered" };
 
 function requestRow(e) {
-  return el("div", { className: "homerow" }, [
+  return clickable(e.item, "homerow", [
     el("span", { className: "chip " + (e.status === "answered" ? "cool" : e.status === "working" ? "warm" : ""), textContent: STATUS[e.status] }),
     openLink(e.item),
     el("span", { className: "meta", textContent: whereOf(e) + " · " + ago(e.item.updatedAt) }),
   ]);
 }
 
+/** A row that opens its thread from anywhere on it, except a button inside it. */
+function clickable(item, className, kids) {
+  const row = el("div", { className: className + " homeclick", tabIndex: 0, role: "button" }, kids);
+  row.onclick = (ev) => {
+    if (!ev.target.closest("button, a")) openThread(item);
+  };
+  row.onkeydown = (ev) => {
+    if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
+      ev.preventDefault();
+      openThread(item);
+    }
+  };
+  return row;
+}
+
 function closedRow(e) {
   const note = el("span", { className: "meta" });
   const reopen = button("Reopen", false, () => act(note, row, { action: "reopen", repo: e.item.repo, number: e.item.number }, "Reopened."));
-  const row = el("div", { className: "homerow homeclosed" }, [
+  const row = clickable(e.item, "homerow homeclosed", [
     el("div", {}, [
       openLink(e.item),
       el("div", { className: "meta", textContent: whereOf(e) + " · " + (e.reason || "No reason given.") }),
@@ -362,13 +415,33 @@ function openLink(item) {
   return b;
 }
 
+/** Repaint Home where you were: the sheet may have changed what is on it, not where you are. */
+function repaintInPlace() {
+  const main = document.querySelector("#main");
+  const at = { win: window.scrollY, main: main?.scrollTop ?? 0 };
+  render();
+  window.scrollTo(0, at.win);
+  if (main) main.scrollTop = at.main;
+}
+
+/**
+ * The thread in a side sheet: its header, actions, reply box and conversation. Closing it
+ * repaints Home, since a reply or a close there changes what belongs where. Where there is no
+ * <dialog> (the test shim), it falls back to the thread on Trackers.
+ */
 function openThread(item) {
-  go({
-    view: item.kind === "pr" ? "prs" : "inbox",
-    inboxStaff: "",
-    inboxFilter: "",
-    inboxOpen: { repo: item.repo, number: item.number, kind: item.kind },
-  });
+  const ref = { repo: item.repo, number: item.number, kind: item.kind };
+  const body = el("div");
+  const x = el("button", { className: "iconbtn", title: "Close (Esc)", ariaLabel: "Close" });
+  x.innerHTML = iconHTML("close");
+  body.append(el("div", { className: "sidebar-x" }, [x]));
+  threadInto(body, ref);
+  const box = sheet({ node: body, side: true, onClose: () => S.view === "home" && repaintInPlace() });
+  if (!box) {
+    go({ view: item.kind === "pr" ? "prs" : "inbox", inboxStaff: "", inboxFilter: "", inboxOpen: ref });
+    return;
+  }
+  x.onclick = () => box.close();
 }
 
 function whereOf(e) {
@@ -385,7 +458,7 @@ function button(label, primary, onclick) {
 /** After a write: re-read the inbox, and look for the run it starts. */
 function refreshSoon() {
   ensureInbox(true)
-    .then(() => S.view === "home" && render())
+    .then(() => S.view === "home" && !document.querySelector("dialog[open]") && repaintInPlace())
     .catch(() => {});
   setTimeout(poll, 3_000);
 }
