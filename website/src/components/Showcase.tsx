@@ -21,6 +21,12 @@ const onGithub = [
 
 const screens: { label: string; body: string; src: string; dark?: string }[] = [
   {
+    label: "Home",
+    body: "What needs you, who is working right now, what you asked for, and what was closed today. Click anything to read the thread and reply.",
+    src: "/screens/home.jpg",
+    dark: "/screens/home-dark.jpg",
+  },
+  {
     label: "Brain",
     body: "A staff member's facts, notes and files in one place, because they were always the same thing.",
     src: "/screens/brain.jpg",

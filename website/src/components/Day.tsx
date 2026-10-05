@@ -20,7 +20,7 @@ const steps = [
   {
     time: "07:23",
     title: "They hand off",
-    body: "Finished work waits for you to merge. Decisions wait in your Inbox. Memory is pruned.",
+    body: "Finished work waits for you to merge. Decisions wait on Home. Memory is pruned.",
   },
 ];
 

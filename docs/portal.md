@@ -80,6 +80,8 @@ goes away; the repo picker lives on under [Org](#org).
 
 ## Home
 
+![Home: latest reports, what needs you, and the Ask box](images/home.jpg)
+
 Where the portal opens. An Ask box at the top, then these, in order.
 
 - **Ask.** Pick a staff member, type what you want, **Send**. It opens an issue on their

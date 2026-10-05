@@ -1,8 +1,9 @@
 import { Mark } from "./Logo";
 
 const nav = [
-  { label: "Inbox", n: "3" },
-  { label: "Pending work", n: "1" },
+  { label: "Home", n: "3" },
+  { label: "Trackers", n: "8" },
+  { label: "Runs" },
   { label: "Org" },
   { label: "Staff" },
   { label: "Docs" },
