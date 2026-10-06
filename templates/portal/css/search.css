@@ -1,0 +1,48 @@
+/* Search everything: the ⌘K dialog and the sidebar field that opens it. */
+
+.sidesearch{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;
+      margin:0 0 10px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);
+      background:var(--bg-elev);color:var(--ink-faint);font:13px var(--sans);cursor:pointer;text-align:left}
+.sidesearch:hover{border-color:var(--border-strong);color:var(--ink-dim)}
+.sidesearch:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sidesearch .ic{--ic:14px;flex:none}
+.sidesearch .t{flex:1}
+.sidesearch kbd{font:500 10.5px var(--mono);border:1px solid var(--border-strong);border-radius:5px;
+      padding:0 5px;color:var(--ink-faint)}
+
+dialog.palette{position:fixed;margin:12vh auto auto;padding:0;width:min(640px,calc(100vw - 32px));
+      max-height:min(560px,76vh);display:flex;flex-direction:column;overflow:hidden;
+      border:1px solid var(--border-strong);border-radius:var(--r-lg);background:var(--bg-elev);
+      color:var(--ink);box-shadow:var(--shadow-lg)}
+dialog.palette:not([open]){display:none}
+dialog.palette[open]{animation:dlgin .16s var(--ease)}
+dialog.palette::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(8px)}
+@media (prefers-reduced-motion:reduce){dialog.palette[open]{animation:none}}
+
+.palhead{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.palhead .ic{--ic:18px;color:var(--ink-faint);flex:none}
+/* Scoped under the dialog to outrank the portal's own input[type=search] rules, which draw a
+   box and a focus ring that belong in a form, not in a search bar that is the whole header. */
+dialog.palette .palinput,dialog.palette .palinput:hover,dialog.palette .palinput:focus{
+      flex:1;width:auto;border:0;outline:none;box-shadow:none;background:none;padding:0;
+      color:var(--ink);font:16px/1.4 var(--sans)}
+.palinput::-webkit-search-cancel-button{display:none}
+
+.palresults{overflow-y:auto;padding:6px;flex:1}
+.palgroup{font:600 10.5px var(--sans);letter-spacing:.06em;text-transform:uppercase;
+      color:var(--ink-faint);padding:10px 10px 4px}
+.palrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;
+      padding:8px 10px;border-radius:8px;cursor:pointer}
+.palrow[aria-selected="true"]{background:var(--sel)}
+.palrow .ic{--ic:15px;color:var(--ink-dim);flex:none}
+.paltext{display:flex;flex-direction:column;min-width:0}
+.paltitle{font:500 13.5px/1.35 var(--sans);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paltitle mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 1px}
+.palsub{font:12px/1.4 var(--sans);color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.palempty{color:var(--ink-faint);font-size:13px;padding:22px 12px;margin:0;text-align:center}
+
+.palfoot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--line);
+      font:11.5px var(--sans);color:var(--ink-faint)}
+.palfoot kbd{font:500 10.5px var(--mono);border:1px solid var(--border-strong);border-radius:4px;
+      padding:0 4px;margin-right:3px}
+@media (max-width:640px){.palfoot{display:none}dialog.palette{margin-top:8vh}}

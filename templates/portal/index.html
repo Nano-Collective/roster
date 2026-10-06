@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/assets/css/brain.css">
 <link rel="stylesheet" href="/assets/css/inbox.css">
 <link rel="stylesheet" href="/assets/css/home.css">
+<link rel="stylesheet" href="/assets/css/search.css">
 <link rel="stylesheet" href="/assets/css/graph.css">
 <link rel="stylesheet" href="/assets/css/diff.css">
 <link rel="stylesheet" href="/assets/css/health.css">
@@ -26,6 +27,10 @@
     <div class="brand"><span class="mark"></span>roster<small id="orgname">loading…</small></div>
     <button class="refreshall" id="refreshall" title="Reload everything from disk (r)">
       <span class="sync" data-icon="refresh"></span><span id="loaded">data now</span>
+    </button>
+
+    <button class="sidesearch" id="sidesearch" title="Search everything (⌘K)">
+      <span class="ic" data-icon="search"></span><span class="t">Search</span><kbd id="searchkey">⌘K</kbd>
     </button>
 
     <!-- Only while something is left to set up; app.js decides. -->

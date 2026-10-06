@@ -541,7 +541,7 @@ function repaintInPlace() {
  * repaints Home, since a reply or a close there changes what belongs where. Where there is no
  * <dialog> (the test shim), it falls back to the thread on Trackers.
  */
-function openThread(item) {
+export function openThread(item) {
   const ref = { repo: item.repo, number: item.number, kind: item.kind };
   const body = el("div");
   const x = el("button", { className: "iconbtn", title: "Close (Esc)", ariaLabel: "Close" });

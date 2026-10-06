@@ -18,6 +18,19 @@ Keep the repos checked out beside each other, in the same shape the runner uses.
 
 ## The sidebar
 
+**Search everything** with ⌘K (Ctrl+K off a Mac), from anywhere, or the Search field at the
+top of the sidebar, which opens the same dialog. It searches as you type, across:
+
+- issues and pull requests, open and recently closed, which open in the side sheet
+- staff, every fact in every memory, and every note and file in every brain
+- the org files, the docs (every page, not only titles), and runs from the last 30 days, which
+  open their log on GitHub
+- the screens themselves, so it doubles as a way to get anywhere
+
+Every word has to match; a title that starts with one ranks first. Arrow keys move, Enter opens,
+Escape closes. Everything except the docs is searched in the page, from what the portal has
+already read.
+
 Anything that asks before it acts (a merge, a push, a hire, a retire, a paid run) asks in the
 page's own dialog, never the browser's `confirm()`, which blocks the whole tab.
 

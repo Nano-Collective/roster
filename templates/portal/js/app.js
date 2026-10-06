@@ -20,6 +20,7 @@ import { viewChanged } from "./views/changed.js";
 import { viewDocs } from "./views/docs.js";
 import { viewGraph } from "./views/graph.js";
 import { viewHealth } from "./views/health.js";
+import { openSearch } from "./search.js";
 import { viewHome } from "./views/home.js";
 import { viewInbox, viewPrs } from "./views/inbox.js";
 import { viewOrg } from "./views/org.js";
@@ -102,7 +103,7 @@ export async function boot() {
     /* Every one of these reads a tenant, so during setup they answer 409 and the sidebar is a
        row of four dead ends beside an empty Staff heading. There is one thing to do on this
        screen; the navigation comes back with the org. */
-    for (const el of document.querySelectorAll("#homenav, #inboxnav, #runsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
+    for (const el of document.querySelectorAll("#sidesearch, #homenav, #inboxnav, #runsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
       el.hidden = true;
     }
     for (const slot of document.querySelectorAll("[data-icon]")) {
@@ -144,6 +145,19 @@ export async function boot() {
   addEventListener("focus", () => {
     if (S.loadedAt && Date.now() - S.loadedAt > 60000) refreshQuietly();
   });
+  /* ⌘K (Ctrl+K off a Mac) opens search from anywhere, even from inside a text box: it is the
+     one shortcut that should never be swallowed by whatever has focus. The sidebar's field
+     opens the same dialog. */
+  addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      openSearch();
+    }
+  });
+  const side = $("#sidesearch");
+  if (side) side.onclick = () => openSearch();
+  const key = $("#searchkey");
+  if (key && !/Mac|iPhone|iPad/.test(navigator.platform ?? "")) key.textContent = "Ctrl K";
   addEventListener("keydown", (e) => {
     if (e.key === "r" && !e.metaKey && !e.ctrlKey &&
         !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName ?? "")) {
