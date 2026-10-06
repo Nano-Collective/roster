@@ -66,10 +66,11 @@
 .homecard.gone,.homeline.gone{opacity:0;transform:translateX(12px);
          transition:opacity .2s var(--ease),transform .2s var(--ease)}
 
-/* Activity you have not seen, as Trackers marks it: a blue edge and a bold title. Opening the
-   thread marks it read, here and on GitHub. */
+/* Activity you have not seen: a blue dot and a bold title, and on a card in Needs you a blue
+   edge that follows its corners. A row inside a list card carries no edge, since a bar drawn to
+   the card's side squares off its rounded corners. Opening the thread marks it read, here and on
+   GitHub. */
 .homecard.unread{box-shadow:inset 3px 0 0 var(--blue)}
-.homeline.unread{box-shadow:inset 3px 0 0 var(--blue);margin:0 -16px;padding-left:13px;padding-right:16px}
 .unread .homeopen,.unread .homerowtitle{font-weight:700}
 .unread .homeopen::before,.unread .homerowtitle::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
          background:var(--blue);margin:0 7px 1px 0;vertical-align:middle}
