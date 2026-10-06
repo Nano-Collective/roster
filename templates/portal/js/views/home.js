@@ -8,6 +8,7 @@ import { getLive, post } from "../api.js";
 import { sheet } from "../dialog.js";
 import { ago, el, skeleton } from "../dom.js";
 import { daysUntil, sortHome } from "../homesort.js";
+import { mdlite } from "../md.js";
 import { icon, iconHTML, staffIcon } from "../icons.js";
 import { ensureInbox, stampCounts } from "../refresh.js";
 import { go, render } from "../router.js";
@@ -58,16 +59,29 @@ export function viewHome(m) {
     page.append(section("Latest reports"));
     const box = el("div", { className: "card homereports" });
     for (const r of h.reports) {
-      box.append(
-        el("div", { className: "homereport" }, [
-          el("div", { className: "homewho2" }, [
-            icon(staffIcon(r.staff), "ic"),
-            el("b", { textContent: r.staff.name }),
-            el("span", { className: "meta", textContent: ago(r.at) }),
-          ]),
-          el("div", {}, r.lines.map((l) => el("p", { textContent: l }))),
+      /* The report is markdown the staff member wrote, with links to the work it names. The
+         whole report opens their status issue, where it was posted; a link inside it goes
+         where it points. */
+      const row = el("div", { className: "homereport homeclick", tabIndex: 0, role: "button" }, [
+        el("div", { className: "homereportwho" }, [
+          el("span", { className: "homewho2" }, [icon(staffIcon(r.staff), "ic"), el("b", { textContent: r.staff.name })]),
+          el("span", { className: "meta", textContent: ago(r.at) }),
         ]),
-      );
+        el("div", {
+          className: "md homereportbody",
+          innerHTML: mdlite(r.lines.join("\n\n"), { repo: r.staff.brain }),
+        }),
+      ]);
+      row.onclick = (ev) => {
+        if (!ev.target.closest("a, button")) openThread(r.item);
+      };
+      row.onkeydown = (ev) => {
+        if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
+          ev.preventDefault();
+          openThread(r.item);
+        }
+      };
+      box.append(row);
     }
     page.append(box);
   }

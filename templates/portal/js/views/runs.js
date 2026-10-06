@@ -77,6 +77,20 @@ function paint(m, data) {
   g.append(tile("Runs", String(data.spend?.runs ?? 0), "skipped mentions are not counted"));
   m.append(g);
 
+  /* The table shows at once with the costs already known; the rest are read from GitHub in the
+     background, and the screen asks again until they are all in. */
+  if (data.pending) {
+    m.append(
+      el("p", {
+        className: "hnote",
+        textContent: "Reading the cost of " + data.pending + " run" + (data.pending === 1 ? "" : "s") + " from GitHub…",
+      }),
+    );
+    setTimeout(() => {
+      if (S.view === "runs") load(true);
+    }, 3000);
+  }
+
   for (const s of data.staff ?? []) m.append(...staffSection(s));
 
   m.append(

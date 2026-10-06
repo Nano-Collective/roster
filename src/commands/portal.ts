@@ -1465,7 +1465,10 @@ export async function portalCommand(argv: string[]): Promise<number> {
           const staff = await Promise.all(
             (org.staff ?? []).map(async (s: any) => {
               const brain = `${org.org}/${s.dir ?? s.handle}`;
-              const { runs, errors } = await staffRuns(brain, s.handle);
+              // At once, with the costs already known; the rest arrive in the background.
+              const { runs, errors, pending } = await staffRuns(brain, s.handle, 30, {
+                wait: false,
+              });
               return {
                 handle: s.handle,
                 name: s.name ?? s.handle,
@@ -1474,6 +1477,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
                 spend: spend(runs),
                 runs,
                 errors,
+                pending,
               };
             }),
           );
@@ -1483,14 +1487,18 @@ export async function portalCommand(argv: string[]): Promise<number> {
             total.known += s.spend.known;
             total.runs += s.spend.runs;
           }
+          const pending = staff.reduce((n: number, s: { pending: number }) => n + s.pending, 0);
           const body = {
             online: true,
             fetchedAt: new Date().toISOString(),
             budget: budgetOf(org.budget),
             spend: total,
             staff,
+            // Costs still being read. The screen asks again until this is 0.
+            pending,
           };
-          runsCache = { at: Date.now(), body };
+          // Only a complete answer is kept: a partial one would hide the costs as they arrive.
+          if (!pending) runsCache = { at: Date.now(), body };
           return body;
         })()
           .then((body) => json(res, body))

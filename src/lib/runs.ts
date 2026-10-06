@@ -1,5 +1,5 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { ghJson } from "./gh.js";
 
@@ -43,31 +43,53 @@ export interface Spend {
 
 const KINDS = ["daily", "mention"] as const;
 const records = new Map<string, RunRecord | null>();
+/** Records being fetched in the background, so a second request does not fetch them again. */
+const fetching = new Set<string>();
 
-/** The runs of one staff member's two callers over the last `days`, newest first. */
+/**
+ * Where run records are kept between portal starts. A finished run's record never changes, so
+ * each one is downloaded once, ever, rather than once per start: thirty days of runs was a
+ * minute of `gh run download` every time the Runs screen opened.
+ */
+function cacheDir(): string {
+  return process.env.ROSTER_CACHE_DIR ?? join(homedir(), ".cache", "roster", "runs");
+}
+
+function cacheFile(brain: string, id: number): string {
+  return join(cacheDir(), brain.replace("/", "__"), `${id}.json`);
+}
+
+/** What is already known about a run's record, without asking GitHub. undefined when nothing is. */
+function knownRecord(brain: string, id: number): RunRecord | null | undefined {
+  const key = `${brain}#${id}`;
+  if (records.has(key)) return records.get(key);
+  const file = cacheFile(brain, id);
+  if (!existsSync(file)) return undefined;
+  try {
+    const record = (JSON.parse(readFileSync(file, "utf8")) as { record: RunRecord | null }).record;
+    records.set(key, record);
+    return record;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The runs of one staff member's two callers over the last `days`, newest first.
+ *
+ * With `wait: false` it answers at once with the records already known, and fetches the rest in
+ * the background; `pending` says how many are still coming, so a screen can ask again.
+ */
 export async function staffRuns(
   brain: string,
   handle: string,
   days = 30,
-): Promise<{ runs: RunRow[]; errors: string[] }> {
+  opts: { wait?: boolean } = {},
+): Promise<{ runs: RunRow[]; errors: string[]; pending: number }> {
   const since = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
   const lists = await Promise.all(
     KINDS.map((kind) =>
-      ghJson<Array<Record<string, any>>>([
-        "run",
-        "list",
-        "--repo",
-        brain,
-        "--workflow",
-        `${handle}-${kind}.yaml`,
-        "--created",
-        `>=${since}`,
-        "--limit",
-        // Skipped mentions (the gate saying no) count towards the limit, and there are hundreds.
-        kind === "mention" ? "500" : "100",
-        "--json",
-        "databaseId,conclusion,status,createdAt,updatedAt,url",
-      ]).then((res) => ({ kind, res })),
+      realRuns(brain, `${handle}-${kind}.yaml`, since).then((res) => ({ kind, res })),
     ),
   );
 
@@ -98,14 +120,86 @@ export async function staffRuns(
   }
   rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  await pool(
-    rows.filter((r) => r.status === "completed"),
-    6,
-    async (row) => {
-      row.record = await recordFor(brain, row.id);
-    },
-  );
-  return { runs: rows, errors };
+  const missing: RunRow[] = [];
+  for (const row of rows.filter((r) => r.status === "completed")) {
+    const known = knownRecord(brain, row.id);
+    if (known === undefined) missing.push(row);
+    else row.record = known;
+  }
+
+  if (opts.wait === false) {
+    const todo = missing.filter((r) => !fetching.has(`${brain}#${r.id}`));
+    for (const r of todo) fetching.add(`${brain}#${r.id}`);
+    void pool(todo, 6, async (row) => {
+      await recordFor(brain, row.id);
+      fetching.delete(`${brain}#${row.id}`);
+    });
+    return { runs: rows, errors, pending: missing.length };
+  }
+
+  await pool(missing, 6, async (row) => {
+    row.record = await recordFor(brain, row.id);
+  });
+  return { runs: rows, errors, pending: 0 };
+}
+
+/**
+ * Every run of one workflow since a date that actually ran, newest first.
+ *
+ * Asked for one outcome at a time, all at once, rather than as one list. A mention caller fires
+ * on every comment and most of those runs are skipped: a month on Pip was 248 runs, about 50 of
+ * them real, and paging through all 248 took eight seconds where this takes two.
+ */
+const OUTCOMES = [
+  "success",
+  "failure",
+  "cancelled",
+  "timed_out",
+  "action_required",
+  "startup_failure",
+  "in_progress",
+  "queued",
+] as const;
+
+async function realRuns(
+  brain: string,
+  workflow: string,
+  since: string,
+): Promise<{ ok: boolean; data?: Array<Record<string, any>>; error?: string }> {
+  const one = async (status: string) => {
+    const out: Array<Record<string, any>> = [];
+    for (let page = 1; page <= 10; page++) {
+      const res = await ghJson<{ workflow_runs: Array<Record<string, any>> }>([
+        "api",
+        `repos/${brain}/actions/workflows/${workflow}/runs?created=>=${since}&status=${status}&per_page=100&page=${page}`,
+      ]);
+      if (!res.ok) return { ok: false as const, error: res.error };
+      const runs = res.data?.workflow_runs ?? [];
+      out.push(...runs);
+      if (runs.length < 100) break;
+    }
+    return { ok: true as const, runs: out };
+  };
+  const answers = await Promise.all(OUTCOMES.map(one));
+  const failed = answers.find((a) => !a.ok);
+  if (failed && !failed.ok) return { ok: false, error: failed.error };
+  const seen = new Set<number>();
+  const data: Array<Record<string, any>> = [];
+  for (const a of answers) {
+    for (const r of a.ok ? a.runs : []) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      data.push({
+        databaseId: r.id,
+        conclusion: r.conclusion,
+        status: r.status,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        url: r.html_url,
+      });
+    }
+  }
+  return { ok: true, data };
 }
 
 async function recordFor(brain: string, id: number): Promise<RunRecord | null> {
@@ -126,10 +220,19 @@ async function recordFor(brain: string, id: number): Promise<RunRecord | null> {
     ]);
     const file = join(dir, "run.json");
     // A run from before records existed, or one whose artifact has expired, has none. That is
-    // an answer, so it is kept like one.
+    // an answer, so it is kept like one. A failure that is not that (the network, the API
+    // limit) is kept for this session only, so the next start asks again.
     const record =
       res.ok && existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as RunRecord) : null;
     records.set(key, record);
+    if (res.ok || /no valid artifacts|not found|no artifact/i.test(res.error ?? "")) {
+      try {
+        mkdirSync(join(cacheDir(), brain.replace("/", "__")), { recursive: true });
+        writeFileSync(cacheFile(brain, id), JSON.stringify({ record }));
+      } catch {
+        // A cache that cannot be written costs a download next time, nothing more.
+      }
+    }
     return record;
   } catch {
     records.set(key, null);
