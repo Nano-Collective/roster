@@ -357,6 +357,11 @@ jobs:
           PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.AGENT_TOKEN }}
+          # The action refuses to run for a bot unless it is named here. A peer's ask is opened
+          # by that peer's App, so on a peer run, and only then, the one bot that opened it is
+          # allowed. The caller has already checked it is an App, not this staff member's own,
+          # and that the issue carries a from- label. Every other run allows no bots.
+          allowed_bots: ${{ inputs.trigger == 'peer' && github.actor || '' }}
           # These repos are private and single-user, so the usual reason to hide a run's output does
           # not apply, and hiding it turns any failure into "is_error: true" with no message.
           # Registered secrets are still masked by the runner.

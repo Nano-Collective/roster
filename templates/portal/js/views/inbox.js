@@ -800,6 +800,23 @@ function inboxScreen(m, opts) {
           openThread({ repo: item.repo, number: item.number, kind: item.kind });
         } catch (e) { failed(e); }
       };
+      /* The branch rules want an approving review before a merge. Approve is your review,
+         given on purpose; Merge never gives it for you, so it waits until there is one. */
+      if (item.reviewDecision === "REVIEW_REQUIRED" && item.mergeable !== "CONFLICTING") {
+        merge.disabled = true;
+        merge.title = "Approve it first: the branch rules need an approving review";
+        const approve = el("button", { className: "ghbtn primary", textContent: "Approve" });
+        approve.onclick = async () => {
+          busy(true, "approving…");
+          try {
+            await post({ action: "approve", repo: item.repo, number: item.number });
+            item.reviewDecision = "APPROVED";
+            openThread({ repo: item.repo, number: item.number, kind: item.kind });
+          } catch (e) { failed(e); }
+        };
+        buttons.push(approve);
+        row.append(approve);
+      }
       buttons.push(merge);
       row.append(merge);
     }

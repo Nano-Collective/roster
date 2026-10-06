@@ -96,6 +96,9 @@ Where the portal opens. An Ask box at the top, then these, in order.
   - a `review` has **Approve**.
   - a `chore` has **Done**, which closes it.
   - a pull request has **Merge**, unless its checks fail, are still running, or it conflicts.
+    Where the branch rules require an approving review, it also has **Approve**, and Merge waits
+    until you have pressed it. Approving is your review, given on purpose; Merge never gives it
+    for you.
 
   Answers go out as you, with the staff member's `@handle`, so they act on them straight away.
   Once you have had the last word, the card leaves Needs you for Your requests, since it is

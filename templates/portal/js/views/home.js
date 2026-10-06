@@ -209,8 +209,31 @@ function needCard(e) {
     actions.append(button("Done", true, () => done(e, note, actions)));
   } else if (kind === "merge") {
     const blocked = item.checks === "failing" || item.mergeable === "CONFLICTING";
-    const merge = button("Merge", true, () => merge_(e, note, actions));
-    merge.disabled = blocked || item.checks === "pending";
+    const needsReview = item.reviewDecision === "REVIEW_REQUIRED";
+    const merge = button("Merge", !needsReview, () => merge_(e, note, actions));
+    merge.disabled = blocked || item.checks === "pending" || needsReview;
+    /* The branch rules want an approving review. Approve is the person's review, given on
+       purpose; Merge waits for it rather than approving on their behalf. */
+    if (needsReview) {
+      const approve = button("Approve", true, async () => {
+        approve.disabled = true;
+        note.className = "meta";
+        note.textContent = "Approving…";
+        try {
+          await post({ action: "approve", repo: item.repo, number: item.number });
+          item.reviewDecision = "APPROVED";
+          note.textContent = "Approved.";
+          approve.remove();
+          merge.className = "ghbtn primary";
+          merge.disabled = blocked || item.checks === "pending";
+        } catch (err) {
+          note.textContent = String(err.message || err);
+          note.className = "meta err";
+          approve.disabled = false;
+        }
+      });
+      actions.append(approve);
+    }
     actions.append(merge);
   }
   card.append(actions);
@@ -234,7 +257,9 @@ function checksLine(item) {
     pending: "Checks are running.",
     none: "No checks.",
   };
-  const conflict = item.mergeable === "CONFLICTING" ? " Conflicts with its base." : "";
+  const conflict =
+    (item.mergeable === "CONFLICTING" ? " Conflicts with its base." : "") +
+    (item.reviewDecision === "REVIEW_REQUIRED" ? " Needs your approval to merge." : "");
   return el("p", {
     className: "homedue" + (item.checks === "failing" || conflict ? " late" : ""),
     textContent: (words[item.checks] ?? "") + conflict,

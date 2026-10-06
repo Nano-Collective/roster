@@ -4,7 +4,7 @@ import { type AskRequest, askBody, askFollowUp, askHead, askTitle } from "./ask.
 
 const run = promisify(execFile);
 
-export type Action = "comment" | "close" | "reopen" | "create" | "merge" | "ask";
+export type Action = "comment" | "close" | "reopen" | "create" | "merge" | "ask" | "approve";
 
 export interface ActRequest {
   action: Action;
@@ -167,6 +167,24 @@ export async function act(req: ActRequest): Promise<ActResult> {
     return { ok: true, action };
   }
 
+  /* An approving review, as the person who pressed Approve. A repository whose rules require one
+     blocks a merge without it, and the staff cannot approve their own work, so this is the
+     person's review, given deliberately: the portal never approves on a Merge press. */
+  if (action === "approve") {
+    const args = ["pr", "review", n, "--repo", repo, "--approve"];
+    if (req.body?.trim()) args.push("--body", req.body.trim());
+    try {
+      await run("gh", args, { encoding: "utf8" });
+    } catch (err) {
+      const line = errText(err)
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l && !l.startsWith("Command failed"));
+      throw new Error(`Not approved: ${line ?? "GitHub refused it without saying why."}`);
+    }
+    return { ok: true, action };
+  }
+
   /* The only action here that cannot be taken back with another click. It never deletes the
      branch: that is a second decision, and it is not this button's to make.
 
@@ -224,6 +242,8 @@ async function openAskFor(repo: string, head: string): Promise<number | null> {
 
 export interface PrState {
   mergeStateStatus?: string;
+  /** REVIEW_REQUIRED, APPROVED or CHANGES_REQUESTED; empty where no review is required. */
+  reviewDecision?: string;
   statusCheckRollup?: {
     name?: string;
     context?: string;
@@ -259,6 +279,10 @@ export function whyNotMerged(ghError: string, pr: PrState | null): string {
     return `Not merged: checks failed (${list(failing)}).`;
   if (pr?.mergeStateStatus === "BLOCKED" && running.length)
     return `Not merged: checks are still running (${list(running)}). Merge again once they pass.`;
+  if (pr?.mergeStateStatus === "BLOCKED" && pr.reviewDecision === "REVIEW_REQUIRED")
+    return "Not merged: the branch rules need an approving review first. Press Approve, then Merge.";
+  if (pr?.mergeStateStatus === "BLOCKED" && pr.reviewDecision === "CHANGES_REQUESTED")
+    return "Not merged: a reviewer has asked for changes. Open it to see what.";
   if (pr?.mergeStateStatus === "BLOCKED")
     return "Not merged: the branch rules require something first, such as a review. Open it in GitHub to see what.";
   if (pr?.mergeStateStatus === "BEHIND")
@@ -281,7 +305,15 @@ async function prState(repo: string, n: string): Promise<PrState | null> {
   try {
     const { stdout } = await run(
       "gh",
-      ["pr", "view", n, "--repo", repo, "--json", "mergeStateStatus,statusCheckRollup"],
+      [
+        "pr",
+        "view",
+        n,
+        "--repo",
+        repo,
+        "--json",
+        "mergeStateStatus,statusCheckRollup,reviewDecision",
+      ],
       { encoding: "utf8" },
     );
     return JSON.parse(stdout) as PrState;

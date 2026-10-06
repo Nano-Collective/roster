@@ -162,3 +162,12 @@ test("the mention queue is on the job, so an event that wakes nobody never waits
     /^\s{4}concurrency:\n\s+group: %%STAFF%%-mention-\$\{\{ github\.event\.issue\.number \}\}/m,
   );
 });
+
+test("a peer run allows the one bot that opened it, and no other run allows any", () => {
+  // claude-code-action refuses a bot actor unless it is listed; without this every peer wake
+  // failed at "Run the session" with "Workflow initiated by non-human actor".
+  assert.match(
+    SESSION,
+    /allowed_bots: \$\{\{ inputs\.trigger == 'peer' && github\.actor \|\| '' \}\}/,
+  );
+});

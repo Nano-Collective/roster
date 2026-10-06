@@ -111,6 +111,8 @@ export interface InboxItem {
    * about.
    */
   mergeable?: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
+  /** REVIEW_REQUIRED, APPROVED or CHANGES_REQUESTED; absent where no review is required. */
+  reviewDecision?: string;
   /** When it was closed, and by whom. Home's "Closed today" is staff closing things. */
   closedAt?: string;
   closedBy?: string;
@@ -222,7 +224,7 @@ const LIGHT = `number title url state createdAt updatedAt closedAt body
         closer: timelineItems(last:1, itemTypes:[CLOSED_EVENT]) {
           nodes { ... on ClosedEvent { actor { login } } }
         }`;
-const LIGHT_PR = `${LIGHT} isDraft mergeable
+const LIGHT_PR = `${LIGHT} isDraft mergeable reviewDecision
         commits(last:1) { nodes { commit { statusCheckRollup { state } } } }`;
 
 const QUERY = `
@@ -261,7 +263,7 @@ query($owner:String!, $name:String!, $number:Int!) {
         timelineItems(last:100, itemTypes:${ISSUE_TYPES}) { nodes { ${TIMELINE_COMMON} } }
       }
       ... on PullRequest {
-        number title body url state createdAt updatedAt isDraft mergeable ${ROW_EXTRAS}
+        number title body url state createdAt updatedAt isDraft mergeable reviewDecision ${ROW_EXTRAS}
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
@@ -292,6 +294,7 @@ export async function fetchInbox(
           item.draft = n.isDraft;
           item.checks = rollup(n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state);
           item.mergeable = n.mergeable;
+          if (n.reviewDecision) item.reviewDecision = n.reviewDecision;
           items.push(item);
         }
 
@@ -551,6 +554,7 @@ export async function fetchThread(repo: string, number: number, kind: "issue" | 
     item.draft = n.isDraft;
     item.checks = rollup(n.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state);
     item.mergeable = n.mergeable;
+    if (n.reviewDecision) item.reviewDecision = n.reviewDecision;
   }
   return item;
 }

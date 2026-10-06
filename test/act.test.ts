@@ -45,3 +45,15 @@ test("when the pull request cannot be read, gh's own reason is kept without its 
   );
   assert.doesNotMatch(msg, /--auto|--admin|Command failed/);
 });
+
+test("a merge blocked on a required review says to approve it first", () => {
+  const msg = whyNotMerged(GH_BLOCKED, {
+    mergeStateStatus: "BLOCKED",
+    reviewDecision: "REVIEW_REQUIRED",
+    statusCheckRollup: [{ name: "gate", status: "COMPLETED", conclusion: "SUCCESS" }],
+  });
+  assert.equal(
+    msg,
+    "Not merged: the branch rules need an approving review first. Press Approve, then Merge.",
+  );
+});
