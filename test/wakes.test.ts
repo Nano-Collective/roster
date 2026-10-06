@@ -163,11 +163,12 @@ test("the mention queue is on the job, so an event that wakes nobody never waits
   );
 });
 
-test("a peer run allows the one bot that opened it, and no other run allows any", () => {
-  // claude-code-action refuses a bot actor unless it is listed; without this every peer wake
-  // failed at "Run the session" with "Workflow initiated by non-human actor".
+test("a peer run allows the bot that opened it, a follow-on the job token's bot, and no other run any", () => {
+  // claude-code-action refuses a bot actor unless it is listed; without this every peer wake,
+  // and every follow-on (dispatched by the previous run's job token), failed at "Run the
+  // session" with "Workflow initiated by non-human actor".
   assert.match(
     SESSION,
-    /allowed_bots: \$\{\{ inputs\.trigger == 'peer' && github\.actor \|\| '' \}\}/,
+    /allowed_bots: \$\{\{ inputs\.trigger == 'peer' && github\.actor \|\| inputs\.trigger == 'follow-on' && 'github-actions\[bot\]' \|\| '' \}\}/,
   );
 });

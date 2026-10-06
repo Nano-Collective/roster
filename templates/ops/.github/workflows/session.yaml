@@ -360,8 +360,10 @@ jobs:
           # The action refuses to run for a bot unless it is named here. A peer's ask is opened
           # by that peer's App, so on a peer run, and only then, the one bot that opened it is
           # allowed. The caller has already checked it is an App, not this staff member's own,
-          # and that the issue carries a from- label. Every other run allows no bots.
-          allowed_bots: ${{ inputs.trigger == 'peer' && github.actor || '' }}
+          # and that the issue carries a from- label. A follow-on run is dispatched by the job token
+          # of the run before it, so its actor is github-actions[bot], and only that bot is allowed.
+          # Every other run allows no bots.
+          allowed_bots: ${{ inputs.trigger == 'peer' && github.actor || inputs.trigger == 'follow-on' && 'github-actions[bot]' || '' }}
           # These repos are private and single-user, so the usual reason to hide a run's output does
           # not apply, and hiding it turns any failure into "is_error: true" with no message.
           # Registered secrets are still masked by the runner.
