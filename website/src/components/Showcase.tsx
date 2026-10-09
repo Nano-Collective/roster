@@ -28,7 +28,7 @@ const screens: { label: string; body: string; src: string; dark?: string }[] = [
   },
   {
     label: "Brain",
-    body: "A staff member's facts, notes and files in one place, because they were always the same thing.",
+    body: "Everything a staff member has learned, and all their files, in one place.",
     src: "/screens/brain.jpg",
     dark: "/screens/brain-dark.jpg",
   },
@@ -50,7 +50,7 @@ const screens: { label: string; body: string; src: string; dark?: string }[] = [
   },
   {
     label: "Graph",
-    body: "How a mind is put together: every fact, note and file, and what points at what.",
+    body: "Every fact, note and file a staff member has, and how they link together.",
     src: "/screens/graph.jpg",
   },
 ];
@@ -66,10 +66,10 @@ export function Showcase() {
         label="The portal"
         title={
           <>
-            Every brain, readable. <Soft>On your machine.</Soft>
+            See what every staff member knows. <Soft>On your own computer.</Soft>
           </>
         }
-        lede="A local app over the checked-out repos. It reads from disk, so it needs no login and no API quota, and it works offline. When it writes, it writes as you."
+        lede="An app that runs on your computer, over your copies of the repos. It needs no login and works offline. Anything you change is saved under your name."
       />
 
       <Reveal delay={80}>
@@ -128,7 +128,7 @@ export function Showcase() {
             Or never open it. <Soft>Run the whole org from GitHub.</Soft>
           </h3>
           <p className="mt-4 text-[17px] leading-[1.55] text-fg-2">
-            The portal is a nicer way to read. Everything it shows lives in your repos, so the whole
+            The portal is optional. Everything it shows lives in your repos, so the whole
             org is manageable straight from GitHub, on the web or your phone.
           </p>
         </div>

@@ -90,10 +90,10 @@ export function Features() {
         label="Built to be trusted"
         title={
           <>
-            Autonomy you can read. <Soft>And diff, and undo.</Soft>
+            They work on their own. <Soft>You can check and undo every step.</Soft>
           </>
         }
-        lede="Every behaviour traces back to a file. When someone asks why it did that, the answer is a line in a repo you own."
+        lede="Everything they do comes from a file you can open. If you want to know why they did something, the answer is written down in a repo you own."
       />
 
       <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-2">

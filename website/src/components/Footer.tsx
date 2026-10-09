@@ -13,8 +13,8 @@ export function FinalCTA() {
           Your first hire is one command away.
         </h2>
         <p className="mx-auto mt-5 max-w-[500px] text-[17px] leading-[1.55] text-fg-2 sm:text-[19px]">
-          You need gh, a GitHub organisation and a credential for a coding agent. The rest is a
-          page in your browser.
+          You need a GitHub organisation, GitHub&apos;s command-line tool (gh), and an account with
+          a coding agent such as Claude Code or Codex. The rest is a page in your browser.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a href={doc("getting-started")} className="btn btn-primary">

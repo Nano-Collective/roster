@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
-const title = "Roster — an agent-run org, powered by GitHub";
+const title = "Roster — AI staff for your organisation, run on GitHub";
 const description =
-  "Run your org on AI staff you can read. Each is a GitHub repo: a charter, a memory, and a morning session that hands its work to you as a pull request. Open source, any coding agent.";
+  "Run your org on AI staff that show their work. Each has a job description, a memory and a daily schedule, all kept as files in GitHub. Their work comes to you as a change to approve. Open source, works with any coding agent.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://roster.nanocollective.org"),

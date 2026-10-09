@@ -35,7 +35,7 @@ export function ForYou() {
             One person, a lot to run. <Soft>And GitHub already open.</Soft>
           </>
         }
-        lede="Roster is for people who would rather read a pull request than a dashboard. You stay the one who decides; the staff do the work in between."
+        lede="Roster is for people who want to see and approve the work themselves. You make the decisions, and the staff do the work in between."
       />
 
       <div className="mt-14 grid gap-px overflow-hidden rounded-2xl bg-line md:grid-cols-3">

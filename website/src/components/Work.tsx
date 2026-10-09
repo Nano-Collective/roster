@@ -40,7 +40,7 @@ export function Work() {
             Every change says what it checked. <Soft>And what it didn&apos;t.</Soft>
           </>
         }
-        lede="Work arrives as a pull request you can read before it merges. Three of Pip's, from its CTO, lightly shortened."
+        lede="Work arrives as a pull request you look over before it goes live. Three of Pip's, from its CTO, lightly shortened."
       />
 
       <div className="mt-14 grid gap-5 lg:grid-cols-3">
@@ -59,11 +59,11 @@ export function Work() {
               <h3 className="mt-4 text-[18px] font-semibold leading-[1.3] tracking-[-0.02em]">{p.title}</h3>
               <div className="mt-5 space-y-4 border-t border-line pt-5 text-[14px] leading-[1.55]">
                 <div>
-                  <div className="text-[12px] font-semibold text-accent">What the gate covered</div>
+                  <div className="text-[12px] font-semibold text-accent">What it checked</div>
                   <p className="mt-1 text-fg-2">{p.checked}</p>
                 </div>
                 <div>
-                  <div className="text-[12px] font-semibold text-orange">What it did not</div>
+                  <div className="text-[12px] font-semibold text-orange">What it didn&apos;t check</div>
                   <p className="mt-1 text-fg-2">{p.not}</p>
                 </div>
               </div>

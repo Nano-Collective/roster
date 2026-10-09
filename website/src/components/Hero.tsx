@@ -18,16 +18,17 @@ export function Hero() {
           style={{ animationDelay: "60ms" }}
         >
           Run your org on <br className="hidden sm:block" />
-          AI staff you can read.
+          AI staff that show their work.
         </h1>
 
         <p
           className="fade-up mx-auto mt-6 max-w-[600px] text-[19px] leading-[1.5] text-fg-2 sm:text-[21px]"
           style={{ animationDelay: "120ms" }}
         >
-          Each staff member is a GitHub repo: a charter, a memory, and a session every morning, with
-          more when a colleague asks or the next step is ready. The work comes to you as a pull
-          request. You read it, and you merge it.
+          Each staff member has a job description you write, a memory they keep, and a set time to
+          work every morning. All of it is plain files in GitHub that you can open. Their work comes
+          to you as a pull request, a proposed change you look over, and nothing goes live until you
+          approve it.
         </p>
 
         <div
