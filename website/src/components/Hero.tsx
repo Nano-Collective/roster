@@ -18,7 +18,7 @@ export function Hero() {
           style={{ animationDelay: "60ms" }}
         >
           Run your org on <br className="hidden sm:block" />
-          AI staff that show their work.
+          AI staff.
         </h1>
 
         <p

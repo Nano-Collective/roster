@@ -7,7 +7,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", 
 
 const title = "Roster — AI staff for your organisation, run on GitHub";
 const description =
-  "Run your org on AI staff that show their work. Each has a job description, a memory and a daily schedule, all kept as files in GitHub. Their work comes to you as a change to approve. Open source, works with any coding agent.";
+  "Run your org on AI staff. Each has a job description, a memory and a daily schedule, all kept as files in GitHub. Their work comes to you as a change to approve. Open source, works with any coding agent.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://roster.nanocollective.org"),

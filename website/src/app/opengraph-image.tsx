@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
-export const alt = "Roster — run your org on AI staff that show their work";
+export const alt = "Roster — run your org on AI staff";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -52,7 +52,7 @@ export default function OG() {
             color: "#1d1d1f",
           }}
         >
-          AI staff that show their work.
+          AI staff.
         </div>
         <div style={{ marginTop: 28, fontSize: 28, color: "#6e6e73" }}>
           Every job written down in GitHub. Any coding agent. Open source.
