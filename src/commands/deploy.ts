@@ -28,6 +28,8 @@ roster portal deploy [--domain <host>] [--apply]
   CLOUDFLARE_API_TOKEN set. Nothing happens without --apply.
 
   --domain <host>  where it lives, e.g. roster.example.com, on a zone in your Cloudflare account
+  --account <id>   the Cloudflare account that zone is on, pinned so a deploy never lands on
+                   another account the login happens to see
   --apply          do it
   --ci             no questions: deploy what portal/wrangler.jsonc already says (the workflow)
   --ops <dir>      ops repo directory (default: found by walking up)
@@ -39,6 +41,7 @@ const WRANGLER = "wrangler@4";
 
 interface Flags {
   domain?: string;
+  account?: string;
   apply?: boolean;
   ci?: boolean;
   ops?: string;
@@ -67,11 +70,13 @@ export async function deployCommand(argv: string[]): Promise<number> {
     }
     config = newConfig(org.org, ws.opsName, opts.domain);
   }
+  if (opts.account) config.account_id = opts.account;
   const domain = domainOf(config);
 
   process.stdout.write(
     `\n  roster portal deploy — ${org.name ?? org.org}\n\n` +
       `    serves      https://${domain}, on the Worker "${config.name}"\n` +
+      (config.account_id ? `    account     ${config.account_id}\n` : "") +
       `    signs in    the humans in org.yaml, with GitHub\n` +
       (exists ? "" : `    writes      ${ws.opsName}/${CONFIG} and ${ws.opsName}/${WORKFLOW}\n`) +
       (config.vars.GITHUB_CLIENT_ID
@@ -284,6 +289,7 @@ function parseFlags(argv: string[]): Flags {
     if (flag === "--apply") out.apply = true;
     else if (flag === "--ci") out.ci = true;
     else if (flag === "--domain") out.domain = argv[++i];
+    else if (flag === "--account") out.account = argv[++i];
     else if (flag === "--ops") out.ops = argv[++i];
     else throw new Error(`unknown flag ${flag}`);
   }

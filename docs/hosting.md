@@ -50,7 +50,9 @@ See [security](security.md#the-hosted-portal) for what is held where.
 
 ## Deploying it
 
-You need a Cloudflare account with the domain on it, and wrangler signed in:
+You need a Cloudflare account with the domain on it, and wrangler signed in to it. If your
+login can see more than one account, pass `--account <id>` with the one that has the domain, and
+it is pinned in the config so a later deploy cannot land anywhere else:
 
 ```bash
 npx wrangler login
