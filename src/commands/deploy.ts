@@ -71,6 +71,8 @@ export async function deployCommand(argv: string[]): Promise<number> {
     config = newConfig(org.org, ws.opsName, opts.domain);
   }
   if (opts.account) config.account_id = opts.account;
+  // Added to configs written before it existed, so the sign-in page says "Pip", not "playpip".
+  if (!config.vars.ROSTER_NAME) config.vars.ROSTER_NAME = String(org.name ?? org.org);
   const domain = domainOf(config);
 
   process.stdout.write(

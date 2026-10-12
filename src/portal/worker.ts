@@ -31,6 +31,8 @@ interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
   /** The GitHub org this portal shows. */
   ROSTER_ORG: string;
+  /** The org's name as people say it ("Pip" for playpip), for the sign-in page. */
+  ROSTER_NAME?: string;
   /** Its ops repository, if it is not `roster-ops`. */
   ROSTER_OPS_REPO?: string;
   GITHUB_CLIENT_ID: string;
@@ -114,7 +116,7 @@ export default {
     }
 
     if (!session) {
-      if (path === "/") return signInPage(env.ROSTER_ORG);
+      if (path === "/") return signInPage(env.ROSTER_NAME || env.ROSTER_ORG);
       return Response.json({ error: "Sign in first.", signIn: "/auth/login" }, { status: 401 });
     }
 

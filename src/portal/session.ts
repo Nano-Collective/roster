@@ -119,7 +119,7 @@ export async function finishSignIn(
     return page(
       400,
       "That sign-in did not start here",
-      "Go back to the portal and press Sign in again.",
+      `<p>Start again from the portal.</p><a class="back" href="/">Back to sign in</a>`,
     );
   }
 
@@ -138,7 +138,11 @@ export async function finishSignIn(
     error_description?: string;
   };
   if (!grant.access_token) {
-    return page(502, "GitHub did not sign you in", grant.error_description ?? "Try again.");
+    return page(
+      502,
+      "GitHub did not sign you in",
+      `<p>${esc(grant.error_description ?? "Try again.")}</p><a class="back" href="/">Back to sign in</a>`,
+    );
   }
 
   const me = await doFetch("https://api.github.com/user", {
@@ -153,9 +157,10 @@ export async function finishSignIn(
     await revoke(grant.access_token, cfg, doFetch);
     return page(
       403,
-      "This portal is for the org's people",
-      `${login || "That account"} is not one of the humans in org.yaml, or cannot read the ops repository. ` +
-        "Ask whoever runs it to add you under humans:.",
+      "Not on the list",
+      `<p>${esc(login || "That account")} is not one of the humans in org.yaml, or cannot read the ` +
+        "ops repository. Ask whoever runs it to add you under humans:.</p>" +
+        `<a class="back" href="/">Back to sign in</a>`,
     );
   }
 
@@ -196,30 +201,57 @@ async function revoke(token: string, cfg: AuthConfig, doFetch: typeof fetch = fe
 }
 
 /** The page somebody sees before they have signed in. */
-export function signInPage(org: string): Response {
-  return page(
-    200,
-    `${org} · roster`,
-    `<a class="go" href="/auth/login">Sign in with GitHub</a>`,
-    true,
-  );
+export function signInPage(name: string): Response {
+  return page(200, name, `<a class="go" href="/auth/login">${GITHUB_MARK}Sign in with GitHub</a>`);
 }
 
-function page(status: number, title: string, body: string, html = false): Response {
-  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+const GITHUB_MARK =
+  '<svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
+
+function esc(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+/**
+ * A page of its own, in the portal's own stylesheet, so signing in looks like the thing you are
+ * signing in to. `body` is markup: callers escape what they put in it.
+ */
+function page(status: number, title: string, body: string): Response {
   return new Response(
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-      `<title>${esc(title)}</title>` +
-      `<style>body{font:15px/1.6 system-ui,sans-serif;max-width:30rem;margin:18vh auto;padding:0 1.4rem;color:#e8e8e8;background:#0b0b0b}` +
-      `h1{font-size:1.3rem}.go{display:inline-block;margin-top:.6rem;padding:.6rem 1rem;border-radius:8px;background:#34c759;color:#04140a;font-weight:600;text-decoration:none}` +
-      `@media (prefers-color-scheme: light){body{color:#151515;background:#fafafa}}</style>` +
-      `<h1>${esc(title)}</h1><p>${html ? body : esc(body)}</p>`,
+    `<!doctype html><html lang="en"><meta charset="utf-8">` +
+      `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<title>${esc(title)} · roster</title>` +
+      `<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2334c759'/%3E%3C/svg%3E">` +
+      `<link rel="stylesheet" href="/assets/css/base.css">` +
+      `<style>${PAGE_CSS}</style>` +
+      `<main class="gate"><div class="card">` +
+      `<div class="who"><span class="mark"></span><div><b>${esc(title)}</b><small>roster</small></div></div>` +
+      `${body}</div></main></html>`,
     {
       status,
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
     },
   );
 }
+
+const PAGE_CSS = `
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.gate{min-height:100%;display:grid;place-items:center;padding:24px 16px;box-sizing:border-box}
+.card{width:100%;max-width:360px;box-sizing:border-box;padding:28px;border-radius:var(--r-lg);
+  background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-lg)}
+.who{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.who .mark{width:36px;height:36px;border-radius:10px;background:var(--accent-fill);flex:none}
+.who b{display:block;font-size:17px;font-weight:600;letter-spacing:-.02em}
+.who small{display:block;color:var(--ink-faint);font-size:12.5px}
+.card p{margin:0 0 18px;color:var(--ink-dim)}
+.go{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;box-sizing:border-box;
+  padding:11px 16px;border-radius:var(--r);background:var(--ink);color:var(--bg);
+  font-weight:600;text-decoration:none;transition:opacity .15s var(--ease)}
+.go:hover{opacity:.88}
+.go:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.back{display:inline-block;margin-top:4px;color:var(--accent);text-decoration:none;font-weight:500}
+`;
 
 function base64url(bytes: Uint8Array): string {
   let s = "";
