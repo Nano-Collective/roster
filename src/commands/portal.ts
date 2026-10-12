@@ -184,7 +184,18 @@ export async function portalCommand(argv: string[]): Promise<number> {
       return;
     }
     res.writeHead(answer.status, Object.fromEntries(answer.headers));
-    res.end(Buffer.from(await answer.arrayBuffer()));
+    // Passed on as it arrives, so a streamed answer (the first load's progress) is not held back.
+    if (!answer.body) {
+      res.end();
+      return;
+    }
+    const reader = answer.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+    res.end();
   };
 
   /* A local server that can write to GitHub is reachable by any page in the browser, so a

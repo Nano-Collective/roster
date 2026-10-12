@@ -55,6 +55,9 @@ export interface RepoSnapshot {
   pathsOnly: boolean;
 }
 
+/** What a refresh is doing right now, said plainly: "downloading the repository". */
+export type Report = (repo: string, step: string) => void;
+
 export interface RefreshResult {
   ok: boolean;
   /** The head moved and the snapshot was rebuilt. */
@@ -67,6 +70,8 @@ export class Snapshots {
   private repos = new Map<string, RepoSnapshot>();
   private inflight = new Map<string, Promise<RefreshResult>>();
   private checked = new Map<string, number>();
+  /** Who wants to hear how a refresh in flight is going. Every caller that joined it. */
+  private listeners = new Map<string, Set<Report>>();
 
   constructor(
     private kv: KeyValue,
@@ -87,17 +92,22 @@ export class Snapshots {
   refresh(
     gh: GitHub,
     repo: string,
-    opts: { force?: boolean; pathsOnly?: boolean } = {},
+    opts: { force?: boolean; pathsOnly?: boolean; report?: Report } = {},
   ): Promise<RefreshResult> {
     const last = this.checked.get(repo) ?? 0;
     if (!opts.force && this.repos.has(repo) && Date.now() - last < this.freshMs) {
       return Promise.resolve({ ok: true, changed: false });
     }
+    if (opts.report) {
+      if (!this.listeners.has(repo)) this.listeners.set(repo, new Set());
+      this.listeners.get(repo)!.add(opts.report);
+    }
     const running = this.inflight.get(repo);
     if (running) return running;
-    const work = this.load(gh, repo, opts.pathsOnly === true).finally(() =>
-      this.inflight.delete(repo),
-    );
+    const work = this.load(gh, repo, opts.pathsOnly === true).finally(() => {
+      this.inflight.delete(repo);
+      this.listeners.delete(repo);
+    });
     this.inflight.set(repo, work);
     return work;
   }
@@ -120,7 +130,12 @@ export class Snapshots {
     void this.kv.put(`blob:${sha}`, text);
   }
 
+  private say(repo: string, step: string) {
+    for (const report of this.listeners.get(repo) ?? []) report(repo, step);
+  }
+
   private async load(gh: GitHub, repo: string, pathsOnly: boolean): Promise<RefreshResult> {
+    this.say(repo, "checking for changes");
     const head = await gh.request<string>("GET", `repos/${repo}/commits/HEAD`, {
       accept: "application/vnd.github.sha",
       as: "text",
@@ -132,8 +147,10 @@ export class Snapshots {
     const sha = head.data.trim();
     const before = this.repos.get(repo);
     if (before && before.sha === sha && before.pathsOnly === pathsOnly) {
+      this.say(repo, "up to date");
       return { ok: true, changed: false };
     }
+    this.say(repo, "reading the file list");
 
     const next = await this.build(gh, repo, sha, pathsOnly, before);
     if (!next.ok) return { ok: false, changed: false, error: next.error, status: next.status };
@@ -194,6 +211,7 @@ export class Snapshots {
     );
 
     if (missing.length > TARBALL_OVER) {
+      this.say(repo, "downloading the repository");
       const tgz = await gh.request<Uint8Array>("GET", `repos/${repo}/tarball/${sha}`, {
         as: "bytes",
       });
@@ -208,6 +226,9 @@ export class Snapshots {
         void this.kv.put(`blob:${e.sha}`, text);
       }
     } else {
+      if (missing.length) {
+        this.say(repo, `fetching ${missing.length} changed file${missing.length === 1 ? "" : "s"}`);
+      }
       await pool(missing, 8, async ([, e]) => {
         const res = await gh.request<Uint8Array>("GET", `repos/${repo}/git/blobs/${e.sha}`, {
           accept: "application/vnd.github.raw",
@@ -249,6 +270,7 @@ export class Snapshots {
     }
 
     const [owner, name] = repo.split("/");
+    if (ask.length) this.say(repo, "reading file dates");
     for (let i = 0; i < ask.length; i += DATES_PER_QUERY) {
       const batch = ask.slice(i, i + DATES_PER_QUERY);
       const fields = batch

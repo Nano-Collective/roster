@@ -14,6 +14,36 @@ export const getSession = () =>
     .catch(() => null);
 
 export const getOrg = () => json("/api/org");
+
+/**
+ * The org, for the first load, saying what it is doing as it goes: `onStep(repo, step)` for each
+ * line the server streams, then the org itself. Anything that is not a stream (the setup answer,
+ * an older server) is read as plain JSON, so this is never worse than getOrg.
+ */
+export async function getOrgWithProgress(onStep) {
+  const res = await fetch("/api/org?progress=1", { cache: "no-store" });
+  if (res.status === 401) location.reload();
+  const type = String(res.headers?.get?.("content-type") ?? "");
+  if (!type.includes("ndjson") || !res.body?.pipeThrough) return res.json();
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += value;
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      const msg = JSON.parse(line);
+      if (msg.org) return msg.org;
+      if (msg.error) throw new Error(msg.error);
+      onStep(msg.repo, msg.step);
+    }
+  }
+  throw new Error("The org did not arrive. Reload to try again.");
+}
 export const getDocs = () => json("/api/docs");
 export const getInbox = (force) => json("/api/inbox" + (force ? "?refresh=1" : ""));
 export const getSync = () => json("/api/sync").catch(() => null);

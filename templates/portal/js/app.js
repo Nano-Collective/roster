@@ -1,6 +1,6 @@
 /* The shell: boot, the sidebar, and dispatching a view into <main>. */
 
-import { getOrg, getSession } from "./api.js";
+import { getOrgWithProgress, getSession } from "./api.js";
 import { $, el, store } from "./dom.js";
 import { icon, iconHTML, staffIcon } from "./icons.js";
 import { installLightbox } from "./lightbox.js";
@@ -96,7 +96,7 @@ export async function boot() {
   /* Before there is a tenant the server answers every data route with `mode: setup`. That is
      not an error state: it is the first thing a new user ever sees, and the whole page becomes
      the thing that fixes it. */
-  const [first, session] = await Promise.all([getOrg(), getSession()]);
+  const [first, session] = await Promise.all([loadWithProgress(), getSession()]);
   S.hosted = session?.hosted ? session : null;
   if (S.hosted) showSignedIn(S.hosted.login);
   if (first && first.mode === "setup") {
@@ -407,6 +407,41 @@ function render() {
   const notice = syncNotice();
   if (notice) m.append(notice);
   (SCREEN[S.view] ?? viewBrain)(m);
+}
+
+/* ------------------------------- first load -------------------------------- */
+
+/**
+ * The first read of the org, with what it is doing on screen. A cold start reads every
+ * repository from GitHub, which can take a while, and "Loading…" for fifteen seconds reads as
+ * broken. One row per repository, saying which step it is on, and a tick when it is ready.
+ */
+async function loadWithProgress() {
+  const main = $("#main");
+  const rows = new Map();
+  const list = el("div", { className: "loadlist" });
+  const head = el("p", { className: "sub", textContent: "Reading the org from GitHub…" });
+  // Only once something is actually slow: a warm load is over before this would be read.
+  const show = setTimeout(() => main.replaceChildren(head, list), 400);
+  try {
+    return await getOrgWithProgress((repo, step) => {
+      let row = rows.get(repo);
+      if (!row) {
+        row = el("div", { className: "loadrow" }, [
+          el("span", { className: "loadmark" }),
+          el("b", { textContent: repo }),
+          el("span", { className: "meta" }),
+        ]);
+        rows.set(repo, row);
+        list.append(row);
+      }
+      const ready = step === "ready" || step === "up to date";
+      row.classList.toggle("done", ready);
+      row.lastChild.textContent = ready ? "ready" : step;
+    });
+  } finally {
+    clearTimeout(show);
+  }
 }
 
 /* -------------------------------- signed in -------------------------------- */

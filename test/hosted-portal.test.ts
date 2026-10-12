@@ -298,3 +298,20 @@ test("a read that times out is asked once more; a write never is", async () => {
   assert.equal(write.ok, false);
   assert.equal(seen.length, 1, "a post is never sent twice");
 });
+
+test("a first load can stream what it is doing, and ends with the org", async () => {
+  const { get } = await setup();
+  const res = await get("/api/org?progress=1");
+  assert.match(res!.headers.get("content-type") ?? "", /ndjson/);
+  const lines = (await res!.text())
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+  const steps = lines.filter((l) => l.step);
+  assert.ok(
+    steps.some((l) => l.repo === "cto" && l.step === "checking for changes"),
+    "each repository says what it is doing",
+  );
+  assert.ok(steps.some((l) => l.repo === "cto" && l.step === "ready"));
+  assert.equal(lines.at(-1).org.org, "acme", "and the org comes last");
+});

@@ -310,3 +310,16 @@ dialog.sheet.side .sidebar-x .iconbtn{margin-top:-4px}
 .spinner{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);
       animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* The first load, while the org is read from GitHub: a row per repository. */
+.loadlist{display:flex;flex-direction:column;gap:2px;max-width:520px}
+.loadrow{display:grid;grid-template-columns:18px 140px 1fr;align-items:center;gap:10px;padding:7px 0;
+  font-size:13.5px;border-bottom:1px solid var(--line)}
+.loadrow b{font-weight:500}
+.loadrow .meta{color:var(--ink-dim)}
+.loadmark{width:10px;height:10px;border-radius:50%;border:2px solid var(--accent-dim);
+  border-top-color:var(--accent);animation:loadspin .8s linear infinite}
+.loadrow.done .loadmark{animation:none;border-color:var(--accent);background:var(--accent)}
+.loadrow.done .meta{color:var(--ink-faint)}
+@keyframes loadspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.loadmark{animation:none}}

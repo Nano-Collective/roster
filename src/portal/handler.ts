@@ -23,7 +23,7 @@ import { readOrg, type Workspace } from "../lib/workspace.js";
 import { buildPasteBrief, orgSpec, workspaceRoots } from "./brief.js";
 import { type BrainHistory, loadedHistory, loadHistory } from "./history.js";
 import type { KeyValue } from "./kv.js";
-import { Snapshots } from "./snapshot.js";
+import { type Report, Snapshots } from "./snapshot.js";
 
 /**
  * The portal, as a function from a request to a response.
@@ -159,15 +159,20 @@ type Route = (c: Ctx) => Promise<Response>;
  * Every route that reads the org calls this first. It costs a conditional request per repo at
  * most every few seconds, and those are free when nothing moved.
  */
-async function ready(c: Ctx, opts: { force?: boolean; products?: boolean } = {}) {
+async function ready(c: Ctx, opts: { force?: boolean; products?: boolean; report?: Report } = {}) {
   const { portal, actor } = c;
-  const ops = await portal.snapshots.refresh(actor.gh, `${portal.org}/${portal.opsName}`, opts);
+  const report = opts.report;
+  const ops = await portal.snapshots.refresh(actor.gh, `${portal.org}/${portal.opsName}`, {
+    force: opts.force,
+    report,
+  });
   if (!ops.ok) {
     throw new HttpError(
       ops.status === 404 || ops.status === 401 ? ops.status : 502,
       `could not read ${portal.org}/${portal.opsName}: ${ops.error}`,
     );
   }
+  report?.(`${portal.org}/${portal.opsName}`, "ready");
   const org = readOrg(portal.ws.opsDir, parseYaml) as any;
   const brains = (org.staff ?? []).map((s: any) => String(s.dir ?? s.handle));
   const products = opts.products
@@ -178,7 +183,7 @@ async function ready(c: Ctx, opts: { force?: boolean; products?: boolean } = {})
   const results = await Promise.all([
     ...brains.map((d: string) =>
       portal.snapshots
-        .refresh(actor.gh, `${portal.org}/${d}`, { force: opts.force })
+        .refresh(actor.gh, `${portal.org}/${d}`, { force: opts.force, report })
         .then((r) => ({ dir: d, ...r })),
     ),
     ...products.map((d: string) =>
@@ -234,25 +239,28 @@ const ROUTES: Record<string, Route> = {
     });
   },
 
+  /* The whole org. With ?progress=1 it is a stream instead: a line per step as it is read from
+     GitHub, then the org, so a first load can say what it is doing rather than "Loading…". */
   "/api/org": async (c) => {
-    const { portal, actor } = c;
-    const { org, brains } = await ready(c);
-    // History is per head commit and kept, so this asks GitHub only after an agent has pushed.
-    const byRoot = new Map<string, BrainHistory>();
-    await Promise.all(
-      brains.map(async (dir: string) => {
-        const repo = `${portal.org}/${dir}`;
-        const snap = portal.snapshots.get(repo);
-        if (!snap) return;
-        byRoot.set(
-          join(portal.ws.root, dir),
-          await loadHistory(actor.gh, portal.kv, repo, snap.sha),
-        );
-      }),
-    );
-    const data = buildExport(portal.ws, org, parseYaml, { history: loadedHistory(byRoot) });
-    const left = unfinished(portal.ws.opsDir, (org.staff ?? []).length);
-    return json({ ...data, unfinished: left });
+    if (c.url.searchParams.get("progress") !== "1") return json(await orgExport(c));
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+    const out = writable.getWriter();
+    const line = (o: unknown) => out.write(new TextEncoder().encode(`${JSON.stringify(o)}\n`));
+    const report: Report = (repo, step) => {
+      void line({ repo: repo.slice(repo.indexOf("/") + 1), step });
+    };
+    void orgExport(c, report)
+      .then((org) => line({ org }))
+      .catch((err) =>
+        line({ error: String((err as Error)?.message ?? err), status: (err as HttpError).status }),
+      )
+      .finally(() => out.close());
+    return new Response(readable, {
+      headers: {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    });
   },
 
   /* Every file in the org layer the portal may write: isWritable's allowlist, nothing more. */
@@ -866,6 +874,27 @@ const ROUTES: Record<string, Route> = {
     return new Response(bytes, { headers: { "content-type": type, "cache-control": "no-store" } });
   },
 };
+
+/** The org export the page is built from, with the step it is on reported as it goes. */
+async function orgExport(c: Ctx, report?: Report) {
+  const { portal, actor } = c;
+  const { org, brains } = await ready(c, { report });
+  // History is per head commit and kept, so this asks GitHub only after an agent has pushed.
+  const byRoot = new Map<string, BrainHistory>();
+  await Promise.all(
+    brains.map(async (dir: string) => {
+      const repo = `${portal.org}/${dir}`;
+      const snap = portal.snapshots.get(repo);
+      if (!snap) return;
+      report?.(repo, "reading recent history");
+      byRoot.set(join(portal.ws.root, dir), await loadHistory(actor.gh, portal.kv, repo, snap.sha));
+      report?.(repo, "ready");
+    }),
+  );
+  const data = buildExport(portal.ws, org, parseYaml, { history: loadedHistory(byRoot) });
+  const left = unfinished(portal.ws.opsDir, (org.staff ?? []).length);
+  return { ...data, unfinished: left };
+}
 
 /* ------------------------------------------------------------------------------------------ */
 /* Helpers                                                                                     */

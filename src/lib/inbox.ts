@@ -176,7 +176,7 @@ const TIMELINE_PR = `
   ... on ReadyForReviewEvent { actor { login } createdAt }
   ... on ReviewRequestedEvent {
     actor { login } createdAt
-    requestedReviewer { ... on User { login } ... on Team { name } }
+    requestedReviewer { __typename ... on User { login } ... on Bot { login } }
   }
 `;
 
@@ -492,7 +492,11 @@ function event(e: any): TimelineEvent | null {
         type: "review-requested",
         actor: who,
         createdAt: at,
-        assignee: e.requestedReviewer?.login ?? e.requestedReviewer?.name ?? "",
+        /* A team's name needs the read:org scope, which a portal signed in with `repo` alone does
+           not have, and asking for it fails the whole thread. Its type needs nothing. */
+        assignee:
+          e.requestedReviewer?.login ??
+          (e.requestedReviewer?.__typename === "Team" ? "a team" : ""),
       };
 
     case "LabeledEvent":
