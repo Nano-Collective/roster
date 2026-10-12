@@ -47,6 +47,7 @@ roster run cto                  # one run now, followed to the end
 roster doctor                   # is any of this actually wired up
 roster fix                      # every finding, as one brief for a coding agent
 roster portal                   # read every brain, and the docs, locally
+roster portal deploy            # the same portal on your own URL, behind Sign in with GitHub
 roster prompt cto               # the exact prompt a run will be sent
 roster upgrade                  # take framework changes without losing your edits
 roster retire cto               # let someone go, with their brain kept
