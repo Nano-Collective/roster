@@ -271,15 +271,29 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Without the secrets there is nothing to deploy with. That is a choice, not a failure:
+      # the portal that is up stays up, and only stops updating itself.
+      - name: Check for the Cloudflare secrets
+        id: ready
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::Not deploying: add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to this repo's secrets."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.ready.outputs.go == 'true'
+        uses: actions/checkout@v4
+      - if: steps.ready.outputs.go == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npx --yes @nanocollective/roster@latest portal deploy --ci --apply
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - if: steps.ready.outputs.go == 'true'
+        run: npx --yes @nanocollective/roster@latest portal deploy --ci --apply
 `;
 
 function parseFlags(argv: string[]): Flags {
