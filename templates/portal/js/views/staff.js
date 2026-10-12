@@ -125,10 +125,21 @@ export function viewStaff(m, o = {}) {
     const list = el("div", { className: "grid", style: "margin-bottom:18px" });
     for (const s of S.data.staff) list.append(card(s));
     // In the grid, where the next person would go, rather than a button under it.
-    const hire = el("button", { className: "hirecard", textContent: "Hire someone" });
-    hire.onclick = pick;
-    list.append(hire);
+    if (!S.hosted) {
+      const hire = el("button", { className: "hirecard", textContent: "Hire someone" });
+      hire.onclick = pick;
+      list.append(hire);
+    }
     m.append(list);
+    // Hiring creates repos and Apps and writes secrets, which is done from your own machine.
+    if (S.hosted) {
+      m.append(
+        el("p", {
+          className: "sub",
+          textContent: "Hire, retire and finish setting up in roster portal on your machine.",
+        }),
+      );
+    }
   }
   m.append(pane);
 
@@ -188,9 +199,12 @@ export function viewStaff(m, o = {}) {
     });
     d.append(warn);
 
-    d.append(
-      el("div", { className: "row", style: "margin-top:10px" }, [finish, go, status]),
-    );
+    // Both create or delete things only your own machine can: Apps, secrets, repos.
+    if (!S.hosted) {
+      d.append(
+        el("div", { className: "row", style: "margin-top:10px" }, [finish, go, status]),
+      );
+    }
     return d;
   }
 

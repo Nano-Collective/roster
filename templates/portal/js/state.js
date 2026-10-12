@@ -30,6 +30,8 @@ const INBOXY = new Set(["inbox", "prs"]);
 export const S = {
   /** The org export from /api/org. Everything the brain screens read comes off this. */
   data: null,
+  /** `{login}` on a hosted portal, null on your own machine. Hosted has no setup, hire or doctor. */
+  hosted: null,
   docs: null,
   inbox: null,
   /** /api/runs. Kept once read: it is minutes of downloads on a cold cache. */

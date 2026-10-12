@@ -6,6 +6,7 @@
 
 import { getDoctor, getFix } from "../api.js";
 import { el, toClipboard } from "../dom.js";
+import { S } from "../state.js";
 
 const LEVEL_ORDER = { fail: 0, warn: 1, ok: 2 };
 
@@ -21,6 +22,14 @@ export async function checklist(host, opts = {}) {
   const inSection = Boolean(opts.shell);
   const btnClass = inSection ? "ghbtn" : "btn";
   const noteClass = inSection ? "hnote" : "sub";
+  /* Doctor reads the checkout and the org's secrets, so it runs where the checkout is. */
+  if (S.hosted) {
+    opts.shell?.say("on your machine");
+    host.replaceChildren(
+      el("p", { className: noteClass, textContent: "Run roster doctor in your workspace." }),
+    );
+    return;
+  }
   host.replaceChildren(el("p", { className: noteClass, textContent: "Checking…" }));
 
   let report;

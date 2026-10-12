@@ -666,6 +666,7 @@ function install(hash: string) {
 const ALIAS: Record<string, string> = {
   DATA: "data",
   STAFF_OPEN: "staffOpen",
+  HOSTED: "hosted",
   READINESS: "readiness",
   INBOX: "inbox",
   LIVE: "live",
@@ -3528,4 +3529,29 @@ test("a thread from the list is read when it is opened, and kept until it change
   s.render();
   await new Promise((r) => setTimeout(r, 40));
   assert.equal(asked, 1, "and not again while it has not changed");
+});
+
+/* ---------------------------- a hosted portal ---------------------------- */
+
+test("hosted, the screens that need your machine say so instead of offering it", async () => {
+  const s = await renderAll();
+  s.HOSTED = { login: "someone", hosted: true };
+  s.view = "staff";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.ok(!text.includes("Hire someone"), "no hiring from a hosted page");
+  assert.ok(!text.includes("Retire"), "and no retiring");
+  assert.match(text, /Hire, retire and finish setting up in roster portal on your machine/);
+
+  s.view = "health";
+  s.render();
+  await new Promise((r) => setTimeout(r, 30));
+  const health = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(health, /Run roster doctor in your workspace/);
+  assert.ok(!health.includes("Everything doctor checks is clean"), "never clean by default");
 });

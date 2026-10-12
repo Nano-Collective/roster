@@ -41,8 +41,13 @@ export interface Spend {
 
 const KINDS = ["daily", "mention"] as const;
 const records = new Map<string, RunRecord | null>();
-/** Records being fetched in the background, so a second request does not fetch them again. */
-const fetching = new Set<string>();
+/**
+ * Records being fetched in the background, and since when, so a second request does not fetch
+ * them again. A start is trusted for a minute: a Worker can cut background work off, and a
+ * record whose fetch was abandoned must not stay "in flight" for the life of the isolate.
+ */
+const fetching = new Map<string, number>();
+const IN_FLIGHT_MS = 60_000;
 
 /**
  * Where run records are kept between starts. A finished run's record never changes, so each
@@ -84,7 +89,11 @@ export async function staffRuns(
   brain: string,
   handle: string,
   days = 30,
-  opts: { wait?: boolean } = {},
+  opts: {
+    wait?: boolean;
+    /** Where background work is handed, on a runtime that ends it otherwise: a Worker's waitUntil. */
+    background?: (work: Promise<unknown>) => void;
+  } = {},
 ): Promise<{ runs: RunRow[]; errors: string[]; pending: number }> {
   const since = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
   const lists = await Promise.all(
@@ -128,12 +137,20 @@ export async function staffRuns(
   }
 
   if (opts.wait === false) {
-    const todo = missing.filter((r) => !fetching.has(`${brain}#${r.id}`));
-    for (const r of todo) fetching.add(`${brain}#${r.id}`);
-    void pool(todo, 6, async (row) => {
-      await recordFor(gh, brain, row.id);
-      fetching.delete(`${brain}#${row.id}`);
+    const now = Date.now();
+    const todo = missing.filter(
+      (r) => now - (fetching.get(`${brain}#${r.id}`) ?? 0) > IN_FLIGHT_MS,
+    );
+    for (const r of todo) fetching.set(`${brain}#${r.id}`, now);
+    const work = pool(todo, 6, async (row) => {
+      try {
+        await recordFor(gh, brain, row.id);
+      } finally {
+        fetching.delete(`${brain}#${row.id}`);
+      }
     });
+    if (opts.background) opts.background(work);
+    else void work;
     return { runs: rows, errors, pending: missing.length };
   }
 

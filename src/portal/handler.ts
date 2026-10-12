@@ -67,6 +67,8 @@ export interface Actor {
   id: string;
   /** True only for a request that has passed the server's own write guard. */
   canWrite: boolean;
+  /** Where work that outlives the response goes. A Worker passes its waitUntil. */
+  background?: (work: Promise<unknown>) => void;
 }
 
 const TTL = 45_000;
@@ -186,6 +188,18 @@ async function ready(c: Ctx, opts: { force?: boolean; products?: boolean } = {})
     ),
   ]);
   return { org, brains, results: [{ dir: portal.opsName, ...ops }, ...results] };
+}
+
+/**
+ * org.yaml, read with somebody's own token, or null when they cannot read the ops repository.
+ * For deciding whether a GitHub login may use a hosted portal at all.
+ */
+export async function readOrgFor(portal: Portal, gh: GitHub): Promise<Record<string, any> | null> {
+  const ops = await portal.snapshots.refresh(gh, `${portal.org}/${portal.opsName}`, {
+    force: true,
+  });
+  if (!ops.ok) return null;
+  return readOrg(portal.ws.opsDir, parseYaml) as Record<string, any>;
 }
 
 /* ------------------------------------------------------------------------------------------ */
@@ -671,6 +685,7 @@ const ROUTES: Record<string, Route> = {
         // At once, with the costs already known; the rest arrive in the background.
         const { runs, errors, pending } = await staffRuns(actor.gh, brain, s.handle, 30, {
           wait: false,
+          background: actor.background,
         });
         return {
           handle: s.handle,

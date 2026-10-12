@@ -1,7 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["test/*.test.ts"],
+  "entry": ["test/*.test.ts", "src/portal/worker.ts", "scripts/*.mjs"],
   "project": ["src/**/*.ts", "test/**/*.ts"],
   "ignoreBinaries": ["semgrep", "diff"],
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": ["roster"]
 }

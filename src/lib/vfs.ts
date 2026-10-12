@@ -108,3 +108,27 @@ export function statSync(path: fs.PathLike): Stat {
   }
   throw missing(String(path), "stat");
 }
+
+/** A tree from a flat map of path to text, for files carried in code rather than on disk. */
+export function treeOf(files: Record<string, string>, mtime = new Date(0)): VirtualTree {
+  const dirs = new Map<string, Set<string>>([["", new Set()]]);
+  for (const path of Object.keys(files)) {
+    const parts = path.split("/");
+    let dir = "";
+    for (const name of parts) {
+      if (!dirs.has(dir)) dirs.set(dir, new Set());
+      dirs.get(dir)!.add(name);
+      dir = dir ? `${dir}/${name}` : name;
+    }
+  }
+  return {
+    file: (rel) => {
+      const text = files[rel];
+      return text === undefined ? undefined : { size: Buffer.byteLength(text), mtime, text };
+    },
+    dir: (rel) => {
+      const names = dirs.get(rel);
+      return names && !(rel in files) ? [...names] : undefined;
+    },
+  };
+}

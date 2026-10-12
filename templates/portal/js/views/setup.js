@@ -93,7 +93,10 @@ export async function viewGettingStarted(main) {
 export function paintSetupNav() {
   const nav = $("#setupnav");
   if (!nav) return;
-  nav.hidden = !App.data?.unfinished?.length && !notReady().length && App.view !== "setup";
+  // Hosted, there is no setting up from here: that is done in roster portal on your machine.
+  nav.hidden =
+    Boolean(App.hosted) ||
+    (!App.data?.unfinished?.length && !notReady().length && App.view !== "setup");
   const count = $("#setupcount");
   const p = progress();
   if (count) count.textContent = p ? `${p.done}/${p.total}` : "";

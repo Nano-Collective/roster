@@ -1,6 +1,6 @@
 /* The shell: boot, the sidebar, and dispatching a view into <main>. */
 
-import { getOrg } from "./api.js";
+import { getOrg, getSession } from "./api.js";
 import { $, el, store } from "./dom.js";
 import { icon, iconHTML, staffIcon } from "./icons.js";
 import { installLightbox } from "./lightbox.js";
@@ -96,7 +96,9 @@ export async function boot() {
   /* Before there is a tenant the server answers every data route with `mode: setup`. That is
      not an error state: it is the first thing a new user ever sees, and the whole page becomes
      the thing that fixes it. */
-  const first = await getOrg();
+  const [first, session] = await Promise.all([getOrg(), getSession()]);
+  S.hosted = session?.hosted ? session : null;
+  if (S.hosted) showSignedIn(S.hosted.login);
   if (first && first.mode === "setup") {
     document.body.dataset.setup = "1";
     $("#orgname").textContent = "no org yet";
@@ -132,7 +134,7 @@ export async function boot() {
   /* An org nobody has been hired into has an empty Inbox, which says nothing about what to do
      next. It opens on what is left instead, unless a link or a click asked for somewhere else. */
   if (early) S.view = early;
-  else if (!linked && (S.data.unfinished ?? []).includes("hire")) S.view = "setup";
+  else if (!linked && !S.hosted && (S.data.unfinished ?? []).includes("hire")) S.view = "setup";
   initStaffFold();
   paintSidebar();
 
@@ -405,6 +407,22 @@ function render() {
   const notice = syncNotice();
   if (notice) m.append(notice);
   (SCREEN[S.view] ?? viewBrain)(m);
+}
+
+/* -------------------------------- signed in -------------------------------- */
+
+/**
+ * On a hosted portal: who you are, and the way out. Setting the org up is not done from here,
+ * so its entry goes too.
+ */
+function showSignedIn(login) {
+  $("#setupnav")?.setAttribute("hidden", "");
+  const out = el("button", { className: "nav", textContent: "Sign out " + login });
+  out.onclick = async () => {
+    await fetch("/auth/logout", { method: "POST" }).catch(() => {});
+    location.href = "/";
+  };
+  $(".sidefoot")?.prepend(out);
 }
 
 /* --------------------------------- theme ---------------------------------- */

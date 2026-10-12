@@ -1,6 +1,17 @@
 /* Everything the page asks the local server for, in one place. */
 
-const json = async (url) => (await fetch(url, { cache: "no-store" })).json();
+const json = async (url) => {
+  const res = await fetch(url, { cache: "no-store" });
+  // A hosted portal whose sign-in has lapsed: the page itself is the sign-in screen.
+  if (res.status === 401) location.reload();
+  return res.json();
+};
+
+/** Who is signed in to a hosted portal, or null on your own machine, where nobody signs in. */
+export const getSession = () =>
+  fetch("/api/session", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
 
 export const getOrg = () => json("/api/org");
 export const getDocs = () => json("/api/docs");

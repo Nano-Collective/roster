@@ -17,7 +17,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup src/cli.ts --format esm --target node20 --clean",
+    "build": "tsup src/cli.ts --format esm --target node20 --clean && node scripts/build-worker.mjs",
     "dev": "tsx src/cli.ts",
     "test": "tsx --test test/*.test.ts",
     "test:all": "pnpm test:format && pnpm test:lint && pnpm test:types && pnpm test:knip && pnpm test",
@@ -31,7 +31,8 @@
     "test:security": "semgrep scan --config auto --error",
     "typecheck": "tsc --noEmit",
     "format": "biome check --write .",
-    "prepublishOnly": "pnpm test:all && pnpm build"
+    "prepublishOnly": "pnpm test:all && pnpm build",
+    "build:worker": "node scripts/build-worker.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
