@@ -103,7 +103,7 @@ function howTo(org: OrgYaml): string {
  * Echoing a token to the screen puts it in scrollback and in anything recording the session,
  * which is most of what keeping it off argv was for.
  */
-function readSecret(prompt: string): Promise<string> {
+export function readSecret(prompt: string): Promise<string> {
   const stdin = process.stdin;
   if (!stdin.isTTY) {
     return new Promise((resolve, reject) => {

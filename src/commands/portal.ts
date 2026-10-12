@@ -39,6 +39,7 @@ import {
 } from "../portal/handler.js";
 import { layeredKV } from "../portal/kv.js";
 import { diskKV } from "../portal/kv-disk.js";
+import { deployCommand } from "./deploy.js";
 import { collect } from "./doctor.js";
 import { fixBrief, gather } from "./fix.js";
 import {
@@ -74,6 +75,9 @@ roster portal
   --org <org>    the org to show, with no checkout at all (default: the checkout's org.yaml)
   --ops-repo <n> its ops repo's name, with --org (default: roster-ops)
   --no-open      don't open a browser (also off in CI, over SSH, or with BROWSER=none)
+
+  roster portal deploy puts it on the web instead, behind Sign in with GitHub. See
+  roster help deploy.
 `;
 
 /**
@@ -89,6 +93,7 @@ const pendingApps = new Map<
 const appResults = new Map<string, Record<string, unknown>>();
 
 export async function portalCommand(argv: string[]): Promise<number> {
+  if (argv[0] === "deploy") return deployCommand(argv.slice(1));
   const opts = parseFlags(argv);
   // Reassigned if 4300 is taken and nobody asked for a port: see the listen below.
   let port = opts.port ?? 4300;

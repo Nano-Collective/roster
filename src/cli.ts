@@ -2,6 +2,7 @@
 import { appCommand, appHelp } from "./commands/app.js";
 import { briefCommand, briefHelp } from "./commands/brief.js";
 import { credentialCommand, credentialHelp } from "./commands/credential.js";
+import { deployHelp } from "./commands/deploy.js";
 import { doctorCommand, doctorHelp } from "./commands/doctor.js";
 import { exportCommand, exportHelp } from "./commands/export.js";
 import { fixCommand, fixHelp } from "./commands/fix.js";
@@ -34,6 +35,7 @@ roster — an agent-run org, powered by GitHub
   roster retire <handle>    stop a staff member, keeping their repo and their memory
   roster upgrade            carry framework changes into this tenant
   roster portal             browse every brain, locally
+  roster portal deploy      put the portal on the web, behind Sign in with GitHub
   roster export             the whole org as one JSON
   roster help [command]
 
@@ -70,6 +72,7 @@ const HELPS: Record<string, string> = {
   run: runHelp,
   retire: retireHelp,
   portal: portalHelp,
+  deploy: deployHelp,
   export: exportHelp,
 };
 
