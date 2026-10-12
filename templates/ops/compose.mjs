@@ -417,7 +417,10 @@ function main(argv) {
   process.stdout.write(compose({ opsDir, brainsDir, staff: args.staff, kind: args.kind }));
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+// Run as a script, and only as itself: bundled into another program (the portal's), this file's
+// URL is that program's, and `node <program>` must not be taken for `node compose.mjs`.
+const self = import.meta.url ? fileURLToPath(import.meta.url) : "";
+if (process.argv[1] && self.endsWith("compose.mjs") && resolve(process.argv[1]) === resolve(self)) {
   try {
     main(process.argv.slice(2));
   } catch (err) {
