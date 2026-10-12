@@ -81,9 +81,11 @@ export function createPortal(opts: {
   bin?: string;
   /** Where the snapshots are mounted. One org per prefix. */
   root?: string;
+  /** False on a Worker: see Snapshots. */
+  shareInflight?: boolean;
 }): Portal {
   const root = opts.root ?? `/@roster/${opts.org}`;
-  const snapshots = new Snapshots(opts.kv);
+  const snapshots = new Snapshots(opts.kv, undefined, opts.shareInflight ?? true);
   mount(
     root,
     snapshots.tree((repo) => repo.slice(repo.indexOf("/") + 1)),

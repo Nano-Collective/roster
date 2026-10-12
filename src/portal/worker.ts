@@ -59,7 +59,13 @@ function boot(env: Env): Portal {
   useFrameworkRoot(FRAMEWORK);
   const kv = cloudflareKV(env.CACHE);
   useRecordStore(recordStore(kv));
-  portal = createPortal({ org: env.ROSTER_ORG, opsName: env.ROSTER_OPS_REPO ?? "roster-ops", kv });
+  portal = createPortal({
+    org: env.ROSTER_ORG,
+    opsName: env.ROSTER_OPS_REPO ?? "roster-ops",
+    kv,
+    // A Worker request that awaits a fetch another request started never finishes.
+    shareInflight: false,
+  });
   return portal;
 }
 
