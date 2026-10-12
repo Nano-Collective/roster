@@ -18,7 +18,7 @@ export function viewRuns(m) {
       className: "sub",
       textContent:
         "What each staff member ran in the last 30 days, how it ended, and what it cost where " +
-        "the agent said. Read from GitHub through your own gh.",
+        "the agent said.",
     }),
   );
 
@@ -62,9 +62,7 @@ function paint(m, data) {
   if (!data.online) {
     const box = el("div", { className: "notice" });
     box.innerHTML =
-      "<b>Runs live on GitHub, and it could not be reached.</b><br>" +
-      esc(data.error ?? "gh is unavailable") +
-      "<br>Everything else in the portal reads from disk and still works.";
+      "<b>GitHub could not be reached.</b><br>" + esc(data.error ?? "No answer from GitHub.");
     m.append(box, el("div", { className: "row hacts" }, [again]));
     return;
   }

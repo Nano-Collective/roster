@@ -1,5 +1,4 @@
-import { execFile } from "node:child_process";
-import { type GhResult, ghJson } from "./gh.js";
+import type { GitHub } from "./github.js";
 
 /**
  * One run of a staff member's daily workflow, started by hand and followed to the end.
@@ -23,27 +22,28 @@ export interface RunOutcome extends RunInfo {
   failedAt: string[];
 }
 
-type Json = <T>(args: string[]) => Promise<GhResult<T>>;
-type Text = (args: string[]) => Promise<{ ok: boolean; error?: string }>;
-
 /** The file a staff member's scheduled run lives in. Templated as `%%STAFF%%-daily.yaml`. */
 export function dailyWorkflow(handle: string): string {
   return `${handle}-daily.yaml`;
 }
 
 /**
- * `gh workflow run`, which prints prose rather than JSON and says nothing useful about which run
- * it started. The run is found afterwards by time instead.
+ * Start a workflow on the repository's default branch, which is what `gh workflow run` did.
+ *
+ * GitHub answers a dispatch with nothing at all, not even the run it started. The run is found
+ * afterwards by time instead.
  */
-export const ghText: Text = (args) =>
-  new Promise((resolve) => {
-    execFile("gh", args, { encoding: "utf8" }, (err, _out, stderr) =>
-      resolve(err ? { ok: false, error: String(stderr || err.message).trim() } : { ok: true }),
-    );
+export async function dispatch(
+  gh: GitHub,
+  repo: string,
+  workflow: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const info = await gh.request<{ default_branch: string }>("GET", `repos/${repo}`);
+  if (!info.ok) return { ok: false, error: info.error };
+  const res = await gh.request("POST", `repos/${repo}/actions/workflows/${workflow}/dispatches`, {
+    body: { ref: info.data?.default_branch ?? "main" },
   });
-
-export function dispatch(repo: string, workflow: string, text: Text = ghText) {
-  return text(["workflow", "run", workflow, "--repo", repo]);
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
 
 /**
@@ -60,31 +60,35 @@ export function pickRun(runs: RunInfo[], since: number, slackMs = 5_000): RunInf
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
 }
 
-const FIELDS = "databaseId,status,conclusion,url,createdAt,event";
+/** A REST run, in the names the rest of roster reads. */
+export function runInfo(r: Record<string, any>): RunInfo {
+  return {
+    databaseId: Number(r.id),
+    status: String(r.status ?? ""),
+    conclusion: String(r.conclusion ?? ""),
+    url: String(r.html_url ?? ""),
+    createdAt: String(r.created_at ?? ""),
+    event: r.event,
+  };
+}
 
 /** Wait for the dispatched run to appear. It takes GitHub a few seconds to list it. */
 export async function findDispatched(
+  gh: GitHub,
   repo: string,
   workflow: string,
   since: number,
-  o: { tries?: number; every?: number; json?: Json; sleep?: (ms: number) => Promise<void> } = {},
+  o: { tries?: number; every?: number; sleep?: (ms: number) => Promise<void> } = {},
 ): Promise<RunInfo | undefined> {
-  const json = o.json ?? ghJson;
   const sleep = o.sleep ?? wait;
   for (let i = 0; i < (o.tries ?? 12); i++) {
-    const list = await json<RunInfo[]>([
-      "run",
-      "list",
-      "--repo",
-      repo,
-      "--workflow",
-      workflow,
-      "--limit",
-      "5",
-      "--json",
-      FIELDS,
-    ]);
-    const found = list.ok ? pickRun(list.data ?? [], since) : undefined;
+    const list = await gh.request<{ workflow_runs: Array<Record<string, any>> }>(
+      "GET",
+      `repos/${repo}/actions/workflows/${workflow}/runs?per_page=5`,
+    );
+    const found = list.ok
+      ? pickRun((list.data?.workflow_runs ?? []).map(runInfo), since)
+      : undefined;
     if (found) return found;
     await sleep(o.every ?? 2_500);
   }
@@ -92,19 +96,24 @@ export async function findDispatched(
 }
 
 /** Where a run is now, and if it failed, where. */
-export async function runState(repo: string, id: number, json: Json = ghJson): Promise<RunOutcome> {
-  const res = await json<RunInfo & { jobs?: Job[] }>([
-    "run",
-    "view",
-    String(id),
-    "--repo",
-    repo,
-    "--json",
-    `${FIELDS},jobs`,
+export async function runState(gh: GitHub, repo: string, id: number): Promise<RunOutcome> {
+  const [run, jobs] = await Promise.all([
+    gh.request<Record<string, any>>("GET", `repos/${repo}/actions/runs/${id}`),
+    gh.request<{ jobs: Array<Record<string, any>> }>(
+      "GET",
+      `repos/${repo}/actions/runs/${id}/jobs?per_page=100`,
+    ),
   ]);
-  if (!res.ok || !res.data) throw new Error(`could not read run ${id}: ${res.error}`);
-  const { jobs, ...run } = res.data;
-  return { ...run, failedAt: failedSteps(jobs ?? []) };
+  if (!run.ok || !run.data) throw new Error(`could not read run ${id}: ${run.error}`);
+  const list: Job[] = (jobs.data?.jobs ?? []).map((j) => ({
+    name: String(j.name ?? ""),
+    conclusion: String(j.conclusion ?? ""),
+    steps: (j.steps ?? []).map((s: any) => ({
+      name: String(s.name ?? ""),
+      conclusion: String(s.conclusion ?? ""),
+    })),
+  }));
+  return { ...runInfo(run.data), failedAt: failedSteps(list) };
 }
 
 interface Job {
@@ -131,13 +140,13 @@ export function failedSteps(jobs: Job[]): string[] {
  * timeout-minutes its caller sets, so waiting past that is waiting on nothing.
  */
 export async function follow(
+  gh: GitHub,
   repo: string,
   id: number,
   o: {
     timeoutMs: number;
     every?: number;
     onChange?: (status: string) => void;
-    json?: Json;
     sleep?: (ms: number) => Promise<void>;
   },
 ): Promise<RunOutcome | undefined> {
@@ -145,7 +154,7 @@ export async function follow(
   const until = Date.now() + o.timeoutMs;
   let last = "";
   for (;;) {
-    const now = await runState(repo, id, o.json);
+    const now = await runState(gh, repo, id);
     if (now.status !== last) o.onChange?.(now.status);
     last = now.status;
     if (now.status === "completed") return now;

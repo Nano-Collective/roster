@@ -1,9 +1,9 @@
-import { ghJson } from "./gh.js";
+import type { GitHub } from "./github.js";
 
 /**
  * What each staff member is doing right now, for Home's "Working now".
  *
- * One `gh run list` per brain. The callers name every run by what started it (`cto peer #12`,
+ * One run list per brain, conditional, so a poll that finds nothing new is free. The callers name every run by what started it (`cto peer #12`,
  * `cto follow-on`), so the list alone says who is running, why, and on which issue. Runs from
  * before the callers carried a name fall back to the workflow's, and say less.
  */
@@ -107,21 +107,16 @@ export function shapeLive(
 }
 
 export async function liveFor(
+  gh: GitHub,
   staff: Array<{ handle: string; brain: string; limit: number }>,
 ): Promise<LiveStaff[]> {
   return Promise.all(
     staff.map(async (s) => {
-      const res = await ghJson<RawRun[]>([
-        "run",
-        "list",
-        "--repo",
-        s.brain,
-        "--limit",
-        // Skipped mentions are most of the list; this is enough to reach past them to today's.
-        "60",
-        "--json",
-        "databaseId,displayTitle,workflowName,status,conclusion,createdAt,updatedAt,url",
-      ]);
+      // Skipped mentions are most of the list; sixty is enough to reach past them to today's.
+      const res = await gh.request<{ workflow_runs: Array<Record<string, any>> }>(
+        "GET",
+        `repos/${s.brain}/actions/runs?per_page=60`,
+      );
       if (!res.ok) {
         return {
           handle: s.handle,
@@ -133,7 +128,21 @@ export async function liveFor(
           error: res.error,
         };
       }
-      return shapeLive(s.handle, s.brain, res.data ?? [], s.limit);
+      return shapeLive(s.handle, s.brain, (res.data?.workflow_runs ?? []).map(rawRun), s.limit);
     }),
   );
+}
+
+/** The REST run, in the names `gh run list --json` used, which is what the shaping reads. */
+function rawRun(r: Record<string, any>): RawRun {
+  return {
+    databaseId: r.id,
+    displayTitle: r.display_title,
+    workflowName: r.name,
+    status: r.status,
+    conclusion: r.conclusion,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    url: r.html_url,
+  };
 }

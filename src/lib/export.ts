@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { type Human, readHumans } from "./humans.js";
 import {
@@ -11,6 +10,7 @@ import {
   parseMemory,
 } from "./memory.js";
 import { looksUnwritten } from "./stub.js";
+import { existsSync, readdirSync, readFileSync, statSync } from "./vfs.js";
 import type { Workspace } from "./workspace.js";
 
 export interface Surface {
@@ -110,6 +110,25 @@ export interface OrgExport {
   staff: StaffExport[];
 }
 
+/**
+ * What a brain's git history says, for the parts of the export that are about change.
+ *
+ * Read from the checkout with `git` by default, which is what the CLI has. The portal has no
+ * checkout and reads the same answers from GitHub, ahead of time, so the export itself stays a
+ * plain synchronous read either way.
+ */
+export interface History {
+  /** The newest `n` commits, optionally only those touching `path`. */
+  log(root: string, n: number, path?: string): Commit[];
+  /** Facts added to and removed from memory/INDEX.md since a date git understands. */
+  factsChanged(root: string, since: string): FactChange[];
+}
+
+export const gitHistory: History = {
+  log: (root, n, path) => gitLog(root, n, path ? ["--", path] : []),
+  factsChanged: (root, since) => factsChanged(root, since),
+};
+
 /** Files that are noise in a brain browser: git internals, dependencies, build output. */
 const SKIP = new Set([".git", "node_modules", ".next", "dist", "out", ".DS_Store"]);
 
@@ -123,9 +142,10 @@ export function buildExport(
     staff?: Array<Record<string, any>>;
   },
   parseYaml: (t: string, f?: string) => Record<string, unknown>,
-  opts: { since?: string } = {},
+  opts: { since?: string; history?: History } = {},
 ): OrgExport {
   const staff: StaffExport[] = [];
+  const history = opts.history ?? gitHistory;
 
   for (const entry of org.staff ?? []) {
     const dir = entry.dir ?? entry.handle;
@@ -138,7 +158,7 @@ export function buildExport(
       ? parseMemory(memDir)
       : { facts: [], sections: [], notes: [], preamble: "", links: [] };
 
-    const commits = gitLog(root, 25);
+    const commits = history.log(root, 25);
     staff.push({
       handle: entry.handle,
       name: entry.name ?? manifest.name ?? entry.handle,
@@ -162,8 +182,8 @@ export function buildExport(
         : [],
       surfaces: readSurfaces(root, manifest.surfaces ?? []),
       recentCommits: commits,
-      factsChanged: factsChanged(root, opts.since ?? "14 days ago"),
-      rig: readRig(root, manifest, commits),
+      factsChanged: history.factsChanged(root, opts.since ?? "14 days ago"),
+      rig: readRig(root, manifest, commits, history),
     });
   }
 
@@ -210,7 +230,12 @@ export function readManifest(
   }
 }
 
-function readRig(root: string, manifest: Record<string, any>, commits: Commit[]): Rig {
+function readRig(
+  root: string,
+  manifest: Record<string, any>,
+  commits: Commit[],
+  history: History,
+): Rig {
   const wfDir = join(root, ".github", "workflows");
   const declared: Array<{ path?: string }> = manifest.surfaces ?? [];
   return {
@@ -230,7 +255,7 @@ function readRig(root: string, manifest: Record<string, any>, commits: Commit[])
     memoryBytes: bytesOf(join(root, "memory", "INDEX.md")),
     notesBytes: dirBytes(join(root, "memory", "notes")),
     lastCommit: commits[0],
-    lastMemoryCommit: gitLog(root, 1, ["--", "memory"])[0],
+    lastMemoryCommit: history.log(root, 1, "memory")[0],
   };
 }
 
@@ -303,20 +328,36 @@ function gitLog(root: string, n: number, extra: string[] = []): Commit[] {
  */
 function factsChanged(root: string, since: string): FactChange[] {
   const log = git(root, ["log", `--since=${since}`, "--format=%H%x1f%aI", "--", "memory/INDEX.md"]);
+  return factChanges(
+    log
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [sha, date] = line.split("\x1f");
+        const diff = git(root, ["show", "--format=", "--unified=0", sha!, "--", "memory/INDEX.md"]);
+        return { sha: sha!, date: date!, diff };
+      }),
+  );
+}
+
+/**
+ * Facts appearing and disappearing, from the memory index's diff in each commit, newest first.
+ * Context lines are ignored, so a patch with or without them gives the same answer.
+ */
+export function factChanges(
+  commits: Array<{ sha: string; date: string; diff: string }>,
+): FactChange[] {
   const changes: FactChange[] = [];
   const slug = /^([+-])- \*\*`([^`]+)`\*\*/;
-
-  for (const line of log.split("\n").filter(Boolean)) {
-    const [sha, date] = line.split("\x1f");
-    const diff = git(root, ["show", "--format=", "--unified=0", sha!, "--", "memory/INDEX.md"]);
+  for (const { sha, date, diff } of commits) {
     for (const l of diff.split("\n")) {
       const m = l.match(slug);
       if (!m) continue;
       changes.push({
         slug: m[2]!,
         change: m[1] === "+" ? "added" : "removed",
-        sha: sha!.slice(0, 8),
-        date: date!,
+        sha: sha.slice(0, 8),
+        date,
       });
     }
   }

@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BEGIN, END, type PasteTarget } from "./paste.js";
 import { briefTemplateDir } from "./render.js";
+import { existsSync, readFileSync } from "./vfs.js";
 import type { Workspace } from "./workspace.js";
 
 /**

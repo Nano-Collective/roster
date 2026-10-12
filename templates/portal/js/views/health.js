@@ -75,7 +75,7 @@ export function viewHealth(m) {
   }
   if ((rig.missingSurfaces ?? []).length) {
     g.append(kv("Surfaces", esc(rig.missingSurfaces.length + " missing"),
-      rig.missingSurfaces.join(", ") + " — declared in staff.yaml, not on disk", true));
+      rig.missingSurfaces.join(", ") + " — declared in staff.yaml, not in the repo", true));
   }
   m.append(g);
 

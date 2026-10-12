@@ -1,5 +1,5 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "./vfs.js";
 
 /**
  * The memory index is markdown on purpose: agents write prose well and structured data badly,

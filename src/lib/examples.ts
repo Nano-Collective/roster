@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { docsDir } from "./docs.js";
+import { existsSync, readFileSync } from "./vfs.js";
 
 /** The worked charters in docs/charters/, by the role each one is written for. */
 export const CHARTER_EXAMPLES = [

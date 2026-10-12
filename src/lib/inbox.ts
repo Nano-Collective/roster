@@ -1,8 +1,4 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { tidy } from "./gh.js";
-
-const run = promisify(execFile);
+import type { GitHub } from "./github.js";
 
 export interface Comment {
   author: string;
@@ -208,8 +204,8 @@ const PR_TYPES = `[ISSUE_COMMENT, CROSS_REFERENCED_EVENT, REFERENCED_EVENT, CLOS
  * broken. This is four requests for the whole org, and opening a thread is then instant
  * because it is already in memory.
  *
- * It runs through the human's own `gh`, so it shows exactly what they would see signed
- * in, private repos included, without the portal holding a token.
+ * It runs with the person's own token, so it shows exactly what they would see signed in,
+ * private repos included.
  */
 /* The list: what a row shows and what the filters read, and nothing else. GitHub prices a query
    by how much it could return, and the old one asked for every timeline, every comment and
@@ -276,6 +272,7 @@ query($owner:String!, $name:String!, $number:Int!) {
 }`;
 
 export async function fetchInbox(
+  gh: GitHub,
   repos: Array<{ name: string; owner: string; role: string }>,
 ): Promise<{ items: InboxItem[]; errors: string[] }> {
   const items: InboxItem[] = [];
@@ -285,7 +282,7 @@ export async function fetchInbox(
     repos.map(async (r) => {
       const full = `${r.owner}/${r.name}`;
       try {
-        const repo = await query(r.owner, r.name);
+        const repo = await query(gh, r.owner, r.name);
         if (!repo) return;
 
         for (const n of repo.issues?.nodes ?? []) items.push(shape(n, full, r.role, "issue"));
@@ -325,13 +322,10 @@ export async function fetchInbox(
   return { items, errors };
 }
 
-async function query(owner: string, name: string): Promise<any> {
-  const { stdout } = await run(
-    "gh",
-    ["api", "graphql", "-f", `query=${QUERY}`, "-F", `owner=${owner}`, "-F", `name=${name}`],
-    { maxBuffer: 64 * 1024 * 1024 },
-  );
-  return JSON.parse(stdout)?.data?.repository;
+async function query(gh: GitHub, owner: string, name: string): Promise<any> {
+  const res = await gh.graphql<{ repository: any }>(QUERY, { owner, name });
+  if (!res.ok) throw new Error(res.error);
+  return res.data?.repository;
 }
 
 function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxItem {
@@ -529,25 +523,11 @@ function event(e: any): TimelineEvent | null {
 
 /** Re-read one thread, for after posting a comment. Looks in the closed lists too, because
     closing something from the portal is exactly when it stops being in the open one. */
-export async function fetchThread(repo: string, number: number, kind: "issue" | "pr") {
+export async function fetchThread(gh: GitHub, repo: string, number: number, kind: "issue" | "pr") {
   const [owner, name] = repo.split("/");
-  const { stdout } = await run(
-    "gh",
-    [
-      "api",
-      "graphql",
-      "-f",
-      `query=${THREAD_QUERY}`,
-      "-F",
-      `owner=${owner}`,
-      "-F",
-      `name=${name}`,
-      "-F",
-      `number=${number}`,
-    ],
-    { maxBuffer: 64 * 1024 * 1024 },
-  );
-  const n = JSON.parse(stdout)?.data?.repository?.issueOrPullRequest;
+  const res = await gh.graphql<{ repository: any }>(THREAD_QUERY, { owner, name, number });
+  if (!res.ok) throw new Error(res.error);
+  const n = res.data?.repository?.issueOrPullRequest;
   if (!n) throw new Error(`${repo}#${number} was not found in ${repo}`);
   const item = shape(n, repo, "", kind);
   if (kind === "pr") {
@@ -567,9 +547,6 @@ function rollup(state?: string): InboxItem["checks"] {
 }
 
 function short(e: unknown): string {
-  // A failed `gh` says "Command failed: gh api graphql -f query=…"; what went wrong is on stderr.
-  const stderr = (e as { stderr?: string })?.stderr;
-  if (stderr) return tidy(String(stderr));
   const msg = e instanceof Error ? e.message : String(e);
   const line = msg.split("\n").find((l) => l.trim() && !/^\s*$/.test(l)) ?? msg;
   return line.length > 200 ? line.slice(0, 199) + "…" : line;

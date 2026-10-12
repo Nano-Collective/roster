@@ -11,11 +11,9 @@
 //
 // Usage:  node compose.mjs --staff cmo --kind daily [--ops .] [--brains ..]
 
-import { readFileSync, existsSync } from "node:fs";
+import * as nodeFs from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-const HERE = dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
 // A strict, tiny YAML subset: nested maps, lists of scalars, lists of inline
@@ -288,7 +286,18 @@ function defaultMarker(name) {
 // Composition
 // ---------------------------------------------------------------------------
 
-export function compose({ opsDir, brainsDir, staff, kind, runDir }) {
+// `fs` and `context` are for the portal, which composes from a copy of the repos held in memory
+// rather than from a checkout, for a preview rather than a run. A workflow passes neither.
+export function compose({
+  opsDir,
+  brainsDir,
+  staff,
+  kind,
+  runDir,
+  fs = nodeFs,
+  context = process.env.ROSTER_CONTEXT,
+}) {
+  const { readFileSync, existsSync } = fs;
   const org = parseYaml(readFileSync(join(opsDir, "org.yaml"), "utf8"), "org.yaml");
 
   const entry = (org.staff ?? []).find((s) => s.handle === staff);
@@ -310,9 +319,9 @@ export function compose({ opsDir, brainsDir, staff, kind, runDir }) {
   // JSON in the environment rather than as arguments, so a workflow never has to quote a
   // comment body onto a command line.
   let event = {};
-  if (process.env.ROSTER_CONTEXT) {
+  if (context) {
     try {
-      event = JSON.parse(process.env.ROSTER_CONTEXT);
+      event = JSON.parse(context);
     } catch (err) {
       throw new Error(`ROSTER_CONTEXT is not valid JSON: ${err.message}`);
     }
@@ -403,7 +412,7 @@ function main(argv) {
     console.error("usage: node compose.mjs --staff <handle> --kind <daily|mention> [--ops DIR] [--brains DIR]");
     process.exit(2);
   }
-  const opsDir = resolve(args.ops ?? HERE);
+  const opsDir = resolve(args.ops ?? dirname(fileURLToPath(import.meta.url)));
   const brainsDir = resolve(args.brains ?? join(opsDir, ".."));
   process.stdout.write(compose({ opsDir, brainsDir, staff: args.staff, kind: args.kind }));
 }

@@ -1,10 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { extname, join, resolve } from "node:path";
-import { type ActRequest, act } from "../lib/act.js";
-import { amendBrief } from "../lib/amend.js";
+import { join, resolve } from "node:path";
 import {
   type AppSpec,
   buildManifest,
@@ -12,39 +9,36 @@ import {
   handoffPage,
   setSecret,
 } from "../lib/appmanifest.js";
-import { attach, MAX_UPLOAD } from "../lib/attach.js";
-import { auditPrompt } from "../lib/audit.js";
-import { withBin } from "../lib/bin.js";
+import { MAX_UPLOAD } from "../lib/attach.js";
+import { bin, withBin } from "../lib/bin.js";
 import { openBrowser, shouldOpen } from "../lib/browser.js";
 import { accessLink, allowOrgCallers } from "../lib/callable.js";
 import { planCredential, readOrgSecret, writeCredential } from "../lib/credential.js";
-import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
-import { CHARTER_EXAMPLES, charterStarter, matchExample } from "../lib/examples.js";
-import { buildExport, readManifest } from "../lib/export.js";
-import { api, ghJson, ghReady } from "../lib/gh.js";
-import { readHumans } from "../lib/humans.js";
-import { fetchInbox, fetchThread } from "../lib/inbox.js";
+import { api, ghJson } from "../lib/gh.js";
+import type { GitHub } from "../lib/github.js";
 import { installTargets, preselectedInstall } from "../lib/install.js";
-import { liveFor } from "../lib/live.js";
-import { markRead, unreadFor } from "../lib/notifications.js";
-import { parsePaste } from "../lib/paste.js";
-import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
-import { isWritable, KINDS, promptView, saveFile, validateOrgYaml } from "../lib/prompt.js";
-import { orgTokens, specFromManifest, tokensFor, toolsOf } from "../lib/render.js";
-import { dailyWorkflow, dispatch, findDispatched, runState } from "../lib/runonce.js";
-import { budgetOf, spend, staffRuns } from "../lib/runs.js";
+import { localGitHub } from "../lib/localtoken.js";
+import { saveFile } from "../lib/prompt.js";
+import { specFromManifest } from "../lib/render.js";
 import {
   AGENTS,
   joinTenant,
   loadFrameworkComposer,
   orgHasTenant,
   setupStatus,
-  unfinished,
 } from "../lib/setup.js";
 import { syncRepos } from "../lib/sync.js";
 import { loadComposer, readOrg, tryWorkspace, type Workspace } from "../lib/workspace.js";
 import { portalAsset, portalIndex } from "../portal/assets.js";
-import { withExample } from "./brief.js";
+import {
+  type Actor,
+  createPortal,
+  handlePortal,
+  isPortalRoute,
+  type Portal,
+} from "../portal/handler.js";
+import { layeredKV } from "../portal/kv.js";
+import { diskKV } from "../portal/kv-disk.js";
 import { collect } from "./doctor.js";
 import { fixBrief, gather } from "./fix.js";
 import {
@@ -64,56 +58,23 @@ roster portal
   Serve a local view of every staff member's brain: what they know, what changed, what is
   waiting on you, and every file they hold.
 
-  Reads the checked-out repos from disk. No auth, no API rate limits, works offline.
+  Reads the org from GitHub as you, with your gh login: no checkout needed to look, and what
+  it shows is what is on GitHub now. Pass --org to open one you have never cloned.
 
   With no tenant where you started it, this is the setup screen instead: it stands up a new
   org, or checks out one that already runs roster. \`roster\` with no arguments does the same.
 
-  It can also act on GitHub as you: reply, close, reopen and open issues. Those go
-  through your own gh, so they are indistinguishable from doing it on the site.
+  It can also act on GitHub as you: reply, close, reopen and open issues. Those use your
+  own gh token, so they are indistinguishable from doing it on the site.
 
   --port <n>     default 4300, or the next free one
   --host <addr>  default 127.0.0.1. Anything else exposes write actions to the network.
   --ops <dir>    ops repo directory (default: found by walking up)
   --dir <path>   where a tenant would be created or checked out (default: here)
+  --org <org>    the org to show, with no checkout at all (default: the checkout's org.yaml)
+  --ops-repo <n> its ops repo's name, with --org (default: roster-ops)
   --no-open      don't open a browser (also off in CI, over SSH, or with BROWSER=none)
 `;
-
-const MIME: Record<string, string> = {
-  ".md": "text/plain; charset=utf-8",
-  ".txt": "text/plain; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".yaml": "text/plain; charset=utf-8",
-  ".yml": "text/plain; charset=utf-8",
-  ".csv": "text/plain; charset=utf-8",
-  ".ts": "text/plain; charset=utf-8",
-  ".tsx": "text/plain; charset=utf-8",
-  ".js": "text/plain; charset=utf-8",
-  ".mjs": "text/plain; charset=utf-8",
-  ".sql": "text/plain; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-  ".webp": "image/webp",
-  ".ico": "image/x-icon",
-  ".pdf": "application/pdf",
-  // A brain holds recordings as often as it holds screenshots, and a video served as
-  // application/octet-stream is a download prompt rather than something you can watch.
-  ".mp4": "video/mp4",
-  ".m4v": "video/mp4",
-  ".webm": "video/webm",
-  ".mov": "video/quicktime",
-  ".ogv": "video/ogg",
-  ".mp3": "audio/mpeg",
-  ".m4a": "audio/mp4",
-  ".wav": "audio/wav",
-  ".oga": "audio/ogg",
-};
-
-/** Types a browser streams rather than downloads, and so may ask for by byte range. */
-const SEEKABLE = /^(video|audio)\//;
 
 /**
  * Hand-offs in flight, keyed by the state GitHub echoes back.
@@ -140,7 +101,7 @@ export async function portalCommand(argv: string[]): Promise<number> {
      lands on disk. Everything below is `let` for that one reason. */
   let ws = tryWorkspace(startedIn);
   let composer = ws ? await loadComposer(ws.opsDir) : await loadFrameworkComposer();
-  const compose = (...args: Parameters<typeof composer.compose>) => composer.compose(...args);
+  const _compose = (...args: Parameters<typeof composer.compose>) => composer.compose(...args);
   const parseYaml = (text: string, file?: string) => composer.parseYaml(text, file);
 
   /**
@@ -155,45 +116,70 @@ export async function portalCommand(argv: string[]): Promise<number> {
     if (!found) return false;
     ws = found;
     composer = await loadComposer(found.opsDir);
+    portal = portalFor(found);
     return true;
   };
 
-  // gh calls take about a second each and the inbox hits every repo, so a short cache keeps
-  // switching views instant. The refresh button bypasses it.
-  let cache: { at: number; body: string } | null = null;
-  const TTL = 45_000;
+  /**
+   * The org this serves, read from GitHub. Which org comes from `--org`, or from the checkout
+   * the portal was started in; with neither there is no tenant yet and this is the setup screen.
+   *
+   * One portal for the life of the process, because it holds the snapshots and their cache.
+   */
+  const kv = layeredKV(diskKV());
+  let portal: Portal | null = null;
+  const portalFor = (w: Workspace | null): Portal | null => {
+    const org = opts.org ?? (w ? String(readOrg(w.opsDir, parseYaml).org ?? "") : "");
+    if (!org) return null;
+    if (portal?.org === org) return portal;
+    return createPortal({
+      org,
+      opsName: opts.opsRepo ?? w?.opsName ?? "roster-ops",
+      kv,
+      bin: bin(),
+    });
+  };
+  portal = portalFor(ws);
 
-  /* A repo's labels, per repo. They are the vocabulary of the org and change about never, so
-     the picker on the new-issue form should not cost a round trip every time it opens. */
-  const labelCache = new Map<string, { at: number; labels: unknown[] }>();
-
-  /* The Runs screen. Same short cache as the inbox; the records behind it are cached for good
-     in lib/runs.ts, so a refresh costs the run lists and nothing already seen. */
-  let runsCache: { at: number; body: unknown } | null = null;
-  const progressCache = new Map<string, { at: number; body: unknown }>();
-  const LABEL_TTL = 300_000;
-
-  const brainDirs = () =>
-    (readOrg(ws!.opsDir, parseYaml).staff ?? []).map((s) => s.dir ?? s.handle);
-
-  /** The files a prompt fix may write: every layer of that prompt the portal is allowed to save. */
-  const amendTargets = (view: { layers: Array<{ path: string; missing?: boolean }> }) => [
-    ...new Set(
-      view.layers
-        .filter((l) => !l.missing && isWritable(ws!, l.path, brainDirs()))
-        .map((l) => l.path),
-    ),
-  ];
-
-  const knownRepos = () => {
-    const org = readOrg(ws!.opsDir, parseYaml) as any;
-    return (org.repos ?? []).map((r: any) => ({
-      name: r.name,
-      owner: org.org,
-      role: r.role ?? "repo",
-      // As org.yaml has it. Absent on a hand-written entry, which hire treats as public.
-      visibility: r.visibility,
-    }));
+  /**
+   * One request through the shared handler, as you: your token, and this server's write guard.
+   * `/api/sync` also fast-forwards the checkout when there is one, because hiring and setup
+   * still write to it and push.
+   */
+  const servePortable = async (
+    req: import("node:http").IncomingMessage,
+    res: import("node:http").ServerResponse,
+    url: URL,
+  ) => {
+    const local = await localGitHub();
+    const actor: Actor = {
+      gh: local.ok ? local.gh : signedOut(local.error),
+      id: "local",
+      canWrite: writeAllowed(req),
+    };
+    const method = req.method ?? "GET";
+    const raw = method === "GET" || method === "HEAD" ? undefined : await bytes(req);
+    const request = new Request(new URL(url.pathname + url.search, "http://localhost"), {
+      method,
+      headers: Object.entries(req.headers).flatMap(([k, v]) =>
+        v === undefined ? [] : [[k, Array.isArray(v) ? v.join(", ") : v] as [string, string]],
+      ),
+      body: raw,
+    });
+    let answer = await handlePortal(request, portal, actor);
+    if (url.pathname === "/api/sync" && ws && answer?.ok) {
+      const org = readOrg(ws.opsDir, parseYaml) as any;
+      const dirs = [ws.opsName, ...(org.staff ?? []).map((s: any) => s.dir ?? s.handle)];
+      const disk = await syncRepos(ws.root, dirs);
+      const github = ((await answer.json()) as { results: Array<{ pulled: boolean }> }).results;
+      answer = Response.json({ results: [...github, ...disk] });
+    }
+    if (!answer) {
+      res.writeHead(404).end("not found");
+      return;
+    }
+    res.writeHead(answer.status, Object.fromEntries(answer.headers));
+    res.end(Buffer.from(await answer.arrayBuffer()));
   };
 
   /* A local server that can write to GitHub is reachable by any page in the browser, so a
@@ -596,49 +582,13 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
-      /* The docs ship with the framework, so the portal serves them from there rather than
-         from the tenant. Reading them where you already are beats remembering a URL. */
-      if (url.pathname === "/api/docs") {
-        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-        res.end(JSON.stringify(docPages()));
-        return;
-      }
-
-      /* Search across the docs, rather than only their titles.
-         Twenty-odd pages is small enough to read on every keystroke and far too much to scan by
-         eye, and the thing you are usually looking for — "which page explains the mention
-         gate" — is a phrase in a paragraph rather than a word in a heading. */
-      if (url.pathname === "/api/docsearch") {
-        json(res, { hits: searchDocs(url.searchParams.get("q") ?? "") });
-        return;
-      }
-
-      if (url.pathname === "/api/doc") {
-        const page = url.searchParams.get("page") ?? "";
-        // Only a page the listing offered: the name is attacker-controlled and reaches the disk.
-        if (!docPages().some((d) => d.file === page)) {
-          res.writeHead(404).end("not found");
-          return;
-        }
-        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-        res.end(readFileSync(join(docsDir(), page), "utf8"));
-        return;
-      }
-
-      /* A screenshot on a doc page. Separate from /api/file, which resolves inside the
-         workspace: these live in the framework's own docs directory, and this route can reach
-         nothing else. Cached hard — the file only changes when roster is upgraded. */
-      if (url.pathname === "/api/docasset") {
-        const asset = docAsset(url.searchParams.get("path") ?? "");
-        if (!asset) {
-          res.writeHead(404).end("not found");
-          return;
-        }
-        res.writeHead(200, {
-          "content-type": asset.type,
-          "cache-control": "public, max-age=86400",
+      /* Every route that works the same hosted as it does here: the org read from GitHub, and
+         acting on it as you. The rest of this server is what needs a checkout. */
+      if (isPortalRoute(url.pathname)) {
+        servePortable(req, res, url).catch((err) => {
+          res.writeHead(500, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: String(err?.message ?? err) }));
         });
-        res.end(readFileSync(asset.path));
         return;
       }
 
@@ -744,139 +694,6 @@ export async function portalCommand(argv: string[]): Promise<number> {
       }
       const w: Workspace = ws;
 
-      if (url.pathname === "/api/org") {
-        // Rebuilt per request so a browser refresh shows what is on disk right now,
-        // including whatever an agent pushed thirty seconds ago.
-        const org = readOrg(w.opsDir, parseYaml);
-        const data = buildExport(w, org as any, parseYaml);
-        // Here rather than in the export, because it is the portal's question and not the
-        // data's: whether the sidebar still offers Getting started.
-        const left = unfinished(w.opsDir, (org.staff ?? []).length);
-        res.writeHead(200, {
-          "content-type": "application/json; charset=utf-8",
-          "cache-control": "no-store",
-        });
-        res.end(JSON.stringify({ ...data, unfinished: left }));
-        return;
-      }
-
-      /**
-       * Every file in the org layer, off disk.
-       *
-       * The Org screen used to list five paths written into the page. A tenant that added
-       * `org/pricing.md` could not reach it from here at all, and one that had not written
-       * `org/business.md` yet got a viewer saying "not found" with no way to fix it. Both are
-       * the same mistake: a list of what a tenant *should* have, standing in for what it has.
-       *
-       * Only the files the portal may actually write are offered, which is `isWritable`'s
-       * allowlist — an editor that lists a file it cannot save is a trap.
-       */
-      if (url.pathname === "/api/orglayer") {
-        const listMd = (dir: string, prefix: string) =>
-          existsSync(join(w.opsDir, dir))
-            ? readdirSync(join(w.opsDir, dir))
-                .filter((f) => f.endsWith(".md"))
-                .sort()
-                .map((f) => prefix + f)
-            : [];
-        const files = ["org.yaml", ...listMd("org", "org/"), ...listMd("prompts", "prompts/")]
-          .filter((rel) => isWritable(w, `${w.opsName}/${rel}`, brainDirs()))
-          .map((rel) => {
-            const full = join(w.opsDir, rel);
-            const text = readFileSync(full, "utf8");
-            return {
-              path: rel,
-              bytes: statSync(full).size,
-              group: rel.startsWith("prompts/") ? "prompts" : "org",
-              /* The first heading, for anything the page has no description of. Markdown
-                 only: `# ` opens a comment in YAML, and the first line of org.yaml is one. */
-              title: rel.endsWith(".md")
-                ? (text
-                    .split("\n")
-                    .find((l) => l.startsWith("# "))
-                    ?.slice(2)
-                    .trim() ?? "")
-                : "",
-            };
-          });
-        json(res, { files, opsName: w.opsName });
-        return;
-      }
-
-      /* What a staff member is actually sent, and the files it was made of. Composed by the
-         tenant's own compose.mjs, so there is no second implementation to drift. */
-      if (url.pathname === "/api/prompt") {
-        const handle = url.searchParams.get("staff") ?? "";
-        const kind = url.searchParams.get("kind") ?? "daily";
-        const org = readOrg(w.opsDir, parseYaml);
-        const entry = (org.staff ?? []).find((s) => s.handle === handle);
-        if (!entry || !(KINDS as readonly string[]).includes(kind)) {
-          res.writeHead(400).end("bad request");
-          return;
-        }
-        const brainDir = join(w.root, entry.dir ?? entry.handle);
-        try {
-          const view = promptView(w, compose, handle, brainDir, kind);
-          view.problems = auditPrompt(w, view, workspaceRoots(org as any));
-          res.writeHead(200, {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store",
-          });
-          res.end(JSON.stringify(view));
-        } catch (err) {
-          // A prompt that will not compose is the most useful thing this screen can show,
-          // so the error is the response rather than a 500 with nothing in it.
-          res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-          res.end(JSON.stringify({ staff: handle, kind, error: String((err as Error).message) }));
-        }
-        return;
-      }
-
-      /* A worked charter to start from, in this business's name. `staff` picks the example
-         the same way the brief does; `kind` names one. */
-      if (url.pathname === "/api/charter-example") {
-        const org = readOrg(w.opsDir, parseYaml);
-        const handle = url.searchParams.get("staff") ?? "";
-        const entry = (org.staff ?? []).find((s) => s.handle === handle);
-        const asked = url.searchParams.get("kind") ?? matchExample(handle, entry?.name ?? "");
-        if (!asked || !(CHARTER_EXAMPLES as readonly string[]).includes(asked)) {
-          json(res, { kind: null, text: "" });
-          return;
-        }
-        json(res, { kind: asked, text: charterStarter(asked, String(org.name ?? org.org)) });
-        return;
-      }
-
-      /* What only GitHub knows about a staff member's setup: whether their App's secrets are
-         on the brain repo, and whether a daily run has ever succeeded. Two reads each, cached
-         for a minute, and `null` for anything that could not be read. */
-      if (url.pathname === "/api/staff/progress") {
-        const handle = url.searchParams.get("staff") ?? "";
-        const hit = progressCache.get(handle);
-        if (url.searchParams.get("fresh") !== "1" && hit && Date.now() - hit.at < 60_000) {
-          json(res, hit.body);
-          return;
-        }
-        const org = readOrg(w.opsDir, parseYaml);
-        const entry = (org.staff ?? []).find((s) => s.handle === handle);
-        if (!entry) {
-          res.writeHead(400, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: `no staff member "${handle}"` }));
-          return;
-        }
-        const dir = entry.dir ?? entry.handle;
-        const spec = specFromManifest(readManifest(join(w.root, dir), parseYaml), dir);
-        staffProgress(org.org, spec, dailyWorkflow(entry.handle))
-          .then((body) => {
-            progressCache.set(handle, { at: Date.now(), body });
-            json(res, body);
-          })
-          .catch(() =>
-            json(res, { app: null, publicApp: null, installed: null, credential: null, ran: null }),
-          );
-        return;
-      }
-
       /* Hiring and retiring, from the same plan-then-apply the CLI runs. The portal builds
          the plan with `buildPlan` and applies it with `applyPlan`, rather than describing
          either again: two descriptions of how to create a repo is one too many. */
@@ -955,50 +772,6 @@ export async function portalCommand(argv: string[]): Promise<number> {
         return;
       }
 
-      /* One daily run, now. The repo and the workflow come from the staff member's own
-         manifest, never from the request, so this can start nothing but a daily run. */
-      if (url.pathname === "/api/run/start" || url.pathname === "/api/run/state") {
-        const starting = url.pathname === "/api/run/start";
-        if (starting && !writeAllowed(req)) {
-          refuseWrite(res);
-          return;
-        }
-        (async () => {
-          const payload = starting
-            ? (JSON.parse((await body(req)) || "{}") as { staff?: string })
-            : { staff: url.searchParams.get("staff") ?? "" };
-          const org = readOrg(w.opsDir, parseYaml);
-          const entry = (org.staff ?? []).find((x) => x.handle === payload.staff);
-          if (!entry) throw new Error(`no staff member "${payload.staff}"`);
-          const dir = entry.dir ?? entry.handle;
-          const brain = specFromManifest(
-            parseYaml(readFileSync(join(w.root, dir, "staff.yaml"), "utf8"), "staff.yaml") as any,
-            dir,
-          ).brain;
-          const workflow = dailyWorkflow(entry.handle);
-          if (!starting) {
-            json(res, await runState(brain, Number(url.searchParams.get("id"))));
-            return;
-          }
-          const since = Date.now();
-          const started = await dispatch(brain, workflow);
-          if (!started.ok) throw new Error(`could not start ${workflow}: ${started.error}`);
-          const run = await findDispatched(brain, workflow, since);
-          json(res, {
-            ok: true,
-            id: run?.databaseId,
-            url: run?.url ?? `https://github.com/${brain}/actions/workflows/${workflow}`,
-          });
-        })().catch((err) => {
-          res.writeHead(400, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: String(err?.message ?? err) }));
-        });
-        return;
-      }
-
-      /* A prompt you paste into your own AI to change what this agent is told. It carries
-         the composed text and every layer, because knowing which of eight files to open is
-         the hard part and a brief that asks for them has handed that back. */
       /* Every scanner's findings as one brief for a coding agent. The Health screen's
          "copy all instructions" button, and `roster fix` in the terminal, are the same text. */
       if (url.pathname === "/api/fix") {
@@ -1008,669 +781,6 @@ export async function portalCommand(argv: string[]): Promise<number> {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ items: [], error: String(err?.message ?? err) }));
           });
-        return;
-      }
-
-      /* The copy-a-prompt half of authoring. `mode=paste` carries every file the brief refers
-         to and asks for the answer in an envelope, so a chat window with no filesystem is as
-         useful here as an agent standing in the repo. */
-      if (url.pathname === "/api/brief") {
-        const kind = url.searchParams.get("kind") ?? "";
-        const handle = url.searchParams.get("staff") ?? "";
-        try {
-          const brief = buildPasteBrief(
-            w,
-            parseYaml,
-            kind,
-            handle,
-            url.searchParams.get("example") ?? undefined,
-            url.searchParams.get("about") ?? undefined,
-          );
-          json(res, {
-            kind,
-            text: brief.text,
-            targets: brief.targets.map((t) => t.path),
-            example: brief.example,
-            examples: kind === "charter" ? [...CHARTER_EXAMPLES, "none"] : undefined,
-          });
-        } catch (err) {
-          res.writeHead(400, { "content-type": "application/json" });
-          res.end(JSON.stringify({ error: String((err as Error).message) }));
-        }
-        return;
-      }
-
-      /* The paste-back half. Parses, never writes: what comes out is a diff and a list of
-         things that went wrong, and saving is a second, deliberate click through /api/save. */
-      if (url.pathname === "/api/paste") {
-        if (req.method !== "POST") {
-          res.writeHead(405).end("POST only");
-          return;
-        }
-        body(req)
-          .then((raw) => {
-            const payload = JSON.parse(raw || "{}") as {
-              kind?: string;
-              staff?: string;
-              answer?: string;
-            };
-            const brief = buildPasteBrief(w, parseYaml, payload.kind ?? "", payload.staff ?? "");
-            const result = parsePaste(payload.answer ?? "", brief.targets);
-            const before = new Map(brief.targets.map((t) => [t.path, t.before]));
-            json(res, {
-              ...result,
-              files: result.files.map((f) => ({
-                ...f,
-                before: before.get(f.path) ?? "",
-                writable: isWritable(w, f.path, brainDirs()),
-              })),
-            });
-          })
-          .catch((err) => {
-            res.writeHead(400, { "content-type": "application/json" });
-            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
-          });
-        return;
-      }
-
-      /* Everything wrong with one staff member's prompts, across every kind of run.
-         The Prompt screen used to carry these, which put "what is broken" inside "what is
-         sent" — two different questions, and only one of them is a health question. Composed
-         per kind because a finding can be true of the daily prompt and not of a mention. */
-      if (url.pathname === "/api/promptaudit") {
-        const handle = url.searchParams.get("staff") ?? "";
-        const org = readOrg(w.opsDir, parseYaml);
-        const entry = (org.staff ?? []).find((s) => s.handle === handle);
-        if (!entry) {
-          res.writeHead(400).end("bad request");
-          return;
-        }
-        const brainDir = join(w.root, entry.dir ?? entry.handle);
-        const roots = workspaceRoots(org as any);
-        const found = new Map<string, any>();
-        const errors: Array<{ kind: string; error: string }> = [];
-        for (const kind of KINDS) {
-          try {
-            const view = promptView(w, compose, handle, brainDir, kind);
-            for (const p of auditPrompt(w, view, roots)) {
-              // The same stub is a finding on all three prompts. One row, and it says which.
-              const key = `${p.id}|${p.path ?? ""}|${p.title}`;
-              const seen = found.get(key);
-              if (seen) seen.kinds.push(kind);
-              else found.set(key, { ...p, kind, kinds: [kind] });
-            }
-          } catch (err) {
-            errors.push({ kind, error: String((err as Error).message) });
-          }
-        }
-        json(res, { staff: handle, problems: [...found.values()], errors });
-        return;
-      }
-
-      if (url.pathname === "/api/amend") {
-        const handle = url.searchParams.get("staff") ?? "";
-        const kind = url.searchParams.get("kind") ?? "daily";
-        const want = url.searchParams.get("want") ?? "";
-        const org = readOrg(w.opsDir, parseYaml);
-        const entry = (org.staff ?? []).find((s) => s.handle === handle);
-        if (!entry || !(KINDS as readonly string[]).includes(kind)) {
-          res.writeHead(400).end("bad request");
-          return;
-        }
-        const dir = entry.dir ?? entry.handle;
-        const view = promptView(w, compose, handle, join(w.root, dir), kind);
-        const manifestPath = join(w.root, dir, "staff.yaml");
-        const tokens = existsSync(manifestPath)
-          ? tokensFor(
-              orgSpec(org as any, w),
-              specFromManifest(
-                parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any,
-                dir,
-              ),
-            )
-          : orgTokens(orgSpec(org as any, w));
-        res.writeHead(200, {
-          "content-type": "text/plain; charset=utf-8",
-          "cache-control": "no-store",
-        });
-        res.end(amendBrief(w, view, tokens, want, amendTargets(view)));
-        return;
-      }
-
-      /* The way back from a prompt fix: the reply pasted in, parsed against the files that
-         prompt is made of. Parses, never writes; saving is /api/save, after the diff. */
-      if (url.pathname === "/api/amend/check") {
-        if (req.method !== "POST") {
-          res.writeHead(405).end("POST only");
-          return;
-        }
-        body(req)
-          .then((raw) => {
-            const payload = JSON.parse(raw || "{}") as {
-              staff?: string;
-              kind?: string;
-              answer?: string;
-            };
-            const org = readOrg(w.opsDir, parseYaml);
-            const entry = (org.staff ?? []).find((s) => s.handle === payload.staff);
-            const kind = payload.kind ?? "daily";
-            if (!entry || !(KINDS as readonly string[]).includes(kind))
-              throw new Error("bad request");
-            const dir = entry.dir ?? entry.handle;
-            const view = promptView(w, compose, entry.handle, join(w.root, dir), kind);
-            const targets = amendTargets(view).map((path) => ({
-              path,
-              before: existsSync(join(w.root, path))
-                ? readFileSync(join(w.root, path), "utf8")
-                : "",
-            }));
-            const result = parsePaste(payload.answer ?? "", targets);
-            const before = new Map(targets.map((t) => [t.path, t.before]));
-            json(res, {
-              ...result,
-              files: result.files.map((f) => ({
-                ...f,
-                before: before.get(f.path) ?? "",
-                writable: isWritable(w, f.path, brainDirs()),
-              })),
-            });
-          })
-          .catch((err) => {
-            res.writeHead(400, { "content-type": "application/json" });
-            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
-          });
-        return;
-      }
-
-      /* Editing a prompt layer or a charter, committed and pushed as the human. The
-         allowlist is in lib/prompt.ts: this writes to repos the agents run from. */
-      if (url.pathname === "/api/save") {
-        if (!writeAllowed(req)) {
-          refuseWrite(res);
-          return;
-        }
-        body(req)
-          .then((raw) => {
-            const payload = JSON.parse(raw || "{}") as {
-              path?: string;
-              text?: string;
-              message?: string;
-            };
-            const org = readOrg(w.opsDir, parseYaml);
-            const brainDirs = (org.staff ?? []).map((s) => s.dir ?? s.handle);
-            if (!payload.path || typeof payload.text !== "string") {
-              throw new Error("path and text are required");
-            }
-            if (!isWritable(w, payload.path, brainDirs)) {
-              throw new Error(`${payload.path} is not a file the portal may write`);
-            }
-            if (payload.path.endsWith("org.yaml")) {
-              const wrong = validateOrgYaml(payload.text, parseYaml);
-              if (wrong) throw new Error(wrong);
-            }
-            const result = saveFile(
-              w,
-              payload.path,
-              payload.text,
-              payload.message || `portal: edit ${payload.path.split("/").slice(1).join("/")}`,
-            );
-            res.writeHead(200, {
-              "content-type": "application/json; charset=utf-8",
-              "cache-control": "no-store",
-            });
-            res.end(JSON.stringify(result));
-          })
-          .catch((err) => {
-            res.writeHead(400, { "content-type": "application/json" });
-            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
-          });
-        return;
-      }
-
-      if (url.pathname === "/api/act") {
-        if (!writeAllowed(req)) {
-          refuseWrite(res);
-          return;
-        }
-        body(req)
-          .then(async (raw) => {
-            const payload = JSON.parse(raw || "{}") as ActRequest;
-            const org = readOrg(w.opsDir, parseYaml) as any;
-            const known = (org.repos ?? []).map((r: any) => `${org.org}/${r.name}`);
-            if (!known.includes(payload.repo))
-              throw new Error(`${payload.repo} is not a repo in org.yaml`);
-            /* An ask is the one action that touches two repositories: the tracker it lands on
-               and the pull request it is about. `repo` above is the first; the second reaches a
-               command line too, so it is checked by the same rule rather than trusted because
-               it arrived alongside one that passed. */
-            if (payload.action === "ask") {
-              const prRepo = payload.ask?.pr?.repo ?? "";
-              if (!known.includes(prRepo)) throw new Error(`${prRepo} is not a repo in org.yaml`);
-            }
-            const result = await act(payload);
-            cache = null; // the inbox is now wrong
-            res.writeHead(200, {
-              "content-type": "application/json; charset=utf-8",
-              "cache-control": "no-store",
-            });
-            res.end(JSON.stringify(result));
-          })
-          .catch((err) => {
-            res.writeHead(400, { "content-type": "application/json" });
-            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
-          });
-        return;
-      }
-
-      /* A file dropped onto an issue. It is committed into the repo the issue lives in, so
-         the agent that reads the issue has the file on disk rather than a link it cannot
-         fetch. Same guard as every other write: a local POST from the portal. */
-      if (url.pathname === "/api/upload") {
-        if (!writeAllowed(req)) {
-          refuseWrite(res);
-          return;
-        }
-        // Base64 costs a third on top, and the cap is on the file rather than the envelope.
-        body(req, Math.ceil(MAX_UPLOAD * 1.4))
-          .then((raw) => {
-            const payload = JSON.parse(raw || "{}") as {
-              repo?: string;
-              name?: string;
-              data?: string;
-            };
-            const repo = payload.repo ?? "";
-            const known = knownRepos().find((r: any) => `${r.owner}/${r.name}` === repo);
-            if (!known) throw new Error(`${repo} is not a repo in org.yaml`);
-            if (!payload.name) throw new Error("a file needs a name");
-            json(
-              res,
-              attach({
-                repoDir: join(w.root, known.name),
-                repo,
-                name: payload.name,
-                data: Buffer.from(payload.data ?? "", "base64"),
-                today: new Date().toISOString().slice(0, 10),
-              }),
-            );
-          })
-          .catch((err) => {
-            res.writeHead(400, { "content-type": "application/json" });
-            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
-          });
-        return;
-      }
-
-      if (url.pathname === "/api/sync") {
-        const org = readOrg(w.opsDir, parseYaml) as any;
-        const dirs = [w.opsName, ...(org.staff ?? []).map((s: any) => s.dir ?? s.handle)];
-        syncRepos(w.root, dirs)
-          .then((results) => {
-            /* Only what was actually pulled. This used to drop the cache on every sync, so
-               every window focus — which syncs first — paid for a full re-read of every repo
-               on GitHub, four seconds of it, to learn nothing had changed. */
-            if (results.some((r) => r.pulled)) cache = null;
-            res.writeHead(200, {
-              "content-type": "application/json; charset=utf-8",
-              "cache-control": "no-store",
-            });
-            res.end(JSON.stringify({ results }));
-          })
-          .catch((err) => {
-            res.writeHead(500, { "content-type": "application/json" });
-            res.end(JSON.stringify({ results: [], error: String(err?.message ?? err) }));
-          });
-        return;
-      }
-
-      /* The repos org.yaml lists, off disk. Its own route because the new-issue form needs
-         them and used to read them off the loaded inbox: click New issue while the inbox was
-         still asking GitHub and the repo picker was empty, which is exactly when you would. */
-      if (url.pathname === "/api/repos") {
-        json(res, { repos: knownRepos() });
-        return;
-      }
-
-      if (url.pathname === "/api/labels") {
-        const repo = url.searchParams.get("repo") ?? "";
-        if (!knownRepos().some((r: any) => `${r.owner}/${r.name}` === repo)) {
-          res.writeHead(400).end("bad request");
-          return;
-        }
-        const hit = labelCache.get(repo);
-        if (hit && Date.now() - hit.at < LABEL_TTL) {
-          json(res, { labels: hit.labels });
-          return;
-        }
-        api<Array<{ name: string; color: string; description: string | null }>>(
-          `repos/${repo}/labels?per_page=100`,
-        )
-          .then((result) => {
-            if (!result.ok) {
-              json(res, { labels: [], error: result.error });
-              return;
-            }
-            const labels = (result.data ?? []).map((l) => ({
-              name: l.name,
-              color: l.color,
-              description: l.description ?? "",
-            }));
-            labelCache.set(repo, { at: Date.now(), labels });
-            json(res, { labels });
-          })
-          .catch((err) => json(res, { labels: [], error: String(err?.message ?? err) }));
-        return;
-      }
-
-      /* Opening a thread marks it read on GitHub. The cached inbox is updated in place rather
-         than dropped, so the next paint does not bring the highlight back. */
-      if (url.pathname === "/api/notifications/read" && req.method === "POST") {
-        if (!writeAllowed(req)) {
-          refuseWrite(res);
-          return;
-        }
-        body(req)
-          .then(async (raw) => {
-            const payload = JSON.parse(raw || "{}") as { thread?: string; ref?: string };
-            const ok = await markRead(String(payload.thread ?? ""));
-            if (ok && cache && payload.ref) {
-              const data = JSON.parse(cache.body);
-              for (const i of data.items ?? [])
-                if (`${i.repo}#${i.number}` === payload.ref) i.unread = null;
-              cache = { at: cache.at, body: JSON.stringify(data) };
-            }
-            json(res, { ok });
-          })
-          .catch((err) => json(res, { ok: false, error: String(err?.message ?? err) }));
-        return;
-      }
-
-      if (url.pathname === "/api/inbox") {
-        const fresh = url.searchParams.get("refresh") === "1";
-        if (!fresh && cache && Date.now() - cache.at < TTL) {
-          res.writeHead(200, {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store",
-          });
-          res.end(cache.body);
-          return;
-        }
-        const owner = readOrg(w.opsDir, parseYaml).org;
-        Promise.all([fetchInbox(knownRepos()), unreadFor(owner).catch(() => new Map())])
-          .then(([data, unread]) => {
-            const body = JSON.stringify({
-              ...data,
-              // Marked from GitHub's notifications, so unread here is unread there.
-              items: data.items.map((i) => ({
-                ...i,
-                unread: unread.get(`${i.repo}#${i.number}`) ?? null,
-              })),
-              repos: knownRepos(),
-              fetchedAt: new Date().toISOString(),
-            });
-            cache = { at: Date.now(), body };
-            res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-            res.end(body);
-          })
-          .catch((err) => {
-            res.writeHead(500, { "content-type": "application/json" });
-            res.end(JSON.stringify({ items: [], errors: [String(err?.message ?? err)] }));
-          });
-        return;
-      }
-
-      /**
-       * Who is running right now, what started it, and what finished in the last few hours.
-       *
-       * Home polls this every few seconds while a run is live, so it is never cached: a stale
-       * copy would show a run as going after it ended, which is the one thing it is for.
-       */
-      if (url.pathname === "/api/live") {
-        const org = readOrg(w.opsDir, parseYaml) as any;
-        const staff = (org.staff ?? []).map((s: any) => {
-          const dir = s.dir ?? s.handle;
-          let m: Record<string, any> = {};
-          try {
-            m = readManifest(join(w.root, dir), parseYaml) as Record<string, any>;
-          } catch {
-            // A manifest that does not parse is a doctor finding; this still lists the brain.
-          }
-          return {
-            handle: String(s.handle),
-            brain: String(m.brain ?? `${org.org}/${dir}`),
-            limit: Number(m.max_runs_per_day ?? 6),
-          };
-        });
-        liveFor(staff)
-          .then((list) => json(res, { fetchedAt: new Date().toISOString(), staff: list }))
-          .catch((err) => json(res, { error: String(err?.message ?? err), staff: [] }));
-        return;
-      }
-
-      /**
-       * Every staff member's recent runs, and what the last 30 days cost.
-       *
-       * Online only, and it says so rather than failing: offline the rest of the portal reads
-       * from disk, and this screen is the one part of it that is only ever on GitHub.
-       */
-      if (url.pathname === "/api/runs") {
-        const fresh = url.searchParams.get("refresh") === "1";
-        if (!fresh && runsCache && Date.now() - runsCache.at < TTL) {
-          json(res, runsCache.body);
-          return;
-        }
-        const org = readOrg(w.opsDir, parseYaml) as any;
-        (async () => {
-          const who = await ghReady();
-          if (!who.ok) return { online: false, error: who.error, staff: [] };
-          const staff = await Promise.all(
-            (org.staff ?? []).map(async (s: any) => {
-              const brain = `${org.org}/${s.dir ?? s.handle}`;
-              // At once, with the costs already known; the rest arrive in the background.
-              const { runs, errors, pending } = await staffRuns(brain, s.handle, 30, {
-                wait: false,
-              });
-              return {
-                handle: s.handle,
-                name: s.name ?? s.handle,
-                brain,
-                budget: budgetOf(s.budget),
-                spend: spend(runs),
-                runs,
-                errors,
-                pending,
-              };
-            }),
-          );
-          const total = { usd: 0, known: 0, runs: 0 };
-          for (const s of staff) {
-            total.usd = Math.round((total.usd + s.spend.usd) * 100) / 100;
-            total.known += s.spend.known;
-            total.runs += s.spend.runs;
-          }
-          const pending = staff.reduce((n: number, s: { pending: number }) => n + s.pending, 0);
-          const body = {
-            online: true,
-            fetchedAt: new Date().toISOString(),
-            budget: budgetOf(org.budget),
-            spend: total,
-            staff,
-            // Costs still being read. The screen asks again until this is 0.
-            pending,
-          };
-          // Only a complete answer is kept: a partial one would hide the costs as they arrive.
-          if (!pending) runsCache = { at: Date.now(), body };
-          return body;
-        })()
-          .then((body) => json(res, body))
-          .catch((err) =>
-            json(res, { online: false, error: String(err?.message ?? err), staff: [] }),
-          );
-        return;
-      }
-
-      /**
-       * One pull request in the detail the inbox does not carry: its commits, and the patch
-       * for every file it touches.
-       *
-       * Fetched when you ask for it rather than folded into the org-wide read. A diff is the
-       * biggest thing on this screen by an order of magnitude, and paying for every open PR's
-       * diff on every inbox refresh to show one of them is the wrong trade.
-       */
-      if (url.pathname === "/api/pr") {
-        const repo = url.searchParams.get("repo") ?? "";
-        const number = Number(url.searchParams.get("number"));
-        const allowed = knownRepos().some((r: any) => `${r.owner}/${r.name}` === repo);
-        if (!allowed || !Number.isInteger(number) || number <= 0) {
-          res.writeHead(400).end("bad request");
-          return;
-        }
-        Promise.all([
-          api<any>(`repos/${repo}/pulls/${number}`),
-          api<any[]>(`repos/${repo}/pulls/${number}/commits?per_page=100`),
-          api<any[]>(`repos/${repo}/pulls/${number}/files?per_page=100`),
-        ])
-          .then(([pr, commits, files]) => {
-            if (!pr.ok) {
-              json(res, { error: pr.error });
-              return;
-            }
-            json(res, {
-              base: pr.data.base?.ref,
-              head: pr.data.head?.ref,
-              draft: !!pr.data.draft,
-              /* GitHub computes mergeability in the background, so the first read of a fresh
-                 PR can honestly answer "I do not know yet". Passed through as null rather
-                 than flattened to false, which would read as a conflict. */
-              mergeable: pr.data.mergeable,
-              mergeState: pr.data.mergeable_state,
-              additions: pr.data.additions,
-              deletions: pr.data.deletions,
-              changedFiles: pr.data.changed_files,
-              commits: (commits.data ?? []).map((c: any) => ({
-                sha: String(c.sha).slice(0, 7),
-                subject: String(c.commit?.message ?? "").split("\n")[0],
-                author: c.author?.login ?? c.commit?.author?.name ?? "",
-                date: c.commit?.author?.date,
-                url: c.html_url,
-              })),
-              files: (files.data ?? []).map((f: any) => ({
-                path: f.filename,
-                status: f.status,
-                additions: f.additions,
-                deletions: f.deletions,
-                // Absent on binaries and on files too large for the API to patch.
-                patch: f.patch ?? "",
-              })),
-              errors: [commits, files].filter((r) => !r.ok).map((r) => r.error),
-            });
-          })
-          .catch((err) => json(res, { error: String(err?.message ?? err) }));
-        return;
-      }
-
-      if (url.pathname === "/api/thread") {
-        const repo = url.searchParams.get("repo") ?? "";
-        const number = Number(url.searchParams.get("number"));
-        const kind = url.searchParams.get("kind") === "pr" ? "pr" : "issue";
-        // Both reach a command line, so neither is trusted: the repo must be one of ours and
-        // the number must be a number.
-        const allowed = knownRepos().some((r: any) => `${r.owner}/${r.name}` === repo);
-        if (!allowed || !Number.isInteger(number) || number <= 0) {
-          res.writeHead(400).end("bad request");
-          return;
-        }
-        fetchThread(repo, number, kind)
-          .then((thread) => {
-            cache = null;
-            res.writeHead(200, {
-              "content-type": "application/json; charset=utf-8",
-              "cache-control": "no-store",
-            });
-            res.end(JSON.stringify(thread));
-          })
-          .catch((err) => {
-            res.writeHead(502, { "content-type": "application/json" });
-            res.end(JSON.stringify({ error: String(err?.message ?? err) }));
-          });
-        return;
-      }
-
-      if (url.pathname === "/api/diff") {
-        const dir = url.searchParams.get("dir") ?? "";
-        const sha = url.searchParams.get("sha") ?? "";
-        const path = url.searchParams.get("path") ?? "memory/INDEX.md";
-        // Both are attacker-controlled and both reach a command line, so neither is trusted:
-        // the directory must be a known staff repo and the sha must look like a sha.
-        const org = readOrg(w.opsDir, parseYaml);
-        const known = (org.staff ?? []).map((s) => s.dir ?? s.handle);
-        if (!known.includes(dir) || !/^[0-9a-f]{7,40}$/i.test(sha)) {
-          res.writeHead(400).end("bad request");
-          return;
-        }
-        const out = execFileSync(
-          "git",
-          ["-C", join(w.root, dir), "show", "--format=%an%x1f%aI%x1f%s", sha, "--", path],
-          {
-            encoding: "utf8",
-            maxBuffer: 8 * 1024 * 1024,
-          },
-        );
-        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-        res.end(out);
-        return;
-      }
-
-      if (url.pathname === "/api/file") {
-        const rel = url.searchParams.get("path") ?? "";
-        const full = resolve(w.root, rel);
-        // Everything the portal serves must live under the workspace. Without this a crafted
-        // path walks straight out of it, and this server is trivially reachable on a LAN.
-        if (
-          !full.startsWith(resolve(w.root) + "/") ||
-          !existsSync(full) ||
-          statSync(full).isDirectory()
-        ) {
-          res.writeHead(404).end("not found");
-          return;
-        }
-        const ext = extname(full).toLowerCase();
-        const type = MIME[ext] ?? "application/octet-stream";
-
-        /* Media is streamed, not downloaded, and a <video> that cannot ask for a byte range
-           cannot seek — Safari will not play it at all. Everything else is small enough that
-           reading it whole is simpler than being clever. */
-        if (SEEKABLE.test(type)) {
-          const size = statSync(full).size;
-          const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
-          if (range) {
-            const start = range[1] ? Number(range[1]) : 0;
-            const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
-            if (!(start <= end && start < size)) {
-              res.writeHead(416, { "content-range": `bytes */${size}` }).end();
-              return;
-            }
-            res.writeHead(206, {
-              "content-type": type,
-              "content-length": end - start + 1,
-              "content-range": `bytes ${start}-${end}/${size}`,
-              "accept-ranges": "bytes",
-              "cache-control": "no-store",
-            });
-            createReadStream(full, { start, end }).pipe(res);
-            return;
-          }
-          res.writeHead(200, {
-            "content-type": type,
-            "content-length": size,
-            "accept-ranges": "bytes",
-            "cache-control": "no-store",
-          });
-          createReadStream(full).pipe(res);
-          return;
-        }
-
-        res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
-        res.end(readFileSync(full));
         return;
       }
 
@@ -1725,64 +835,6 @@ export async function portalCommand(argv: string[]): Promise<number> {
   });
 }
 
-/**
- * The paste-mode brief for a kind, built once and used by both halves of the loop.
- *
- * `/api/paste` needs the exact same targets `/api/brief` promised, or a paste could name a file
- * the brief never offered. Building it from the same function is what makes that true rather
- * than merely intended.
- */
-function buildPasteBrief(
-  ws: import("../lib/workspace.js").Workspace,
-  parseYaml: (t: string, f?: string) => Record<string, unknown>,
-  kind: string,
-  handle: string,
-  example?: string,
-  about?: string,
-) {
-  if (!pasteable(kind)) throw new Error(`there is no paste-mode brief for "${kind}"`);
-  const org = readOrg(ws.opsDir, parseYaml);
-  const staff = org.staff ?? [];
-
-  let dir = "";
-  let tokens: Record<string, string>;
-  if (kind === "charter") {
-    const entry = staff.find((s) => s.handle === handle);
-    if (!entry) {
-      const known = staff.map((s) => s.handle).join(", ") || "nobody yet";
-      throw new Error(`unknown staff handle "${handle}". org.yaml knows: ${known}`);
-    }
-    dir = entry.dir ?? entry.handle;
-    const manifestPath = join(ws.root, dir, "staff.yaml");
-    tokens = tokensFor(
-      orgSpec(org as any, ws),
-      specFromManifest(parseYaml(readFileSync(manifestPath, "utf8"), "staff.yaml") as any, dir),
-    );
-  } else {
-    tokens = orgTokens(orgSpec(org as any, ws));
-  }
-
-  const peers = staff.map((s) => s.dir ?? s.handle).filter((d) => d !== dir);
-  let rendered = renderBrief(briefTemplate(kind), tokens);
-  const chosen =
-    kind === "charter" ? (example ?? matchExample(handle, tokens.NAME ?? "") ?? "none") : undefined;
-  if (chosen) rendered = withExample(rendered, handle, tokens.NAME ?? "", chosen);
-  /* The sentence somebody typed when they hired a role none of the examples match. The only
-     place it is kept is here, so the interview starts from it rather than from nothing. */
-  if (kind === "charter" && about?.trim()) {
-    rendered = `${rendered.trimEnd()}\n\n## What the owner said this role does\n\n${about.trim()}\n`;
-  }
-  return { ...pasteBrief(ws, kind, rendered, { dir, peers }), example: chosen };
-}
-
-/**
- * A brief is prose handed to a model, so an unfilled token is a wrong instruction rather than a
- * broken file. `render` throws on those, which is right for a workflow and too strict here.
- */
-function renderBrief(text: string, tokens: Record<string, string>): string {
-  return text.replace(/%%([A-Z_]+)%%/g, (m, name: string) => tokens[name] ?? m);
-}
-
 /** Why a write was refused. */
 function refuseWrite(res: import("node:http").ServerResponse) {
   res.writeHead(403, { "content-type": "application/json" });
@@ -1799,61 +851,6 @@ function json(res: import("node:http").ServerResponse, data: unknown, advice = f
      save would write the rewrite back into the file. */
   const text = JSON.stringify(data);
   res.end(advice ? withBin(text) : text);
-}
-
-/**
- * How far a staff member's setup has got, from GitHub: the App's keys on the repo, whether the
- * App is installed on the org, whether the agent credential is stored, and whether a daily run
- * has succeeded. Created and installed are separate because an App with keys and no install
- * looked finished and could not run.
- */
-async function staffProgress(
-  org: string,
-  spec: {
-    brain: string;
-    app?: string;
-    publicApp?: string;
-    secretPrefix: string;
-    publicSecretPrefix: string;
-    agentSecret: string;
-  },
-  workflow: string,
-) {
-  const [repo, shared, runs, installs] = await Promise.all([
-    api<{ secrets: Array<{ name: string }> }>(`repos/${spec.brain}/actions/secrets`),
-    api<{ secrets: Array<{ name: string }> }>(`repos/${spec.brain}/actions/organization-secrets`),
-    api<{ total_count: number }>(
-      `repos/${spec.brain}/actions/workflows/${workflow}/runs?status=success&per_page=1`,
-    ),
-    api<{ installations: Array<{ app_slug: string; repository_selection: string }> }>(
-      `orgs/${org}/installations`,
-    ),
-  ]);
-  const names = repo.ok
-    ? new Set([
-        ...repo.data!.secrets.map((x) => x.name),
-        ...(shared.ok ? shared.data!.secrets.map((x) => x.name) : []),
-      ])
-    : null;
-  const install = (slug?: string) => {
-    if (!installs.ok || !slug) return null;
-    return (
-      installs.data!.installations.find((i) => i.app_slug.toLowerCase() === slug.toLowerCase()) ??
-      false
-    );
-  };
-  const priv = install(spec.app);
-  const pub = install(spec.publicApp);
-  return {
-    app: names ? names.has(`${spec.secretPrefix}_APP_ID`) : null,
-    publicApp: names ? names.has(`${spec.publicSecretPrefix}_APP_ID`) : null,
-    installed: priv === null ? null : Boolean(priv),
-    // "selected" means only chosen repos, which has to include the ops repo for a run to start.
-    installSelection: priv ? priv.repository_selection : null,
-    publicInstalled: pub === null ? null : Boolean(pub),
-    credential: names ? names.has(spec.agentSecret) : null,
-    ran: runs.ok ? (runs.data?.total_count ?? 0) > 0 : null,
-  };
 }
 
 /** The hire flags the portal is allowed to set. Everything else keeps its default. */
@@ -1898,40 +895,16 @@ function capture() {
   };
 }
 
-/** The org half of the token set, for a brief that names the org and the humans. */
-function orgSpec(
-  org: { org: string; name: string; human?: unknown; humans?: unknown },
-  w: {
-    opsName: string;
-  },
-) {
-  const humans = readHumans(org as any);
-  const first = humans[0];
-  return {
-    org: org.org,
-    name: org.name,
-    opsRepo: `${org.org}/${w.opsName}`,
-    opsDirName: w.opsName,
-    human: first?.name ?? first?.github ?? "the human",
-    humanMarker: first?.marker ?? "human",
-    humanLogins: humans.map((h) => h.github).filter(Boolean),
-    allowedTools: toolsOf(org),
-  };
-}
-
-/** Every directory a prompt might write a path relative to. */
-function workspaceRoots(org: {
-  staff?: Array<{ handle: string; dir?: string }>;
-  repos?: Array<{ name: string }>;
-}): string[] {
-  return [
-    ...(org.staff ?? []).map((s) => s.dir ?? s.handle),
-    ...(org.repos ?? []).map((r) => r.name),
-  ];
-}
-
 function parseFlags(argv: string[]) {
-  const out: { port?: number; ops?: string; host?: string; dir?: string; noOpen?: boolean } = {};
+  const out: {
+    port?: number;
+    ops?: string;
+    host?: string;
+    dir?: string;
+    noOpen?: boolean;
+    org?: string;
+    opsRepo?: string;
+  } = {};
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
     if (flag === "--no-open") {
@@ -1944,9 +917,33 @@ function parseFlags(argv: string[]) {
     else if (flag === "--host") out.host = value;
     else if (flag === "--ops") out.ops = value;
     else if (flag === "--dir") out.dir = value;
+    else if (flag === "--org") out.org = value;
+    else if (flag === "--ops-repo") out.opsRepo = value;
     else throw new Error(`unknown flag ${flag}`);
   }
   return out;
+}
+
+/** Everything a request body holds, for handing on as a fetch Request. */
+function bytes(req: import("node:http").IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      // The upload cap, with base64's third on top; anything bigger is not a portal request.
+      if (size > Math.ceil(MAX_UPLOAD * 1.4) + 1_000_000) reject(new Error("body too large"));
+      else chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
+/** A client for when there is no token: every call says why, rather than failing obscurely. */
+function signedOut(error: string): GitHub {
+  const no = async () => ({ ok: false as const, status: 401, error });
+  return { request: no, graphql: no };
 }
 
 export { join };

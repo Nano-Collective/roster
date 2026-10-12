@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { frameworkRoot } from "../lib/framework.js";
 
 /**
  * The portal UI is real files rather than template literals, so they can be opened, edited
@@ -15,6 +16,8 @@ import { fileURLToPath } from "node:url";
  * sit beside it in the published package.
  */
 function portalDir(): string {
+  const fixed = frameworkRoot();
+  if (fixed) return join(fixed, "templates", "portal");
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
     join(here, "..", "..", "templates", "portal"), // src/portal → package root

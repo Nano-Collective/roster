@@ -4,7 +4,7 @@ import { act } from "../src/lib/act.js";
 import { askFollowUp, askHead } from "../src/lib/ask.js";
 import { dueOf } from "../src/lib/inbox.js";
 import { parseTitle, shapeLive } from "../src/lib/live.js";
-import { fakeGh } from "./helpers/fakegh.js";
+import { fakeGitHub } from "./helpers/fakegithub.js";
 
 /* What Home reads that the inbox did not: a decision's default, a run's trigger, and the one
    tracker issue per pull request. */
@@ -86,26 +86,27 @@ const ASK = {
 };
 
 test("a second ask about the same pull request goes on the issue already open", async () => {
-  const gh = fakeGh([
+  const gh = fakeGitHub([
     {
-      match: /^issue list --repo acme\/cto --state open/,
-      stdout: [
-        { number: 7, title: "web#16 — another one" },
-        { number: 9, title: `${askHead(ASK)}Second opinion` },
-      ],
+      match: /^GET search\/issues\?.*repo%3Aacme%2Fcto/,
+      data: {
+        items: [
+          { number: 7, title: "web#16 — another one" },
+          { number: 9, title: `${askHead(ASK)}Second opinion` },
+        ],
+      },
     },
     {
-      match: /^issue comment 9 --repo acme\/cto/,
-      stdout: "https://github.com/acme/cto/issues/9#c1",
+      match: /^POST repos\/acme\/cto\/issues\/9\/comments$/,
+      data: { html_url: "https://github.com/acme/cto/issues/9#c1" },
     },
   ]);
-  try {
-    const r = await act({ action: "ask", repo: "acme/cto", ask: ASK });
-    assert.equal(r.url, "https://github.com/acme/cto/issues/9#c1");
-    assert.ok(!gh.calls().some((c) => c[0] === "issue" && c[1] === "create"), "no second issue");
-  } finally {
-    gh.restore();
-  }
+  const r = await act(gh, { action: "ask", repo: "acme/cto", ask: ASK });
+  assert.equal(r.url, "https://github.com/acme/cto/issues/9#c1");
+  assert.ok(
+    !gh.calls.some((c) => c.method === "POST" && c.path === "repos/acme/cto/issues"),
+    "no second issue",
+  );
   assert.match(
     askFollowUp(ASK),
     /^@cto Fix the conflicts\n\nSame as above: answer on the pull request/,
@@ -113,14 +114,18 @@ test("a second ask about the same pull request goes on the issue already open", 
 });
 
 test("with none open, an ask opens one as before", async () => {
-  const gh = fakeGh([
-    { match: /^issue list /, stdout: [{ number: 7, title: "web#16 — another one" }] },
-    { match: /^issue create --repo acme\/cto/, stdout: "https://github.com/acme/cto/issues/10" },
+  const gh = fakeGitHub([
+    {
+      match: /^GET search\/issues/,
+      data: { items: [{ number: 7, title: "web#16 — another one" }] },
+    },
+    {
+      match: /^POST repos\/acme\/cto\/issues$/,
+      data: { html_url: "https://github.com/acme/cto/issues/10" },
+    },
   ]);
-  try {
-    const r = await act({ action: "ask", repo: "acme/cto", ask: ASK });
-    assert.equal(r.url, "https://github.com/acme/cto/issues/10");
-  } finally {
-    gh.restore();
-  }
+  const r = await act(gh, { action: "ask", repo: "acme/cto", ask: ASK });
+  assert.equal(r.url, "https://github.com/acme/cto/issues/10");
+  const opened = gh.calls.find((c) => c.path === "repos/acme/cto/issues")!;
+  assert.match(opened.body.body, /^@cto Fix the conflicts/);
 });

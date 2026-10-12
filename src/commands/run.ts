@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ghReady } from "../lib/gh.js";
+import { localGitHub } from "../lib/localtoken.js";
 import { specFromManifest } from "../lib/render.js";
 import { dailyWorkflow, dispatch, findDispatched, follow } from "../lib/runonce.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
@@ -63,19 +63,20 @@ export async function runCommand(argv: string[]): Promise<number> {
     return 0;
   }
 
-  const ready = await ghReady();
-  if (!ready.ok) {
-    process.stderr.write(`roster: ${ready.error}\n`);
+  const local = await localGitHub();
+  if (!local.ok) {
+    process.stderr.write(`roster: ${local.error}\n`);
     return 1;
   }
+  const gh = local.gh;
 
   const since = Date.now();
-  const started = await dispatch(spec.brain, workflow);
+  const started = await dispatch(gh, spec.brain, workflow);
   if (!started.ok) {
     process.stderr.write(`roster: could not start ${workflow}: ${started.error}\n`);
     return 1;
   }
-  const run = await findDispatched(spec.brain, workflow, since);
+  const run = await findDispatched(gh, spec.brain, workflow, since);
   if (!run) {
     process.stdout.write(
       `  started, but the run did not appear in time. Watch it at\n` +
@@ -89,7 +90,7 @@ export async function runCommand(argv: string[]): Promise<number> {
     return 0;
   }
 
-  const outcome = await follow(spec.brain, run.databaseId, {
+  const outcome = await follow(gh, spec.brain, run.databaseId, {
     timeoutMs: (spec.timeout + 15) * 60_000,
     onChange: (status) =>
       process.stdout.write(`  ${new Date().toISOString().slice(11, 19)}  ${status}\n`),

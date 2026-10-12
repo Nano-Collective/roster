@@ -1,8 +1,5 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { type AskRequest, askBody, askFollowUp, askHead, askTitle } from "./ask.js";
-
-const run = promisify(execFile);
+import { type GitHub, splitRepo } from "./github.js";
 
 export type Action = "comment" | "close" | "reopen" | "create" | "merge" | "ask" | "approve";
 
@@ -32,7 +29,7 @@ export interface ActRequest {
   alsoOnPr?: boolean;
 }
 
-const MERGE_FLAG = { squash: "--squash", merge: "--merge", rebase: "--rebase" } as const;
+const MERGE_METHODS = ["squash", "merge", "rebase"] as const;
 
 export interface ActResult {
   ok: true;
@@ -53,7 +50,7 @@ export interface ActResult {
 }
 
 /**
- * Write actions, through the human's own `gh`.
+ * Write actions, with the human's own token.
  *
  * Everything here posts **as the human**, not as any staff member. That is the point: the
  * portal is where a person answers their agents, and a reply typed here should be
@@ -61,16 +58,14 @@ export interface ActResult {
  *
  * The caller is responsible for checking the repo is one of ours; this only validates shape.
  */
-export async function act(req: ActRequest): Promise<ActResult> {
+export async function act(gh: GitHub, req: ActRequest): Promise<ActResult> {
   const { action, repo } = req;
 
   if (action === "create") {
     const title = (req.title ?? "").trim();
     if (!title) throw new Error("an issue needs a title");
-    const args = ["issue", "create", "--repo", repo, "--title", title, "--body", req.body ?? ""];
-    for (const l of req.labels ?? []) args.push("--label", l);
-    const { stdout } = await run("gh", args, { encoding: "utf8" });
-    return { ok: true, action, url: stdout.trim().split("\n").pop() };
+    const url = await openIssue(gh, repo, title, req.body ?? "", req.labels);
+    return { ok: true, action, url };
   }
 
   /**
@@ -95,20 +90,13 @@ export async function act(req: ActRequest): Promise<ActResult> {
     /* One thread per pull request. A second ask about the same one while the first is still
        open goes on that issue as a comment, which wakes them the same way. Two open issues
        about one pull request was the usual result of asking twice. */
-    const open = await openAskFor(repo, askHead(ask));
+    const open = await openAskFor(gh, repo, askHead(ask));
     let url: string | undefined;
     if (open) {
-      const { stdout } = await execWithStdin(
-        ["issue", "comment", String(open), "--repo", repo, "--body-file", "-"],
-        askFollowUp(ask),
-      );
-      url = stdout.trim().split("\n").pop();
+      url = await comment(gh, repo, open, askFollowUp(ask));
     } else {
       const title = (req.title ?? "").trim() || askTitle(ask);
-      const args = ["issue", "create", "--repo", repo, "--title", title, "--body-file", "-"];
-      for (const l of req.labels ?? []) args.push("--label", l);
-      const { stdout } = await execWithStdin(args, askBody(ask));
-      url = stdout.trim().split("\n").pop();
+      url = await openIssue(gh, repo, title, askBody(ask), req.labels);
     }
 
     if (!req.alsoOnPr) return { ok: true, action, url };
@@ -120,11 +108,8 @@ export async function act(req: ActRequest): Promise<ActResult> {
       `${ask.body.trim()}\n\n` +
       `— asked ${ask.staff.name} (${ask.staff.mention}): ${url ?? ask.staff.brain}`;
     try {
-      const posted = await execWithStdin(
-        ["issue", "comment", String(ask.pr.number), "--repo", ask.pr.repo, "--body-file", "-"],
-        note,
-      );
-      return { ok: true, action, url, prUrl: posted.stdout.trim().split("\n").pop() };
+      const prUrl = await comment(gh, ask.pr.repo, ask.pr.number, note);
+      return { ok: true, action, url, prUrl };
     } catch (err) {
       return {
         ok: true,
@@ -140,30 +125,31 @@ export async function act(req: ActRequest): Promise<ActResult> {
   const number = req.number;
   if (!Number.isInteger(number) || (number as number) <= 0)
     throw new Error("a valid issue number is required");
-  const n = String(number);
+  const n = number as number;
 
   if (action === "comment") {
     const body = (req.body ?? "").trim();
     if (!body) throw new Error("an empty comment is not a comment");
-    // --body-file - keeps the text off the command line, so newlines and quotes survive
-    // whatever someone types into the box.
-    const { stdout } = await execWithStdin(
-      ["issue", "comment", n, "--repo", repo, "--body-file", "-"],
-      body,
-    );
-    return { ok: true, action, url: stdout.trim().split("\n").pop() };
+    return { ok: true, action, url: await comment(gh, repo, n, body) };
   }
 
+  /* The comment goes first, as `gh issue close --comment` did: a closing note reads above the
+     close in the timeline, and a close that then fails has still said why. */
   if (action === "close") {
-    const args = ["issue", "close", n, "--repo", repo];
-    if (req.reason) args.push("--reason", req.reason);
-    if (req.body?.trim()) args.push("--comment", req.body.trim());
-    await run("gh", args, { encoding: "utf8" });
+    if (req.body?.trim()) await comment(gh, repo, n, req.body.trim());
+    must(
+      await gh.request("PATCH", `repos/${repo}/issues/${n}`, {
+        body: {
+          state: "closed",
+          state_reason: req.reason === "not planned" ? "not_planned" : "completed",
+        },
+      }),
+    );
     return { ok: true, action };
   }
 
   if (action === "reopen") {
-    await run("gh", ["issue", "reopen", n, "--repo", repo], { encoding: "utf8" });
+    must(await gh.request("PATCH", `repos/${repo}/issues/${n}`, { body: { state: "open" } }));
     return { ok: true, action };
   }
 
@@ -171,17 +157,11 @@ export async function act(req: ActRequest): Promise<ActResult> {
      blocks a merge without it, and the staff cannot approve their own work, so this is the
      person's review, given deliberately: the portal never approves on a Merge press. */
   if (action === "approve") {
-    const args = ["pr", "review", n, "--repo", repo, "--approve"];
-    if (req.body?.trim()) args.push("--body", req.body.trim());
-    try {
-      await run("gh", args, { encoding: "utf8" });
-    } catch (err) {
-      const line = errText(err)
-        .split("\n")
-        .map((l) => l.trim())
-        .find((l) => l && !l.startsWith("Command failed"));
-      throw new Error(`Not approved: ${line ?? "GitHub refused it without saying why."}`);
-    }
+    const res = await gh.request("POST", `repos/${repo}/pulls/${n}/reviews`, {
+      body: { event: "APPROVE", ...(req.body?.trim() ? { body: req.body.trim() } : {}) },
+    });
+    if (!res.ok)
+      throw new Error(`Not approved: ${res.error || "GitHub refused it without saying why."}`);
     return { ok: true, action };
   }
 
@@ -192,52 +172,68 @@ export async function act(req: ActRequest): Promise<ActResult> {
      the pull request in front of you, and three of the four answers are wrong on any given
      repository — so it is worked out here instead, from what the repository itself allows. */
   if (action === "merge") {
-    const how = req.mergeMethod ?? (await mergeMethodFor(repo));
-    const flag = MERGE_FLAG[how];
-    if (!flag) throw new Error(`unknown merge method "${req.mergeMethod}"`);
-    const args = ["pr", "merge", n, "--repo", repo, flag];
-    // A rebase produces no merge commit, so there is nothing for a body to be the body of.
-    if (req.body?.trim() && how !== "rebase") args.push("--body", req.body.trim());
-    try {
-      await run("gh", args, { encoding: "utf8" });
-    } catch (err) {
-      throw new Error(whyNotMerged(errText(err), await prState(repo, n)));
-    }
+    const how = req.mergeMethod ?? (await mergeMethodFor(gh, repo));
+    if (!MERGE_METHODS.includes(how)) throw new Error(`unknown merge method "${req.mergeMethod}"`);
+    const res = await gh.request("PUT", `repos/${repo}/pulls/${n}/merge`, {
+      body: {
+        merge_method: how,
+        // A rebase produces no merge commit, so there is nothing for a body to be the body of.
+        ...(req.body?.trim() && how !== "rebase" ? { commit_message: req.body.trim() } : {}),
+      },
+    });
+    if (!res.ok) throw new Error(whyNotMerged(res.error ?? "", await prState(gh, repo, n)));
     return { ok: true, action, mergedBy: how };
   }
 
   throw new Error(`unknown action "${action}"`);
 }
 
+/** An issue, opened. Its address on github.com, which is what the page links to. */
+async function openIssue(
+  gh: GitHub,
+  repo: string,
+  title: string,
+  body: string,
+  labels: string[] = [],
+): Promise<string | undefined> {
+  const res = must(
+    await gh.request<{ html_url: string }>("POST", `repos/${repo}/issues`, {
+      body: { title, body, ...(labels.length ? { labels } : {}) },
+    }),
+  );
+  return res.data?.html_url;
+}
+
+/** A comment on an issue or a pull request, which GitHub treats as the same thing. */
+async function comment(
+  gh: GitHub,
+  repo: string,
+  number: number,
+  body: string,
+): Promise<string | undefined> {
+  const res = must(
+    await gh.request<{ html_url: string }>("POST", `repos/${repo}/issues/${number}/comments`, {
+      body: { body },
+    }),
+  );
+  return res.data?.html_url;
+}
+
+function must<T extends { ok: boolean; error?: string }>(res: T): T {
+  if (!res.ok) throw new Error(res.error || "GitHub refused it without saying why.");
+  return res;
+}
+
 /** The open tracker issue already asking about this pull request, if there is one. */
-async function openAskFor(repo: string, head: string): Promise<number | null> {
-  try {
-    const { stdout } = await run(
-      "gh",
-      [
-        "issue",
-        "list",
-        "--repo",
-        repo,
-        "--state",
-        "open",
-        "--limit",
-        "20",
-        "--search",
-        `in:title "${head.replace(/ — $/, "")}"`,
-        "--json",
-        "number,title",
-      ],
-      { encoding: "utf8" },
-    );
-    const found = (JSON.parse(stdout) as Array<{ number: number; title: string }>).find((i) =>
-      i.title.startsWith(head),
-    );
-    return found?.number ?? null;
-  } catch {
-    // Not finding one is the ordinary case, and a search that fails should not stop the ask.
-    return null;
-  }
+async function openAskFor(gh: GitHub, repo: string, head: string): Promise<number | null> {
+  const q = `repo:${repo} is:issue is:open in:title "${head.replace(/ — $/, "")}"`;
+  const res = await gh.request<{ items: Array<{ number: number; title: string }> }>(
+    "GET",
+    `search/issues?per_page=20&q=${encodeURIComponent(q)}`,
+  );
+  // Not finding one is the ordinary case, and a search that fails should not stop the ask.
+  if (!res.ok) return null;
+  return (res.data?.items ?? []).find((i) => i.title.startsWith(head))?.number ?? null;
 }
 
 export interface PrState {
@@ -296,30 +292,34 @@ export function whyNotMerged(ghError: string, pr: PrState | null): string {
   return `Not merged: ${line ?? "GitHub refused it without saying why."}`;
 }
 
-function errText(err: unknown): string {
-  const e = err as { stderr?: string; message?: string };
-  return `${e?.stderr ?? ""}\n${e?.message ?? ""}`;
-}
-
-async function prState(repo: string, n: string): Promise<PrState | null> {
-  try {
-    const { stdout } = await run(
-      "gh",
-      [
-        "pr",
-        "view",
-        n,
-        "--repo",
-        repo,
-        "--json",
-        "mergeStateStatus,statusCheckRollup,reviewDecision",
-      ],
-      { encoding: "utf8" },
-    );
-    return JSON.parse(stdout) as PrState;
-  } catch {
-    return null;
+/* The checks are flattened to the shape `gh pr view --json statusCheckRollup` gave: a check run
+   carries a name, status and conclusion, a commit status carries a context and a state. */
+const PR_STATE = `
+query($owner:String!, $name:String!, $number:Int!) {
+  repository(owner:$owner, name:$name) {
+    pullRequest(number:$number) {
+      mergeStateStatus reviewDecision
+      commits(last:1) { nodes { commit { statusCheckRollup { contexts(first:50) { nodes {
+        ... on CheckRun { name status conclusion }
+        ... on StatusContext { context state }
+      } } } } } }
+    }
   }
+}`;
+
+async function prState(gh: GitHub, repo: string, n: number): Promise<PrState | null> {
+  const res = await gh.graphql<{ repository: { pullRequest: any } }>(PR_STATE, {
+    ...splitRepo(repo),
+    number: n,
+  });
+  const pr = res.ok ? res.data?.repository?.pullRequest : null;
+  if (!pr) return null;
+  return {
+    mergeStateStatus: pr.mergeStateStatus,
+    reviewDecision: pr.reviewDecision ?? "",
+    statusCheckRollup:
+      pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes?.filter(Boolean) ?? [],
+  };
 }
 
 /**
@@ -333,33 +333,16 @@ async function prState(repo: string, n: string): Promise<PrState | null> {
  * A repository that cannot be read falls back to squash rather than failing: `gh pr merge` will
  * then say what is actually wrong, which is a better error than one invented here.
  */
-async function mergeMethodFor(repo: string): Promise<"squash" | "merge" | "rebase"> {
-  try {
-    const { stdout } = await run(
-      "gh",
-      [
-        "api",
-        `repos/${repo}`,
-        "--jq",
-        "[.allow_squash_merge,.allow_merge_commit,.allow_rebase_merge]",
-      ],
-      { encoding: "utf8" },
-    );
-    const [squash, commit, rebase] = JSON.parse(stdout) as boolean[];
-    if (squash) return "squash";
-    if (commit) return "merge";
-    if (rebase) return "rebase";
-  } catch {
-    /* offline, no access, or a shape that is not what it was: squash and let gh explain */
-  }
+async function mergeMethodFor(gh: GitHub, repo: string): Promise<"squash" | "merge" | "rebase"> {
+  const res = await gh.request<{
+    allow_squash_merge?: boolean;
+    allow_merge_commit?: boolean;
+    allow_rebase_merge?: boolean;
+  }>("GET", `repos/${repo}`);
+  /* offline, no access, or a shape that is not what it was: squash, and let GitHub explain */
+  if (!res.ok || !res.data) return "squash";
+  if (res.data.allow_squash_merge) return "squash";
+  if (res.data.allow_merge_commit) return "merge";
+  if (res.data.allow_rebase_merge) return "rebase";
   return "squash";
-}
-
-function execWithStdin(args: string[], input: string): Promise<{ stdout: string }> {
-  return new Promise((resolve, reject) => {
-    const child = execFile("gh", args, { encoding: "utf8" }, (err, stdout) =>
-      err ? reject(err) : resolve({ stdout }),
-    );
-    child.stdin?.end(input);
-  });
 }

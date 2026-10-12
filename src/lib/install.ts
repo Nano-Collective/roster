@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { api, type GhResult } from "./gh.js";
+import { existsSync, readFileSync } from "./vfs.js";
 import type { Workspace } from "./workspace.js";
 
 /**

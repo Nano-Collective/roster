@@ -14,6 +14,8 @@ import { retireCommand, retireHelp } from "./commands/retire.js";
 import { runCommand, runHelp } from "./commands/run.js";
 import { upgradeCommand, upgradeHelp } from "./commands/upgrade.js";
 import { bin, rewriteOutput } from "./lib/bin.js";
+import { useRecordStore } from "./lib/runs.js";
+import { diskRecordStore } from "./lib/runstore.js";
 
 const HELP = `
 roster — an agent-run org, powered by GitHub
@@ -73,6 +75,8 @@ const HELPS: Record<string, string> = {
 
 async function main(argv: string[]): Promise<number> {
   const raw = rewriteOutput();
+  // Run records are kept on disk between starts, here; a Worker keeps them in its edge cache.
+  useRecordStore(diskRecordStore());
   const [command, ...rest] = argv;
 
   /* No arguments opens the portal, which is the setup screen when there is no tenant here and

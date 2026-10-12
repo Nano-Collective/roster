@@ -16,6 +16,7 @@ import { installUrl, preselectedInstall } from "../src/lib/install.js";
 import { brainTemplateDir } from "../src/lib/render.js";
 import {
   dailyWorkflow,
+  dispatch,
   failedSteps,
   findDispatched,
   follow,
@@ -24,6 +25,7 @@ import {
 } from "../src/lib/runonce.js";
 import { AGENTS } from "../src/lib/setup.js";
 import { loadComposer, readOrg } from "../src/lib/workspace.js";
+import { fakeGitHub } from "./helpers/fakegithub.js";
 import { makeTenant } from "./helpers/tenant.js";
 
 /**
@@ -309,43 +311,76 @@ test("the dispatched run is the newest manual one since it was asked for", () =>
 test("finding the run waits for it to be listed, and following it stops when it completes", async () => {
   const since = Date.parse("2026-09-28T10:00:00Z");
   let listed = 0;
-  const found = await findDispatched("acme/technology", "cto-daily.yaml", since, {
-    sleep: async () => {},
-    json: async <T>() => {
-      listed++;
-      return { ok: true, data: (listed < 3 ? [] : [run({ databaseId: 9 })]) as T };
+  const rest = (over: Partial<RunInfo>) => {
+    const r = run(over);
+    return {
+      id: r.databaseId,
+      status: r.status,
+      conclusion: r.conclusion,
+      html_url: r.url,
+      created_at: r.createdAt,
+      event: r.event,
+    };
+  };
+  const lists = fakeGitHub([
+    {
+      match: /^GET repos\/acme\/technology\/actions\/workflows\/cto-daily\.yaml\/runs/,
+      data: () => {
+        listed++;
+        return { workflow_runs: listed < 3 ? [] : [rest({ databaseId: 9 })] };
+      },
     },
+  ]);
+  const found = await findDispatched(lists, "acme/technology", "cto-daily.yaml", since, {
+    sleep: async () => {},
   });
   assert.equal(found?.databaseId, 9);
   assert.equal(listed, 3);
 
   const states = ["queued", "in_progress", "in_progress", "completed"];
+  let now = "";
+  const runs = fakeGitHub([
+    {
+      match: /^GET repos\/acme\/technology\/actions\/runs\/9$/,
+      data: () => {
+        now = states.shift()!;
+        return rest({ status: now, conclusion: now === "completed" ? "failure" : "" });
+      },
+    },
+    {
+      match: /^GET repos\/acme\/technology\/actions\/runs\/9\/jobs/,
+      data: () => ({
+        jobs: [
+          {
+            name: "session",
+            conclusion: now === "completed" ? "failure" : null,
+            steps: [{ name: "Mint the token", conclusion: "failure" }],
+          },
+        ],
+      }),
+    },
+  ]);
   const seen: string[] = [];
-  const outcome = await follow("acme/technology", 9, {
+  const outcome = await follow(runs, "acme/technology", 9, {
     timeoutMs: 60_000,
     sleep: async () => {},
     onChange: (s) => seen.push(s),
-    json: async <T>() => {
-      const status = states.shift()!;
-      return {
-        ok: true,
-        data: run({
-          status,
-          conclusion: status === "completed" ? "failure" : "",
-          jobs: [
-            {
-              name: "session",
-              conclusion: status === "completed" ? "failure" : "",
-              steps: [{ name: "Mint the token", conclusion: "failure" }],
-            },
-          ],
-        } as never) as T,
-      };
-    },
   });
   assert.deepEqual(seen, ["queued", "in_progress", "completed"]);
   assert.equal(outcome?.conclusion, "failure");
   assert.deepEqual(outcome?.failedAt, ["session › Mint the token"]);
+});
+
+test("a dispatch starts the workflow on the repository's default branch", async () => {
+  const gh = fakeGitHub([
+    { match: /^GET repos\/acme\/technology$/, data: { default_branch: "trunk" } },
+    {
+      match: /^POST repos\/acme\/technology\/actions\/workflows\/cto-daily\.yaml\/dispatches$/,
+      status: 204,
+    },
+  ]);
+  assert.deepEqual(await dispatch(gh, "acme/technology", "cto-daily.yaml"), { ok: true });
+  assert.deepEqual(gh.calls.at(-1)?.body, { ref: "trunk" });
 });
 
 test("a failed job with no failed step is still named", () => {

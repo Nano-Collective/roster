@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { templateFiles, templatesRoot } from "./templates.js";
+import { existsSync, readFileSync } from "./vfs.js";
 
 /**
  * Everything a brain-repo template needs to know about the staff member it is being rendered

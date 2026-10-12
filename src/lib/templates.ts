@@ -1,6 +1,7 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { frameworkRoot } from "./framework.js";
+import { existsSync, readdirSync, statSync } from "./vfs.js";
 
 /**
  * Who owns a generated file, which is the whole question `roster upgrade` answers.
@@ -41,6 +42,8 @@ export function classifyBrain(rel: string): "generated" | "scaffold" {
  * dist/ while the templates sit beside it in the published package.
  */
 export function templatesRoot(): string {
+  const fixed = frameworkRoot();
+  if (fixed) return join(fixed, "templates");
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
     join(here, "..", "..", "templates"), // src/lib → package root

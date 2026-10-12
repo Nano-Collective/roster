@@ -1,6 +1,7 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { frameworkRoot } from "./framework.js";
+import { existsSync, readdirSync, readFileSync } from "./vfs.js";
 
 export interface DocPage {
   file: string;
@@ -9,6 +10,8 @@ export interface DocPage {
 
 /** The framework's docs, resolved the same way its templates are. */
 export function docsDir(): string {
+  const fixed = frameworkRoot();
+  if (fixed) return join(fixed, "docs");
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [join(here, "..", "..", "docs"), join(here, "..", "docs")];
   for (const path of candidates) if (existsSync(path)) return path;

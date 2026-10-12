@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { existsSync, readFileSync } from "./vfs.js";
 
 /**
  * A workspace is a directory holding the ops repo and every brain repo side by side —

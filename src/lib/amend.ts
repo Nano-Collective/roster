@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { handBackAnyOf } from "./pastebrief.js";
 import type { PromptView } from "./prompt.js";
 import { briefTemplateDir } from "./render.js";
+import { existsSync, readFileSync } from "./vfs.js";
 import type { Workspace } from "./workspace.js";
 
 /**

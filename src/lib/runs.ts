@@ -1,7 +1,5 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
-import { ghJson } from "./gh.js";
+import { unzip } from "./archive.js";
+import type { GitHub } from "./github.js";
 
 /**
  * What each staff member's runs were and what they cost, read back from GitHub.
@@ -47,31 +45,32 @@ const records = new Map<string, RunRecord | null>();
 const fetching = new Set<string>();
 
 /**
- * Where run records are kept between portal starts. A finished run's record never changes, so
- * each one is downloaded once, ever, rather than once per start: thirty days of runs was a
- * minute of `gh run download` every time the Runs screen opened.
+ * Where run records are kept between starts. A finished run's record never changes, so each
+ * one is downloaded once, ever, rather than once per start: thirty days of runs was a minute of
+ * downloads every time the Runs screen opened.
+ *
+ * On your machine that is a directory under ~/.cache (`runstore.ts`); on a Worker it is the
+ * edge cache. Without one, records are kept for the life of the process.
  */
-function cacheDir(): string {
-  return process.env.ROSTER_CACHE_DIR ?? join(homedir(), ".cache", "roster", "runs");
+export interface RecordStore {
+  get(brain: string, id: number): Promise<{ record: RunRecord | null } | undefined>;
+  put(brain: string, id: number, value: { record: RunRecord | null }): Promise<void>;
 }
 
-function cacheFile(brain: string, id: number): string {
-  return join(cacheDir(), brain.replace("/", "__"), `${id}.json`);
+let store: RecordStore | null = null;
+
+export function useRecordStore(next: RecordStore | null): void {
+  store = next;
 }
 
 /** What is already known about a run's record, without asking GitHub. undefined when nothing is. */
-function knownRecord(brain: string, id: number): RunRecord | null | undefined {
+async function knownRecord(brain: string, id: number): Promise<RunRecord | null | undefined> {
   const key = `${brain}#${id}`;
   if (records.has(key)) return records.get(key);
-  const file = cacheFile(brain, id);
-  if (!existsSync(file)) return undefined;
-  try {
-    const record = (JSON.parse(readFileSync(file, "utf8")) as { record: RunRecord | null }).record;
-    records.set(key, record);
-    return record;
-  } catch {
-    return undefined;
-  }
+  const kept = await store?.get(brain, id).catch(() => undefined);
+  if (!kept) return undefined;
+  records.set(key, kept.record);
+  return kept.record;
 }
 
 /**
@@ -81,6 +80,7 @@ function knownRecord(brain: string, id: number): RunRecord | null | undefined {
  * the background; `pending` says how many are still coming, so a screen can ask again.
  */
 export async function staffRuns(
+  gh: GitHub,
   brain: string,
   handle: string,
   days = 30,
@@ -89,7 +89,7 @@ export async function staffRuns(
   const since = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
   const lists = await Promise.all(
     KINDS.map((kind) =>
-      realRuns(brain, `${handle}-${kind}.yaml`, since).then((res) => ({ kind, res })),
+      realRuns(gh, brain, `${handle}-${kind}.yaml`, since).then((res) => ({ kind, res })),
     ),
   );
 
@@ -122,7 +122,7 @@ export async function staffRuns(
 
   const missing: RunRow[] = [];
   for (const row of rows.filter((r) => r.status === "completed")) {
-    const known = knownRecord(brain, row.id);
+    const known = await knownRecord(brain, row.id);
     if (known === undefined) missing.push(row);
     else row.record = known;
   }
@@ -131,14 +131,14 @@ export async function staffRuns(
     const todo = missing.filter((r) => !fetching.has(`${brain}#${r.id}`));
     for (const r of todo) fetching.add(`${brain}#${r.id}`);
     void pool(todo, 6, async (row) => {
-      await recordFor(brain, row.id);
+      await recordFor(gh, brain, row.id);
       fetching.delete(`${brain}#${row.id}`);
     });
     return { runs: rows, errors, pending: missing.length };
   }
 
   await pool(missing, 6, async (row) => {
-    row.record = await recordFor(brain, row.id);
+    row.record = await recordFor(gh, brain, row.id);
   });
   return { runs: rows, errors, pending: 0 };
 }
@@ -162,6 +162,7 @@ const OUTCOMES = [
 ] as const;
 
 async function realRuns(
+  gh: GitHub,
   brain: string,
   workflow: string,
   since: string,
@@ -169,10 +170,10 @@ async function realRuns(
   const one = async (status: string) => {
     const out: Array<Record<string, any>> = [];
     for (let page = 1; page <= 10; page++) {
-      const res = await ghJson<{ workflow_runs: Array<Record<string, any>> }>([
-        "api",
+      const res = await gh.request<{ workflow_runs: Array<Record<string, any>> }>(
+        "GET",
         `repos/${brain}/actions/workflows/${workflow}/runs?created=>=${since}&status=${status}&per_page=100&page=${page}`,
-      ]);
+      );
       if (!res.ok) return { ok: false as const, error: res.error };
       const runs = res.data?.workflow_runs ?? [];
       out.push(...runs);
@@ -202,44 +203,44 @@ async function realRuns(
   return { ok: true, data };
 }
 
-async function recordFor(brain: string, id: number): Promise<RunRecord | null> {
+async function recordFor(gh: GitHub, brain: string, id: number): Promise<RunRecord | null> {
   const key = `${brain}#${id}`;
   if (records.has(key)) return records.get(key)!;
-  const dir = mkdtempSync(join(tmpdir(), "roster-run-"));
-  try {
-    const res = await ghJson([
-      "run",
-      "download",
-      String(id),
-      "--repo",
-      brain,
-      "--name",
-      "roster-run",
-      "--dir",
-      dir,
-    ]);
-    const file = join(dir, "run.json");
-    // A run from before records existed, or one whose artifact has expired, has none. That is
-    // an answer, so it is kept like one. A failure that is not that (the network, the API
-    // limit) is kept for this session only, so the next start asks again.
-    const record =
-      res.ok && existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as RunRecord) : null;
-    records.set(key, record);
-    if (res.ok || /no valid artifacts|not found|no artifact/i.test(res.error ?? "")) {
-      try {
-        mkdirSync(join(cacheDir(), brain.replace("/", "__")), { recursive: true });
-        writeFileSync(cacheFile(brain, id), JSON.stringify({ record }));
-      } catch {
-        // A cache that cannot be written costs a download next time, nothing more.
-      }
-    }
-    return record;
-  } catch {
+  const list = await gh.request<{ artifacts: Array<{ id: number; expired: boolean }> }>(
+    "GET",
+    `repos/${brain}/actions/runs/${id}/artifacts?name=roster-run`,
+  );
+  /* A failure that is not "there is none" (the network, the API limit) is kept for this process
+     only, so the next start asks again. */
+  if (!list.ok) {
     records.set(key, null);
     return null;
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
   }
+  // A run from before records existed, or one whose artifact has expired, has none. That is an
+  // answer, so it is kept like one.
+  const artifact = (list.data?.artifacts ?? []).find((a) => !a.expired);
+  let record: RunRecord | null = null;
+  if (artifact) {
+    const zip = await gh.request<Uint8Array>(
+      "GET",
+      `repos/${brain}/actions/artifacts/${artifact.id}/zip`,
+      { as: "bytes" },
+    );
+    if (!zip.ok || !zip.data) {
+      records.set(key, null);
+      return null;
+    }
+    try {
+      const file = (await unzip(zip.data)).get("run.json");
+      record = file ? (JSON.parse(new TextDecoder().decode(file)) as RunRecord) : null;
+    } catch {
+      record = null;
+    }
+  }
+  records.set(key, record);
+  // A cache that cannot be written costs a download next time, nothing more.
+  await store?.put(brain, id, { record }).catch(() => {});
+  return record;
 }
 
 async function pool<T>(items: T[], size: number, work: (item: T) => Promise<void>) {

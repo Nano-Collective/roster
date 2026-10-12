@@ -48,12 +48,7 @@ export function attach(opts: {
   if (!existsSync(join(repoDir, ".git"))) {
     throw new Error(`${repo} is not checked out here, so there is nowhere to put the file`);
   }
-  if (!data.length) throw new Error("that file is empty");
-  if (data.length > MAX_UPLOAD) {
-    throw new Error(`${basename(opts.name)} is larger than ${MAX_UPLOAD / 1024 / 1024}MB`);
-  }
-
-  const rel = free(repoDir, `${ATTACH_DIR}/${today}-${safeName(opts.name)}`);
+  const rel = attachPath(opts.name, data.length, today, (p) => existsSync(join(repoDir, p)));
   const full = join(repoDir, rel);
   mkdirSync(join(repoDir, ATTACH_DIR), { recursive: true });
   writeFileSync(full, data);
@@ -101,14 +96,32 @@ function safeName(raw: string): string {
   return stem + ext.replace(/[^a-z0-9.]/g, "");
 }
 
+/**
+ * Where a dropped file goes: `attachments/<date>-<safe name>`, numbered when the name is taken.
+ * `taken` says whether a path is already in the repo, which a checkout and GitHub answer
+ * differently.
+ */
+export function attachPath(
+  name: string,
+  size: number,
+  today: string,
+  taken: (rel: string) => boolean,
+): string {
+  if (!size) throw new Error("that file is empty");
+  if (size > MAX_UPLOAD) {
+    throw new Error(`${basename(name)} is larger than ${MAX_UPLOAD / 1024 / 1024}MB`);
+  }
+  return free(`${ATTACH_DIR}/${today}-${safeName(name)}`, taken);
+}
+
 /** The same name twice in a day should not overwrite yesterday's evidence. */
-function free(repoDir: string, rel: string): string {
-  if (!existsSync(join(repoDir, rel))) return rel;
+function free(rel: string, taken: (rel: string) => boolean): string {
+  if (!taken(rel)) return rel;
   const ext = extname(rel);
   const stem = rel.slice(0, rel.length - ext.length);
   for (let n = 2; n < 500; n++) {
     const next = `${stem}-${n}${ext}`;
-    if (!existsSync(join(repoDir, next))) return next;
+    if (!taken(next)) return next;
   }
   throw new Error("too many files by that name today");
 }

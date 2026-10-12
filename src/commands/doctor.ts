@@ -4,6 +4,7 @@ import { askKinds, OWNED_LABELS } from "../lib/asks.js";
 import { accessLink } from "../lib/callable.js";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { readHumans } from "../lib/humans.js";
+import { localGitHub } from "../lib/localtoken.js";
 import { parseMemory } from "../lib/memory.js";
 import { gateOn, judgeGate, readGate } from "../lib/reviewgate.js";
 import { budgetOf, type Spend, spend, staffRuns } from "../lib/runs.js";
@@ -1242,9 +1243,15 @@ async function checkBudgets(
   const who = orgBudget !== null ? staff : staff.filter((s) => budgetOf(s.budget) !== null);
   if (!who.length) return [];
 
+  const local = await localGitHub();
+  if (!local.ok) return [];
   const spent = await Promise.all(
     who.map(async (s) => {
-      const { runs, errors } = await staffRuns(`${org.org}/${s.dir ?? s.handle}`, s.handle);
+      const { runs, errors } = await staffRuns(
+        local.gh,
+        `${org.org}/${s.dir ?? s.handle}`,
+        s.handle,
+      );
       return { s, spend: spend(runs), errors };
     }),
   );

@@ -1,4 +1,4 @@
-import { api, ghJson } from "./gh.js";
+import type { GitHub } from "./github.js";
 
 /**
  * Unread activity, from GitHub's own notifications.
@@ -25,10 +25,14 @@ interface Notification {
 }
 
 /** Every unread notification on an issue or PR in `owner`'s repos, keyed `owner/repo#n`. */
-export async function unreadFor(owner: string, pages = 5): Promise<Map<string, Unread>> {
+export async function unreadFor(
+  gh: GitHub,
+  owner: string,
+  pages = 5,
+): Promise<Map<string, Unread>> {
   const out = new Map<string, Unread>();
   for (let page = 1; page <= pages; page++) {
-    const res = await ghJson<Notification[]>(["api", `notifications?per_page=100&page=${page}`]);
+    const res = await gh.request<Notification[]>("GET", `notifications?per_page=100&page=${page}`);
     if (!res.ok || !res.data?.length) break;
     for (const n of res.data) {
       if (!n.unread || n.repository?.owner?.login?.toLowerCase() !== owner.toLowerCase()) continue;
@@ -46,8 +50,8 @@ export async function unreadFor(owner: string, pages = 5): Promise<Map<string, U
 }
 
 /** Mark one notification thread read on GitHub. */
-export async function markRead(thread: string): Promise<boolean> {
+export async function markRead(gh: GitHub, thread: string): Promise<boolean> {
   if (!/^\d+$/.test(thread)) return false;
-  const res = await api(`notifications/threads/${thread}`, ["-X", "PATCH"]);
+  const res = await gh.request("PATCH", `notifications/threads/${thread}`);
   return res.ok;
 }

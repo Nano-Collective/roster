@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { AuditFinding } from "./audit.js";
+import { existsSync, readFileSync, statSync } from "./vfs.js";
 import type { Workspace } from "./workspace.js";
 
 export const KINDS = ["daily", "mention"] as const;
@@ -39,45 +40,64 @@ export interface PromptView {
  * list would be a second description of the composition, and the first thing to go stale
  * when somebody adds a fragment.
  */
+export type Compose = (o: {
+  opsDir: string;
+  brainsDir: string;
+  staff: string;
+  kind: string;
+  fs?: { readFileSync: typeof readFileSync; existsSync: typeof existsSync };
+  context?: string;
+}) => string;
+
 export function promptView(
   ws: Workspace,
-  compose: (o: { opsDir: string; brainsDir: string; staff: string; kind: string }) => string,
+  compose: Compose,
   staffHandle: string,
   brainDir: string,
   kind: string,
 ): PromptView {
   // A mention prompt is written for the comment that woke it, so previewing one needs
   // stand-in context. Obviously-fake values, so nobody mistakes a preview for a real run.
+  const context =
+    process.env.ROSTER_CONTEXT ||
+    (kind !== "daily"
+      ? JSON.stringify({
+          issue_number: "0",
+          comment_id: "0",
+          pr_number: "0",
+          repo: "<owner>/<repo>",
+          actor: "<actor>",
+        })
+      : undefined);
+  /* A tenant's vendored compose.mjs from before `context` existed reads only the environment,
+     so it is set there too for the length of the call. Synchronous, so nothing else can run
+     while it is set, on a Worker or anywhere else. */
   const had = process.env.ROSTER_CONTEXT;
-  if (kind !== "daily" && !had) {
-    process.env.ROSTER_CONTEXT = JSON.stringify({
-      issue_number: "0",
-      comment_id: "0",
-      pr_number: "0",
-      repo: "<owner>/<repo>",
-      actor: "<actor>",
-    });
-  }
+  if (context && !had) process.env.ROSTER_CONTEXT = context;
+  let composed: string;
   try {
-    const composed = compose({
+    composed = compose({
       opsDir: ws.opsDir,
       brainsDir: ws.root,
       staff: staffHandle,
       kind,
+      // Through vfs, so a portal with no checkout composes from what it holds of GitHub.
+      fs: { readFileSync, existsSync },
+      context,
     });
-    const entry = join(ws.opsDir, "prompts", `${kind}.md`);
-    const layers: Layer[] = [describe(ws, brainDir, `prompts/${kind}.md`, false)];
-    walk(ws, brainDir, entry, layers, new Set([resolve(entry)]));
-    return {
-      staff: staffHandle,
-      kind,
-      composed,
-      layers,
-      runtime: runtimeReads(ws, brainDir),
-    };
   } finally {
     if (!had) delete process.env.ROSTER_CONTEXT;
   }
+  const entry = join(ws.opsDir, "prompts", `${kind}.md`);
+  const layers: Layer[] = [describe(ws, brainDir, `prompts/${kind}.md`, false)];
+  walk(ws, brainDir, entry, layers, new Set([resolve(entry)]));
+  return {
+    staff: staffHandle,
+    kind,
+    composed,
+    layers,
+    runtime: runtimeReads(ws, brainDir),
+  };
 }
 
 const INCLUDE = /\{\{>(\??)\s*([^}\s]+)\s*\}\}/g;

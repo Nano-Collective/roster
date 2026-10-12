@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { ghJson, ghReady } from "./gh.js";
 import { looksUnwritten } from "./stub.js";
 import { templatesRoot } from "./templates.js";
+import { existsSync, readFileSync } from "./vfs.js";
 import { tryWorkspace } from "./workspace.js";
 
 /**
