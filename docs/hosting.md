@@ -1,72 +1,116 @@
 ---
 title: "Hosting the portal"
-description: "Local is the default, and the honest options if you want it elsewhere."
+description: "The portal on your own URL, behind Sign in with GitHub, redeploying itself."
 sidebar_order: 11
 ---
 
 # Hosting the portal
 
-`roster portal` is local-first and that is the intended way to run it. It reads the checked-out
-repositories from disk, needs no authentication, hits no API rate limits, and works offline.
+The portal runs in two places, and it is the same code in both.
 
 ```bash
-roster portal              # http://localhost:4300
-roster portal --port 4400
+roster portal                                  # on your machine, http://localhost:4300
+roster portal deploy --domain roster.acme.com  # on the web, on Cloudflare Workers
 ```
 
-## Why local is the default
+Both read the org from GitHub, so neither needs the repos checked out to show it. Both act on
+GitHub as the person using them. The hosted one adds a sign-in in front, and leaves out the
+few screens that need a checkout.
 
-**Setup is local only.** The screen that stands up a tenant also creates GitHub Apps and writes
-repository secrets, and none of that belongs behind a tunnel or an access proxy. Everything below
-is about a portal over an org that already exists.
+## What you get, and what stays on your machine
 
-The portal can write. It replies to issues, closes them, reopens them and opens new ones,
-acting as you through your own `gh`. That is the point: it is where a person answers their
-agents. It also means it is not a thing to leave listening on a network.
+Hosted, you get everything you use day to day: Home, the trackers, threads and replies, pull
+requests (approve and merge), Runs, the brains, prompts, the org files and their editors, and
+the docs.
 
-Three things guard it, and they only work locally:
+These stay on your machine, and the hosted page says so where they would be:
 
-- it binds to `127.0.0.1`
-- a write needs a `POST` with an `x-roster` header, which forces a CORS preflight that fails
-  from any other origin
-- an `Origin` header, if present, must be localhost
+- **Setup**: standing up an org, the GitHub Apps, the agent credential
+- **Hiring and retiring**
+- **Doctor and the Health checklist**, which read the checkout and the org's secrets
 
-`--host` overrides the bind address and prints a warning. Do not use it to "just have a look
-from my phone".
+They create repositories and Apps and write secrets, which is the most privileged thing roster
+does. That is not something to put behind a public URL.
 
-## Reading it from elsewhere
+## Who can get in
 
-The honest options, in order of how much you should like them.
+Only the people listed under `humans:` in `org.yaml`, signed in with their own GitHub account.
 
-**A tunnel, briefly.** `ssh -L 4300:localhost:4300 you@yourmachine`, or Tailscale, or
-`cloudflared tunnel --url http://localhost:4300`. Your machine stays the only thing running it
-and the write path stays behind your own network identity. Turn it off afterwards.
+- Sign-in is GitHub's own OAuth flow, through an OAuth App your org creates for the portal.
+  The token it hands back is that person's, scoped `repo` and `notifications`, the same kind
+  `gh` holds on their machine.
+- Everything they do is as themselves. A reply is theirs, a merge is theirs, and what they can
+  read is what GitHub lets them read.
+- Somebody who signs in and is not one of the humans, or cannot read the ops repo, is turned
+  away and their token revoked. Somebody removed from `humans:` stops getting in within a few
+  minutes.
+- A sign-in lasts fourteen days. Signing out revokes the token on GitHub.
 
-**A read-only static build.** `roster export` produces the whole org as one JSON document, and
-the portal's rendering is decoupled from its parsing precisely so this is possible:
+See [security](security.md#the-hosted-portal) for what is held where.
+
+## Deploying it
+
+You need a Cloudflare account with the domain on it, and wrangler signed in:
 
 ```bash
-roster export --out org.json
+npx wrangler login
+roster portal deploy --domain roster.acme.com           # says what it will do
+roster portal deploy --domain roster.acme.com --apply   # does it
 ```
 
-Serve that plus the portal HTML from anything static (Cloudflare Pages, S3, a directory). You
-get memory, the graph, the brain and what-changed. You do not get the inbox or any write
-action, because both need `gh`.
+The first time, it stops for the one thing only you can do: **create the OAuth App**. It prints
+the link and the three fields:
 
-Put access control in front of it. Cloudflare Access with a one-person policy is the least
-work. **This is private business content and a map of what your agents know**, so an
-unauthenticated URL is not an option even if nobody knows it.
+| Field | Value |
+|---|---|
+| Application name | `<org> roster` |
+| Homepage URL | `https://roster.acme.com` |
+| Authorization callback URL | `https://roster.acme.com/auth/callback` |
 
-**A hosted instance with write access.** Not documented, and not recommended. It would need a
-GitHub App of its own, a session layer, and a credible answer to "what can this thing do if
-someone reaches it". None of that exists, and the local server plus a tunnel gets you the same
-outcome with none of it.
+Register it, generate a client secret, and paste the two values when asked. The secret is not
+shown as you type.
 
-## Keeping it current
+Then it deploys the Worker, stores the App's secret and a fresh session key as Worker secrets,
+and commits two files to the ops repo:
 
-The portal reads your working tree, so a stale checkout shows stale data. `/api/sync` fetches
-and fast-forwards every repository on each refresh. It refuses to pull one that is dirty or has
-diverged, and says which in a banner rather than guessing.
+- `portal/wrangler.jsonc`: the Worker's name, the domain, the org. Nothing secret.
+- `.github/workflows/portal.yaml`: redeploys it.
 
-If you host a static export, the export is a point in time. Regenerate it on a schedule, or
-accept that it is yesterday's.
+## Keeping it up to date
+
+The workflow redeploys the portal when its config changes, every morning, and when you run it
+by hand. Each deploy uses the newest roster, so updates arrive by themselves.
+
+It needs two secrets on the ops repo:
+
+| Secret | Where from |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → API Tokens → the **Edit Cloudflare Workers** template |
+| `CLOUDFLARE_ACCOUNT_ID` | the Workers page of the dashboard |
+
+Without them the portal still runs; it only stops updating itself.
+
+The portal reads GitHub fresh as you use it, so there is nothing to sync. It asks whether
+anything has moved every few seconds, and an answer of "no" costs nothing against GitHub's
+hourly limit.
+
+## The cache
+
+The portal keeps what it has read from GitHub: file contents by their hash, each commit's file
+dates, and finished runs' costs. All of it is immutable, so it is never stale.
+
+On your machine it is `~/.cache/roster`. On Cloudflare it is the edge cache, which needs no
+setup. To keep it everywhere rather than per data centre, bind a KV namespace as `CACHE` in
+`portal/wrangler.jsonc`.
+
+## On your machine
+
+`roster portal` binds to `127.0.0.1` and acts as whoever `gh` is signed in as. To open an org
+you have never cloned:
+
+```bash
+roster portal --org acme
+```
+
+`--host` overrides the bind address and prints a warning. The local server has no sign-in, so
+use the hosted portal instead of exposing it.

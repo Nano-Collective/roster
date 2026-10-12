@@ -125,5 +125,5 @@ See [manual steps](manual-steps.md).
 | `inflight.mjs`, `run-record.mjs` | the tenant | same |
 | `session.yaml` | the tenant | private reusable workflows are same-org only |
 | the CLI | the framework | runs on your machine, when you ask it to |
-| the portal | the framework | reads the tenant's repos from disk |
+| the portal | the framework | reads the tenant's repos from GitHub, as the person using it |
 | the docs | the framework | including the copy the portal serves |

@@ -10,11 +10,12 @@ sidebar_order: 17
 roster                 # or `roster portal`, or `npx @nanocollective/roster`
 ```
 
-A local web UI over the checked-out repositories. Reads them from disk, so it needs no
-authentication and no API quota, and works offline. It can write to GitHub through your own
-`gh`. See [hosting](hosting.md) for why it stays local.
+A web UI over every staff member's brain, read from GitHub as you. It needs no checkout to show
+the org, and it acts on GitHub with your own token, so a reply here is the same as a reply on the
+site. Setting up, hiring and doctor still use the checkout, so keep the repos checked out beside
+each other, in the same shape the runner uses.
 
-Keep the repos checked out beside each other, in the same shape the runner uses.
+It can also be hosted, on your own URL behind Sign in with GitHub: see [hosting](hosting.md).
 
 ## The sidebar
 
@@ -155,7 +156,7 @@ down with the list, so opening a thread is a render rather than a request.
   work reaches back 45 days, up to 30 issues and 30 pull requests per repository, and carries
   a shorter timeline than open work because it is there to be read rather than triaged. A
   closed row is dimmed and marked; the sidebar badge keeps counting only what is open.
-- **Reply, close, reopen, open an issue.** All as you, through your own `gh`, so they are
+- **Reply, close, reopen, open an issue.** All as you, with your own token, so they are
   indistinguishable from doing it on the site. Closing asks for confirmation. A half-written
   reply survives a repaint, and pressing Comment with an empty box says so rather than
   silently doing nothing.
@@ -262,7 +263,7 @@ On the **Files** tab each file's heading has its own Reply, which opens the same
 one file. "This bit is wrong" is what you want to say while looking at a diff, and the
 alternative is describing in prose which of thirty files you meant.
 
-Both writes go through your own `gh`, as you. Nothing is dispatched between repositories and no
+Both writes are yours, made with your own token. Nothing is dispatched between repositories and no
 credential is put on a public repo. The tracker issue goes first, because it is the half that
 reaches anybody; if the copy on the pull request then fails you are told, rather than being
 shown an error that invites you to ask the same person the same thing twice.
@@ -274,8 +275,8 @@ it took, turns and cost where known, and a link to the log. Above the tables, th
 for the org, and each staff member's own in their heading.
 
 Runs are not in any repo, so this is the one screen that is only ever on GitHub. It reads the
-run lists through your own `gh`, the same way the inbox does, and offline it says so rather
-than drawing an empty table that reads as "nothing ran".
+run lists as you, the same way the inbox does, and when GitHub cannot be reached it says so
+rather than drawing an empty table that reads as "nothing ran".
 
 Cost comes from the record each run leaves behind (see [cost](cost.md#what-each-run-cost)). A
 run from before records existed, or from an agent that does not report cost, shows a dash, and
@@ -303,7 +304,7 @@ heading.
 typing `role: product` into `org.yaml` by hand. Adding one commits `org.yaml` and pushes. A new
 hire picks it up; somebody already hired keeps the `works_in` in their own `staff.yaml`.
 
-**The list comes off disk**, not out of the page, so a tenant that adds `org/pricing.md` can
+**The list comes from the ops repo**, not out of the page, so a tenant that adds `org/pricing.md` can
 open it like any other. Only files the
 portal may actually write are listed: an editor that offers a file it cannot save is a trap.
 
@@ -363,7 +364,7 @@ After **Hire** the screen reloads the org and stays on the same staff member, on
 
 A card whose setup is not finished (a stub charter, no App secrets, or no successful run yet)
 shows **Finish setting up**, which opens the same list for them. The App secrets and the run
-are read from GitHub, so offline only the charter counts.
+are read from GitHub.
 
 **Writing the charter** is the copy-a-prompt loop below, aimed at `CHARTER.md`. `hire`
 deliberately does not write it, because a generated charter produces exactly the generic agent
@@ -468,8 +469,9 @@ that straight back.
 
 ### Editing
 
-Layers are editable in place. Saving writes the file, commits **only that file**, and pushes,
-as you, through your own git. The confirmation names the repository and says who picks it up:
+Layers are editable in place. Saving commits **only that file** to GitHub, as you. If
+the file has changed on GitHub since you opened it, the save is refused and says to reload,
+rather than overwriting somebody else's edit. The confirmation names the repository and says who picks it up:
 every staff member for anything under `org/` or `prompts/`, one staff member for a brain file.
 
 The writable set is an allowlist, because this commits to repositories the agents run from:

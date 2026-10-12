@@ -12,15 +12,16 @@ npm test          # the whole suite
 npx tsc --noEmit  # typecheck
 ```
 
-Tests are `node:test` run through `tsx`. There is no build step for development, and the portal
-has no build step at all.
+Tests are `node:test` run through `tsx`. There is no build step for development, and the
+portal's page has no build step at all. `npm run build` builds the CLI and the portal's Worker.
 
 ## Layout
 
 ```
 src/cli.ts             command table and help
 src/commands/          one file per command
-src/lib/               shared: workspace, memory, render, merge, gh, templates, docs
+src/lib/               shared: workspace, memory, render, merge, gh, github, vfs, templates, docs
+src/portal/            the portal's server: handler.ts, and the Worker that hosts it
 templates/ops/         what a tenant's ops repo is generated from
 templates/brain/       what a staff member's repo is generated from
 templates/portal/      the portal: a shell, css/, and js/ as ES modules
@@ -28,14 +29,31 @@ docs/                  these pages
 test/                  one file per area
 ```
 
-## The portal has no build step, on purpose
+## The portal's server
+
+`src/portal/handler.ts` answers every route that works the same on your machine and hosted. It
+reads the org through snapshots of its repositories on GitHub (`snapshot.ts`), mounted where a
+checkout would be by `src/lib/vfs.ts`, so the readers in `src/lib` work on either. It acts
+through `src/lib/github.ts`, a `fetch` client holding the person's token.
+
+- `src/commands/portal.ts` is the local server. It sends those routes to the handler and keeps
+  the ones that need a checkout: setup, the App hand-off, doctor, hire and retire.
+- `src/portal/worker.ts` is the hosted one: the same handler behind Sign in with GitHub
+  (`session.ts`). `scripts/build-worker.mjs` builds it into `dist/worker/`, and
+  `roster portal deploy` deploys it.
+
+`test/hosted-portal.test.ts` runs the handler against a scaffolded tenant served in the API's
+shapes (`test/helpers/githubrepos.ts`), so it needs neither the network nor an org.
+
+## The portal's page has no build step, on purpose
 
 `templates/portal/` is a plain `index.html`, one stylesheet per area under `css/`, and one ES
 module per screen under `js/views/`. `roster portal` serves them from `/assets`, reading each
-file per request. Editing a stylesheet and reloading the page is the whole edit loop.
+file per request. Editing a stylesheet and reloading the page is the whole edit loop. The
+Worker serves the same files, copied as they are.
 
-No bundler, because the browser resolves the module graph itself, and a bundler would be a
-build step in a tool whose selling point is that it does not have one.
+No bundler for the page, because the browser resolves the module graph itself. Only the
+Worker's server code is bundled, because a Worker is one module.
 
 ```
 templates/portal/
@@ -51,8 +69,8 @@ templates/portal/
 ```
 
 `js/icons.js` holds two dozen [Lucide](https://lucide.dev) glyphs as inlined path data, ISC
-licensed. Vendored rather than fetched, because the portal is offline-first and an icon that
-needs the network is an icon that is sometimes a blank square. They take colour from
+licensed. Vendored rather than fetched, because an icon that needs a third party's network is an
+icon that is sometimes a blank square. They take colour from
 `currentColor` and size from a `--ic` custom property, so a component styles them in CSS and
 never touches the SVG. Nothing in the UI should draw with a text character.
 

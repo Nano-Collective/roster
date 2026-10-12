@@ -16,9 +16,14 @@ What can reach what, and what stops it.
 | Public App private key | a repo secret | mint a token for the public product repo |
 | Agent credential | a repo secret | spend money with your model provider |
 | Your `gh` token | your machine | whatever you can |
+| A hosted portal's sign-in | a sealed cookie in your browser | whatever you can |
+| The portal's OAuth App secret and session key | Worker secrets | sign people in |
 
-**No credential is held by roster.** The CLI and the portal shell out to your own `gh`. The
-framework has no service, no server it talks to, and nothing to store.
+**On your machine, no credential is held by roster.** The CLI uses your own `gh`, and the
+portal asks `gh` for its token once, holds it in memory, and writes it nowhere.
+
+**A hosted portal holds each person's sign-in, and nothing else.** See
+[the hosted portal](#the-hosted-portal).
 
 ## The App private key
 
@@ -97,8 +102,8 @@ Never verify an installation by reading the API. The only proof is a run that fi
 
 The setup screen creates repositories, creates GitHub Apps and writes repository secrets. It is
 the most privileged surface roster has, and it is **local only**: bound to `127.0.0.1`, behind the
-same write guard as everything else, and never something to put behind a tunnel. There is no
-hosted setup and there should not be.
+same write guard as everything else, and never something to put behind a tunnel. A hosted
+portal does not have it, nor hiring, retiring or doctor.
 
 The App manifest hand-off runs on the portal's own port rather than a second one, which changes
 where the callback lands and nothing else: the one-time code is still exchanged server-side, and
@@ -110,14 +115,13 @@ callback whose state is unknown is refused.
 
 It can write to GitHub, so it is worth being precise.
 
-It binds to `127.0.0.1`. A write needs a `POST`, an `x-roster` header (which forces a CORS
+On your machine, it binds to `127.0.0.1`. A write needs a `POST`, an `x-roster` header (which forces a CORS
 preflight that fails from any other origin), and an `Origin` that is either absent or
 localhost. Reads are served to anything that can reach the port.
 
-Two paths take attacker-controlled input to the disk or a command line, and both are
-constrained rather than sanitised:
+These paths take attacker-controlled input, and each is constrained rather than sanitised:
 
-- `/api/file` resolves the path and refuses anything outside the workspace root.
+- `/api/file` resolves the path and refuses anything outside the org's repositories.
 - `/api/diff` requires the directory to be a known staff repo and the sha to look like a sha.
 - `/api/doc` requires the page to be one the listing offered.
 - `/api/docasset` requires the screenshot to be one sitting in `docs/images/`, matched by name
@@ -125,6 +129,40 @@ constrained rather than sanitised:
 
 `--host` overrides the bind address and prints a warning. It exists for people who know what
 they are doing on a network they control. See [hosting the portal](hosting.md).
+
+A save says what text the edit started from, and is refused if the file has moved on GitHub
+since, so the portal never overwrites somebody else's change without saying so.
+
+## The hosted portal
+
+The same portal on Cloudflare Workers, behind Sign in with GitHub.
+
+**Who gets in.** The people in `org.yaml`'s `humans:`, signed in through an OAuth App the org
+creates. Membership is checked with their own token at sign-in, which also proves they can read
+the ops repo, and again every few minutes. Anybody else is turned away and their token revoked.
+
+**What it holds.** Each person's GitHub token, their login and an expiry, sealed with AES-GCM
+under the Worker's `SESSION_KEY` and set as an `HttpOnly`, `Secure`, `SameSite=Lax` cookie.
+There is no database. A cookie that was tampered with, or sealed under another key, does not
+open. Rotating `SESSION_KEY` signs everybody out. The OAuth App's client secret is a Worker
+secret and is used only to finish a sign-in and to revoke a token.
+
+**What a write needs.** A `POST`, the `x-roster` header, an `Origin` that is the portal's own,
+and a signed-in session. `SameSite=Lax` keeps the cookie off cross-site posts as well.
+
+**What it can do if somebody reaches it.** Without a sign-in, nothing but show the sign-in page
+and the page's own scripts. With one, only what that person's GitHub account can already do:
+every read and write goes to GitHub with their token, so GitHub's own permissions are the
+boundary. It cannot set up an org, create an App, write a secret, hire or retire.
+
+**What it shares between people.** The copy it holds of the org's repositories is shared by
+everyone signed in, as is the cache. Everyone signed in is one of the org's humans, so this is
+the org shown to its own people; a human whose GitHub account cannot read one of the brains can
+still see that brain in the portal. Their unread marks and anything they do are their own.
+
+**The OAuth scopes.** `repo` and `notifications`. A GitHub App would be narrower, but its
+tokens cannot read notifications, and unread in the portal is GitHub's own unread, kept in step
+with the website and your phone.
 
 ## Trust in a prompt
 
@@ -141,7 +179,7 @@ So a mention on a public pull request is decoration. It posts, it renders as a c
 nothing happens, which is safe and also invisible. The portal is what makes it visible and what
 gets you out of it: replying with an `@handle` where nothing listens says so, and offers to
 open the request on that person's own private tracker as well, carrying the pull request and
-the hunk. It writes through your own `gh`, as you, so no credential lives on the
+the hunk. It writes as you, with your own token, so no credential lives on the
 public repo and nothing is dispatched across a boundary.
 
 If you add a workflow to a product repo that bridges this automatically, its author gate is
