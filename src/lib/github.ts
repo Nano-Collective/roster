@@ -27,6 +27,8 @@ export interface RequestOpts {
   accept?: string;
   /** Hand back the body as text or bytes rather than parsed JSON. */
   as?: "json" | "text" | "bytes";
+  /** Safe to ask again after a timeout. Always true of a GET; a GraphQL query sets it. */
+  retry?: boolean;
 }
 
 export interface ApiResult<T> extends GhResult<T> {
@@ -81,11 +83,23 @@ export function githubClient(
       h["content-type"] = "application/json";
     }
 
+    /* GitHub times out on its heavier queries now and then (a 502 or 504 that succeeds a second
+       later). A read is asked once more; a write never is, so nothing can be posted twice. */
+    const reads = method === "GET" || o.retry === true;
     let res: Response;
-    try {
-      res = await doFetch(url, { method, headers: h, body });
-    } catch (err) {
-      return { ok: false, error: `GitHub could not be reached: ${(err as Error).message}` };
+    for (let attempt = 0; ; attempt++) {
+      try {
+        res = await doFetch(url, { method, headers: h, body });
+      } catch (err) {
+        if (reads && attempt === 0) continue;
+        return { ok: false, error: `GitHub could not be reached: ${(err as Error).message}` };
+      }
+      if (reads && attempt === 0 && [502, 503, 504].includes(res.status)) {
+        await res.body?.cancel().catch(() => {});
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
+      break;
     }
 
     if (res.status === 304 && kept) {
@@ -121,7 +135,8 @@ export function githubClient(
     const res = await request<{ data?: T; errors?: Array<{ message: string }> }>(
       "POST",
       "graphql",
-      { body: { query, variables: vars } },
+      // A query reads; a mutation writes, and is never asked twice.
+      { body: { query, variables: vars }, retry: !/^\s*mutation\b/.test(query) },
     );
     if (!res.ok) return { ok: false, status: res.status, error: res.error } as ApiResult<T>;
     const errors = res.data?.errors ?? [];

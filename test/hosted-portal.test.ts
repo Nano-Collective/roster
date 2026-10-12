@@ -275,3 +275,26 @@ function zip(name: string, data: Buffer, size: number): Buffer {
   end.writeUInt32LE(at, 16);
   return Buffer.concat([local, nameBuf, data, central, nameBuf, end]);
 }
+
+test("a read that times out is asked once more; a write never is", async () => {
+  const seen: string[] = [];
+  let n = 0;
+  const fake = (async (_url: string, init: RequestInit) => {
+    seen.push(String(init.method));
+    n++;
+    return n === 1
+      ? new Response("bad gateway", { status: 502 })
+      : Response.json({ data: { ok: true } });
+  }) as unknown as typeof fetch;
+  const read = await githubClient("t", { fetch: fake }).graphql("query { viewer { login } }");
+  assert.equal(read.ok, true);
+  assert.equal(seen.length, 2);
+
+  seen.length = 0;
+  n = 0;
+  const write = await githubClient("t", { fetch: fake }).request("POST", "repos/a/b/issues", {
+    body: { title: "x" },
+  });
+  assert.equal(write.ok, false);
+  assert.equal(seen.length, 1, "a post is never sent twice");
+});
