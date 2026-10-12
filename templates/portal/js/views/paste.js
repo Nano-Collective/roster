@@ -193,7 +193,7 @@ export function showPasteResult(result, data, answerText, onSaved) {
         save.disabled = true;
         save.textContent = "Saving…";
         try {
-          await saveFile(file.path, file.text, `portal: write ${file.path}`);
+          await saveFile(file.path, file.text, `portal: write ${file.path}`, file.before);
           save.textContent = "Saved";
           card.classList.add("saved");
           onSaved?.();

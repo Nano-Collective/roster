@@ -485,7 +485,12 @@ const ROUTES: Record<string, Route> = {
     const { req, portal, actor } = c;
     if (!actor.canWrite) return refuse();
     const { brains } = await ready(c, { force: true });
-    const payload = (await body(req)) as { path?: string; text?: string; message?: string };
+    const payload = (await body(req)) as {
+      path?: string;
+      text?: string;
+      message?: string;
+      base?: string;
+    };
     if (!payload.path || typeof payload.text !== "string") {
       return json({ error: "path and text are required" }, 400);
     }
@@ -498,7 +503,10 @@ const ROUTES: Record<string, Route> = {
     }
     const [dir, ...rest] = payload.path.split("/");
     const message = payload.message || `portal: edit ${payload.path.split("/").slice(1).join("/")}`;
-    return json(await commitFile(portal, actor.gh, dir!, rest.join("/"), payload.text, message));
+    const base = typeof payload.base === "string" ? payload.base : undefined;
+    return json(
+      await commitFile(portal, actor.gh, dir!, rest.join("/"), payload.text, message, base),
+    );
   },
 
   /* Acting on GitHub as the person: reply, close, reopen, open, approve, merge, ask. */
@@ -894,10 +902,16 @@ async function commitFile(
   path: string,
   body: string,
   message: string,
+  base?: string,
 ) {
   const repo = `${portal.org}/${dir}`;
   const snap = portal.snapshots.get(repo);
   const current = snap?.files.get(path);
+  const moved = () =>
+    new HttpError(
+      409,
+      `${dir}/${path} changed on GitHub since this page read it. Reload, then make the edit again.`,
+    );
   if (current?.text === body)
     return {
       path: `${dir}/${path}`,
@@ -906,6 +920,8 @@ async function commitFile(
       pushed: false,
       note: "no change",
     };
+  // The page says what it started from; GitHub, read just now, says what is there.
+  if (base !== undefined && (current?.text ?? "") !== base) throw moved();
   const res = await gh.request<{ commit: { sha: string }; content: { sha: string } }>(
     "PUT",
     `repos/${repo}/contents/${encodePath(path)}`,
@@ -918,13 +934,8 @@ async function commitFile(
     },
   );
   if (!res.ok) {
-    const moved = res.status === 409 || /does not match/i.test(res.error ?? "");
-    throw new HttpError(
-      400,
-      moved
-        ? `${dir}/${path} changed on GitHub since this page read it. Reload, then make the edit again.`
-        : `commit failed: ${res.error}`,
-    );
+    if (res.status === 409 || /does not match/i.test(res.error ?? "")) throw moved();
+    throw new HttpError(400, `commit failed: ${res.error}`);
   }
   portal.snapshots.patch(repo, path, body, res.data!.content.sha, res.data!.commit.sha);
   return {

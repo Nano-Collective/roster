@@ -113,7 +113,10 @@ export const parsePaste = (kind, staff, answer) =>
     body: JSON.stringify({ kind, staff, answer }),
   }).then((r) => r.json());
 
-export const saveFile = (path, text, message) => post({ path, text, message }, "/api/save");
+/* `base` is the text the edit started from, when the page knows it. The save is refused if the
+   file has moved on since, rather than quietly overwriting somebody else's change. */
+export const saveFile = (path, text, message, base) =>
+  post({ path, text, message, base }, "/api/save");
 
 /** The scan every checklist is derived from. */
 export const getDoctor = (offline) => json("/api/doctor" + (offline ? "?offline=1" : ""));

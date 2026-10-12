@@ -128,8 +128,13 @@ export function rawMode(path, onSaved, lang = "md", o = {}) {
   const hl = highlighted(ta, lang);
   node.append(hl, el("div", { className: "row" }, [save]), out);
   ta.addEventListener("input", () => grow(ta));
+  // What the file held when it was read, so a save can say what it is replacing.
+  let base;
   const commit = () =>
-    saveAndSay(save, out, path, ta.value, "portal: edit " + path.split("/").slice(1).join("/"), onSaved);
+    saveAndSay(save, out, path, ta.value, "portal: edit " + path.split("/").slice(1).join("/"), () => {
+      base = ta.value;
+      onSaved?.();
+    }, base);
   save.onclick = commit;
   // ⌘S is what a person's hands do in a text box.
   ta.addEventListener("keydown", (e) => {
@@ -149,6 +154,7 @@ export function rawMode(path, onSaved, lang = "md", o = {}) {
         : // Not getFile: an absent file answers 404 with a message, and that is not what to edit.
           fetch(fileUrl(path), { cache: "no-store" }).then((r) => (r.ok ? r.text() : ""))
     ).then((text) => {
+      if (!o.read) base = text;
       ta.value = text;
       grow(ta);
       hl.repaint();
@@ -178,12 +184,12 @@ export function modes(list) {
   return box;
 }
 
-async function saveAndSay(btn, out, path, text, message, onSaved) {
+async function saveAndSay(btn, out, path, text, message, onSaved, base) {
   btn.disabled = true;
   const label = btn.textContent;
   btn.textContent = "Saving…";
   try {
-    const r = await saveFile(path, text, message);
+    const r = await saveFile(path, text, message, base);
     out.replaceChildren(
       el("p", {
         className: r.pushed ? "sub" : "err",
