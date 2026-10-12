@@ -104,9 +104,12 @@ test("every flag the docs promise is one the parser accepts", () => {
   // Each "## `roster <cmd>" section owns the flags until the next one.
   const sections = commands.split(/^## /m).slice(1);
   for (const section of sections) {
-    const name = /^`roster (\w+)/.exec(section)?.[1];
-    if (!name) continue;
-    const src = sources[name];
+    // `roster portal deploy` is parsed in deploy.ts, not portal.ts: a subcommand with a file of
+    // its own owns its section's flags.
+    const head = /^`roster (\w+)(?: (\w+))?`/.exec(section);
+    if (!head) continue;
+    const name = head[2] && sources[head[2]] ? `${head[1]} ${head[2]}` : head[1]!;
+    const src = (head[2] && sources[head[2]]) || sources[head[1]!];
     if (!src) continue;
 
     for (const m of section.matchAll(/^(--[a-z-]+)/gm)) {
