@@ -20,7 +20,7 @@ const principles = [
   },
   {
     q: "Nothing goes out under the company name unread.",
-    a: "Finished work waits as a pull request, and merging is yours. Replies go out as you, through your own gh.",
+    a: "Finished work waits as a pull request, and merging is yours. Replies go out as you, from your own GitHub account.",
   },
   {
     q: "Deleting is the maintenance.",
