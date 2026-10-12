@@ -300,9 +300,11 @@ dialog.sheet.side .sheetbody{max-height:100vh;height:100%;box-sizing:border-box;
 .sidebar-x{position:sticky;top:0;display:flex;justify-content:flex-end;margin:-6px -6px 4px;z-index:1}
 dialog.sheet.side .viewer{border:0;box-shadow:none;padding:0;min-height:0;background:none}
 /* The title and its actions stay in view while a long thread scrolls under them. The close
-   button floats over the header's right edge, so the header leaves room for it. */
+   button floats over the header's top right, so the lines beside it leave room for it; the
+   actions below it run to the edge, so Open in GitHub lines up with the close button. */
 dialog.sheet.side .thead{position:sticky;top:-18px;z-index:1;background:var(--bg);
-      padding-top:18px;margin-top:-18px;padding-right:44px}
+      padding-top:18px;margin-top:-18px}
+dialog.sheet.side .thead > :not(.tacts){padding-right:44px}
 dialog.sheet.side .sidebar-x{position:sticky;top:0;height:0;margin:0;z-index:2;overflow:visible}
 dialog.sheet.side .sidebar-x .iconbtn{margin-top:-4px}
 .sheettitle{margin:0 0 14px;font:600 18px var(--sans);letter-spacing:-.02em}
