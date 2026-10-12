@@ -20,24 +20,33 @@
 .homewho{font:500 12.5px var(--sans);color:var(--ink);background:var(--surface-2);border:0;
          border-radius:8px;padding:5px 8px}
 
-.homecard{padding:14px 16px;cursor:pointer;display:grid;grid-template-columns:1fr auto;
-         align-items:center;gap:10px 18px}
+/* Needs you: one list, a row per thing. A dot column for unread, the thing itself, and its
+   action; titles all start in the same place, and buttons are small enough not to shout. */
+.homelist{padding:0 16px}
+.homeneed{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;
+         gap:4px 14px;padding:14px 0;cursor:pointer}
+.homeneed + .homeneed{border-top:1px solid var(--line)}
+.homeneed:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.homeneed:hover .homeopen{text-decoration:underline}
+.homedot{align-self:start;width:7px;height:7px;margin-top:7px;border-radius:50%}
+.homeneed.unread .homedot{background:var(--blue)}
 .homeabout{min-width:0}
-.homecard:hover{border-color:var(--border-strong)}
-.homecard:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.homehead{display:flex;align-items:baseline;gap:8px}
-.homehead .chip{flex:none}
-.homeopen{all:unset;cursor:pointer;font:600 14px/1.35 var(--sans);color:var(--ink);letter-spacing:-.01em}
-.homeopen:hover{text-decoration:underline}
+.homeopen{all:unset;cursor:pointer;font:600 14px/1.4 var(--sans);color:var(--ink);letter-spacing:-.01em}
 .homeopen:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-.homeabout > .meta{margin-top:4px}
-.homedue{margin:8px 0 0;font-size:12.5px;color:var(--ink-dim)}
-.homedue.late{color:var(--warn)}
-.homeacts{justify-content:flex-end;flex-wrap:nowrap}
+.homeabout > .meta{margin-top:3px}
+.homekind{font-weight:600;color:var(--ink-dim)}
+.homekind.hot{color:var(--err)}
+.homekind.warm{color:var(--warn)}
+.homekind.cool{color:var(--ruled)}
+.homekind.ok{color:var(--accent)}
+.homedue{margin:5px 0 0;font-size:12.5px;color:var(--ink-dim)}
+.homedue.late,.homedue .bad{color:var(--warn)}
+.homeacts{justify-content:flex-end;flex-wrap:nowrap;gap:8px}
+.homeacts .ghbtn{min-height:28px;padding:3px 12px;font-size:12.5px}
 .homeacts .meta{white-space:normal;text-align:right;max-width:220px}
 @media (max-width:640px){
-  .homecard{grid-template-columns:1fr}
-  .homeacts{justify-content:flex-start;flex-wrap:wrap}
+  .homeneed{grid-template-columns:8px minmax(0,1fr)}
+  .homeacts{grid-column:2;justify-content:flex-start;flex-wrap:wrap}
   .homeacts .meta{text-align:left}
 }
 
@@ -63,17 +72,14 @@
 }
 
 .homerest{margin-top:26px}
-.homecard.gone,.homeline.gone{opacity:0;transform:translateX(12px);
+.homeneed.gone,.homeline.gone{opacity:0;transform:translateX(12px);
          transition:opacity .2s var(--ease),transform .2s var(--ease)}
 
-/* Activity you have not seen: a blue dot and a bold title, and on a card in Needs you a blue
-   edge that follows its corners. A row inside a list card carries no edge, since a bar drawn to
-   the card's side squares off its rounded corners. Opening the thread marks it read, here and on
-   GitHub. */
-.homecard.unread{box-shadow:inset 3px 0 0 var(--blue)}
+/* Activity you have not seen: a blue dot and a bold title. In Needs you the dot has a column of
+   its own; in the other lists it sits before the title. Opening the thread marks it read, here
+   and on GitHub. */
 .unread .homeopen,.unread .homerowtitle{font-weight:700}
-.unread .homeopen::before,.unread .homerowtitle::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
-         background:var(--blue);margin:0 7px 1px 0;vertical-align:middle}
+
 
 .homereports{display:flex;flex-direction:column;gap:14px;padding:14px 16px}
 .homereport{display:grid;grid-template-columns:190px 1fr;gap:12px;font-size:13px;line-height:1.5;
@@ -87,15 +93,12 @@
 .homereportbody a{color:var(--accent)}
 @media (max-width:640px){.homereport{grid-template-columns:1fr;gap:4px}}
 
-@media (max-width:640px){
-  .homehead{flex-wrap:wrap}
-}
 
 /* Rows in a list card (Unread, Your requests, Closed today) that open a thread. */
-.homeline{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;
+.homeline{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:4px 14px;
          padding:12px 0;font-size:13.5px;cursor:pointer}
+.homeline.unread .homedot{background:var(--blue)}
 .homeline + .homeline{border-top:1px solid var(--line)}
-.homeline .homestate{min-width:64px;justify-content:center}
 .homeline:hover .homerowtitle{text-decoration:underline}
 .homeline:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 .homerowtitle{font-weight:600;color:var(--ink)}

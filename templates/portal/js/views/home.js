@@ -87,8 +87,11 @@ export function viewHome(m) {
   }
 
   page.append(section("Needs you", h.needs.length));
-  if (h.needs.length) for (const e of h.needs) page.append(needCard(e));
-  else page.append(el("p", { className: "homeempty", textContent: "Nothing needs you." }));
+  /* One list rather than a card each: five boxes with a green button apiece read as a wall, and
+     nothing in it said which to do first. The top row's action is the one in green. */
+  if (h.needs.length) {
+    page.append(el("div", { className: "card homelist" }, h.needs.map((e, i) => needRow(e, i === 0))));
+  } else page.append(el("p", { className: "homeempty", textContent: "Nothing needs you." }));
 
   if (h.unread.length) {
     page.append(section("Unread", h.unread.length));
@@ -165,57 +168,59 @@ function titleOf(said) {
 
 /* ------------------------------ needs you ------------------------------- */
 
-function needCard(e) {
+function needRow(e, first) {
   const { item, kind } = e;
-  /* The whole card opens the thread; the one quick action on it does not. Answering in words
+  /* The whole row opens the thread; the one quick action on it does not. Answering in words
      happens in the thread, where what was asked is in front of you. */
-  const card = el("div", {
-    className: "card homecard" + (item.unread ? " unread" : ""),
+  const row = el("div", {
+    className: "homeneed" + (item.unread ? " unread" : ""),
     tabIndex: 0,
     role: "button",
   });
-  card.onclick = (ev) => {
+  row.onclick = (ev) => {
     if (!ev.target.closest("button, a, textarea")) openThread(item);
   };
-  card.onkeydown = (ev) => {
-    if (ev.target === card && (ev.key === "Enter" || ev.key === " ")) {
+  row.onkeydown = (ev) => {
+    if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
       ev.preventDefault();
       openThread(item);
     }
   };
-  // What it is on the left, what you can do about it on the right.
-  const about = el("div", { className: "homeabout" }, [
-    el("div", { className: "homehead" }, [
-      el("span", { className: "chip " + (KIND_TONE[kind] ?? ""), textContent: KIND_LABEL[kind] }),
-      openLink(item),
-    ]),
-    el("div", { className: "meta", textContent: whereOf(e) + " · " + ago(item.createdAt) }),
-  ]);
-  card.append(about);
 
+  /* What kind of thing it is sits in the line under the title, so every title starts in the
+     same place; a chip in front of it pushed each one along by its own width. */
+  const meta = el("div", { className: "meta" }, [
+    el("span", { className: "homekind " + (KIND_TONE[kind] ?? ""), textContent: KIND_LABEL[kind] }),
+    document.createTextNode(" · " + whereOf(e) + " · " + ago(item.createdAt)),
+  ]);
+  const about = el("div", { className: "homeabout" }, [openLink(item), meta]);
   if (kind === "decision" && item.due) about.append(dueLine(item.due));
   if (kind === "merge") about.append(checksLine(item));
 
   // The note comes first so that what happened sits just left of the button that did it.
   const note = el("span", { className: "meta" });
   const actions = el("div", { className: "row homeacts" }, [note]);
+  row.append(el("span", { className: "homedot", ariaHidden: "true" }), about, actions);
 
   if (kind === "decision" || kind === "ask") {
-    actions.append(button("Reply", true, () => openThread(item)));
-    if (item.due) actions.append(button("Go with the default", false, () => say(e, "Go with your default.", note, actions)));
+    actions.append(button("Reply", first, () => openThread(item)));
+    if (item.due) {
+      actions.append(button("Go with the default", false, () => say(e, "Go with your default.", note, actions)));
+    }
   } else if (kind === "review") {
-    actions.append(button("Approve", true, () => say(e, "Approved.", note, actions)));
+    actions.append(button("Approve", first, () => say(e, "Approved.", note, actions)));
   } else if (kind === "chore") {
-    actions.append(button("Done", true, () => done(e, note, actions)));
+    actions.append(button("Done", first, () => done(e, note, actions)));
   } else if (kind === "merge") {
-    const blocked = item.checks === "failing" || item.mergeable === "CONFLICTING";
-    const needsReview = item.reviewDecision === "REVIEW_REQUIRED";
-    const merge = button("Merge", !needsReview, () => merge_(e, note, actions));
-    merge.disabled = blocked || item.checks === "pending" || needsReview;
-    /* The branch rules want an approving review. Approve is the person's review, given on
-       purpose; Merge waits for it rather than approving on their behalf. */
-    if (needsReview) {
-      const approve = button("Approve", true, async () => {
+    /* Merge is offered only when pressing it can work. A conflict, failing checks or checks
+       still running are in the line under the title instead; a grey button that cannot be
+       pressed looked like one that could. */
+    const blocked =
+      item.checks === "failing" || item.checks === "pending" || item.mergeable === "CONFLICTING";
+    const merge = () => button("Merge", first, () => merge_(e, note, actions));
+    if (item.reviewDecision === "REVIEW_REQUIRED") {
+      // Approve is the person's review, given on purpose; Merge waits for it.
+      const approve = button("Approve", first, async () => {
         approve.disabled = true;
         note.className = "meta";
         note.textContent = "Approving…";
@@ -224,8 +229,7 @@ function needCard(e) {
           item.reviewDecision = "APPROVED";
           note.textContent = "Approved.";
           approve.remove();
-          merge.className = "ghbtn primary";
-          merge.disabled = blocked || item.checks === "pending";
+          if (!blocked) actions.append(merge());
         } catch (err) {
           note.textContent = String(err.message || err);
           note.className = "meta err";
@@ -233,11 +237,9 @@ function needCard(e) {
         }
       });
       actions.append(approve);
-    }
-    actions.append(merge);
+    } else if (!blocked) actions.append(merge());
   }
-  card.append(actions);
-  return card;
+  return row;
 }
 
 function dueLine(due) {
@@ -250,20 +252,20 @@ function dueLine(due) {
   });
 }
 
+/** Where a pull request stands, with only the parts that stop a merge in amber. */
 function checksLine(item) {
-  const words = {
-    passing: "Checks pass.",
-    failing: "Checks fail.",
-    pending: "Checks are running.",
-    none: "No checks.",
-  };
-  const conflict =
-    (item.mergeable === "CONFLICTING" ? " Conflicts with its base." : "") +
-    (item.reviewDecision === "REVIEW_REQUIRED" ? " Needs your approval to merge." : "");
-  return el("p", {
-    className: "homedue" + (item.checks === "failing" || conflict ? " late" : ""),
-    textContent: (words[item.checks] ?? "") + conflict,
+  const parts = [];
+  if (item.checks === "passing") parts.push(["Checks pass", false]);
+  if (item.checks === "failing") parts.push(["Checks fail", true]);
+  if (item.checks === "pending") parts.push(["Checks are running", false]);
+  if (item.mergeable === "CONFLICTING") parts.push(["Conflicts with its base", true]);
+  if (item.reviewDecision === "REVIEW_REQUIRED") parts.push(["Needs your approval", false]);
+  const line = el("p", { className: "homedue" });
+  parts.forEach(([text, bad], i) => {
+    if (i) line.append(document.createTextNode(" · "));
+    line.append(el("span", { className: bad ? "bad" : "", textContent: text }));
   });
+  return line;
 }
 
 async function say(e, text, note, actions) {
@@ -289,7 +291,7 @@ async function act(note, actions, payload, ok) {
     await post(payload);
     note.textContent = ok;
     // Done is done: the card goes now, rather than when GitHub next answers.
-    const card = actions.closest?.(".homecard, .homeline");
+    const card = actions.closest?.(".homeneed, .homeline");
     if (card) {
       card.classList.add("gone");
       setTimeout(() => card.remove(), 220);
@@ -437,10 +439,14 @@ function listRow(e, { chip, tone = "", sub, action = null }) {
     "div",
     { className: "homeline homeclick" + (e.item.unread ? " unread" : ""), tabIndex: 0, role: "button" },
     [
-      el("span", { className: "chip homestate " + tone, textContent: chip }),
+      // The same row as Needs you: an unread dot, the title, and what it is in the line under it.
+      el("span", { className: "homedot", ariaHidden: "true" }),
       el("div", { className: "homerunwhat" }, [
         el("div", { className: "homerowtitle", textContent: e.item.title }),
-        el("div", { className: "homerunsub", textContent: `${whereOf(e)} · ${sub}` }),
+        el("div", { className: "homerunsub" }, [
+          el("span", { className: "homekind " + tone, textContent: chip }),
+          document.createTextNode(` · ${whereOf(e)} · ${sub}`),
+        ]),
       ]),
       el("div", { className: "homerunlog" }, action ? [action] : []),
     ],
