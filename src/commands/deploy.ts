@@ -239,7 +239,25 @@ function workerBundle(): { main: string; assets: string } | null {
   return null;
 }
 
-function wrangler(args: string[]): Promise<number> {
+/**
+ * Cloudflare's API answers a 504 now and then mid-deploy, and the next attempt goes through.
+ * Deploying the same Worker or storing the same secrets twice changes nothing, so a failure is
+ * tried twice more before it is reported.
+ */
+async function wrangler(args: string[]): Promise<number> {
+  let code = 1;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    code = await wranglerOnce(args);
+    if (code === 0) return 0;
+    if (attempt < 3) {
+      process.stdout.write(`  wrangler failed; trying again (${attempt + 1} of 3)…\n`);
+      await new Promise((r) => setTimeout(r, 15_000 * attempt));
+    }
+  }
+  return code;
+}
+
+function wranglerOnce(args: string[]): Promise<number> {
   return new Promise((resolve) => {
     const child = spawn("npx", ["--yes", WRANGLER, ...args], { stdio: "inherit" });
     child.on("close", (code) => resolve(code ?? 1));
