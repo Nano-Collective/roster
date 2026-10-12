@@ -269,15 +269,19 @@ ROSTER_CONTEXT='{"issue_number":"1","comment_id":"1","repo":"o/r"}' \
 
 ## `roster portal`
 
-Serve a local UI over the checked-out repositories. **`roster` with no arguments does the same**,
-which is the shortest way in. It takes the same flags: `roster --no-open` is `roster portal
---no-open`.
+Serve the portal on your machine. **`roster` with no arguments does the same**, which is the
+shortest way in. It takes the same flags: `roster --no-open` is `roster portal --no-open`.
+
+It reads the org from GitHub as you, with your `gh` login (or `GITHUB_TOKEN`), so it needs no
+checkout to show it. Setting up, hiring, retiring and Health use the checkout.
 
 ```
---port <n>    default 4300
---host <a>    default 127.0.0.1. Anything else exposes write actions to the network.
---dir <path>  where a tenant would be created or checked out. Default: here.
---no-open     don't open a browser
+--port <n>       default 4300
+--host <a>       default 127.0.0.1. Anything else exposes write actions to the network.
+--dir <path>     where a tenant would be created or checked out. Default: here.
+--org <org>      show this org, with no checkout. Default: the checkout's org.yaml.
+--ops-repo <n>   its ops repo, with --org. Default: roster-ops.
+--no-open        don't open a browser
 ```
 
 It opens the page in your browser when it starts. It stays closed in CI, over SSH, when output
@@ -288,10 +292,27 @@ checks out one that already runs roster. Local only. See [the portal](portal.md)
 
 Views: Home, Trackers, Runs, Org, Staff, Docs, and per staff member Brain, Prompt, Graph, What changed, Health.
 
-It can act as you through your own `gh`: reply, close, reopen and open issues; hire and retire;
+It can act as you: reply, close, reopen and open issues; hire and retire;
 edit and commit the org layer, prompt fragments and charters; create a staff member's GitHub App;
 store the agent credential; set the ops repo's Actions access; start one run and follow it; and
 copy a prompt for authoring the two files nothing can generate.
+
+## `roster portal deploy`
+
+The same portal on your own URL, on Cloudflare Workers, behind Sign in with GitHub. Only the
+people in `org.yaml`'s `humans:` can sign in, and each acts as themselves. Setting up, hiring
+and Health stay on your machine.
+
+```
+--domain <host>   where it lives, on a zone in your Cloudflare account. Needed the first time.
+--account <id>    the Cloudflare account, pinned so a deploy cannot land on another one
+--apply           deploy. Without it, says what it would do.
+--ci              no questions: deploy what portal/wrangler.jsonc says (the workflow uses this)
+```
+
+The first deploy walks you through creating the GitHub OAuth App, then writes
+`portal/wrangler.jsonc` and a workflow that redeploys every morning. See
+[hosting the portal](hosting.md).
 
 ## `roster export`
 

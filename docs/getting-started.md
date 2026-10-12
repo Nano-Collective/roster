@@ -22,8 +22,9 @@ hour is the part not to rush.
 
 ## Before you start
 
-- **`gh`, [signed in](https://cli.github.com)**, as someone who owns the organisation. roster
-  does everything through your own `gh` and holds no token of its own.
+- **`gh`, [signed in](https://cli.github.com)**, as someone who owns the organisation. Setting
+  up, hiring and the GitHub Apps go through your own `gh`, and the portal on your machine uses
+  its token to act as you. roster keeps no token of its own.
 - **A GitHub organisation.** GitHub has no API for creating one, so if you need one, make it on
   github.com first. Brains are private repos; on GitHub Free that works, with one difference in
   step 5.
@@ -187,3 +188,5 @@ each.
 - **A framework update**: `roster upgrade`, or the same from the portal. See
   [upgrading](upgrading.md).
 - **The whole portal**, screen by screen: [the portal](portal.md).
+- **The portal on your own URL**, so you can answer your staff from anywhere, your phone
+  included: `roster portal deploy`. See [hosting the portal](hosting.md).

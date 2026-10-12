@@ -67,8 +67,8 @@
 .homerunlog .ghbtn{min-height:28px;padding:3px 12px}
 @media (max-width:640px){
   .homerun{grid-template-columns:1fr auto;grid-template-areas:"who state" "what what" "log log"}
-  .homewho2{grid-area:who}.homestate{grid-area:state;justify-self:end}
-  .homerunwhat{grid-area:what}.homerunlog{grid-area:log}
+  .homerun .homewho2{grid-area:who}.homerun .homestate{grid-area:state;justify-self:end}
+  .homerun .homerunwhat{grid-area:what}.homerun .homerunlog{grid-area:log}
 }
 
 .homerest{margin-top:26px}
@@ -102,3 +102,11 @@
 .homeline:hover .homerowtitle{text-decoration:underline}
 .homeline:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 .homerowtitle{font-weight:600;color:var(--ink)}
+
+/* On a phone the lists use the width: last in the file, so it wins over each list's own padding. */
+@media (max-width:640px){
+  .homelist,.homeworking,.homereports{padding-left:14px;padding-right:14px}
+  .homeline{grid-template-columns:8px minmax(0,1fr)}
+  .homeline .homerunlog{grid-column:2}
+  .homeline .homerunlog:empty{display:none}
+}

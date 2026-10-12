@@ -150,6 +150,12 @@ main{padding:36px 44px 96px;max-width:1220px;overflow-x:clip}
   .side{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}
   .sidefoot{margin-top:0}
 }
+/* A phone: the page uses its width. 44px a side was a desktop gutter, and on a phone it took
+   a quarter of the screen, with a card's own padding inside it again. */
+@media (max-width:640px){
+  main{padding:20px 16px 64px}
+  .card{padding:14px}
+}
 
 /* A staff member who cannot run yet (readiness.js). */
 .readydot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;margin-left:4px}
