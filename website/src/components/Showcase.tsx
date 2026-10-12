@@ -66,10 +66,10 @@ export function Showcase() {
         label="The portal"
         title={
           <>
-            See what every staff member knows. <Soft>On your own computer.</Soft>
+            See what every staff member knows. <Soft>On your computer or your own URL.</Soft>
           </>
         }
-        lede="An app that runs on your computer, over your copies of the repos. It needs no login and works offline. Anything you change is saved under your name."
+        lede="Run it on your computer, or put it on your own web address and sign in with GitHub. It reads your repos straight from GitHub, and anything you change is saved under your name."
       />
 
       <Reveal delay={80}>

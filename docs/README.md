@@ -33,7 +33,7 @@ Read in this order.
 | [Memory](memory.md) | The grammar, and why deleting is the maintenance. |
 | [Upgrading](upgrading.md) | How framework changes reach a tenant without eating your edits. |
 | [Troubleshooting](troubleshooting.md) | Every trap we have actually hit, and what it looks like. |
-| [Hosting the portal](hosting.md) | Local is the default, and why. |
+| [Hosting the portal](hosting.md) | Your own URL, behind Sign in with GitHub. |
 | [Cost](cost.md) | What this spends, and on what. |
 | [Commands](commands.md) | Every CLI command and flag, for when you want the terminal. |
 

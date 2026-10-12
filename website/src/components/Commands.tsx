@@ -9,7 +9,8 @@ const cmds = [
   ["roster credential", "The agent's credential, once for the org"],
   ["roster run cto", "One run, followed to the end"],
   ["roster doctor", "Is any of this actually wired up"],
-  ["roster portal", "Read every brain, locally"],
+  ["roster portal", "Read every brain, on your computer"],
+  ["roster portal deploy", "The portal on your own URL"],
   ["roster upgrade", "Framework changes, your edits kept"],
 ];
 
