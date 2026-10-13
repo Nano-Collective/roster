@@ -16,8 +16,10 @@ export const readings = [
   { day: 49, date: "6 Sep", week: 87, total: 338, note: "" },
   { day: 56, date: "13 Sep", week: 73, total: 411, note: "" },
   { day: 63, date: "20 Sep", week: 94, total: 505, note: "" },
-  { day: 70, date: "27 Sep", week: 61, total: 566, note: "A quieter week" },
+  { day: 70, date: "27 Sep", week: 61, total: 566, note: "Membership goes on sale" },
+  { day: 77, date: "4 Oct", week: 50, total: 616, note: "" },
+  { day: 84, date: "11 Oct", week: 60, total: 676, note: "Multiplayer goes live" },
 ] as const;
 
 /** Since launch, from Umami's own lifetime read (data/series/totals.json). */
-export const lifetime = { views: 18054, visitors: 1656, profiles: 566 };
+export const lifetime = { views: 21708, visitors: 2077, profiles: 676, firstHands: 1636 };

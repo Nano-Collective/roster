@@ -172,6 +172,82 @@ p {
   color: var(--accent);
 }
 
+/* ---------- Pip: the case study wears its brand ---------- */
+
+/* Pip's lavender chip replaces the green inside .pip, so labels, the chart and links take it. */
+.pip {
+  --accent: #4f5fd6;
+  --accent-fill: #7c8cf0;
+  --accent-soft: rgba(124, 140, 240, 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  .pip {
+    --accent: #9aa6f5;
+  }
+}
+
+/* Pip is dark only: its own panels stay dark whatever the system asks. */
+.pip-dark {
+  --bg: #000000;
+  --bg-2: #0a0a0b;
+  --surface: #161618;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --text: #f5f5f7;
+  --text-2: #a1a1aa;
+  --text-3: #63636b;
+  --accent: #9aa6f5;
+  background: #000000;
+  color: var(--text);
+  color-scheme: dark;
+}
+
+/* A playing card in Pip's flat style: index top left, suit bottom left. */
+.pip-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: var(--w, 72px);
+  aspect-ratio: 5 / 7;
+  padding: 0.12em 0.16em 0.18em;
+  border-radius: calc(var(--w, 72px) * 0.12);
+  background: #fafafa;
+  color: #16161d;
+  font-size: calc(var(--w, 72px) * 0.42);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+}
+.pip-card[data-red] {
+  color: #f0574e;
+}
+.pip-card .suit {
+  font-size: 0.5em;
+}
+.pip-card[data-back] {
+  background-color: #7c8cf0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.28) 1px, transparent 1.2px);
+  background-size: 10px 10px;
+}
+
+/* the cards fan in once, then sit still */
+@keyframes pip-deal {
+  from {
+    opacity: 0;
+    transform: translateY(24px) rotate(0deg);
+  }
+}
+.pip-deal {
+  animation: pip-deal 700ms var(--ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pip-deal {
+    animation: none;
+  }
+}
+
 /* ---------- motion: quiet, and only on the way in ---------- */
 
 @keyframes fade-up {
