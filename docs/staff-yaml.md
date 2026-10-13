@@ -62,7 +62,7 @@ labels:
 | `mention` | yes | What wakes them, as in `@cto`. The caller's condition tests for this string. |
 | `icon` | no | The icon the portal shows for them: `code`, `megaphone`, `life-buoy`, `compass`, `brush`, `bug`, `server`, `book-open`, `bar-chart`, `users` or `person`. Unset, it is picked from the role. |
 | `brain` | yes | `owner/name` of this repo. Without it nothing can check secrets, labels or runs. |
-| `status_issue` | yes in practice | Number of the pinned status issue. The prompts reference it, so a run cannot compose without it. `roster hire --apply` writes it. |
+| `status_issue` | yes in practice | Number of this week's pinned status issue. The prompts reference it, so a run cannot compose without it. `roster hire --apply` writes the first; the first daily run of each week moves it on. |
 
 ## Schedule and limits
 
@@ -164,7 +164,10 @@ Four labels are roster's own and are checked on every tracker whatever this list
 | `decision` | An ask for the human to rule on. It carries a default and a date; past the date, the staff member acts on the default and closes it. |
 | `review` | An ask for the human to read or approve something. |
 | `chore` | Something only the human can do: a setting, an account, a key. |
-| `keep-open` | A standing thread. A sweep never closes it. `roster hire` puts it on the status issue. |
+| `keep-open` | A standing thread. A sweep never closes it. On this week's status issue; taken off last week's so it can be closed. |
+
+A fifth, `status`, marks a week's status issue. The session creates it, so doctor does not check
+it. An open one other than this week's is waiting for its summary.
 
 Every ask on the human carries exactly one of the first three, which is how the portal sorts
 what needs them. Staff close any issue on their tracker once nothing is left to do on it,

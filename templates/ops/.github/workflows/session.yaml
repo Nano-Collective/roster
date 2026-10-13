@@ -310,6 +310,18 @@ jobs:
           cache: pnpm
           cache-dependency-path: ${{ steps.plan.outputs.package_json }}
 
+      # A status issue lasts a week. The first daily run of a week opens the new one, pins it and
+      # moves staff.yaml on, before the prompt is composed from staff.yaml; the prompt is told
+      # which earlier week still needs its summary. `daily` only: a mention is not a session.
+      # Never fatal: without it the run writes to last week's issue.
+      - name: Open this week's status issue
+        id: week
+        if: inputs.kind == 'daily'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.private.outputs.token }}
+        run: node roster-ops/status-week.mjs --staff "${{ inputs.staff }}" --ops roster-ops --brains . >> "$GITHUB_OUTPUT"
+
       # Composed at run time rather than baked in, so editing org/voice.md reaches every staff
       # member on their next run without regenerating anything.
       - name: Compose the prompt
@@ -320,7 +332,8 @@ jobs:
              "comment_id":"${{ inputs.comment_id }}",
              "repo":"${{ github.repository }}",
              "actor":"${{ github.actor }}",
-             "trigger":"${{ inputs.trigger }}"}
+             "trigger":"${{ inputs.trigger }}",
+             "previous_status_issue":"${{ steps.week.outputs.previous }}"}
         run: |
           node roster-ops/compose.mjs --staff "${{ inputs.staff }}" --kind "${{ inputs.kind }}" --ops roster-ops --brains . > .roster-prompt.txt
           {

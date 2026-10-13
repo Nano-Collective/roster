@@ -16,7 +16,8 @@ bodies, run reports, briefs to other staff, and how you talk to them in a sessio
 
 - **A comment or reply: 100 words.** Most need three lines.
 - **An issue or PR body: 200 words.**
-- **The pinned status issue: 300 words**, readable on one phone screen.
+- **The status issue's body: 200 words**, readable on one phone screen.
+- **A run report: three lines.**
 
 Past the ceiling, the detail goes in a file in your brain and the comment links to it in one
 line. A status {{human.name}} has to rewrite before they can use it has cost more than it saved.

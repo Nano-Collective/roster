@@ -266,6 +266,7 @@ export function buildPlan(
       handle,
       ...ASK_KINDS,
       "keep-open",
+      "status",
       "build",
       "blocked",
       ...peers.map((p) => `from-${p.handle}`),
@@ -525,12 +526,15 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
     "-X",
     "POST",
     "-f",
-    "title=📍 Where we are (living status - always current)",
+    `title=${statusTitle(new Date())}`,
     "-f",
     `body=${statusBody(staff)}`,
-    // A sweep closes anything with nothing left to do on it. This one never runs out.
+    // A sweep closes anything with nothing left to do on it. This one never runs out, until
+    // next week's replaces it.
     "-f",
     "labels[]=keep-open",
+    "-f",
+    "labels[]=status",
   ]);
   if (issue.ok && issue.data?.number) {
     await ghJson([
@@ -670,9 +674,23 @@ export function insertUnder(text: string, key: string, line: string): string {
   return lines.join("\n");
 }
 
+/** The same title the session's status-week.mjs gives each week's issue after this one. */
+export function statusTitle(now: Date): string {
+  const monday = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - ((now.getUTCDay() + 6) % 7),
+    ),
+  );
+  // Spelled out: en-GB's short September is "Sept" on some runtimes, and the titles should match.
+  const month = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ")[monday.getUTCMonth()];
+  return `📍 Where we are: week of ${monday.getUTCDate()} ${month}`;
+}
+
 function statusBody(staff: StaffSpec): string {
   return [
-    `**${staff.name}'s living status. Always current — this issue is rewritten, never appended to.**`,
+    `**${staff.name}'s status this week. Rewritten every run; a new issue opens each Monday.**`,
     "",
     "| | The ask |",
     "|---|---|",

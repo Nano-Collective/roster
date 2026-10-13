@@ -18,7 +18,7 @@ The grammar, which `roster lint` enforces:
 
     - **`<slug>`** · [<%%HUMAN_MARKER%%|measured|derived>] <the fact, one line>. **So:** <what it changes>. · [note](notes/<slug>.md)
 
-`log/decisions.md` = why things were decided. The pinned status issue = what is outstanding.
+`log/decisions.md` = why things were decided. `STATE.md` = what is outstanding.
 **Nothing is copied between them.**
 
 ---

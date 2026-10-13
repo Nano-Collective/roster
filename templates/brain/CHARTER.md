@@ -45,5 +45,5 @@ Only the additions. `org/guardrails.md` is already binding on everyone.
 
 ## Where the rest of it lives
 
-Point at `memory/INDEX.md`, `log/decisions.md`, the pinned status issue, and whatever
-surfaces this role declares in `staff.yaml`.
+Point at `memory/INDEX.md`, `log/decisions.md`, `STATE.md`, the pinned status issue, and
+whatever surfaces this role declares in `staff.yaml`.

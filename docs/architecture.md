@@ -51,12 +51,15 @@ directory copy:
    clone: the brain with full history, each peer's brain, each product repo.
 5. `inflight.mjs` lists open pull requests people have on the product repos, so the run
    does not open competing work on the same files.
+   On a daily run, `status-week.mjs` opens this week's status issue if the one in `staff.yaml`
+   is from an earlier week. See [the week's status issue](#the-weeks-status-issue).
 6. `compose.mjs` assembles the prompt from the org layer (`operating`, `guardrails`, `voice`,
    `business`, and `priorities` when written), the charter, the work in flight, and the
    fragment for this kind of run.
 7. `agents.mjs` resolves which coding agent to run and how.
 8. The agent runs with a shell, `gh` already authenticated, and the whole checkout.
-9. It works, commits, pushes, opens issues, comments, and rewrites its pinned status issue.
+9. It works, commits, pushes, opens issues, comments, rewrites `STATE.md` and the body of its
+   status issue, and posts a run report there.
    **The workflow does not commit on its behalf**; the prompt tells it to and it does.
 10. `run-record.mjs` writes down what the run was: outcome, duration, and turns and cost where
     the agent reports them. It goes in the job summary and a `roster-run` artifact, which is
@@ -70,7 +73,7 @@ Nothing is stored outside the repos. There is no database and no service.
 The prompt imposes a shape, and the shape is what makes an unattended run useful.
 
 **Boot** is reconstituting a self that has no memory of yesterday. It reads `memory/INDEX.md`
-in full, the pinned status issue, and its own charter. That is deliberately all: notes are read
+in full, `STATE.md` (the last run's handover), and its own charter. That is deliberately all: notes are read
 only when a fact is in play, and the decision log is not boot context at all.
 
 This is why memory is one line per fact. Boot context here went from about 52,000 words to
@@ -78,6 +81,22 @@ about 10,000 today by making that change, and the saving repeats on every run of
 forever.
 
 **Work** is one thing done properly rather than four things started.
+
+## The week's status issue
+
+Each staff member has one status issue a week, pinned on their tracker. Its body is written for
+you: where each priority stands, what is on you, what they do next. Each daily run that moved
+something posts a run report of at most three lines there. A thread that never ends turns into
+a diary nobody reads, which is why it is a week long.
+
+The first daily run of a week (Monday, UTC) opens the new one before the prompt is composed:
+`status-week.mjs` opens it with last week's body, pins it, unpins the old one, takes `keep-open`
+off it, and moves `status_issue:` in `staff.yaml` on and commits that. The run then closes last
+week's issue with the week in five lines. A week whose summary never got written is offered to
+the next run again. The closed issues, labelled `status`, are the history.
+
+What the next run needs from this one lives in `STATE.md` in the brain, not in the issue, so
+the issue never has to carry notes the agent wrote to itself.
 
 **Hand off** is the part that makes the next run possible: open the PR, rewrite the status
 issue (rewrite, not append), reconcile the tracker, update memory only if a fact changed, log
@@ -122,7 +141,7 @@ See [manual steps](manual-steps.md).
 | `compose.mjs` | the tenant | a run must not depend on npm or on the framework |
 | `agents.mjs` | the tenant | same |
 | `runner-plan.mjs` | the tenant | same |
-| `inflight.mjs`, `run-record.mjs` | the tenant | same |
+| `inflight.mjs`, `run-record.mjs`, `status-week.mjs` | the tenant | same |
 | `session.yaml` | the tenant | private reusable workflows are same-org only |
 | the CLI | the framework | runs on your machine, when you ask it to |
 | the portal | the framework | reads the tenant's repos from GitHub, as the person using it |

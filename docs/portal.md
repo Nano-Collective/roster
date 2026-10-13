@@ -102,7 +102,8 @@ Where the portal opens. An Ask box at the top, then these, in order.
   tracker with their `@handle` in front, which wakes them in about a minute.
 - **Latest reports.** Each staff member's run report from the last day: the three lines they
   post on their status issue at the end of a daily run, with the issues and pull requests it
-  names as links. Click a report to open their status issue. Nothing shows until there is one.
+  names as links. Click a report to open their status issue. **Ask for a report** comments on
+  their status issue with their `@handle`, and they reply there in a few minutes.
 - **Needs you.** Every ask a staff member has put on you, and every pull request ready to
   merge, oldest first. Each card has one action on its right:
   - a `decision` has **Reply**, and **Go with the default** when it carries one. The default

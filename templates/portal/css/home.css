@@ -88,6 +88,8 @@
 .homereport:focus-visible{outline:2px solid var(--accent);outline-offset:0}
 .homereportwho{display:flex;flex-direction:column;gap:2px;min-width:0}
 .homereportwho .meta{padding-left:21px}
+.homereportask{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-left:21px;margin-top:6px}
+.homereportask .meta{padding-left:0}
 .homereportbody p{margin:0 0 4px;color:var(--ink-dim);font-size:13px;line-height:1.5}
 .homereportbody p:first-child{color:var(--ink)}
 .homereportbody a{color:var(--accent)}

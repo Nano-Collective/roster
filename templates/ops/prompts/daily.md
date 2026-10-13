@@ -10,7 +10,14 @@ your brain. Reconstitute yourself, do a day's work, hand off.
 
 {{#if event.follow_on}}
 **This is a follow-on run.** The last run ended with the next step ready and started this one.
-Boot as usual; #{{staff.status_issue}} says what it is.
+Boot as usual; `{{staff.dir}}/STATE.md` says what it is.
+{{/if}}
+
+{{#if event.previous_status_issue}}
+**A new week.** #{{staff.status_issue}} is this week's status issue, opened for you with last
+week's body. Before you work, close last week's ({{event.previous_status_issue}}) with one comment:
+the week in at most five lines. What moved on each priority, with the numbers; what shipped; what
+is still on {{human.name}}. Then close it. No @-mention: the new issue is what they read.
 {{/if}}
 
 ## Do this now, in order
@@ -18,10 +25,10 @@ Boot as usual; #{{staff.status_issue}} says what it is.
 1. **Check the real date:** `date +%F`. Do not infer it from a file. A run's output was once dated
    two days wrong that way.
 
-2. **Read your tracker - it is where the live state lives.**
+2. **Read your handover and your tracker.**
+   - **`{{staff.dir}}/STATE.md`**: what the last run did and what this one picks up, in order. If
+     it is missing or still the template, start it from the body of #{{staff.status_issue}}.
    - `gh issue list --repo {{staff.brain}} --limit 40`
-   - Pinned **#{{staff.status_issue}} "Where we are"**: the situation, what the last run did, what
-     this one picks up.
    - Then read comments on anything recent. A ruling {{human.name}} answered from a phone arrives
      there and nowhere else, and folding it in comes before planned work because it changes what is
      worth doing.
@@ -43,7 +50,7 @@ Boot as usual; #{{staff.status_issue}} says what it is.
 
 ## Then work. Autonomously.
 
-Take the top item off #{{staff.status_issue}}'s ordered list that serves the org's priorities
+Take the top item off `STATE.md`'s ordered list that serves the org's priorities
 (`org/priorities.md`, where there is one), unless something above changed the priority, in which
 case say so in your report and do the more urgent thing. **Then actually do it.** You are not
 writing a plan for {{human.name}} to approve.
@@ -61,9 +68,12 @@ writing a plan for {{human.name}} to approve.
    Nothing else** - no design essay, no narration of how you built it. It is reviewed on a phone
    and the diff is right there.
 {{/if}}
-2. **Rewrite pinned issue #{{staff.status_issue}} "Where we are"**: the situation in a line, what
-   this run did, what the next run picks up in priority order. **It is a handover for the next run,
-   not a diary.** Rewrite it, do not append, and cut anything the next run can find for itself.
+2. **Rewrite `{{staff.dir}}/STATE.md`**, your handover to the next run: the situation in a line,
+   what the next run picks up in priority order, and anything parked. Commands and notes to
+   yourself go here. Rewrite it, do not append, and cut anything the next run can find for itself.
+   **Then rewrite the body of #{{staff.status_issue}}**, which is for {{human.name}}, not for you:
+   where each priority stands, with the numbers; what is on them, oldest first, by issue number;
+   what you do next. Nothing they need to scroll past.
 3. **Reconcile the tracker.** Open issues for anything new needing {{human.name}}: the
    `{{human.marker}}` label plus one of `decision`, `review` or `chore`, assigned to
    `{{human.github}}`. Sweep **every** open issue on your tracker, whoever opened it: close what is
@@ -89,9 +99,17 @@ writing a plan for {{human.name}} to approve.
 7. **Commit and push** `{{staff.dir}}/`. Stage explicit paths in anyone else's repo - never
    `git add -A` there.
 8. **Post the run report** as a comment on #{{staff.status_issue}}, @-mentioning
-   `@{{human.github}}`. **Three lines: what you did, what is now on them (issue numbers and the ask,
-   nothing more), what you would do next.** No preamble, no closing line, no headers. This is the
-   only thing they read, and a long one does not get read.
+   `@{{human.github}}`. **At most three lines:**
+   - **The result**, not the activity: what changed for the priority, with the number or link that
+     shows it. "Opened a PR" is not a result; what the PR changes for people is.
+   - **What is new on them since your last report**: issue numbers and the ask. Not the standing
+     list, which is in the body, and not another staff member's asks, which are theirs to report.
+     Leave the line out when nothing is new.
+   - **What you do next.**
+
+   No preamble, no closing line, no headers. **When the run moved nothing and nothing new is on
+   them, post nothing**: the body is enough, and a report that repeats yesterday's teaches them to
+   skip them all.
 9. **Start the next run now, if the next step is ready.** When it serves the priorities and waits on
    nobody (not on {{human.name}}, not on a review, not on a peer), write one line saying what it is:
    `mkdir -p "$GITHUB_WORKSPACE/.roster-run" && echo "<the step>" > "$GITHUB_WORKSPACE/.roster-run/continue"`.

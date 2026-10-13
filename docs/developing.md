@@ -81,7 +81,7 @@ registers into at boot.
 ## The rule that matters
 
 **Never fix a generated file in a tenant.** `compose.mjs`, `agents.mjs`, `runner-plan.mjs`,
-`inflight.mjs`, `run-record.mjs` and `session.yaml` live in `templates/ops/`. Fix them there and run `roster upgrade`.
+`inflight.mjs`, `run-record.mjs`, `status-week.mjs` and `session.yaml` live in `templates/ops/`. Fix them there and run `roster upgrade`.
 
 A fix made in the tenant's copy goes unnoticed until the framework next touches that file, and
 then it is a conflict. So `roster upgrade` reports an edit to a framework-owned file whether or

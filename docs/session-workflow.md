@@ -75,19 +75,23 @@ Then the session:
    `inflight.mjs`, for the prompt. Never fatal. See [prompts](prompts.md#human-work-in-flight).
 10. **Set git identity** to the App.
 11. **Set up Node and pnpm**, if the plan found a `package.json`.
-12. **Compose the prompt**, to a step output and to `.roster-prompt.txt`.
-13. **Check the agent has a credential.**
-14. **Work out which agent runs this**, by running `agents.mjs`.
-15. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
+12. **Open this week's status issue**, daily runs only, by running `status-week.mjs`: when the
+    status issue in `staff.yaml` is from an earlier week, a new one is opened, pinned and
+    committed to `staff.yaml`, and the prompt is told which earlier week still needs its summary.
+    Never fatal. See [architecture](architecture.md#the-weeks-status-issue).
+13. **Compose the prompt**, to a step output and to `.roster-prompt.txt`.
+14. **Check the agent has a credential.**
+15. **Work out which agent runs this**, by running `agents.mjs`.
+16. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
     CLI one. See [choosing a coding agent](agents.md).
     Then, for a mention, **check the request was answered**: a reply in the thread, or the issue
     closed. Neither fails the job, so the notice below tells the human.
     Then, for a daily run that finished and wrote `.roster-run/continue`, **start a follow-on
     run**: one more daily run with `trigger: follow-on`, which waits for this one to end.
-16. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
+17. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
     and tokens where the agent reports them. Into the job summary, and kept as an artifact
     called `roster-run`. Never fatal. See [cost](cost.md#what-each-run-cost).
-17. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
+18. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
     woke a mention, linking the run.
 
 ## When the failure is the token

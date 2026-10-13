@@ -55,35 +55,10 @@ export function viewHome(m) {
   const page = el("div", { className: "home" });
   page.append(askBox(staff));
 
-  if (h.reports.length) {
+  const reporters = staff.filter((x) => x.brain && x.statusIssue);
+  if (reporters.length) {
     page.append(section("Latest reports"));
-    const box = el("div", { className: "card homereports" });
-    for (const r of h.reports) {
-      /* The report is markdown the staff member wrote, with links to the work it names. The
-         whole report opens their status issue, where it was posted; a link inside it goes
-         where it points. */
-      const row = el("div", { className: "homereport homeclick", tabIndex: 0, role: "button" }, [
-        el("div", { className: "homereportwho" }, [
-          el("span", { className: "homewho2" }, [icon(staffIcon(r.staff), "ic"), el("b", { textContent: r.staff.name })]),
-          el("span", { className: "meta", textContent: ago(r.at) }),
-        ]),
-        el("div", {
-          className: "md homereportbody",
-          innerHTML: mdlite(r.lines.join("\n\n"), { repo: r.staff.brain }),
-        }),
-      ]);
-      row.onclick = (ev) => {
-        if (!ev.target.closest("a, button")) openThread(r.item);
-      };
-      row.onkeydown = (ev) => {
-        if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
-          ev.preventDefault();
-          openThread(r.item);
-        }
-      };
-      box.append(row);
-    }
-    page.append(box);
+    page.append(el("div", { className: "card homereports" }, reporters.map((s) => reportRow(s, h.reports))));
   }
 
   page.append(section("Needs you", h.needs.length));
@@ -114,6 +89,61 @@ export function viewHome(m) {
   page.append(rest(h));
   for (const e of S.inbox.errors ?? []) page.append(el("p", { className: "err", textContent: e }));
   m.append(page);
+}
+
+/* ------------------------------- reports -------------------------------- */
+
+/**
+ * One staff member's last report, or a line saying there is none today, with a button that asks
+ * for one. The report is markdown the staff member wrote, with links to the work it names. The
+ * whole row opens their status issue, where it was posted; a link inside it goes where it points.
+ */
+function reportRow(s, reports) {
+  const r = reports.find((x) => x.staff.handle === s.handle);
+  const item = r?.item ?? { repo: s.brain, number: s.statusIssue, kind: "issue" };
+  const note = el("span", { className: "meta" });
+  const ask = el("button", { className: "ghbtn", textContent: "Ask for a report" });
+  ask.onclick = async () => {
+    ask.disabled = true;
+    note.className = "meta";
+    note.textContent = "Asking…";
+    try {
+      await post({
+        action: "comment",
+        repo: s.brain,
+        number: s.statusIssue,
+        body: `${s.mention ?? "@" + s.handle} Report, please.`,
+      });
+      ask.remove();
+      note.textContent = `Asked. ${s.name} replies in a few minutes.`;
+      refreshSoon();
+    } catch (e) {
+      note.textContent = String(e.message || e);
+      note.className = "meta err";
+      ask.disabled = false;
+    }
+  };
+
+  const row = el("div", { className: "homereport homeclick", tabIndex: 0, role: "button" }, [
+    el("div", { className: "homereportwho" }, [
+      el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
+      el("span", { className: "meta", textContent: r ? ago(r.at) : "No report today" }),
+      el("div", { className: "homereportask" }, [ask, note]),
+    ]),
+    r
+      ? el("div", { className: "md homereportbody", innerHTML: mdlite(r.lines.join("\n\n"), { repo: s.brain }) })
+      : el("div"),
+  ]);
+  row.onclick = (ev) => {
+    if (!ev.target.closest("a, button")) openThread(item);
+  };
+  row.onkeydown = (ev) => {
+    if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
+      ev.preventDefault();
+      openThread(item);
+    }
+  };
+  return row;
 }
 
 /* ------------------------------- asking -------------------------------- */

@@ -69,7 +69,8 @@ hand-off and make pruning that run's job when it is over.
 - **How a thing works.** That is a draft or a strategy document.
 - **An idea not yet acted on.** That is one line in `strategy/ideas.md`, and it becomes an issue
   only when it needs a ruling.
-- **What is outstanding.** That is the pinned status issue.
+- **What is outstanding.** That is `STATE.md`, the handover each daily run rewrites. The pinned
+  status issue is the same picture written for you.
 
 Nothing is copied between them. Four places, four jobs, and a fact that appears in two of them
 will disagree with itself within a month.
