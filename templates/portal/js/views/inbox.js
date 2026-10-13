@@ -26,7 +26,7 @@ const LABEL_TONE = {
  * which coloured exactly one org's and left every other org's looking like an ordinary tag.
  * It comes off org.yaml now, so it is right wherever this runs.
  */
-function tone(label) {
+export function tone(label) {
   if (LABEL_TONE[label]) return LABEL_TONE[label];
   const name = String(label).toLowerCase();
   return humansOf().some(
@@ -125,7 +125,13 @@ export function threadInto(host, ref) {
     THREADS.delete(item.repo + "#" + item.number);
     item.partial = true;
   }
-  host.append(inboxScreen(el("div"), { prs: ref.kind === "pr", only: ref }));
+  /* A #175 in a report is as likely to be closed, or in a repo nobody watches, as it is to be
+     in the inbox. It is read on its own and kept beside the inbox rather than added to it,
+     where it would turn up as a row on Trackers. */
+  const stray = item
+    ? null
+    : { repo: ref.repo, number: ref.number, kind: ref.kind ?? "issue", labels: [], partial: true };
+  host.append(inboxScreen(el("div"), { prs: ref.kind === "pr", only: ref, stray }));
 }
 
 function inboxScreen(m, opts) {
@@ -385,11 +391,14 @@ function inboxScreen(m, opts) {
     }
   }
 
+  function find(ref) {
+    const same = (i) => i.repo === ref.repo && i.number === ref.number;
+    return (S.inbox?.items ?? []).find(same) ?? (opts.stray && same(opts.stray) ? opts.stray : null);
+  }
+
   /* Everything is already loaded, so opening a thread is a render, not a request. */
   function openThread(ref) {
-    const item = (S.inbox?.items ?? []).find(
-      (i) => i.repo === ref.repo && i.number === ref.number,
-    );
+    const item = find(ref);
     if (!item) {
       viewer.replaceChildren(
         el("p", { className: "empty", textContent: "That one is no longer open. Refresh." }),
@@ -849,6 +858,8 @@ function inboxScreen(m, opts) {
           THREADS.set(item.repo + "#" + item.number, fresh);
           // A single thread does not know which part of the org it is in, or whether it is unread.
           S.inbox.items[at] = { ...old, ...fresh, role: old.role, unread: old.unread, partial: false };
+        } else if (opts.stray && find(item) === opts.stray) {
+          Object.assign(opts.stray, fresh, { partial: false });
         }
       }
     } catch {

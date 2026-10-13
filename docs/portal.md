@@ -189,8 +189,10 @@ down with the list, so opening a thread is a render rather than a request.
   to find out it landed.
 - **How much conversation** is on each row, which is most of what tells a live thread from
   something filed and never answered.
-- Issue and PR references in a body become chips you can click through, and `@handle`
-  mentions become chips too. A mention of somebody on this roster goes to their repository
+- Issue and PR references in a body become chips, and `@handle` mentions become chips too.
+  Hovering a chip for one of the org's repos shows a card with its title, state, opening
+  lines and labels. Clicking it opens the thread in a side sheet, closed or not, over
+  whatever you were reading. ⌘-click or middle-click still opens GitHub. A mention of somebody on this roster goes to their repository
   rather than to a GitHub profile of that name, which for `@cto` is a stranger.
 - **Not every comment is markdown.** Deploy bots post raw HTML. A `<table>` renders as a
   table, and inline `<a>`, `<img>`, `<strong>`, `<em>`, `<code>` and `<br>` are reduced to

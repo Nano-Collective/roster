@@ -13,6 +13,7 @@ import {
   stampLoaded,
   syncNotice,
 } from "./refresh.js";
+import { installRefs } from "./refcard.js";
 import { onRender } from "./router.js";
 import { ORG_WIDE, S, VIEWS, applyHash, humanLabel, readHash, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
@@ -92,6 +93,7 @@ export async function boot() {
   /* Before the first render, and once: it is delegated, so it covers every image any screen
      draws from here on, including the setup screen. */
   installLightbox();
+  installRefs();
 
   /* Before there is a tenant the server answers every data route with `mode: setup`. That is
      not an error state: it is the first thing a new user ever sees, and the whole page becomes

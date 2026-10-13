@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { act } from "../src/lib/act.js";
 import { askFollowUp, askHead } from "../src/lib/ask.js";
-import { dueOf } from "../src/lib/inbox.js";
+import { dueOf, fetchThread } from "../src/lib/inbox.js";
 import { parseTitle, shapeLive } from "../src/lib/live.js";
 import { fakeGitHub } from "./helpers/fakegithub.js";
 
@@ -128,4 +128,29 @@ test("with none open, an ask opens one as before", async () => {
   assert.equal(r.url, "https://github.com/acme/cto/issues/10");
   const opened = gh.calls.find((c) => c.path === "repos/acme/cto/issues")!;
   assert.match(opened.body.body, /^@cto Fix the conflicts/);
+});
+
+test("a thread is read as what GitHub says it is, not what it was asked for", async () => {
+  /* A #228 in a report does not say whether it is an issue or a PR. The portal asks for it
+     either way, and a PR read as an issue would lose its tabs and its merge button. */
+  const node = (typename: string) => ({
+    __typename: typename,
+    number: 228,
+    title: "Stop stalls",
+    body: "",
+    url: "",
+    state: "OPEN",
+    createdAt: "2026-10-01T00:00:00Z",
+    updatedAt: "2026-10-02T00:00:00Z",
+    isDraft: false,
+    mergeable: "MERGEABLE",
+  });
+  const gh = (n: unknown) =>
+    ({ graphql: async () => ({ ok: true, data: { repository: { issueOrPullRequest: n } } }) }) as any;
+  const pr = await fetchThread(gh(node("PullRequest")), "o/pip-web", 228, "issue");
+  assert.equal(pr.kind, "pr");
+  assert.equal(pr.mergeable, "MERGEABLE");
+  const issue = await fetchThread(gh(node("Issue")), "o/pip-web", 228, "pr");
+  assert.equal(issue.kind, "issue");
+  assert.equal(issue.mergeable, undefined);
 });

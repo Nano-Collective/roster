@@ -760,6 +760,7 @@ async function renderAll(hash = "", org: Record<string, unknown> | null = null) 
     markCurrent: m.dom.markCurrent,
     belongsTo: m.inbox.belongsTo,
     addressee: m.inbox.addressee,
+    threadInto: m.inbox.threadInto,
     renderDiff: m.changed.renderDiff,
     cronText: m.health.cronText,
     askToFix: m.health.askToFix,
@@ -3554,4 +3555,38 @@ test("hosted, the screens that need your machine say so instead of offering it",
     .join(" ");
   assert.match(health, /Run roster doctor in your workspace/);
   assert.ok(!health.includes("Everything doctor checks is clean"), "never clean by default");
+});
+
+test("a thread that is not in the inbox still opens on its own", async () => {
+  /* A chip in a report is as likely to be a closed issue as an open one. The sheet reads it
+     by itself, and it never turns up as a row on Trackers. */
+  const s = await renderAll("#/-/inbox");
+  await new Promise((r) => setTimeout(r, 30));
+  const [a] = ORG.staff;
+  s.INBOX = { items: [], repos: [], errors: [] };
+  let asked = "";
+  s.fetch = async (u: string) => {
+    if (String(u).startsWith("/api/thread")) {
+      asked = String(u);
+      return {
+        ok: true,
+        json: async () => ({
+          repo: a.brain, number: 175, kind: "issue", title: "Funnel events", state: "CLOSED",
+          labels: [], author: "x", assignees: [], body: "Every event is live.",
+          createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", url: "",
+          events: [], comments: [], commentCount: 0, partial: false,
+        }),
+        text: async () => "",
+      };
+    }
+    return fixtureFetch(u);
+  };
+  const host = s.document.createElement("div");
+  s.threadInto(host, { repo: a.brain, number: 175 });
+  await new Promise((r) => setTimeout(r, 40));
+  assert.match(asked, /number=175/);
+  const html = walkNodes(host).map((n: any) => String(n.innerHTML ?? n.textContent ?? "")).join(" ");
+  assert.ok(html.includes("Funnel events"), "the title is drawn");
+  assert.ok(html.includes("Every event is live."), "and the body");
+  assert.equal(s.INBOX.items.length, 0, "and the inbox is left as it was");
 });

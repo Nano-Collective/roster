@@ -250,6 +250,7 @@ const THREAD_QUERY = `
 query($owner:String!, $name:String!, $number:Int!) {
   repository(owner:$owner, name:$name) {
     issueOrPullRequest(number:$number) {
+      __typename
       ... on Issue {
         number title body url state createdAt updatedAt ${ROW_EXTRAS}
         author { login }
@@ -539,6 +540,9 @@ export async function fetchThread(gh: GitHub, repo: string, number: number, kind
   if (!res.ok) throw new Error(res.error);
   const n = res.data?.repository?.issueOrPullRequest;
   if (!n) throw new Error(`${repo}#${number} was not found in ${repo}`);
+  /* What GitHub says it is wins over what was asked. A #175 in somebody's prose does not say
+     whether it is an issue or a PR, and the portal opens it either way. */
+  if (n.__typename) kind = n.__typename === "PullRequest" ? "pr" : "issue";
   const item = shape(n, repo, "", kind);
   if (kind === "pr") {
     item.draft = n.isDraft;
