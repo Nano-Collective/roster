@@ -160,6 +160,19 @@ everyone signed in, as is the cache. Everyone signed in is one of the org's huma
 the org shown to its own people; a human whose GitHub account cannot read one of the brains can
 still see that brain in the portal. Their unread marks and anything they do are their own.
 
+**Claude, through MCP.** `/mcp` takes a bearer token rather than the cookie. The portal is its
+own OAuth 2.1 server for it, with PKCE and dynamic client registration, in front of GitHub's
+sign-in: the same check against `humans:`, then a page the person has to press **Allow** on.
+Nothing is stored for this either. The client's registration, the code, and the access and
+refresh tokens are each sealed under `SESSION_KEY` with a kind of their own, so a refresh token
+or a code cannot be used as an access token, and none of them opens the portal as a cookie. An
+access token lasts an hour and a refresh token thirty days. Each connection signs in to GitHub
+separately, so signing out of the portal does not disconnect Claude; revoking the OAuth App on
+GitHub disconnects both, and rotating `SESSION_KEY` disconnects every connector. A code is not
+single use, since there is no store to remember it in, but it lasts five minutes and is useless
+without the PKCE verifier only the client holds. The tools cannot merge, approve, hire or change
+the org.
+
 **The OAuth scopes.** `repo` and `notifications`. A GitHub App would be narrower, but its
 tokens cannot read notifications, and unread in the portal is GitHub's own unread, kept in step
 with the website and your phone.

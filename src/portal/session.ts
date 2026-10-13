@@ -19,7 +19,7 @@ export interface Session {
 }
 
 export const SESSION_COOKIE = "roster_session";
-const STATE_COOKIE = "roster_state";
+export const STATE_COOKIE = "roster_state";
 /** How long a sign-in lasts. The token itself does not expire, so this is the only bound. */
 export const SESSION_DAYS = 14;
 
@@ -34,21 +34,19 @@ async function keyFrom(secret: string) {
   ]);
 }
 
-export async function seal(session: Session, secret: string): Promise<string> {
+/** Anything as a string only this Worker can read back: the cookie, and the MCP grants. */
+export async function sealJson(value: object, secret: string): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const body = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     await keyFrom(secret),
-    encoder.encode(JSON.stringify(session)),
+    encoder.encode(JSON.stringify(value)),
   );
   return `${base64url(iv)}.${base64url(new Uint8Array(body))}`;
 }
 
-export async function open(
-  value: string,
-  secret: string,
-  now = Date.now(),
-): Promise<Session | null> {
+/** What `sealJson` sealed, or null when it was tampered with or sealed under another key. */
+export async function openJson<T>(value: string, secret: string): Promise<T | null> {
   const [iv, body] = value.split(".");
   if (!iv || !body) return null;
   try {
@@ -57,11 +55,28 @@ export async function open(
       await keyFrom(secret),
       base64Decode(body) as Uint8Array<ArrayBuffer>,
     );
-    const s = JSON.parse(new TextDecoder().decode(plain)) as Session;
-    return s.exp > now && s.token && s.login ? s : null;
+    return JSON.parse(new TextDecoder().decode(plain)) as T;
   } catch {
     return null;
   }
+}
+
+export async function seal(session: Session, secret: string): Promise<string> {
+  return sealJson(session, secret);
+}
+
+/**
+ * The session in a cookie. Anything sealed with a `kind` is one of the MCP grants (oauth.ts),
+ * sealed under the same key, and is never a cookie: a token handed to a connector must not
+ * open the portal if somebody pastes it into one.
+ */
+export async function open(
+  value: string,
+  secret: string,
+  now = Date.now(),
+): Promise<Session | null> {
+  const s = await openJson<Session & { kind?: string }>(value, secret);
+  return s && !s.kind && s.exp > now && s.token && s.login ? s : null;
 }
 
 export function cookie(header: string | null, name: string): string | null {
@@ -78,7 +93,7 @@ export function cookie(header: string | null, name: string): string | null {
  * POST, and every write also needs the portal's own header and origin, so it buys nothing an
  * attacker could use.
  */
-function setCookie(name: string, value: string, maxAge: number): string {
+export function setCookie(name: string, value: string, maxAge: number): string {
   return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
@@ -90,19 +105,30 @@ export interface AuthConfig {
   allowed: (login: string, token: string) => Promise<boolean>;
 }
 
-/** Off to GitHub to sign in, with a one-time state that the callback must bring back. */
-export function startSignIn(url: URL, cfg: AuthConfig): Response {
+/**
+ * Off to GitHub to sign in, with a one-time state that the callback must bring back.
+ *
+ * `callback` is where GitHub sends them back to. GitHub accepts any path under the OAuth App's
+ * callback URL, which is how connecting Claude (`/auth/callback/mcp`) gets a sign-in of its
+ * own without a second App. `extra` are cookies the callback needs, set alongside the state.
+ */
+export function startSignIn(
+  url: URL,
+  cfg: AuthConfig,
+  callback = "/auth/callback",
+  extra: string[] = [],
+): Response {
   const state = base64url(crypto.getRandomValues(new Uint8Array(16)));
   const to = new URL("https://github.com/login/oauth/authorize");
   to.searchParams.set("client_id", cfg.clientId);
-  to.searchParams.set("redirect_uri", `${url.origin}/auth/callback`);
+  to.searchParams.set("redirect_uri", `${url.origin}${callback}`);
   to.searchParams.set("scope", "repo notifications");
   to.searchParams.set("state", state);
   to.searchParams.set("allow_signup", "false");
-  return new Response(null, {
-    status: 302,
-    headers: { location: to.toString(), "set-cookie": setCookie(STATE_COOKIE, state, 600) },
-  });
+  const headers = new Headers({ location: to.toString() });
+  headers.append("set-cookie", setCookie(STATE_COOKIE, state, 600));
+  for (const c of extra) headers.append("set-cookie", c);
+  return new Response(null, { status: 302, headers });
 }
 
 /** GitHub's redirect back: check the state, swap the code for a token, check who it is. */
@@ -112,6 +138,31 @@ export async function finishSignIn(
   cfg: AuthConfig,
   doFetch: typeof fetch = fetch,
 ): Promise<Response> {
+  const who = await signedIn(req, url, cfg, "/auth/callback", doFetch);
+  if (who instanceof Response) return who;
+
+  const session: Session = { ...who, exp: Date.now() + SESSION_DAYS * 86_400_000 };
+  const headers = new Headers({ location: "/" });
+  headers.append(
+    "set-cookie",
+    setCookie(SESSION_COOKIE, await seal(session, cfg.sessionKey), SESSION_DAYS * 86_400),
+  );
+  headers.append("set-cookie", setCookie(STATE_COOKIE, "", 0));
+  return new Response(null, { status: 302, headers });
+}
+
+/**
+ * The shared half of a callback: the state checked, GitHub's code swapped for a token, and the
+ * account checked against org.yaml's humans. An error page when any of that fails, with the
+ * token revoked if one was issued.
+ */
+export async function signedIn(
+  req: Request,
+  url: URL,
+  cfg: AuthConfig,
+  callback: string,
+  doFetch: typeof fetch = fetch,
+): Promise<{ token: string; login: string } | Response> {
   const state = url.searchParams.get("state") ?? "";
   const code = url.searchParams.get("code") ?? "";
   const expected = cookie(req.headers.get("cookie"), STATE_COOKIE);
@@ -130,7 +181,7 @@ export async function finishSignIn(
       client_id: cfg.clientId,
       client_secret: cfg.clientSecret,
       code,
-      redirect_uri: `${url.origin}/auth/callback`,
+      redirect_uri: `${url.origin}${callback}`,
     }),
   });
   const grant = (await exchanged.json().catch(() => ({}))) as {
@@ -163,19 +214,7 @@ export async function finishSignIn(
         `<a class="back" href="/">Back to sign in</a>`,
     );
   }
-
-  const session: Session = {
-    token: grant.access_token,
-    login,
-    exp: Date.now() + SESSION_DAYS * 86_400_000,
-  };
-  const headers = new Headers({ location: "/" });
-  headers.append(
-    "set-cookie",
-    setCookie(SESSION_COOKIE, await seal(session, cfg.sessionKey), SESSION_DAYS * 86_400),
-  );
-  headers.append("set-cookie", setCookie(STATE_COOKIE, "", 0));
-  return new Response(null, { status: 302, headers });
+  return { token: grant.access_token, login };
 }
 
 /** Sign out: the token is revoked on GitHub, not just forgotten here. */
@@ -187,7 +226,7 @@ export async function signOut(session: Session | null, cfg: AuthConfig): Promise
   });
 }
 
-async function revoke(token: string, cfg: AuthConfig, doFetch: typeof fetch = fetch) {
+export async function revoke(token: string, cfg: AuthConfig, doFetch: typeof fetch = fetch) {
   await doFetch(`https://api.github.com/applications/${cfg.clientId}/token`, {
     method: "DELETE",
     headers: {
@@ -208,7 +247,7 @@ export function signInPage(name: string): Response {
 const GITHUB_MARK =
   '<svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
 
-function esc(s: string): string {
+export function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
@@ -216,7 +255,7 @@ function esc(s: string): string {
  * A page of its own, in the portal's own stylesheet, so signing in looks like the thing you are
  * signing in to. `body` is markup: callers escape what they put in it.
  */
-function page(status: number, title: string, body: string): Response {
+export function page(status: number, title: string, body: string): Response {
   return new Response(
     `<!doctype html><html lang="en"><meta charset="utf-8">` +
       `<meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -250,10 +289,14 @@ body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-fon
   font-weight:600;text-decoration:none;transition:opacity .15s var(--ease)}
 .go:hover{opacity:.88}
 .go:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.go{border:0;cursor:pointer;font:inherit;font-weight:600;margin-bottom:8px}
+.no{display:block;width:100%;padding:10px 16px;border:0;border-radius:var(--r);background:none;
+  color:var(--ink-dim);font:inherit;cursor:pointer}
+.no:hover{color:var(--ink)}
 .back{display:inline-block;margin-top:4px;color:var(--accent);text-decoration:none;font-weight:500}
 `;
 
-function base64url(bytes: Uint8Array): string {
+export function base64url(bytes: Uint8Array): string {
   let s = "";
   for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

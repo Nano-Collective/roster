@@ -7,6 +7,8 @@ import { useRecordStore } from "../lib/runs.js";
 import { mount, treeOf } from "../lib/vfs.js";
 import { type Actor, createPortal, handlePortal, type Portal, readOrgFor } from "./handler.js";
 import { cloudflareKV, recordStore } from "./kv-cloudflare.js";
+import { handleMcp } from "./mcp.js";
+import { bearerOf, handleOAuth, unauthorized } from "./oauth.js";
 import {
   type AuthConfig,
   cookie,
@@ -86,6 +88,15 @@ async function isHuman(p: Portal, login: string, token: string): Promise<boolean
   return readHumans(org).some((h) => h.github?.toLowerCase() === login.toLowerCase());
 }
 
+/** Somebody taken out of humans stops getting in within minutes, not when their sign-in ends. */
+async function stillHuman(p: Portal, login: string, token: string): Promise<boolean> {
+  const at = confirmed.get(login) ?? 0;
+  if (Date.now() - at < RECHECK_MS) return true;
+  if (!(await isHuman(p, login, token))) return false;
+  confirmed.set(login, Date.now());
+  return true;
+}
+
 export default {
   async fetch(
     req: Request,
@@ -104,6 +115,24 @@ export default {
 
     if (path === "/auth/login") return startSignIn(url, auth);
     if (path === "/auth/callback") return finishSignIn(req, url, auth);
+
+    // Claude, or any MCP client: its own sign-in, then a bearer token rather than the cookie.
+    const name = env.ROSTER_NAME || env.ROSTER_ORG;
+    const oauth = await handleOAuth(req, url, auth, name);
+    if (oauth) return oauth;
+    if (path === "/mcp") {
+      const who = await bearerOf(req, env.SESSION_KEY);
+      if (!who || !(await stillHuman(p, who.login, who.token))) return unauthorized(url);
+      const actor: Actor = {
+        gh: clientFor(who.token),
+        id: who.login,
+        // A bearer token is never sent by a browser on its own, so another site cannot make
+        // this request: the token is the write guard.
+        canWrite: true,
+        background: (work) => ctx.waitUntil(work),
+      };
+      return handleMcp(req, p, actor, name);
+    }
 
     // The page's own files carry nothing about the org, and the sign-in page needs none of them.
     if (path.startsWith("/assets/")) return env.ASSETS.fetch(req);
@@ -126,12 +155,8 @@ export default {
       return Response.json({ error: "Sign in first.", signIn: "/auth/login" }, { status: 401 });
     }
 
-    /* Somebody taken out of humans: stops getting in within minutes, not at the end of a
-       fourteen-day cookie. */
-    const at = confirmed.get(session.login) ?? 0;
-    if (session.login !== "dev" && Date.now() - at > RECHECK_MS) {
-      if (!(await isHuman(p, session.login, session.token))) return signOut(null, auth);
-      confirmed.set(session.login, Date.now());
+    if (session.login !== "dev" && !(await stillHuman(p, session.login, session.token))) {
+      return signOut(null, auth);
     }
 
     if (path === "/") return env.ASSETS.fetch(new Request(new URL("/index.html", url)));

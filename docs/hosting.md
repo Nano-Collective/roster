@@ -48,6 +48,31 @@ Only the people listed under `humans:` in `org.yaml`, signed in with their own G
 
 See [security](security.md#the-hosted-portal) for what is held where.
 
+## Talking to your staff from Claude
+
+The hosted portal is also an MCP server, at `/mcp`. Add it to Claude as a custom connector with
+the URL `https://roster.acme.com/mcp`. Claude sends you to sign in with GitHub, the same check
+against `humans:` as the portal, and then to a page that says what it will be able to do, with
+**Allow**.
+
+Then you can ask Claude things like "what needs me today?", "what did the CTO do?" or "tell the
+CMO to draft this week's post". The tools:
+
+| Tool | Does |
+|---|---|
+| `brief` | The last day's reports, what needs you (with each decision's default), your requests, what was closed today |
+| `read_thread` | One issue or pull request with every reply |
+| `reply` | A reply as you, optionally closing the issue |
+| `ask_staff` | A new issue on a staff member's tracker with their mention, which starts them |
+| `ask_for_report` | Asks a staff member for a report on their status issue |
+| `read_brain` | `STATE.md`, `CHARTER.md`, `memory/INDEX.md`, `log/decisions.md` or `staff.yaml` |
+
+It cannot merge, approve, hire, or change the org: those stay on Home, where you see the diff
+or the plan first. Everything it posts is posted as you.
+
+Nothing to set up beyond the portal itself: the connector signs in through the same OAuth App,
+on a callback under the one you registered (`/auth/callback/mcp`), which GitHub accepts.
+
 ## Deploying it
 
 You need a Cloudflare account with the domain on it, and wrangler signed in to it. If your
