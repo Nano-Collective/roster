@@ -3571,10 +3571,22 @@ test("a thread that is not in the inbox still opens on its own", async () => {
       return {
         ok: true,
         json: async () => ({
-          repo: a.brain, number: 175, kind: "issue", title: "Funnel events", state: "CLOSED",
-          labels: [], author: "x", assignees: [], body: "Every event is live.",
-          createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", url: "",
-          events: [], comments: [], commentCount: 0, partial: false,
+          repo: a.brain,
+          number: 175,
+          kind: "issue",
+          title: "Funnel events",
+          state: "CLOSED",
+          labels: [],
+          author: "x",
+          assignees: [],
+          body: "Every event is live.",
+          createdAt: "2026-09-01T00:00:00Z",
+          updatedAt: "2026-09-02T00:00:00Z",
+          url: "",
+          events: [],
+          comments: [],
+          commentCount: 0,
+          partial: false,
         }),
         text: async () => "",
       };
@@ -3585,7 +3597,9 @@ test("a thread that is not in the inbox still opens on its own", async () => {
   s.threadInto(host, { repo: a.brain, number: 175 });
   await new Promise((r) => setTimeout(r, 40));
   assert.match(asked, /number=175/);
-  const html = walkNodes(host).map((n: any) => String(n.innerHTML ?? n.textContent ?? "")).join(" ");
+  const html = walkNodes(host)
+    .map((n: any) => String(n.innerHTML ?? n.textContent ?? ""))
+    .join(" ");
   assert.ok(html.includes("Funnel events"), "the title is drawn");
   assert.ok(html.includes("Every event is live."), "and the body");
   assert.equal(s.INBOX.items.length, 0, "and the inbox is left as it was");

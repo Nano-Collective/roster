@@ -146,7 +146,9 @@ test("a thread is read as what GitHub says it is, not what it was asked for", as
     mergeable: "MERGEABLE",
   });
   const gh = (n: unknown) =>
-    ({ graphql: async () => ({ ok: true, data: { repository: { issueOrPullRequest: n } } }) }) as any;
+    ({
+      graphql: async () => ({ ok: true, data: { repository: { issueOrPullRequest: n } } }),
+    }) as any;
   const pr = await fetchThread(gh(node("PullRequest")), "o/pip-web", 228, "issue");
   assert.equal(pr.kind, "pr");
   assert.equal(pr.mergeable, "MERGEABLE");
