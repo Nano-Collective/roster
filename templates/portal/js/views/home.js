@@ -93,10 +93,13 @@ export function viewHome(m) {
 
 /* ------------------------------- reports -------------------------------- */
 
+/** Whose reports are open in full. Kept here, since Home repaints on every poll. */
+const openReports = new Set();
+
 /**
  * One staff member's report: the body of their status issue, which every run rewrites, with a
  * button that asks them to bring it up to date now. It is markdown they wrote, with links to the
- * work it names. The whole row opens the issue; a link inside it goes where it points.
+ * work it names. It shows its first few lines; the row opens it in full, and closes it again.
  */
 function reportRow(s, reports) {
   const r = reports.find((x) => x.staff.handle === s.handle);
@@ -124,23 +127,44 @@ function reportRow(s, reports) {
     }
   };
 
-  const row = el("div", { className: "homereport homeclick", tabIndex: 0, role: "button" }, [
-    el("div", { className: "homereportwho" }, [
-      el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
-      el("span", { className: "meta", textContent: r ? "Updated " + ago(r.at) : "No report yet" }),
-      el("div", { className: "homereportask" }, [ask, note]),
-    ]),
-    r
-      ? el("div", { className: "md homereportbody", innerHTML: mdlite(r.body, { repo: s.brain }) })
-      : el("div"),
-  ]);
+  const issue = el("button", { className: "homereportissue", textContent: "#" + item.number });
+  issue.onclick = () => openThread(item);
+  const full = openReports.has(s.handle);
+  const row = el(
+    "div",
+    {
+      className: "homereport" + (r ? " homeclick" : "") + (full ? " full" : ""),
+      ...(r ? { tabIndex: 0, role: "button", ariaExpanded: String(full) } : {}),
+    },
+    [
+      el("div", { className: "homereportwho" }, [
+        el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
+        el("span", { className: "meta" }, [
+          document.createTextNode((r ? "Updated " + ago(r.at) : "No report yet") + " · "),
+          issue,
+        ]),
+        el("div", { className: "homereportask" }, [ask, note]),
+      ]),
+      r
+        ? el("div", { className: "md homereportbody", innerHTML: mdlite(r.body, { repo: s.brain }) })
+        : el("div"),
+    ],
+  );
+  if (!r) return row;
+  const toggle = () => {
+    if (openReports.has(s.handle)) openReports.delete(s.handle);
+    else openReports.add(s.handle);
+    const now = openReports.has(s.handle);
+    row.classList.toggle("full", now);
+    row.setAttribute("aria-expanded", String(now));
+  };
   row.onclick = (ev) => {
-    if (!ev.target.closest("a, button")) openThread(item);
+    if (!ev.target.closest("a, button")) toggle();
   };
   row.onkeydown = (ev) => {
     if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
       ev.preventDefault();
-      openThread(item);
+      toggle();
     }
   };
   return row;
