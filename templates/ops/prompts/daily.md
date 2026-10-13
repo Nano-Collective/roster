@@ -73,7 +73,7 @@ writing a plan for {{human.name}} to approve.
    yourself go here. Rewrite it, do not append, and cut anything the next run can find for itself.
    **Then rewrite the body of #{{staff.status_issue}}**, which is for {{human.name}}, not for you:
    where each priority stands, with the numbers; what is on them, oldest first, by issue number;
-   what you do next. Nothing they need to scroll past.
+   what you do next. Nothing they need to scroll past, and no notes to yourself.
 3. **Reconcile the tracker.** Open issues for anything new needing {{human.name}}: the
    `{{human.marker}}` label plus one of `decision`, `review` or `chore`, assigned to
    `{{human.github}}`. Sweep **every** open issue on your tracker, whoever opened it: close what is

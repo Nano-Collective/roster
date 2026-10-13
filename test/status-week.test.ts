@@ -131,6 +131,13 @@ test("an earlier week's issue rolls: a new one carries its body, and the old one
   assert.ok(pin.includes("pinIssue") && pin.includes("N_new"));
 });
 
+test("last week's issue is handed over even when the label filter has not caught up", () => {
+  const issues = [old()];
+  const { gh } = fakeGh(issues);
+  const lagging = (a: string[]) => ((a[1] ?? "").includes("labels=status") ? "[]" : gh(a));
+  assert.deepEqual(rollWeek({ repo: "o/cto", current: 15, gh: lagging, now: TUE }).previous, [15]);
+});
+
 test("a week whose summary never got written is still handed over", () => {
   const issues = [
     old({ number: 15, state: "open", labels: ["status"] }),

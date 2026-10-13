@@ -97,13 +97,15 @@ export function rollWeek({ repo, current, gh, now = Date.now() }) {
   }
 
   // Every earlier week still open: last week's, and any week whose summary run did not finish.
+  // Last week's is added by hand when it was just rolled: the label filter lags a label added a
+  // moment ago, and on Pip's first roll the listing came back without it, so no summary was asked for.
   const open = JSON.parse(
     gh(["api", `repos/${repo}/issues?state=open&labels=${STATUS_LABEL}&per_page=20`]) || "[]",
   );
-  const previous = open
-    .filter((i) => !i.pull_request && i.number !== next)
-    .map((i) => i.number)
-    .sort((a, b) => a - b);
+  const numbers = new Set(open.filter((i) => !i.pull_request).map((i) => i.number));
+  if (rolled && issue?.state === "open") numbers.add(current);
+  numbers.delete(next);
+  const previous = [...numbers].sort((a, b) => a - b);
   return { current: next, rolled, previous };
 }
 
