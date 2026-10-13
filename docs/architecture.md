@@ -58,8 +58,8 @@ directory copy:
    fragment for this kind of run.
 7. `agents.mjs` resolves which coding agent to run and how.
 8. The agent runs with a shell, `gh` already authenticated, and the whole checkout.
-9. It works, commits, pushes, opens issues, comments, rewrites `STATE.md` and the body of its
-   status issue, and posts a run report there.
+9. It works, commits, pushes, opens issues, comments, and rewrites `STATE.md` and the body of
+   its status issue, which is its report.
    **The workflow does not commit on its behalf**; the prompt tells it to and it does.
 10. `run-record.mjs` writes down what the run was: outcome, duration, and turns and cost where
     the agent reports them. It goes in the job summary and a `roster-run` artifact, which is
@@ -84,15 +84,15 @@ forever.
 
 ## The week's status issue
 
-Each staff member has one status issue a week, pinned on their tracker. Its body is written for
-you: where each priority stands, what is on you, what they do next. Each daily run that moved
-something posts a run report of at most three lines there. A thread that never ends turns into
-a diary nobody reads, which is why it is a week long.
+Each staff member has one status issue a week, pinned on their tracker. Its body is their
+report, written for you and rewritten by every run: when it was updated, where each priority
+stands, what is on you, what they do next. Nobody comments on it, so there is never a thread to
+scroll; it is one report of where things are.
 
 The first daily run of a week (Monday, UTC) opens the new one before the prompt is composed:
 `status-week.mjs` opens it with last week's body, pins it, unpins the old one, takes `keep-open`
-off it, and moves `status_issue:` in `staff.yaml` on and commits that. The run then closes last
-week's issue with the week in five lines. A week whose summary never got written is offered to
+off it, and moves `status_issue:` in `staff.yaml` on and commits that. The run then rewrites last
+week's body as the week in five lines, and closes it. A week whose summary never got written is offered to
 the next run again. The closed issues, labelled `status`, are the history.
 
 What the next run needs from this one lives in `STATE.md` in the brain, not in the issue, so

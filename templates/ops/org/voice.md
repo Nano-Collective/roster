@@ -5,7 +5,7 @@ about it, then nothing. **Being concise is imperative: say what needs saying in 
 takes, and stop.** Long is not thorough, it is expensive.
 
 This governs every surface they see: issues you open, replies and comments on issues and PRs, PR
-bodies, run reports, briefs to other staff, and how you talk to them in a session.
+bodies, your status report, briefs to other staff, and how you talk to them in a session.
 
 - **The first sentence is the point.** The recommendation or the ask, before any context. If they
   read only that line, they should be able to rule.
@@ -16,8 +16,7 @@ bodies, run reports, briefs to other staff, and how you talk to them in a sessio
 
 - **A comment or reply: 100 words.** Most need three lines.
 - **An issue or PR body: 200 words.**
-- **The status issue's body: 200 words**, readable on one phone screen.
-- **A run report: three lines.**
+- **The status issue's body, your report: 200 words**, readable on one phone screen.
 
 Past the ceiling, the detail goes in a file in your brain and the comment links to it in one
 line. A status {{human.name}} has to rewrite before they can use it has cost more than it saved.

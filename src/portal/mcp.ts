@@ -37,7 +37,7 @@ export const TOOLS: Tool[] = [
     name: "brief",
     title: "Morning brief",
     description:
-      "What the staff reported in the last day, what needs you (asks to rule on, reviews, chores " +
+      "Each staff member's report of where things stand, what needs you (asks to rule on, reviews, chores " +
       "and pull requests to merge), your requests and what they closed today. Start here.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true },
@@ -97,8 +97,8 @@ export const TOOLS: Tool[] = [
     name: "ask_for_report",
     title: "Ask for a report",
     description:
-      "Ask a staff member for a report now. They reply on their status issue in a few minutes, " +
-      "in three lines: where their priorities stand, what is on you, what they do next.",
+      "Ask a staff member to bring their report up to date now. It is the body of their status " +
+      "issue, rewritten in a few minutes: where their priorities stand, what is on you, what next.",
     inputSchema: {
       type: "object",
       properties: { staff: staffArg },
@@ -281,7 +281,7 @@ export async function callTool(
       number: s.statusIssue,
       body: `${mention} Report, please.`,
     });
-    return `Asked ${s.name} for a report: ${r.url}. They reply there in a few minutes.`;
+    return `Asked ${s.name} for a report: ${r.url}. They update the issue's body in a few minutes.`;
   }
 
   if (tool === "read_brain") {
@@ -304,14 +304,13 @@ const ref = (i: InboxItem) => `${i.repo}#${i.number}`;
 export function briefText(h: any): string {
   const out: string[] = [];
   if (h.reports.length) {
-    out.push("Latest reports:");
+    out.push("Reports, from each staff member's status issue:");
     for (const r of h.reports) {
-      out.push(
-        `- ${r.staff.name} (${r.at.slice(0, 16).replace("T", " ")} UTC, on ${ref(r.item)}):`,
-      );
-      for (const l of r.lines) out.push(`  ${l}`);
+      // The body opens with when it was updated; the issue's own time moves with any comment.
+      out.push(`- ${r.staff.name} (${ref(r.item)}):`);
+      for (const l of String(r.body).split("\n")) if (l.trim()) out.push(`  ${l}`);
     }
-  } else out.push("No reports in the last day.");
+  } else out.push("No reports yet.");
 
   out.push("", `Needs you (${h.needs.length}), oldest first:`);
   if (!h.needs.length) out.push("- Nothing needs you.");

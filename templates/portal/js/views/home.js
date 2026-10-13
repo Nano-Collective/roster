@@ -94,9 +94,9 @@ export function viewHome(m) {
 /* ------------------------------- reports -------------------------------- */
 
 /**
- * One staff member's last report, or a line saying there is none today, with a button that asks
- * for one. The report is markdown the staff member wrote, with links to the work it names. The
- * whole row opens their status issue, where it was posted; a link inside it goes where it points.
+ * One staff member's report: the body of their status issue, which every run rewrites, with a
+ * button that asks them to bring it up to date now. It is markdown they wrote, with links to the
+ * work it names. The whole row opens the issue; a link inside it goes where it points.
  */
 function reportRow(s, reports) {
   const r = reports.find((x) => x.staff.handle === s.handle);
@@ -115,7 +115,7 @@ function reportRow(s, reports) {
         body: `${s.mention ?? "@" + s.handle} Report, please.`,
       });
       ask.remove();
-      note.textContent = `Asked. ${s.name} replies in a few minutes.`;
+      note.textContent = `Asked. ${s.name} updates it in a few minutes.`;
       refreshSoon();
     } catch (e) {
       note.textContent = String(e.message || e);
@@ -127,11 +127,11 @@ function reportRow(s, reports) {
   const row = el("div", { className: "homereport homeclick", tabIndex: 0, role: "button" }, [
     el("div", { className: "homereportwho" }, [
       el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
-      el("span", { className: "meta", textContent: r ? ago(r.at) : "No report today" }),
+      el("span", { className: "meta", textContent: r ? "Updated " + ago(r.at) : "No report yet" }),
       el("div", { className: "homereportask" }, [ask, note]),
     ]),
     r
-      ? el("div", { className: "md homereportbody", innerHTML: mdlite(r.lines.join("\n\n"), { repo: s.brain }) })
+      ? el("div", { className: "md homereportbody", innerHTML: mdlite(r.body, { repo: s.brain }) })
       : el("div"),
   ]);
   row.onclick = (ev) => {

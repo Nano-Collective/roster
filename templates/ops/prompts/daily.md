@@ -15,9 +15,9 @@ Boot as usual; `{{staff.dir}}/STATE.md` says what it is.
 
 {{#if event.previous_status_issue}}
 **A new week.** #{{staff.status_issue}} is this week's status issue, opened for you with last
-week's body. Before you work, close last week's ({{event.previous_status_issue}}) with one comment:
-the week in at most five lines. What moved on each priority, with the numbers; what shipped; what
-is still on {{human.name}}. Then close it. No @-mention: the new issue is what they read.
+week's body. Before you work, rewrite the body of last week's ({{event.previous_status_issue}}) as
+the week in at most five lines: what moved on each priority, with the numbers; what shipped; what
+is still on {{human.name}}. Then close it, with no comment.
 {{/if}}
 
 ## Do this now, in order
@@ -71,9 +71,12 @@ writing a plan for {{human.name}} to approve.
 2. **Rewrite `{{staff.dir}}/STATE.md`**, your handover to the next run: the situation in a line,
    what the next run picks up in priority order, and anything parked. Commands and notes to
    yourself go here. Rewrite it, do not append, and cut anything the next run can find for itself.
-   **Then rewrite the body of #{{staff.status_issue}}**, which is for {{human.name}}, not for you:
-   where each priority stands, with the numbers; what is on them, oldest first, by issue number;
-   what you do next. Nothing they need to scroll past, and no notes to yourself.
+   **Then rewrite the body of #{{staff.status_issue}}. It is your report**, the one place
+   {{human.name}} reads where things are, so it is for them, not for you. It opens with
+   `Updated <date> <HH:MM> UTC.`, then: where each priority stands, with the numbers, and the
+   result of this run where it moved one (what changed for people, not "opened a PR"); what is on
+   them, oldest first, by issue number; what you do next. Nothing they need to scroll past, and
+   no notes to yourself. **Never comment on it**: they want one report, not a thread to scroll.
 3. **Reconcile the tracker.** Open issues for anything new needing {{human.name}}: the
    `{{human.marker}}` label plus one of `decision`, `review` or `chore`, assigned to
    `{{human.github}}`. Sweep **every** open issue on your tracker, whoever opened it: close what is
@@ -98,29 +101,17 @@ writing a plan for {{human.name}} to approve.
 {{/if}}
 7. **Commit and push** `{{staff.dir}}/`. Stage explicit paths in anyone else's repo - never
    `git add -A` there.
-8. **Post the run report** as a comment on #{{staff.status_issue}}, @-mentioning
-   `@{{human.github}}`. **At most three lines:**
-   - **The result**, not the activity: what changed for the priority, with the number or link that
-     shows it. "Opened a PR" is not a result; what the PR changes for people is.
-   - **What is new on them since your last report**: issue numbers and the ask. Not the standing
-     list, which is in the body, and not another staff member's asks, which are theirs to report.
-     Leave the line out when nothing is new.
-   - **What you do next.**
-
-   No preamble, no closing line, no headers. **When the run moved nothing and nothing new is on
-   them, post nothing**: the body is enough, and a report that repeats yesterday's teaches them to
-   skip them all.
-9. **Start the next run now, if the next step is ready.** When it serves the priorities and waits on
+8. **Start the next run now, if the next step is ready.** When it serves the priorities and waits on
    nobody (not on {{human.name}}, not on a review, not on a peer), write one line saying what it is:
    `mkdir -p "$GITHUB_WORKSPACE/.roster-run" && echo "<the step>" > "$GITHUB_WORKSPACE/.roster-run/continue"`.
    Another run starts when this one ends, up to {{staff.max_runs_per_day}} a day that nobody asked
    for. Leave it out when there is nothing that cannot wait until tomorrow.
 {{#if staff.drafts_priorities}}
-10. **In the last three days of a month, draft next month's priorities.** If there is no open pull
-    request on `{{ops.dir}}` changing `org/priorities.md` already, open one from a branch: at
-    most three ranked priorities and what is out of scope, built from this month's, what shipped,
-    and the other staff's status issues. The body says what changed from this month and why, in a
-    few lines. {{human.name}} edits and merges it; until then this month's stand.
+9. **In the last three days of a month, draft next month's priorities.** If there is no open pull
+   request on `{{ops.dir}}` changing `org/priorities.md` already, open one from a branch: at
+   most three ranked priorities and what is out of scope, built from this month's, what shipped,
+   and the other staff's status issues. The body says what changed from this month and why, in a
+   few lines. {{human.name}} edits and merges it; until then this month's stand.
 {{/if}}
 
 {{> org/guardrails.md}}

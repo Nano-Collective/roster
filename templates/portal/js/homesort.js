@@ -20,17 +20,6 @@ const CHORE_WORDS = ["setup", "submit", "data", "blocked"];
 
 const lower = (s) => String(s ?? "").toLowerCase();
 
-/** How old a run report can be and still be this morning's. */
-const REPORT_HOURS = 20;
-
-/** A run report as lines, without the @mention it opens with. */
-function reportLines(body) {
-  return String(body ?? "")
-    .split("\n")
-    .map((l) => l.replace(/^\s*(@[\w-]+\s*)+/, "").replace(/^[-*]\s+/, "").trim())
-    .filter(Boolean)
-    .slice(0, 5);
-}
 
 /**
  * @param items   the inbox list: open and recently closed issues and pull requests
@@ -76,16 +65,10 @@ export function sortHome(items, staff, humans, live = [], now = new Date()) {
       continue;
     }
 
-    // The run report: the last word on a status issue, from the staff member, in the last day.
-    const c = item.lastComment;
-    if (
-      owner &&
-      item.number === owner.statusIssue &&
-      c &&
-      !people.has(lower(c.author)) &&
-      now - new Date(c.createdAt) < REPORT_HOURS * 3_600_000
-    ) {
-      out.reports.push({ staff: owner, item, at: c.createdAt, lines: reportLines(c.body) });
+    /* The report: the body of a staff member's status issue, which every run rewrites. Not its
+       comments, which used to be the reports and grew into a thread nobody wanted to scroll. */
+    if (owner && item.number === owner.statusIssue && String(item.body ?? "").trim()) {
+      out.reports.push({ staff: owner, item, at: item.updatedAt, body: String(item.body).trim() });
     }
 
     const place = placeOf(item, owner, people, markers);

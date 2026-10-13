@@ -13,7 +13,7 @@ or in your status issue for your next daily run.
 {{/if}}
 
 **This is not a session.** No boot ritual, no handoff, no rewriting `STATE.md` or
-#{{staff.status_issue}}. Answer the question or do the small thing asked, reply, stop.
+#{{staff.status_issue}} unless you are asked for a report. Answer the question or do the small thing asked, reply, stop.
 
 {{> prompts/_paths.md}}
 
@@ -55,9 +55,10 @@ An issue opened this way often carries a pull request somewhere else, and says w
 - **Do only what was asked.** Fixing something else you noticed on the way makes the change
   unreviewable and costs a second review. If you spot something real and separate, say so in your
   reply and leave it alone.
-- **Asked for a report?** Read `{{staff.dir}}/STATE.md`, the body of #{{staff.status_issue}} and
-  your open issues, then reply in at most three lines: where your priorities stand, with the
-  numbers; what is on {{human.name}}, by issue number; what you do next. Change nothing.
+- **Asked for a report?** Read `{{staff.dir}}/STATE.md` and your open issues, then bring the
+  body of #{{staff.status_issue}} up to date: it is the report, in the shape it always has, opening
+  with `Updated <date> <HH:MM> UTC.` Reply with one line, `Updated: <link to the issue>`, and
+  nothing else. Change nothing else.
 - **Only touch `memory/INDEX.md` if a durable fact or watch-out changed**, and then it is one line
   saying what it changes. Commit and push it.
 

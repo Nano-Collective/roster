@@ -123,14 +123,18 @@ test("days until a default, in the viewer's own calendar", () => {
   assert.equal(daysUntil("2026-10-02", NOW), -2);
 });
 
-test("each staff member's latest run report, from their status issue, if it is recent", () => {
-  const status = (lastComment: unknown) => item({ number: 1, labels: ["keep-open"], lastComment });
-  const recent = sortHome(
+test("each staff member's report is the body of their status issue, not its comments", () => {
+  const status = (over: Record<string, unknown>) =>
+    item({ number: 1, labels: ["keep-open"], updatedAt: "2026-10-04T07:40:00Z", ...over });
+  const h = sortHome(
     [
       status({
-        author: "acme-ops",
-        createdAt: "2026-10-04T07:40:00Z",
-        body: "@ada Shipped the fix.\nOn you: #4.\nNext: tests.",
+        body: "Updated 4 Oct 07:40 UTC.\n\nShipped the fix.",
+        lastComment: {
+          author: "acme-ops",
+          createdAt: "2026-10-04T07:40:00Z",
+          body: "@ada old style",
+        },
       }),
     ],
     staff,
@@ -138,25 +142,14 @@ test("each staff member's latest run report, from their status issue, if it is r
     [],
     NOW,
   );
-  assert.deepEqual(recent.reports[0].lines, ["Shipped the fix.", "On you: #4.", "Next: tests."]);
-  assert.equal(recent.staff.length, 1, "and the status issue still has its one place");
+  assert.equal(h.reports[0].body, "Updated 4 Oct 07:40 UTC.\n\nShipped the fix.");
+  assert.equal(h.reports[0].at, "2026-10-04T07:40:00Z");
+  assert.equal(h.staff.length, 1, "and the status issue still has its one place");
 
-  const old = sortHome(
-    [status({ author: "acme-ops", createdAt: "2026-10-02T07:40:00Z", body: "x" })],
-    staff,
-    humans,
-    [],
-    NOW,
-  );
-  assert.equal(old.reports.length, 0, "a report from two days ago is not this morning's");
-  const mine = sortHome(
-    [status({ author: "ada", createdAt: "2026-10-04T08:00:00Z", body: "x" })],
-    staff,
-    humans,
-    [],
-    NOW,
-  );
-  assert.equal(mine.reports.length, 0, "a person's comment is not a report");
+  const empty = sortHome([status({ body: "  " })], staff, humans, [], NOW);
+  assert.equal(empty.reports.length, 0, "an empty body is no report");
+  const other = sortHome([item({ number: 9, body: "not a status issue" })], staff, humans, [], NOW);
+  assert.equal(other.reports.length, 0);
 });
 
 test("unread activity off Home's main lists still shows, newest first", () => {

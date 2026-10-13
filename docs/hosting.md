@@ -60,11 +60,11 @@ CMO to draft this week's post". The tools:
 
 | Tool | Does |
 |---|---|
-| `brief` | The last day's reports, what needs you (with each decision's default), your requests, what was closed today |
+| `brief` | Each staff member's report, what needs you (with each decision's default), your requests, what was closed today |
 | `read_thread` | One issue or pull request with every reply |
 | `reply` | A reply as you, optionally closing the issue |
 | `ask_staff` | A new issue on a staff member's tracker with their mention, which starts them |
-| `ask_for_report` | Asks a staff member for a report on their status issue |
+| `ask_for_report` | Asks a staff member to bring their report up to date now |
 | `read_brain` | `STATE.md`, `CHARTER.md`, `memory/INDEX.md`, `log/decisions.md` or `staff.yaml` |
 
 It cannot merge, approve, hire, or change the org: those stay on Home, where you see the diff

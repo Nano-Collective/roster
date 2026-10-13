@@ -328,6 +328,11 @@ async function query(gh: GitHub, owner: string, name: string): Promise<any> {
   return res.data?.repository;
 }
 
+/** A status issue: this week's carries `status` and `keep-open`, one from before weeks only `keep-open`. */
+function isStatus(n: any): boolean {
+  return (n.labels?.nodes ?? []).some((l: any) => l?.name === "status" || l?.name === "keep-open");
+}
+
 function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxItem {
   const events = (n.timelineItems?.nodes ?? [])
     .map((e: any) => event(e))
@@ -339,8 +344,9 @@ function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxI
     number: n.number,
     title: n.title ?? "",
     // The list carries the body only to find a decision's default; a row never shows it, and
-    // a thread that is opened is read whole on its own.
-    body: n.timelineItems ? (n.body ?? "") : "",
+    // a thread that is opened is read whole on its own. A status issue's body is the exception:
+    // it is the staff member's report, and Home shows it.
+    body: n.timelineItems || isStatus(n) ? (n.body ?? "") : "",
     ...extras(n),
     labels: (n.labels?.nodes ?? []).map((l: any) => l.name),
     assignees: (n.assignees?.nodes ?? []).map((a: any) => a.login),

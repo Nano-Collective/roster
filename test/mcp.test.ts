@@ -294,7 +294,7 @@ test("the brief reads like Home: reports, what needs you with its default, reque
         staff: cto,
         item: { repo: "acme/cto", number: 1 },
         at: "2026-10-13T12:06:36Z",
-        lines: ["Shipped it.", "Next: more."],
+        body: "Updated 13 Oct 12:06 UTC.\n\nShipped it.",
       },
     ],
     needs: [
@@ -326,7 +326,7 @@ test("the brief reads like Home: reports, what needs you with its default, reque
     ],
     closedToday: [{ item: { repo: "acme/cto", number: 6, title: "Old" }, reason: "done in #9" }],
   });
-  assert.match(text, /CTO \(2026-10-13 12:06 UTC, on acme\/cto#1\):\n {2}Shipped it\./);
+  assert.match(text, /CTO \(acme\/cto#1\):\n {2}Updated 13 Oct 12:06 UTC\.\n {2}Shipped it\./);
   assert.match(text, /Needs you \(2\)/);
   assert.match(
     text,
