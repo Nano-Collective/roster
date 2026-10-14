@@ -84,9 +84,9 @@ export async function deployCommand(argv: string[]): Promise<number> {
       (config.vars.GITHUB_CLIENT_ID
         ? ""
         : "    asks for    the portal's GitHub OAuth App (a three-field form)\n") +
-      (opts.ci || hasConnectorStore(config)
+      (hasConnectorStore(config)
         ? ""
-        : "    creates     a KV namespace for connectors that sign in, such as Notion\n") +
+        : "    binds       a KV namespace for connectors that sign in, such as Notion\n") +
       `    deploys     with ${WRANGLER}, as whoever wrangler is signed in as\n\n`,
   );
   if (!opts.apply) {
@@ -126,12 +126,14 @@ export async function deployCommand(argv: string[]): Promise<number> {
     };
     writeFileSync(join(tmp, "wrangler.json"), JSON.stringify(full, null, 2));
 
-    /* Somewhere a sign-in outlives the cache. Created once, by hand, and written into the
-       committed config so the morning redeploys keep it. A failure here costs only the
-       connectors that sign in, so it is said and the deploy goes on. */
-    if (!opts.ci && !hasConnectorStore(config)) {
-      process.stdout.write("  creating a KV namespace for signed-in connectors…\n");
-      const id = await createNamespace(`${config.name}-connectors`, join(tmp, "wrangler.json"));
+    /* Somewhere a sign-in outlives the cache. Found by its name, or created, on any deploy
+       that does not have it bound yet, the morning one included: that is the one holding the
+       account's own token, where a laptop's wrangler may be signed in to another account. A
+       hand deploy writes it into the committed config. A failure costs only the connectors
+       that sign in, so it is said and the deploy goes on. */
+    if (!hasConnectorStore(config)) {
+      process.stdout.write("  finding the KV namespace for signed-in connectors…\n");
+      const id = await namespaceFor(`${config.name}-connectors`, join(tmp, "wrangler.json"));
       if (id) {
         config.kv_namespaces = [
           ...((config.kv_namespaces as KvBinding[] | undefined) ?? []),
@@ -246,22 +248,42 @@ function hasConnectorStore(config: WorkerConfig): boolean {
   );
 }
 
-/** A new KV namespace's id, read off wrangler's own output, or null. */
-async function createNamespace(title: string, configFile: string): Promise<string | null> {
-  const out = await new Promise<{ code: number; text: string }>((resolve) => {
+/** The id of the KV namespace with this title: the one there is, or a new one. Null on failure. */
+async function namespaceFor(title: string, configFile: string): Promise<string | null> {
+  const listed = await captured(["kv", "namespace", "list", "--config", configFile]);
+  if (listed.code === 0) {
+    const found = existingNamespace(listed.text, title);
+    if (found) return found;
+  }
+  const made = await captured(["kv", "namespace", "create", title, "--config", configFile]);
+  return made.code === 0 ? namespaceId(made.text) : null;
+}
+
+function captured(args: string[]): Promise<{ code: number; text: string }> {
+  return new Promise((resolve) => {
     let text = "";
-    const child = spawn(
-      "npx",
-      ["--yes", WRANGLER, "kv", "namespace", "create", title, "--config", configFile],
-      { stdio: ["ignore", "pipe", "inherit"] },
-    );
+    const child = spawn("npx", ["--yes", WRANGLER, ...args], {
+      stdio: ["ignore", "pipe", "inherit"],
+    });
     child.stdout.on("data", (b) => {
       text += String(b);
     });
     child.on("close", (code) => resolve({ code: code ?? 1, text }));
     child.on("error", () => resolve({ code: 1, text }));
   });
-  return out.code === 0 ? namespaceId(out.text) : null;
+}
+
+/** From `wrangler kv namespace list`, which prints a JSON array, the id of the one titled so. */
+export function existingNamespace(text: string, title: string): string | null {
+  try {
+    const list = JSON.parse(text.slice(text.indexOf("["))) as Array<{
+      id?: string;
+      title?: string;
+    }>;
+    return list.find((n) => n.title === title)?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** The id in what `wrangler kv namespace create` prints, in either of its config dialects. */

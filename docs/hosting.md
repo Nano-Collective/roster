@@ -136,7 +136,8 @@ setup. To keep it everywhere rather than per data centre, bind a KV namespace as
 
 A [connector](connectors.md) that signs in with a browser, like Notion, keeps its sign-in on the
 hosted portal, which needs somewhere durable to keep it: a KV namespace bound as `CONNECTORS`.
-`roster portal deploy` creates one the first time it runs by hand, and writes it into
+`roster portal deploy` finds one by name, or creates it, on any deploy that does not have it
+bound yet, the morning one included; a deploy by hand also writes it into
 `portal/wrangler.jsonc`. Without it, connectors that take a key still work, and the ones that
 sign in are not offered.
 

@@ -267,3 +267,11 @@ test("a new KV namespace's id is read off wrangler's output, in JSON or TOML", a
     null,
   );
 });
+
+test("an existing namespace is found by its title, so a daily deploy never makes a second", async () => {
+  const { existingNamespace } = await import("../src/commands/deploy.js");
+  const list = `[\n  { "id": "aaa", "title": "other" },\n  { "id": "bbb", "title": "pip-roster-portal-connectors" }\n]`;
+  assert.equal(existingNamespace(list, "pip-roster-portal-connectors"), "bbb");
+  assert.equal(existingNamespace(list, "missing"), null);
+  assert.equal(existingNamespace("not json", "x"), null);
+});
