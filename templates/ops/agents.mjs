@@ -235,6 +235,9 @@ function strip(o) {
   const out = {};
   for (const [k, v] of Object.entries(o)) if (v !== undefined && v !== null && v !== "") out[k] = v;
   delete out.id;
+  // The spec's `permissions` is a level, one word, and permissionOf reads it from the spec.
+  // Merged in, it would replace the preset's table of spellings and leave no flags at all.
+  delete out.permissions;
   return out;
 }
 

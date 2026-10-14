@@ -210,6 +210,22 @@ test("allowed_tools still wins for the agent whose vocabulary it is", () => {
   );
 });
 
+test("the level written inside the agent block is still a level, not the preset's table", () => {
+  /* What `roster init` writes. The spec is merged over the preset, and both have a key called
+     `permissions`: the preset's is its table of spellings, the spec's is one word. Letting the
+     word replace the table left a fresh org's Claude with no tools at all, so every git and gh
+     call stopped at a prompt nobody was there to answer. */
+  const fresh = { agent: { id: "claude-code-action", permissions: "full" } };
+  assert.match(
+    resolveAgent(fresh, {}).flags,
+    /--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"/,
+  );
+  assert.match(
+    resolveAgent({ agent: { id: "codex", permissions: "read-only" } }, {}).flags,
+    /--sandbox read-only/,
+  );
+});
+
 test("a staff member can be trusted less than the org", () => {
   const org = { agent: "codex", permissions: "full" };
   assert.match(resolveAgent(org, { permissions: "read-only" }).flags, /--sandbox read-only/);
