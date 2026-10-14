@@ -1,7 +1,7 @@
 ---
 title: "Upgrading"
 description: "How framework changes reach a tenant without eating your edits."
-sidebar_order: 9
+sidebar_order: 10
 ---
 
 # Upgrading

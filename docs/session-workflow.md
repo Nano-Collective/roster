@@ -1,7 +1,7 @@
 ---
 title: "The session workflow"
 description: "Inputs, secrets, and what runs in what order."
-sidebar_order: 16
+sidebar_order: 17
 ---
 
 # The session workflow

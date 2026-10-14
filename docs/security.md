@@ -1,7 +1,7 @@
 ---
 title: "Security model"
 description: "What can reach what, what stops it, and what is not defended against."
-sidebar_order: 21
+sidebar_order: 22
 ---
 
 # Security model
@@ -176,6 +176,22 @@ the org.
 **The OAuth scopes.** `repo` and `notifications`. A GitHub App would be narrower, but its
 tokens cannot read notifications, and unread in the portal is GitHub's own unread, kept in step
 with the website and your phone.
+
+## Connectors
+
+A [connector](connectors.md)'s key is a GitHub secret every brain repo can read, encrypted to
+GitHub's key by the portal or the CLI before it leaves your machine. It reaches a run because the
+callers pass their secrets on with `secrets: inherit`. Inside the run, one step reads them
+(`connectors.mjs`) and writes only this staff member's connectors' keys into the agent's MCP
+config, in the runner's temp directory. No other step, and no agent, sees the rest.
+
+The agent can read that config, so treat a key as given to the staff members who have it, and
+give it the least it needs: a read-only key is a limit no prompt can argue with.
+
+A signed-in connector's refresh token stays on the hosted portal, sealed under its session key.
+A run gets a short-lived access token, and only after proving with GitHub's OIDC token that it is
+a job of this org's `session.yaml`; a token minted for any other audience, workflow or org is
+refused.
 
 ## Trust in a prompt
 

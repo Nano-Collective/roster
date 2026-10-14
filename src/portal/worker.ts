@@ -5,6 +5,7 @@ import { type GitHub, githubClient } from "../lib/github.js";
 import { readHumans } from "../lib/humans.js";
 import { useRecordStore } from "../lib/runs.js";
 import { mount, treeOf } from "../lib/vfs.js";
+import { accessToken, isSession, verifyActionsToken } from "./grants.js";
 import { type Actor, createPortal, handlePortal, type Portal, readOrgFor } from "./handler.js";
 import { cloudflareKV, recordStore } from "./kv-cloudflare.js";
 import { handleMcp } from "./mcp.js";
@@ -43,6 +44,11 @@ interface Env {
   SESSION_KEY: string;
   /** Optional: a KV namespace for the cache. Without one, the edge cache. */
   CACHE?: Parameters<typeof cloudflareKV>[0];
+  /**
+   * Optional: a KV namespace for signed-in connectors, which have to outlive any cache. Without
+   * one, connectors that sign in are not offered; the ones that take a key still are.
+   */
+  CONNECTORS?: Parameters<typeof cloudflareKV>[0];
   /** Development only, honoured on localhost alone: act as this token without signing in. */
   DEV_TOKEN?: string;
 }
@@ -55,7 +61,7 @@ const clients = new Map<string, GitHub>();
 const confirmed = new Map<string, number>();
 const RECHECK_MS = 5 * 60_000;
 
-function boot(env: Env): Portal {
+function boot(env: Env, origin: string): Portal {
   if (portal) return portal;
   mount(FRAMEWORK, treeOf(framework as Record<string, string>));
   useFrameworkRoot(FRAMEWORK);
@@ -67,6 +73,9 @@ function boot(env: Env): Portal {
     kv,
     // A Worker request that awaits a fetch another request started never finishes.
     shareInflight: false,
+    grants: env.CONNECTORS
+      ? { store: durableKV(env.CONNECTORS), secret: env.SESSION_KEY, base: origin }
+      : undefined,
   });
   return portal;
 }
@@ -103,8 +112,8 @@ export default {
     env: Env,
     ctx: { waitUntil(work: Promise<unknown>): void },
   ): Promise<Response> {
-    const p = boot(env);
     const url = new URL(req.url);
+    const p = boot(env, url.origin);
     const path = url.pathname;
     const auth: AuthConfig = {
       clientId: env.GITHUB_CLIENT_ID,
@@ -133,6 +142,10 @@ export default {
       };
       return handleMcp(req, p, actor, name);
     }
+
+    // A run collecting a signed-in connector's token. It has no session: it proves which
+    // workflow it is with GitHub's own OIDC token instead.
+    if (path === "/connectors/token") return connectorToken(req, url, p);
 
     // The page's own files carry nothing about the org, and the sign-in page needs none of them.
     if (path.startsWith("/assets/")) return env.ASSETS.fetch(req);
@@ -198,4 +211,42 @@ export default {
 function sameOrigin(req: Request, url: URL): boolean {
   const origin = req.headers.get("origin");
   return origin === url.origin;
+}
+
+/** KV that keeps what it is given: no expiry, because a sign-in is not a cache entry. */
+function durableKV(ns: NonNullable<Env["CONNECTORS"]>) {
+  return {
+    async get(key: string) {
+      return (await ns.get(key)) ?? undefined;
+    },
+    async put(key: string, value: string) {
+      await ns.put(key, value);
+    },
+  };
+}
+
+/**
+ * A fresh access token for one signed-in connector, for a run of this org's session workflow.
+ * The run's OIDC token is asked for with this portal's origin as its audience, so a token minted
+ * for anything else is turned away.
+ */
+async function connectorToken(req: Request, url: URL, p: Portal): Promise<Response> {
+  if (req.method !== "POST") return new Response("POST only", { status: 405 });
+  if (!p.grants) return Response.json({ error: "this portal keeps no sign-ins" }, { status: 404 });
+  const bearer = /^Bearer\s+(\S+)$/i.exec(req.headers.get("authorization") ?? "")?.[1];
+  const claims = bearer ? await verifyActionsToken(bearer, url.origin) : null;
+  if (!claims || !isSession(claims, p.org, p.opsName)) {
+    return Response.json({ error: "only a run of this org's session workflow" }, { status: 401 });
+  }
+  const { connector } = (await req.json().catch(() => ({}))) as { connector?: string };
+  if (!connector || !/^[a-z][a-z0-9-]{0,30}$/.test(connector)) {
+    return Response.json({ error: "which connector?" }, { status: 400 });
+  }
+  try {
+    return Response.json({
+      access_token: await accessToken(p.grants.store, p.grants.secret, connector),
+    });
+  } catch (err) {
+    return Response.json({ error: (err as Error).message }, { status: 409 });
+  }
 }

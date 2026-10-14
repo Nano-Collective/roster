@@ -1,7 +1,7 @@
 ---
 title: "Writing a charter"
 description: "The one file nothing can generate for you, and the shape that has worked."
-sidebar_order: 5
+sidebar_order: 6
 ---
 
 # Writing a charter

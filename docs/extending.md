@@ -1,7 +1,7 @@
 ---
 title: "Extending it"
 description: "The four seams, and which one to reach for."
-sidebar_order: 6
+sidebar_order: 7
 ---
 
 # Extending it for your business

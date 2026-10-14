@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { ASK_KINDS } from "../lib/asks.js";
 import { commitAndPush } from "../lib/commit.js";
+import { declared } from "../lib/connectors.js";
 import { readOrgSecret, shareOrgSecret } from "../lib/credential.js";
 import { api, ghJson, ghReady } from "../lib/gh.js";
 import { staffHumans } from "../lib/humans.js";
@@ -489,6 +490,21 @@ export async function applyPlan(ws: Workspace, plan: Plan, opts: Flags): Promise
   if (orgSecret) {
     const shared = await shareOrgSecret(plan.org.org, staff.agentSecret, staff.brain);
     process.stdout.write(`  ${shared.note}\n`);
+  }
+
+  /* Connector keys go to every brain, so the new one needs them too. An org secret can be
+     shared without its value; a key kept on each repo cannot be copied, so it is named. */
+  for (const c of declared(plan.org)) {
+    for (const k of c.secrets) {
+      if (await readOrgSecret(plan.org.org, k.name)) {
+        const shared = await shareOrgSecret(plan.org.org, k.name, staff.brain);
+        process.stdout.write(`  ${shared.note}\n`);
+      } else {
+        process.stdout.write(
+          `  ${c.name}'s key is on each repo, so ${staff.brain} has none yet. Add it again from Connectors to give it to ${staff.handle}.\n`,
+        );
+      }
+    }
   }
 
   git(root, ["init", "-q", "-b", "main"]);

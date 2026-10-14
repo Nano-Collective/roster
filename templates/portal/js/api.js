@@ -45,6 +45,9 @@ export async function getOrgWithProgress(onStep) {
   throw new Error("The org did not arrive. Reload to try again.");
 }
 export const getDocs = () => json("/api/docs");
+
+/** Connectors: the catalogue, what this org has, and whether each one's key is stored. */
+export const getConnectors = () => json("/api/connectors");
 export const getInbox = (force) => json("/api/inbox" + (force ? "?refresh=1" : ""));
 export const getSync = () => json("/api/sync").catch(() => null);
 

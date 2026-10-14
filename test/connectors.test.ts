@@ -22,6 +22,7 @@ const ORG = {
       staff: ["cto"],
       url: "https://mcp.example.com/mcp",
       secrets: ["API_KEY"],
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: org.yaml spells a secret this way
       headers: { "X-Key": "${API_KEY}" },
     },
   },
@@ -58,7 +59,10 @@ test("every catalogue entry can be filled in and checked without a sign-in, or s
     assert.ok(secret.length, `${id} takes no key`);
     const values = Object.fromEntries(e.fields.map((f: any) => [f.id, "v"]));
     const s = e.server(values, { readOnly: false });
-    assert.ok(s.transport === "http" ? /^https:\/\//.test(s.url) : s.command, `${id} has no server`);
+    assert.ok(
+      s.transport === "http" ? /^https:\/\//.test(s.url) : s.command,
+      `${id} has no server`,
+    );
     for (const f of secret) {
       if (f.pattern) assert.doesNotThrow(() => new RegExp(f.pattern), `${id}.${f.id}`);
     }
@@ -106,7 +110,10 @@ test("Claude gets a config file holding the keys, and the servers' tools on its 
 test("agents.mjs adds the connectors' tools to the allowlist at every level", () => {
   const wiring = { flags: "--mcp-config /tmp/rc/mcp.json", tools: ["mcp__sentry"] };
   const full = agents.resolveAgent({}, {}, wiring).flags;
-  assert.match(full, /--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,mcp__sentry"/);
+  assert.match(
+    full,
+    /--allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,mcp__sentry"/,
+  );
   assert.match(full, /--mcp-config \/tmp\/rc\/mcp\.json/);
   const listed = agents.resolveAgent({ defaults: { allowed_tools: ["Read", "Bash"] } }, {}, wiring);
   assert.match(listed.flags, /--allowedTools "Read,Bash,mcp__sentry"/);
@@ -129,7 +136,10 @@ test("read only: a server that can be told is told, and one that cannot is left 
 test("one connector can be marked read only for everybody", async () => {
   const org = { connectors: { supabase: { staff: ["cto"], read_only: true } } };
   const r = await run({ org });
-  assert.match(JSON.parse(Object.values(r.wiring.files)[0] as string).mcpServers.supabase.url, /read_only=true/);
+  assert.match(
+    JSON.parse(Object.values(r.wiring.files)[0] as string).mcpServers.supabase.url,
+    /read_only=true/,
+  );
 });
 
 test("Codex gets its own config.toml in a fresh CODEX_HOME, and no key on its command line", async () => {
@@ -215,7 +225,9 @@ test("connectors are added to org.yaml without touching anything else", () => {
 
 test("the block is replaced in place, and comments around it survive", () => {
   const once = c.withConnectors(ORG_TEXT, { sentry: { staff: ["cto"] } });
-  const moved = once.replace("connectors:", "connectors:  # services").concat("\n# trailing\nhuman:\n  github: will\n");
+  const moved = once
+    .replace("connectors:", "connectors:  # services")
+    .concat("\n# trailing\nhuman:\n  github: will\n");
   const twice = c.withConnectors(moved, { linear: { staff: ["cmo"] } });
   const parsed = parseYaml(twice);
   assert.deepEqual(Object.keys(parsed.connectors), ["linear"]);
@@ -232,6 +244,26 @@ test("removing the last connector removes the block", () => {
 });
 
 test("a value that YAML would read as something else is quoted", () => {
-  const out = c.withConnectors("org: acme\n", { x: { staff: ["cto"], url: "https://a.b/c?d=1&e=two words" } });
+  const out = c.withConnectors("org: acme\n", {
+    x: { staff: ["cto"], url: "https://a.b/c?d=1&e=two words" },
+  });
   assert.equal(parseYaml(out).connectors.x.url, "https://a.b/c?d=1&e=two words");
+});
+
+/* ------------------------------- deploy ------------------------------- */
+
+test("a new KV namespace's id is read off wrangler's output, in JSON or TOML", async () => {
+  const { namespaceId } = await import("../src/commands/deploy.js");
+  const id = "0123456789abcdef0123456789abcdef";
+  assert.equal(
+    namespaceId(
+      `{\n  "kv_namespaces": [\n    {\n      "binding": "x",\n      "id": "${id}"\n    }\n  ]\n}`,
+    ),
+    id,
+  );
+  assert.equal(namespaceId(`[[kv_namespaces]]\nbinding = "x"\nid = "${id}"`), id);
+  assert.equal(
+    namespaceId("✘ [ERROR] A namespace with this account ID and title already exists"),
+    null,
+  );
 });

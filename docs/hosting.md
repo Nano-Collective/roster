@@ -1,7 +1,7 @@
 ---
 title: "Hosting the portal"
 description: "The portal on your own URL, behind Sign in with GitHub, redeploying itself."
-sidebar_order: 11
+sidebar_order: 12
 ---
 
 # Hosting the portal
@@ -131,6 +131,17 @@ dates, and finished runs' costs. All of it is immutable, so it is never stale.
 On your machine it is `~/.cache/roster`. On Cloudflare it is the edge cache, which needs no
 setup. To keep it everywhere rather than per data centre, bind a KV namespace as `CACHE` in
 `portal/wrangler.jsonc`.
+
+## Signed-in connectors
+
+A [connector](connectors.md) that signs in with a browser, like Notion, keeps its sign-in on the
+hosted portal, which needs somewhere durable to keep it: a KV namespace bound as `CONNECTORS`.
+`roster portal deploy` creates one the first time it runs by hand, and writes it into
+`portal/wrangler.jsonc`. Without it, connectors that take a key still work, and the ones that
+sign in are not offered.
+
+A run collects a fresh access token from `/connectors/token`, proving with GitHub's OIDC token
+that it is a run of this org's `session.yaml`.
 
 ## On your machine
 

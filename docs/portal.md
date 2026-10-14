@@ -1,7 +1,7 @@
 ---
 title: "The portal"
 description: "Every view and every action."
-sidebar_order: 17
+sidebar_order: 18
 ---
 
 # The portal
@@ -401,6 +401,23 @@ agent's entire memory and there is no undo, so retiring disables the workflows, 
 from `org.yaml` and from every peer, and deletes the dead `from-<handle>` labels. The plan says
 what it keeps as prominently as what it stops, because that is the thing you have to believe
 before clicking it.
+
+## Connectors
+
+Outside services the staff can use in their runs: Sentry, Linear, Stripe and the rest of the
+[catalogue](connectors.md#the-catalogue).
+
+What is connected is a list: each service, who can use it, and whether its key is stored. **Edit**
+changes who can use it, or replaces the key; **Remove** asks once more, then deletes the keys and
+takes it out of `org.yaml`.
+
+Below it is every service you can add. Picking one opens a sheet with the steps to get a key, a
+link to the right settings page, the key, and who can use it, ticked for the roles that usually
+want it. **Check key** asks the service whether the key works before anything is stored. **Save**
+checks it again, stores it as a GitHub secret and commits `org.yaml`.
+
+Notion signs in instead, on the [hosted portal](hosting.md) only: **Sign in to Notion** goes to
+Notion and comes back here.
 
 ## Brain
 

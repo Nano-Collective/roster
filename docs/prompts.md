@@ -1,7 +1,7 @@
 ---
 title: "Prompt reference"
 description: "The template syntax, the context, and what has to be guarded."
-sidebar_order: 15
+sidebar_order: 16
 ---
 
 # Prompt reference

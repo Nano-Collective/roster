@@ -1,7 +1,7 @@
 ---
 title: "Commands"
 description: "Every CLI command and flag."
-sidebar_order: 8
+sidebar_order: 9
 ---
 
 # Commands

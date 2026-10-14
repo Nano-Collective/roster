@@ -111,14 +111,16 @@ async function list(opts: Flags): Promise<number> {
 async function add(id: string, opts: Flags): Promise<number> {
   const { ws, org, file, text, brains } = await load(opts);
   const known = CATALOGUE[id];
-  const existing = (org.connectors ?? {})[id];
+  const existing = org.connectors?.[id];
   if (!known && !existing && !opts.url && !opts.command) {
     throw new Error(
       `roster does not know "${id}". Pick one from roster connector list, or give --url or --command`,
     );
   }
   if (known?.auth === "oauth") {
-    throw new Error(`${known.name} signs in with a browser. Add it from the hosted portal's Connectors page`);
+    throw new Error(
+      `${known.name} signs in with a browser. Add it from the hosted portal's Connectors page`,
+    );
   }
 
   const handles = new Set((org.staff ?? []).map((s) => s.handle));
@@ -138,15 +140,19 @@ async function add(id: string, opts: Flags): Promise<number> {
   Object.assign(entry, opts.set);
 
   const next = setConnector(text, org, id, entry);
-  const after = declared({ ...org, connectors: { ...(org.connectors ?? {}), [id]: { ...(existing ?? {}), ...entry } } }).find(
-    (c) => c.id === id,
-  )!;
+  const after = declared({
+    ...org,
+    connectors: { ...(org.connectors ?? {}), [id]: { ...(existing ?? {}), ...entry } },
+  }).find((c) => c.id === id)!;
   if (after.problem) throw new Error(after.problem);
 
   process.stdout.write(`\n  roster connector add ${id}\n\n`);
-  process.stdout.write(`    ${after.name} for ${staff.join(", ")}${opts.readOnly ? ", read only" : ""}\n`);
+  process.stdout.write(
+    `    ${after.name} for ${staff.join(", ")}${opts.readOnly ? ", read only" : ""}\n`,
+  );
   if (!opts.keepKey) {
-    for (const s of after.secrets) process.stdout.write(`    + secret ${s.name} on ${brains.length} brain repos\n`);
+    for (const s of after.secrets)
+      process.stdout.write(`    + secret ${s.name} on ${brains.length} brain repos\n`);
   }
   process.stdout.write(`    ~ org.yaml, committed and pushed\n\n`);
   if (known) {
@@ -245,7 +251,11 @@ function parseFlags(argv: string[]): Flags {
     else if (flag === "--read-only") out.readOnly = true;
     else if (flag === "--keep-key") out.keepKey = true;
     else if (flag === "--ops") out.ops = value();
-    else if (flag === "--staff") out.staff = value().split(",").map((s) => s.trim()).filter(Boolean);
+    else if (flag === "--staff")
+      out.staff = value()
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     else if (flag === "--url") out.url = value();
     else if (flag === "--command") out.command = value();
     else if (flag === "--secret") out.secrets.push(value());

@@ -1,7 +1,7 @@
 ---
 title: "doctor codes"
 description: "Every finding roster doctor can emit, what it means, and what to do."
-sidebar_order: 19
+sidebar_order: 20
 ---
 
 # doctor codes

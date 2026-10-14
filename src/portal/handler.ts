@@ -5,6 +5,18 @@ import { type ActRequest, act, wouldWake } from "../lib/act.js";
 import { amendBrief } from "../lib/amend.js";
 import { attachPath, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
+import {
+  CATALOGUE,
+  catalogueView,
+  checkKey,
+  declared,
+  deleteSecret,
+  secretName,
+  secretsOn,
+  setConnector,
+  storeSecret,
+  wrongValue,
+} from "../lib/connectors.js";
 import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
 import { CHARTER_EXAMPLES, charterStarter, matchExample } from "../lib/examples.js";
 import { buildExport, readManifest } from "../lib/export.js";
@@ -22,8 +34,19 @@ import { unfinished } from "../lib/setup.js";
 import { existsSync, mount, readFileSync, statSync } from "../lib/vfs.js";
 import { readOrg, type Workspace } from "../lib/workspace.js";
 import { buildPasteBrief, orgSpec, workspaceRoots } from "./brief.js";
+import {
+  challenge,
+  discover,
+  dropGrant,
+  exchange,
+  clientFor as oauthClientFor,
+  readGrant,
+  verifier,
+  writeGrant,
+} from "./grants.js";
 import { type BrainHistory, loadedHistory, loadHistory } from "./history.js";
 import type { KeyValue } from "./kv.js";
+import { openJson, sealJson } from "./session.js";
 import { type Report, Snapshots } from "./snapshot.js";
 
 /**
@@ -49,6 +72,12 @@ export interface Portal {
   ws: Workspace;
   snapshots: Snapshots;
   kv: KeyValue;
+  /**
+   * Signed-in connectors, on a hosted portal with somewhere durable to keep them: the store,
+   * the key their grants are sealed under, and the portal's own address, which is where a
+   * service sends the person back to and where a run collects a token. Absent on your machine.
+   */
+  grants?: { store: KeyValue; secret: string; base: string };
   /** How a command is spelled back to the person: `roster`, or the npx form. */
   bin: string;
   /** Short-lived answers, so switching views does not ask GitHub again. Per person where it differs. */
@@ -84,6 +113,7 @@ export function createPortal(opts: {
   root?: string;
   /** False on a Worker: see Snapshots. */
   shareInflight?: boolean;
+  grants?: Portal["grants"];
 }): Portal {
   const root = opts.root ?? `/@roster/${opts.org}`;
   const snapshots = new Snapshots(opts.kv, undefined, opts.shareInflight ?? true);
@@ -97,6 +127,7 @@ export function createPortal(opts: {
     ws: { root, opsDir: join(root, opts.opsName), opsName: opts.opsName },
     snapshots,
     kv: opts.kv,
+    grants: opts.grants,
     bin: opts.bin ?? "roster",
     caches: {
       inbox: new Map(),
@@ -532,6 +563,288 @@ const ROUTES: Record<string, Route> = {
     return json(
       await commitFile(portal, actor.gh, dir!, rest.join("/"), payload.text, message, base),
     );
+  },
+
+  /* Connectors: what is offered, what this org has, and whether each one's keys are stored. */
+  "/api/connectors": async (c) => {
+    const { portal, actor } = c;
+    const { org } = await ready(c);
+    const brains = (org.staff ?? []).map((s: any) => `${portal.org}/${s.dir ?? s.handle}`);
+    const stored = await secretsOn(actor.gh, brains);
+    const readable = [...stored.values()].filter((v): v is Set<string> => v !== null);
+    const connectors = await Promise.all(
+      declared(org).map(async (x) => {
+        let keys: "stored" | "missing" | "partial" | "unknown" | null = null;
+        let signedIn: { by: string; at: string } | null = null;
+        if (x.auth === "key" && x.secrets.length) {
+          if (!readable.length) keys = "unknown";
+          else {
+            const on = readable.filter((set) => x.secrets.every((s) => set.has(s.name))).length;
+            keys = on === readable.length ? "stored" : on === 0 ? "missing" : "partial";
+          }
+        }
+        if (x.auth === "oauth" && portal.grants) {
+          const g = await readGrant(portal.grants.store, portal.grants.secret, x.id);
+          if (g) signedIn = { by: g.by, at: g.at };
+        }
+        const { entry: _entry, ...rest } = x;
+        return { ...rest, keys, signedIn };
+      }),
+    );
+    return json({
+      catalogue: catalogueView(),
+      connectors,
+      staff: (org.staff ?? []).map((s: any) => ({
+        handle: String(s.handle),
+        name: String(s.name ?? s.handle),
+      })),
+      signIn: Boolean(portal.grants),
+      canWrite: !isViewOnly(org, actor.id),
+    });
+  },
+
+  /* Whether a key works, before it is stored. The key goes to the service and nowhere else. */
+  "/api/connectors/check": async (c) => {
+    if (!c.actor.canWrite) return refuse();
+    const p = (await body(c.req)) as { id?: string; values?: Record<string, string> };
+    const id = String(p.id ?? "");
+    if (!CATALOGUE[id]) return json({ error: `roster does not know ${id}` }, 400);
+    const values = p.values ?? {};
+    const wrong = wrongValue(id, values);
+    if (wrong) return json({ state: "rejected", note: wrong });
+    return json(await checkKey(id, values));
+  },
+
+  /* Add a connector, or change who has it: the keys to GitHub secrets, then org.yaml. */
+  "/api/connectors/save": async (c) => {
+    const { portal, actor } = c;
+    if (!actor.canWrite) return refuse();
+    const { org } = await ready(c, { force: true });
+    const p = (await body(c.req)) as {
+      id?: string;
+      staff?: string[];
+      readOnly?: boolean;
+      settings?: Record<string, string>;
+      values?: Record<string, string>;
+    };
+    const id = String(p.id ?? "");
+    const known = CATALOGUE[id];
+    const existing = org.connectors?.[id];
+    if (!known && !existing) return json({ error: `roster does not know ${id}` }, 400);
+    const handles = new Set((org.staff ?? []).map((s: any) => String(s.handle)));
+    const staff = (p.staff ?? []).map(String).filter((h) => handles.has(h));
+    if (!staff.length) return json({ error: "Pick at least one staff member." }, 400);
+
+    const entry: Record<string, unknown> = { staff, read_only: p.readOnly === true };
+    for (const f of known?.fields ?? []) {
+      if (!f.secret) entry[f.id] = (p.settings?.[f.id] ?? "").trim() || undefined;
+    }
+    if (known?.auth === "oauth") entry.portal = portal.grants?.base;
+    const values = Object.fromEntries(
+      Object.entries(p.values ?? {}).map(([k, v]) => [k, String(v ?? "").trim()]),
+    );
+    const giving = Object.values(values).some(Boolean);
+    if (known && known.auth !== "oauth") {
+      const wrong = wrongValue(
+        id,
+        { ...p.settings, ...values },
+        { keepKeys: Boolean(existing) && !giving },
+      );
+      if (wrong) return json({ error: wrong }, 400);
+    }
+    if (giving && known) {
+      const checked = await checkKey(id, { ...p.settings, ...values });
+      if (checked.state === "rejected") return json({ error: checked.note }, 400);
+    }
+
+    const brains = (org.staff ?? []).map((s: any) => `${portal.org}/${s.dir ?? s.handle}`);
+    const stored = [];
+    for (const f of (known?.fields ?? []).filter((x) => x.secret)) {
+      const v = values[f.id];
+      if (!v) continue;
+      const name = secretName(id, f.id);
+      stored.push({ name, ...(await storeSecret(actor.gh, portal.org, name, v, brains)) });
+    }
+
+    const opsFile = portal.snapshots.get(`${portal.org}/${portal.opsName}`)?.files.get("org.yaml");
+    const before = opsFile?.text ?? "";
+    const after = setConnector(before, org, id, entry);
+    const wrong = validateOrgYaml(after, parseYaml);
+    if (wrong) return json({ error: wrong }, 400);
+    const name = known?.name ?? id;
+    const committed = await commitFile(
+      portal,
+      actor.gh,
+      portal.opsName,
+      "org.yaml",
+      after,
+      existing ? `portal: change who has ${name}` : `portal: connect ${name}`,
+      before,
+    );
+    return json({ ok: true, stored, committed });
+  },
+
+  /* Take a connector away: its keys, its sign-in, and its entry in org.yaml. */
+  "/api/connectors/remove": async (c) => {
+    const { portal, actor } = c;
+    if (!actor.canWrite) return refuse();
+    const { org } = await ready(c, { force: true });
+    const id = String(((await body(c.req)) as { id?: string }).id ?? "");
+    const x = declared(org).find((d) => d.id === id);
+    if (!x) return json({ error: `org.yaml has no connector ${id}` }, 400);
+    const brains = (org.staff ?? []).map((s: any) => `${portal.org}/${s.dir ?? s.handle}`);
+    for (const s of x.secrets) await deleteSecret(actor.gh, portal.org, s.name, brains);
+    if (x.auth === "oauth" && portal.grants) await dropGrant(portal.grants.store, id);
+    const before =
+      portal.snapshots.get(`${portal.org}/${portal.opsName}`)?.files.get("org.yaml")?.text ?? "";
+    const committed = await commitFile(
+      portal,
+      actor.gh,
+      portal.opsName,
+      "org.yaml",
+      setConnector(before, org, id, null),
+      `portal: disconnect ${x.name}`,
+      before,
+    );
+    return json({ ok: true, committed });
+  },
+
+  /* The start of a sign-in: where to send the person, and a sealed note of what they asked for. */
+  "/api/connectors/signin": async (c) => {
+    const { portal, actor } = c;
+    if (!actor.canWrite) return refuse();
+    if (!portal.grants) {
+      return json(
+        { error: "Signing in to a service needs the hosted portal, with a store for sign-ins." },
+        400,
+      );
+    }
+    const p = (await body(c.req)) as { id?: string; staff?: string[]; readOnly?: boolean };
+    const id = String(p.id ?? "");
+    const known = CATALOGUE[id];
+    if (!known?.oauth) return json({ error: `${id} does not sign in` }, 400);
+    const { org } = await ready(c);
+    const handles = new Set((org.staff ?? []).map((s: any) => String(s.handle)));
+    const staff = (p.staff ?? []).map(String).filter((h) => handles.has(h));
+    if (!staff.length) return json({ error: "Pick at least one staff member." }, 400);
+
+    const redirect = `${portal.grants.base}/connectors/callback`;
+    const meta = await discover(known.oauth.resource);
+    const client = await oauthClientFor(
+      meta,
+      redirect,
+      `Roster (${portal.org})`,
+      portal.grants.store,
+    );
+    const v = verifier();
+    const state = verifier();
+    const pending = await sealJson(
+      {
+        kind: "connector",
+        id,
+        staff,
+        readOnly: p.readOnly === true,
+        verifier: v,
+        state,
+        tokenEndpoint: meta.token_endpoint,
+        ...client,
+        exp: Date.now() + 600_000,
+      },
+      portal.grants.secret,
+    );
+    const go = new URL(meta.authorization_endpoint);
+    for (const [k, val] of Object.entries({
+      response_type: "code",
+      client_id: client.clientId,
+      redirect_uri: redirect,
+      code_challenge: await challenge(v),
+      code_challenge_method: "S256",
+      state,
+      resource: known.oauth.resource,
+    })) {
+      go.searchParams.set(k, val);
+    }
+    return new Response(JSON.stringify({ url: go.toString() }), {
+      headers: {
+        "content-type": JSON_TYPE,
+        "cache-control": "no-store",
+        "set-cookie": `roster_connector=${pending}; Path=/connectors/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600`,
+      },
+    });
+  },
+
+  /* Where the service sends the person back. The sealed note from the start is the write guard:
+     only a sign-in this page began, for this person, in the last ten minutes, lands. */
+  "/connectors/callback": async (c) => {
+    const { portal, actor, req, url } = c;
+    if (!portal.grants) return notFound();
+    const back = (msg: string) =>
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: `/#/-/connectors${msg ? `?e=${encodeURIComponent(msg)}` : ""}`,
+          "set-cookie": "roster_connector=; Path=/connectors/callback; Max-Age=0",
+        },
+      });
+    const raw = /(?:^|;\s*)roster_connector=([^;]+)/.exec(req.headers.get("cookie") ?? "")?.[1];
+    const pending = raw
+      ? await openJson<{
+          kind: string;
+          id: string;
+          staff: string[];
+          readOnly: boolean;
+          verifier: string;
+          state: string;
+          tokenEndpoint: string;
+          clientId: string;
+          clientSecret?: string;
+          exp: number;
+        }>(raw, portal.grants.secret)
+      : null;
+    if (pending?.kind !== "connector" || pending.exp < Date.now()) {
+      return back("The sign-in took too long. Try again.");
+    }
+    if (url.searchParams.get("state") !== pending.state)
+      return back("The sign-in did not match. Try again.");
+    const code = url.searchParams.get("code");
+    if (!code)
+      return back(url.searchParams.get("error_description") ?? "The sign-in was cancelled.");
+    const known = CATALOGUE[pending.id];
+    if (!known?.oauth) return back("That service is not one roster signs in to.");
+    try {
+      const grant = await exchange({
+        connector: pending.id,
+        resource: known.oauth.resource,
+        tokenEndpoint: pending.tokenEndpoint,
+        clientId: pending.clientId,
+        clientSecret: pending.clientSecret,
+        code,
+        verifier: pending.verifier,
+        redirectUri: `${portal.grants.base}/connectors/callback`,
+        by: actor.id,
+      });
+      await writeGrant(portal.grants.store, portal.grants.secret, grant);
+      const { org } = await ready(c, { force: true });
+      const before =
+        portal.snapshots.get(`${portal.org}/${portal.opsName}`)?.files.get("org.yaml")?.text ?? "";
+      const after = setConnector(before, org, pending.id, {
+        staff: pending.staff,
+        read_only: pending.readOnly,
+        portal: portal.grants.base,
+      });
+      await commitFile(
+        portal,
+        actor.gh,
+        portal.opsName,
+        "org.yaml",
+        after,
+        `portal: connect ${known.name}`,
+        before,
+      );
+    } catch (err) {
+      return back((err as Error).message);
+    }
+    return back("");
   },
 
   /* Acting on GitHub as the person: reply, close, reopen, open, approve, merge, ask. */

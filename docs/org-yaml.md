@@ -1,7 +1,7 @@
 ---
 title: "org.yaml reference"
 description: "Every field in the org manifest, and what reads it."
-sidebar_order: 13
+sidebar_order: 14
 ---
 
 # `org.yaml` reference
@@ -63,6 +63,30 @@ repos:
 | `experiment_private` | no | Whether the fact that this org is agent-run is itself private. Read by the guardrails fragment. |
 | `budget` | no | USD over any trailing 30 days, for the whole org. See [below](#budget). |
 | `review_gate` | no | `true` to have GitHub require a reviewed pull request before anything merges into a product repo. Off by default, because private repos need a paid plan for it. See [security](security.md#the-review-gate). |
+
+### `connectors`
+
+Outside services staff can use in their runs, by name, with who has each. Keys are never here:
+they are GitHub secrets. See [connectors](connectors.md).
+
+```yaml
+connectors:
+  sentry:
+    staff: [cto]
+  supabase:
+    staff: [cto]
+    project_ref: abc123
+    read_only: true
+```
+
+| Field | Required | Means |
+|---|---|---|
+| `staff` | yes | Handles of the staff who can use it. |
+| `read_only` | no | `true` to hold it to reading for everybody who has it. |
+| `portal` | for a sign-in | The hosted portal that keeps its sign-in. Written by the portal. |
+| `url`, `command`, `secrets`, `headers`, `env` | for a service not in the catalogue | See [connectors](connectors.md#a-service-that-is-not-in-the-catalogue). |
+
+Anything else is a setting the service needs, such as Supabase's `project_ref`.
 
 ### `human` and `humans`
 

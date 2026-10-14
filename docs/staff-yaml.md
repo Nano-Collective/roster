@@ -1,7 +1,7 @@
 ---
 title: "staff.yaml reference"
 description: "Every field in a staff member's manifest."
-sidebar_order: 14
+sidebar_order: 15
 ---
 
 # `staff.yaml` reference

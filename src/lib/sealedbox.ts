@@ -160,7 +160,8 @@ function hsalsa20(key: Uint8Array, input16: Uint8Array): Uint8Array {
   return out;
 }
 
-const le32 = (v: number) => new Uint8Array([v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]);
+const le32 = (v: number) =>
+  new Uint8Array([v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]);
 
 /** XSalsa20's keystream, `len` bytes of it. */
 function xsalsa20Stream(key: Uint8Array, nonce24: Uint8Array, len: number): Uint8Array {

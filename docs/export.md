@@ -1,7 +1,7 @@
 ---
 title: "roster export reference"
 description: "The JSON shape, field by field."
-sidebar_order: 18
+sidebar_order: 19
 ---
 
 # `roster export` reference

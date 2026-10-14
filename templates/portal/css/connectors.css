@@ -1,0 +1,50 @@
+/* Connectors: what is connected, as rows, and what can be, as a grid of cards. */
+
+.connhead{font:600 13px var(--sans);color:var(--ink-dim);margin:22px 0 10px;letter-spacing:0}
+.connhead:first-child{margin-top:4px}
+h1 + div > .connhead:first-child,h1 + .connerr + div > .connhead:first-child{margin-top:20px}
+.connerr{background:color-mix(in srgb,var(--err) 9%,transparent);border-radius:var(--r);padding:10px 12px;
+      margin:0 0 14px;font-size:13px}
+
+.connlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r-lg);
+      background:var(--panel);box-shadow:var(--shadow-sm);overflow:hidden;max-width:880px}
+.connrow{display:grid;grid-template-columns:32px minmax(0,1fr) auto auto;gap:14px;align-items:center;
+      padding:12px 16px;border-top:1px solid var(--line)}
+.connrow:first-child{border-top:0}
+.conntext{display:flex;flex-direction:column;gap:5px;min-width:0}
+.conntext b{font:600 14px var(--sans);letter-spacing:-.01em}
+.connwho{display:flex;gap:5px;flex-wrap:wrap}
+.connacts{margin:0;flex-wrap:nowrap}
+.connacts .ghbtn.danger{color:var(--err);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
+
+.connicon{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;flex:none;
+      background:var(--accent-soft);color:var(--accent);--ic:16px}
+
+.conngrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));max-width:880px}
+.conncard{display:flex;align-items:flex-start;gap:12px;text-align:left;padding:14px;border:1px solid var(--line);
+      border-radius:var(--r-lg);background:var(--panel);color:var(--ink);cursor:pointer;box-shadow:var(--shadow-sm);
+      transition:border-color .15s var(--ease),transform .15s var(--ease),box-shadow .15s var(--ease)}
+.conncard > span:last-child{display:flex;flex-direction:column;gap:3px;min-width:0}
+.conncard b{font:600 13.5px var(--sans);line-height:1.3}
+.conncard small{font-size:12px;color:var(--ink-dim);line-height:1.45}
+.conncard:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.conncard:active{transform:translateY(1px)}
+.conncard:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-soft);border-color:var(--accent)}
+
+.connform{max-width:520px}
+.connform .sub{margin-bottom:14px}
+.connsteps{margin:0 0 12px;padding-left:20px;font-size:13.5px;line-height:1.6}
+.connsteps li{padding-left:2px}
+.connform .setupform{margin:16px 0 10px}
+.conncheck p{margin:8px 0 0;font-size:13px}
+.connsub{font:600 12px var(--sans);color:var(--ink-dim);margin:18px 0 8px}
+.connstaff{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.conntick{display:flex;align-items:center;gap:9px;font-size:13.5px;cursor:pointer;width:fit-content}
+.conntick input{width:15px;height:15px;accent-color:var(--accent);margin:0}
+.connfoot{margin-top:18px}
+
+@media (max-width:640px){
+  .connrow{grid-template-columns:32px minmax(0,1fr);row-gap:10px}
+  .connrow > .chip{grid-column:2;justify-self:start}
+  .connacts{grid-column:2}
+}

@@ -18,6 +18,7 @@ import { onRender } from "./router.js";
 import { ORG_WIDE, S, VIEWS, applyHash, humanLabel, readHash, writeHash } from "./state.js";
 import { viewBrain } from "./views/brain.js";
 import { viewChanged } from "./views/changed.js";
+import { viewConnectors } from "./views/connectors.js";
 import { viewDocs } from "./views/docs.js";
 import { viewGraph } from "./views/graph.js";
 import { viewHealth } from "./views/health.js";
@@ -39,6 +40,7 @@ const SCREEN = {
   runs: viewRuns,
   org: viewOrg,
   staff: viewStaff,
+  connectors: viewConnectors,
   docs: viewDocs,
   brain: viewBrain,
   memory: viewBrain,
@@ -65,6 +67,7 @@ const NAV = [
   ["#inboxnav", "inbox"],
   ["#runsnav", "runs"],
   ["#staffnav", "staff"],
+  ["#connectorsnav", "connectors"],
   ["#orgnav", "org"],
   ["#docsnav", "docs"],
 ];
@@ -107,7 +110,7 @@ export async function boot() {
     /* Every one of these reads a tenant, so during setup they answer 409 and the sidebar is a
        row of four dead ends beside an empty Staff heading. There is one thing to do on this
        screen; the navigation comes back with the org. */
-    for (const el of document.querySelectorAll("#sidesearch, #homenav, #inboxnav, #runsnav, #orgnav, #staffnav, #docsnav, #refreshall, .sect, #stafflist")) {
+    for (const el of document.querySelectorAll("#sidesearch, #homenav, #inboxnav, #runsnav, #orgnav, #staffnav, #connectorsnav, #docsnav, #refreshall, .sect, #stafflist")) {
       el.hidden = true;
     }
     for (const slot of document.querySelectorAll("[data-icon]")) {

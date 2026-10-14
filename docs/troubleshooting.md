@@ -1,7 +1,7 @@
 ---
 title: "Troubleshooting"
 description: "Every trap we have actually hit, and what it looks like from the outside."
-sidebar_order: 10
+sidebar_order: 11
 ---
 
 # Troubleshooting

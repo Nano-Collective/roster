@@ -84,6 +84,9 @@ export async function deployCommand(argv: string[]): Promise<number> {
       (config.vars.GITHUB_CLIENT_ID
         ? ""
         : "    asks for    the portal's GitHub OAuth App (a three-field form)\n") +
+      (opts.ci || hasConnectorStore(config)
+        ? ""
+        : "    creates     a KV namespace for connectors that sign in, such as Notion\n") +
       `    deploys     with ${WRANGLER}, as whoever wrangler is signed in as\n\n`,
   );
   if (!opts.apply) {
@@ -116,12 +119,32 @@ export async function deployCommand(argv: string[]): Promise<number> {
      the paths are this machine's, and do not belong in a committed config. */
   const tmp = mkdtempSync(join(tmpdir(), "roster-deploy-"));
   try {
-    const full = {
+    const full: Record<string, unknown> = {
       ...config,
       main: bundle.main,
       assets: { ...config.assets, directory: bundle.assets },
     };
     writeFileSync(join(tmp, "wrangler.json"), JSON.stringify(full, null, 2));
+
+    /* Somewhere a sign-in outlives the cache. Created once, by hand, and written into the
+       committed config so the morning redeploys keep it. A failure here costs only the
+       connectors that sign in, so it is said and the deploy goes on. */
+    if (!opts.ci && !hasConnectorStore(config)) {
+      process.stdout.write("  creating a KV namespace for signed-in connectors…\n");
+      const id = await createNamespace(`${config.name}-connectors`, join(tmp, "wrangler.json"));
+      if (id) {
+        config.kv_namespaces = [
+          ...((config.kv_namespaces as KvBinding[] | undefined) ?? []),
+          { binding: "CONNECTORS", id },
+        ];
+        full.kv_namespaces = config.kv_namespaces;
+        writeFileSync(join(tmp, "wrangler.json"), JSON.stringify(full, null, 2));
+      } else {
+        process.stdout.write(
+          "  could not create it, so connectors that sign in are not offered yet. Run this again later.\n",
+        );
+      }
+    }
 
     process.stdout.write("  deploying…\n");
     if ((await wrangler(["deploy", "--config", join(tmp, "wrangler.json")])) !== 0) {
@@ -210,6 +233,40 @@ function newConfig(org: string, opsName: string, domain: string): WorkerConfig {
     vars: { ROSTER_ORG: org, ROSTER_OPS_REPO: opsName, GITHUB_CLIENT_ID: "" },
     assets: { binding: "ASSETS", run_worker_first: true },
   };
+}
+
+interface KvBinding {
+  binding: string;
+  id: string;
+}
+
+function hasConnectorStore(config: WorkerConfig): boolean {
+  return ((config.kv_namespaces as KvBinding[] | undefined) ?? []).some(
+    (k) => k.binding === "CONNECTORS",
+  );
+}
+
+/** A new KV namespace's id, read off wrangler's own output, or null. */
+async function createNamespace(title: string, configFile: string): Promise<string | null> {
+  const out = await new Promise<{ code: number; text: string }>((resolve) => {
+    let text = "";
+    const child = spawn(
+      "npx",
+      ["--yes", WRANGLER, "kv", "namespace", "create", title, "--config", configFile],
+      { stdio: ["ignore", "pipe", "inherit"] },
+    );
+    child.stdout.on("data", (b) => {
+      text += String(b);
+    });
+    child.on("close", (code) => resolve({ code: code ?? 1, text }));
+    child.on("error", () => resolve({ code: 1, text }));
+  });
+  return out.code === 0 ? namespaceId(out.text) : null;
+}
+
+/** The id in what `wrangler kv namespace create` prints, in either of its config dialects. */
+export function namespaceId(text: string): string | null {
+  return /\bid\b["']?\s*[:=]\s*["']([0-9a-f]{32})["']/.exec(text)?.[1] ?? null;
 }
 
 function domainOf(config: WorkerConfig): string {

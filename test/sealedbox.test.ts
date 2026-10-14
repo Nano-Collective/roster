@@ -15,14 +15,21 @@ test("libsodium opens what roster seals, at every length a key comes in", () => 
   const { publicKey, privateKey } = sodium.crypto_box_keypair();
   for (const len of [0, 1, 15, 16, 17, 63, 64, 65, 200, 1000]) {
     const message = new Uint8Array(len).map((_, i) => (i * 7 + len) & 255);
-    const opened = sodium.crypto_box_seal_open(sealedBox(message, publicKey), publicKey, privateKey);
+    const opened = sodium.crypto_box_seal_open(
+      sealedBox(message, publicKey),
+      publicKey,
+      privateKey,
+    );
     assert.deepEqual(opened, message, `length ${len}`);
   }
 });
 
 test("the base64 form GitHub takes round-trips a real-looking key", () => {
   const { publicKey, privateKey } = sodium.crypto_box_keypair();
-  const sealed = sealForGitHub("rk_live_51abc£€", sodium.to_base64(publicKey, sodium.base64_variants.ORIGINAL));
+  const sealed = sealForGitHub(
+    "rk_live_51abc£€",
+    sodium.to_base64(publicKey, sodium.base64_variants.ORIGINAL),
+  );
   const opened = sodium.crypto_box_seal_open(
     sodium.from_base64(sealed, sodium.base64_variants.ORIGINAL),
     publicKey,
@@ -34,7 +41,10 @@ test("the base64 form GitHub takes round-trips a real-looking key", () => {
 test("X25519 agrees with libsodium", () => {
   const a = sodium.randombytes_buf(32);
   const b = sodium.randombytes_buf(32);
-  assert.deepEqual(x25519(a, sodium.crypto_scalarmult_base(b)), sodium.crypto_scalarmult(a, sodium.crypto_scalarmult_base(b)));
+  assert.deepEqual(
+    x25519(a, sodium.crypto_scalarmult_base(b)),
+    sodium.crypto_scalarmult(a, sodium.crypto_scalarmult_base(b)),
+  );
 });
 
 test("BLAKE2b agrees with libsodium, across a block boundary", () => {

@@ -1,7 +1,7 @@
 ---
 title: "Memory"
 description: "The grammar, the five rules, and why deleting is the maintenance."
-sidebar_order: 7
+sidebar_order: 8
 ---
 
 # Memory

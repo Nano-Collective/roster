@@ -1,7 +1,7 @@
 ---
 title: "Working on roster itself"
 description: "Layout, template classes, and the rules that matter."
-sidebar_order: 22
+sidebar_order: 23
 ---
 
 # Working on roster itself
@@ -80,7 +80,7 @@ registers into at boot.
 
 ## The rule that matters
 
-**Never fix a generated file in a tenant.** `compose.mjs`, `agents.mjs`, `runner-plan.mjs`,
+**Never fix a generated file in a tenant.** `compose.mjs`, `agents.mjs`, `connectors.mjs`, `runner-plan.mjs`,
 `inflight.mjs`, `run-record.mjs`, `status-week.mjs` and `session.yaml` live in `templates/ops/`. Fix them there and run `roster upgrade`.
 
 A fix made in the tenant's copy goes unnoticed until the framework next touches that file, and

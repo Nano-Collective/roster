@@ -1,7 +1,7 @@
 ---
 title: "Architecture"
 description: "What happens during a run, and the constraint that decided the design."
-sidebar_order: 20
+sidebar_order: 21
 ---
 
 # Architecture
