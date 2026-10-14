@@ -14,6 +14,9 @@
 import * as nodeFs from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// Beside this file in a tenant, but read without failing when it is not: an ops repo vendored
+// before connectors existed still composes, with no services in its prompts.
+const { connectorsOf } = await import("./connectors.mjs").catch(() => ({ connectorsOf: () => [] }));
 
 // ---------------------------------------------------------------------------
 // A strict, tiny YAML subset: nested maps, lists of scalars, lists of inline
@@ -388,6 +391,15 @@ export function compose({
     humans_extra: humanSentence(humans.slice(1)),
     // Who can read along and cannot rule. Empty, and the paragraph gone, when nobody is.
     humans_viewing: humanSentence(everyone.filter((h) => h.viewOnly)),
+    // The services this staff member may use, as a list for the prompt. Empty, and the section
+    // gone, when they have none. Whether each one's key is present is only known in the run.
+    connectors: connectorsOf(org, staff)
+      .filter((c) => !c.problem)
+      .map((c) => {
+        const ro = c.readOnly || self.permissions === "read-only";
+        return `- **${c.name}**, as the \`${c.id}\` MCP server${ro ? ", read only" : ""}`;
+      })
+      .join("\n"),
   };
 
   // "staff:foo.md" resolves inside the staff member's own brain repo, which is how a

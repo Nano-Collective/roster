@@ -136,7 +136,7 @@ export const PRESETS = {
  * anything written out longhand. A tenant that needs an agent nobody has heard of writes
  * `install`, `run` and `token_env` and never touches this file.
  */
-export function resolveAgent(org, staff = {}) {
+export function resolveAgent(org, staff = {}, extra = {}) {
   const asked = staff.agent ?? org.agent ?? {};
   const spec = typeof asked === "string" ? { id: asked } : asked;
   const id = spec.id ?? "claude-code-action";
@@ -163,7 +163,7 @@ export function resolveAgent(org, staff = {}) {
     token_env: merged.token_env,
     // The staff member's own model wins; then the agent's default. Empty means "the agent's".
     model: staff.model ?? merged.model ?? "",
-    flags: flagsFor(merged, spec, org, staff),
+    flags: flagsFor(merged, spec, org, staff, extra),
     config: merged.config ?? null,
   };
 }
@@ -183,24 +183,27 @@ export const LEVELS = ["read-only", "workspace", "full"];
  * `options` is the escape hatch, in that agent's own vocabulary, spelled onto its command line
  * by the preset. Anything roster does not model is still reachable without waiting for us.
  */
-function flagsFor(merged, spec, org, staff) {
+function flagsFor(merged, spec, org, staff, extra = {}) {
   const out = [];
-  const asked = staff.permissions ?? spec.permissions ?? org.permissions ?? "full";
-  if (!LEVELS.includes(asked)) {
-    throw new Error(`unknown permissions "${asked}". One of: ${LEVELS.join(", ")}`);
-  }
+  const asked = permissionOf(org, staff);
 
   /* `allowed_tools` predates the levels and is Claude's own vocabulary, so it still wins for
      an agent that takes a tool list. Nothing translates it for the others: a list written for
      one tool is not a permission level for another, and guessing would be worse than saying so. */
   const tools = staff.allowed_tools ?? org.defaults?.allowed_tools;
   const table = merged.permissions;
-  if (tools && table === CLAUDE_TOOLS) {
-    const list = Array.isArray(tools) ? tools.join(",") : String(tools);
-    out.push(`--allowedTools "${list.replace(/\s+/g, "")}"`);
+  /* A connector's tools join the list, or Claude would be handed an MCP server and forbidden
+     to call it. Only for an agent that takes a list: the others gate a server by its config. */
+  const more = (extra.tools ?? []).filter(Boolean);
+  if (table === CLAUDE_TOOLS) {
+    const base = tools
+      ? (Array.isArray(tools) ? tools.join(",") : String(tools)).replace(/\s+/g, "")
+      : CLAUDE_TOOLS[asked].match(/"([^"]*)"/)[1];
+    out.push(`--allowedTools "${[base, ...more].filter(Boolean).join(",")}"`);
   } else if (table) {
     out.push(table[asked]);
   }
+  if (extra.flags) out.push(extra.flags);
 
   const options = { ...(spec.options ?? {}), ...(staff.options ?? {}) };
   const speller = merged.option;
@@ -215,6 +218,17 @@ function flagsFor(merged, spec, org, staff) {
     out.push(speller(k, v));
   }
   return out.filter(Boolean).join(" ");
+}
+
+/** The level a staff member runs at: their own, else the agent's, else the org's, else full. */
+export function permissionOf(org, staff = {}) {
+  const agent = staff.agent ?? org.agent;
+  const spec = agent && typeof agent === "object" ? agent : {};
+  const level = staff.permissions ?? spec.permissions ?? org.permissions ?? "full";
+  if (!LEVELS.includes(level)) {
+    throw new Error(`unknown permissions "${level}". One of: ${LEVELS.join(", ")}`);
+  }
+  return level;
 }
 
 function strip(o) {
@@ -248,7 +262,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     /* A staff member with no manifest is doctor's problem; the org's default still resolves. */
   }
 
-  const agent = resolveAgent(org, manifest);
+  /* What connectors.mjs wired up for this run, if anything: flags for the command line and
+     tool names for the allowlist. Paths only; the keys are in files this never reads. */
+  let wiring = {};
+  if (process.env.ROSTER_CONNECTORS) {
+    try {
+      wiring = JSON.parse(readFileSync(process.env.ROSTER_CONNECTORS, "utf8"));
+    } catch {
+      process.stderr.write("agents: the connectors' wiring could not be read, so none are used\n");
+    }
+  }
+  const agent = resolveAgent(org, manifest, wiring);
   const out = [
     `kind=${agent.kind}`,
     `id=${agent.id}`,

@@ -31,6 +31,8 @@ ran at all.
 | `repo.visibility` | A repo's real visibility disagrees with what `org.yaml` records. Cosmetic, but the posture it records is then fiction. |
 | `agent` | Which runner this org uses, resolved from the tenant's own `agents.mjs`. **fail** if `org.yaml` names one it does not know. |
 | `agent.config` | **fail.** The agent needs a config file of its own and it is missing, or still has a `FILL IN` in it. Nanocoder is the one preset that does: it is a client rather than a model, so without a provider it starts, finds nothing to call, and exits. |
+| `connector` | Each [connector](connectors.md) in `org.yaml` is usable: in the catalogue or written out with a `url` or `command`, with any setting it needs. A run leaves out one that is not. |
+| `connector.staff` | A connector is given to a handle that is not one of the staff. |
 | `business` | **fail** if `org/business.md` is missing. Every prompt is composed on top of it. |
 | `business.stub` | `org/business.md` is still the questions it shipped with. Nothing errors; the agents just write competent work about a business that does not exist. |
 | `priorities` | No `org/priorities.md`. Nothing breaks; each staff member just picks its own direction. See [concepts](concepts.md#priorities). |
@@ -58,6 +60,8 @@ ran at all.
 | `memory` | `memory/INDEX.md` parses, and how many facts and notes it holds. |
 | `compose` | All three prompts compose. A failure names the kind and the placeholder. |
 | `callers` | Three caller workflows exist. |
+| `connector.key` | A connector this staff member has has no key on their brain repo, neither its own secret nor one shared from the org. The run goes ahead without it. |
+| `connector.caller` | This staff member has connectors, and their callers were generated before connectors: they map their secrets by hand rather than passing them on, so no key reaches a run. `roster upgrade --apply`. |
 | `callers.uses` | **fail.** A caller references no reusable workflow, or one in a different organisation. A private reusable workflow is only callable inside its own org. |
 | `callers.target` | **fail.** A caller points at a workflow file that is not in the ops repo. Fails at run time as "workflow not found". |
 | `surfaces` | A surface declared in `staff.yaml` is not on disk. The portal renders nothing for it. |

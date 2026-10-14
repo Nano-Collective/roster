@@ -128,6 +128,42 @@ claude setup-token          # Claude Code; see docs/agents.md for the others
 roster credential --apply
 ```
 
+## `roster connector`
+
+Give staff an outside service to use in their runs, as an MCP server. See
+[connectors](connectors.md).
+
+```
+roster connector [list]
+roster connector add <name> [--staff <handles>] [--read-only] [--set <field=value>] [--apply]
+roster connector remove <name> [--apply]
+```
+
+```
+--staff <handles>    who gets it, comma separated (default: the catalogue's suggestion)
+--read-only          hold it to reading, for everybody who has it
+--set <field=value>  a setting the service needs, such as --set project_ref=abc123
+--url <url>          a service roster does not know: its MCP server's URL
+--command <line>     or the command that starts it
+--secret <NAME>      a key that service needs, by the name it is given (repeatable)
+--keep-key           change who has it without asking for the key again
+--apply              do it
+```
+
+`list` shows the services roster knows and the ones this org has, with who has each and whether
+its key is stored. `add` asks for the key at a prompt that does not echo, checks it with the
+service, stores it as a GitHub secret every brain repo can read, and commits `org.yaml`. A key
+the service rejects is not stored. `remove` deletes the keys and takes the connector out of
+`org.yaml`.
+
+```bash
+roster connector add sentry --staff cto --apply
+roster connector add supabase --set project_ref=abc123 --read-only --apply
+```
+
+Notion's hosted server signs in with a browser, so it is added from the hosted portal's
+Connectors page.
+
 ## `roster run <handle>`
 
 Start one daily run now and follow it to the end.

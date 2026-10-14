@@ -35,8 +35,19 @@ repositories in this organisation**. Without it, callers fail with "workflow not
 | `comment_id` | string | `""` | Trigger context. |
 | `trigger` | string | `""` | What started the run: `daily`, `manual`, `follow-on`, `mention` or `peer`. Passed to the prompt. |
 | `max_runs_per_day` | number | `6` | How many `peer` and `follow-on` runs may start in a UTC day. Mentions are never counted. |
+| `secret_prefix` | string | `""` | The prefix of this staff member's App secrets, so `CTO` reads `CTO_APP_ID`. |
+| `public_secret_prefix` | string | `""` | The same for the public App. |
+| `agent_secret` | string | `""` | The name of the secret holding the agent's credential. |
 
 ## Secrets
+
+A caller passes `secrets: inherit`, so every secret the brain repo can read reaches the session
+under its own name. That is what lets a [connector](connectors.md)'s key reach a run without
+the caller naming it. Inheriting cannot rename, so the three inputs above say which names are
+this staff member's: `secret_prefix: CTO` means `CTO_APP_ID` and `CTO_APP_PRIVATE_KEY`.
+
+A caller generated before connectors maps its secrets by hand instead, under the names below,
+and those are read first. Both kinds work against the same `session.yaml`.
 
 | Secret | Required | Means |
 |---|---|---|
@@ -81,17 +92,22 @@ Then the session:
     Never fatal. See [architecture](architecture.md#the-weeks-status-issue).
 13. **Compose the prompt**, to a step output and to `.roster-prompt.txt`.
 14. **Check the agent has a credential.**
-15. **Work out which agent runs this**, by running `agents.mjs`.
-16. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
+15. **Connect services**, by running `connectors.mjs`: each [connector](connectors.md) this
+    staff member has, written as the agent's own MCP config in the runner's temp directory,
+    with its key read from the inherited secrets. Never fatal: one without its key is left out
+    and named in the job summary.
+16. **Work out which agent runs this**, by running `agents.mjs`, which adds the connectors'
+    tools to the agent's allowlist.
+17. **Run the session**, by one of two steps: the Action-based reference runner, or the generic
     CLI one. See [choosing a coding agent](agents.md).
     Then, for a mention, **check the request was answered**: a reply in the thread, or the issue
     closed. Neither fails the job, so the notice below tells the human.
     Then, for a daily run that finished and wrote `.roster-run/continue`, **start a follow-on
     run**: one more daily run with `trigger: follow-on`, which waits for this one to end.
-17. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
+18. **Write down the run**, whatever happened: staff, kind, outcome, duration, and turns, cost
     and tokens where the agent reports them. Into the job summary, and kept as an artifact
     called `roster-run`. Never fatal. See [cost](cost.md#what-each-run-cost).
-18. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
+19. **Say so if the run did not finish.** A comment on the status issue, or on the issue that
     woke a mention, linking the run.
 
 ## When the failure is the token
@@ -111,6 +127,8 @@ jobs:
     permissions:
       contents: read
       issues: write
+      actions: write
+      id-token: write
     uses: acme/roster-ops/.github/workflows/session.yaml@main
 ```
 

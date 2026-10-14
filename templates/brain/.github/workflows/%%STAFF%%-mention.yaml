@@ -97,6 +97,7 @@ jobs:
       contents: read
       issues: write
       actions: write
+      id-token: write
     uses: %%OPS_REPO%%/.github/workflows/session.yaml@main
     with:
       staff: %%STAFF%%
@@ -109,9 +110,10 @@ jobs:
       allowed_tools: "%%ALLOWED_TOOLS%%"
       issue_number: ${{ github.event.issue.number }}
       comment_id: ${{ github.event.comment.id }}
-    secrets:
-      APP_ID: ${{ secrets.%%SECRET_PREFIX%%_APP_ID }}
-      APP_PRIVATE_KEY: ${{ secrets.%%SECRET_PREFIX%%_APP_PRIVATE_KEY }}
-      PUBLIC_APP_ID: ${{ secrets.%%PUBLIC_SECRET_PREFIX%%_APP_ID }}
-      PUBLIC_APP_PRIVATE_KEY: ${{ secrets.%%PUBLIC_SECRET_PREFIX%%_APP_PRIVATE_KEY }}
-      AGENT_TOKEN: ${{ secrets.%%AGENT_SECRET%% }}
+      secret_prefix: %%SECRET_PREFIX%%
+      public_secret_prefix: %%PUBLIC_SECRET_PREFIX%%
+      agent_secret: %%AGENT_SECRET%%
+    # Inherited rather than listed, so a connector's key added later reaches the run without
+    # this file changing. session.yaml reads the App's pair and the agent credential by the
+    # names above, and each connector's key by the name its connector gives it.
+    secrets: inherit

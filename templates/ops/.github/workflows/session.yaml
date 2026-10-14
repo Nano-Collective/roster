@@ -45,6 +45,23 @@ on:
         required: false
         default: "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
         type: string
+      # Which of the caller's secrets are this staff member's. A caller passes its secrets with
+      # `secrets: inherit`, so that a connector's key reaches the run without the caller naming
+      # it, and `secrets: inherit` cannot rename: CTO_APP_ID stays CTO_APP_ID. These say which
+      # names to read. Empty on a caller written before connectors, which maps the secrets by
+      # hand instead, and then the mapped names below are the ones read.
+      secret_prefix:
+        required: false
+        default: ""
+        type: string
+      public_secret_prefix:
+        required: false
+        default: ""
+        type: string
+      agent_secret:
+        required: false
+        default: ""
+        type: string
       # Trigger context. Empty on a scheduled run; set when a comment woke us.
       issue_number:
         required: false
@@ -54,11 +71,13 @@ on:
         required: false
         default: ""
         type: string
+    # None of these is required, because a caller that inherits passes them under its own names
+    # (see secret_prefix above), and GitHub checks `required` against the names declared here.
     secrets:
       APP_ID:
-        required: true
+        required: false
       APP_PRIVATE_KEY:
-        required: true
+        required: false
       PUBLIC_APP_ID:
         required: false
       PUBLIC_APP_PRIVATE_KEY:
@@ -133,15 +152,18 @@ jobs:
 
     # `issues: write` is for the failure notice alone, which falls back to this job's own token
     # when the App's cannot be minted. `actions: write` starts a follow-on run. A called workflow
-    # cannot raise what its caller granted, so the callers ask for the same.
+    # cannot raise what its caller granted, so the callers ask for the same. `id-token: write`
+    # lets a run prove to the hosted portal which repo it is, which is how it collects a
+    # signed-in connector's access token without a shared secret.
     permissions:
       contents: read
       issues: write
       actions: write
+      id-token: write
 
     # secrets are not usable in a step-level `if`, so the presence check is hoisted here.
     env:
-      HAS_PUBLIC_APP: ${{ secrets.PUBLIC_APP_ID != '' }}
+      HAS_PUBLIC_APP: ${{ (secrets.PUBLIC_APP_ID || secrets[format('{0}_APP_ID', inputs.public_secret_prefix)]) != '' }}
       # Nothing is listening once the agent ends its turn: the session is over and a background
       # job dies with the runner. Claude Code moves any command past its timeout (ten minutes by
       # default) into the background, and an agent told "you will be notified" ends its turn to
@@ -160,8 +182,8 @@ jobs:
         id: private
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.APP_ID || secrets[format('{0}_APP_ID', inputs.secret_prefix)] }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY || secrets[format('{0}_APP_PRIVATE_KEY', inputs.secret_prefix)] }}
           owner: ${{ github.repository_owner }}
 
       # A PR opened with the default GITHUB_TOKEN does not trigger pull_request workflows, so CI
@@ -171,8 +193,8 @@ jobs:
         if: env.HAS_PUBLIC_APP == 'true'
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.PUBLIC_APP_ID }}
-          private-key: ${{ secrets.PUBLIC_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.PUBLIC_APP_ID || secrets[format('{0}_APP_ID', inputs.public_secret_prefix)] }}
+          private-key: ${{ secrets.PUBLIC_APP_PRIVATE_KEY || secrets[format('{0}_APP_PRIVATE_KEY', inputs.public_secret_prefix)] }}
           owner: ${{ github.repository_owner }}
 
       # Tell the human it was heard. This is the only signal between the request and the reply
@@ -347,7 +369,7 @@ jobs:
       # forty lines into a log, after the checkout has already happened.
       - name: Check the agent has a credential
         env:
-          A: ${{ secrets.AGENT_TOKEN }}
+          A: ${{ secrets.AGENT_TOKEN || secrets[inputs.agent_secret] }}
           B: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           if [ -z "$A" ] && [ -z "$B" ]; then
@@ -355,8 +377,27 @@ jobs:
             exit 1
           fi
 
+      # The services this staff member may use (`connectors:` in org.yaml), written as the
+      # running agent's own MCP config, with each key read from the caller's secrets. The file
+      # goes in the runner's temp directory, outside every checkout, so no commit can carry it.
+      # Never fatal: a connector without its key is left out and named in the summary, and the
+      # run goes ahead without it.
+      #
+      # `toJSON(secrets)` is read by this step alone. Nothing else in the job sees the secrets
+      # it does not name, and the agent sees only the keys of its own connectors, inside the file.
+      - name: Connect services
+        id: connectors
+        if: hashFiles('roster-ops/connectors.mjs') != ''
+        continue-on-error: true
+        env:
+          ROSTER_SECRETS: ${{ toJSON(secrets) }}
+          ROSTER_PORTAL_TOKEN_URL: ${{ vars.ROSTER_PORTAL_URL }}
+        run: node roster-ops/connectors.mjs --staff "${{ inputs.staff }}" --ops roster-ops --brains . --out "$RUNNER_TEMP/roster-connectors" >> "$GITHUB_OUTPUT"
+
       - name: Work out which agent runs this
         id: agent
+        env:
+          ROSTER_CONNECTORS: ${{ steps.connectors.outputs.file }}
         run: node roster-ops/agents.mjs --staff "${{ inputs.staff }}" --ops roster-ops --brains . >> "$GITHUB_OUTPUT"
 
       # `uses:` cannot be an expression, so an Action-based runner has to be written out
@@ -369,7 +410,7 @@ jobs:
           GH_TOKEN: ${{ steps.private.outputs.token }}
           PUBLIC_TOKEN: ${{ steps.public.outputs.token }}
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.AGENT_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.AGENT_TOKEN || secrets[inputs.agent_secret] }}
           # The action refuses to run for a bot unless it is named here. A peer's ask is opened
           # by that peer's App, so on a peer run, and only then, the one bot that opened it is
           # allowed. The caller has already checked it is an App, not this staff member's own,
@@ -405,7 +446,7 @@ jobs:
           AGENT_FLAGS: ${{ steps.agent.outputs.flags }}
           # Kept for a custom `run` written before permissions existed.
           AGENT_TOOLS: ${{ inputs.allowed_tools }}
-          AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
+          AGENT_TOKEN: ${{ secrets.AGENT_TOKEN || secrets[inputs.agent_secret] }}
           FALLBACK_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           TOKEN_ENV: ${{ steps.agent.outputs.token_env }}
           INSTALL: ${{ steps.agent.outputs.install }}

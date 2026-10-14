@@ -3,7 +3,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { collect } from "../src/commands/doctor.js";
+import { collect, inheritedSecrets } from "../src/commands/doctor.js";
 import {
   addToOrgYaml,
   buildPlan,
@@ -171,6 +171,7 @@ test("the secrets listed are the ones the generated workflows actually reference
   for (const [rel, text] of p.files) {
     if (!rel.startsWith(".github/")) continue;
     for (const m of text.matchAll(/secrets\.([A-Z0-9_]+)/g)) referenced.add(m[1]!);
+    for (const name of inheritedSecrets(text)) referenced.add(name);
   }
   assert.deepEqual(
     [...referenced].sort(),

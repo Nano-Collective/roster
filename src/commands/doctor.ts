@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { askKinds, OWNED_LABELS } from "../lib/asks.js";
 import { accessLink } from "../lib/callable.js";
+import { declared } from "../lib/connectors.js";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
 import { humanLogins, readHumans, staffHumans } from "../lib/humans.js";
 import { localGitHub } from "../lib/localtoken.js";
@@ -79,6 +80,7 @@ export async function collect(opts: Flags & { only?: string }): Promise<Report |
   findings.push(...checkBusiness(ws));
   findings.push(...checkPriorities(ws));
   findings.push(...(await checkAgent(ws, org)));
+  findings.push(...checkConnectors(org));
   if (online) findings.push(...(await checkOrgOnline(ws, org)));
   if (online) findings.push(...(await checkReviewGates(ws, org, composer)));
 
@@ -615,7 +617,10 @@ async function checkStaff(
 
   if (online && manifest.brain) {
     const logins = humanLogins(org);
-    out.push(...(await checkStaffOnline(scope, manifest, callers, logins)));
+    const keys = declared(org)
+      .filter((c) => c.staff.includes(entry.handle) && !c.problem && c.auth === "key")
+      .map((c) => ({ name: c.name, secrets: c.secrets.map((x) => x.name) }));
+    out.push(...(await checkStaffOnline(scope, manifest, callers, logins, keys)));
   }
 
   return out;
@@ -821,6 +826,7 @@ async function checkStaffOnline(
   manifest: Manifest,
   callers: Caller[],
   humans: string[] = [],
+  connectors: Array<{ name: string; secrets: string[] }> = [],
 ): Promise<Finding[]> {
   const out: Finding[] = [];
   const repo = manifest.brain!;
@@ -829,6 +835,7 @@ async function checkStaffOnline(
   const needed = new Set<string>();
   for (const c of callers) {
     for (const m of c.text.matchAll(/secrets\.([A-Z0-9_]+)/g)) needed.add(m[1]!);
+    for (const name of inheritedSecrets(c.text)) needed.add(name);
   }
 
   const [secrets, orgSecrets, labels, runs, pinned, workflows, open] = await Promise.all([
@@ -902,6 +909,29 @@ async function checkStaffOnline(
               (fromOrg.length ? `, ${fromOrg.join(", ")} shared from the org` : ""),
           },
     );
+    for (const c of connectors) {
+      const gone = c.secrets.filter((n) => !have.has(n) && !shared.has(n));
+      if (!gone.length) continue;
+      out.push({
+        scope,
+        level: "warn",
+        id: "connector.key",
+        title: `${c.name} has no key on ${repo}: ${gone.join(", ")}`,
+        fix:
+          "Runs go ahead without it. Store the key from the portal's Connectors page, or " +
+          "roster connector add with --apply.",
+      });
+    }
+  }
+
+  if (connectors.length && callers.some((c) => !/^\s*secrets:\s*inherit\s*$/m.test(c.text))) {
+    out.push({
+      scope,
+      level: "warn",
+      id: "connector.caller",
+      title: "the callers predate connectors, so no connector's key reaches a run",
+      fix: "roster upgrade --apply regenerates them to pass their secrets on.",
+    });
   }
 
   if (!labels.ok) {
@@ -1410,4 +1440,60 @@ export function unkindedAsks(
       fix: "Label each with one kind. The next daily sweep does this too.",
     },
   ];
+}
+
+/**
+ * The secrets a caller that inherits will be read by. It names no `secrets.X`, only the
+ * prefixes session.yaml reads them under, so the names are spelled the way session.yaml does.
+ */
+export function inheritedSecrets(callerText: string): string[] {
+  if (!/^\s*secrets:\s*inherit\s*$/m.test(callerText)) return [];
+  const input = (name: string) =>
+    callerText.match(new RegExp(`^\\s*${name}:\\s*([A-Z0-9_]+)\\s*$`, "m"))?.[1];
+  const out: string[] = [];
+  for (const prefix of [input("secret_prefix"), input("public_secret_prefix")]) {
+    if (prefix) out.push(`${prefix}_APP_ID`, `${prefix}_APP_PRIVATE_KEY`);
+  }
+  const agent = input("agent_secret");
+  if (agent) out.push(agent);
+  return [...new Set(out)];
+}
+
+/** What org.yaml says about connectors, without the network: each one usable, and its staff real. */
+function checkConnectors(org: OrgFile): Finding[] {
+  const all = declared(org);
+  if (!all.length) return [];
+  const scope = "workspace";
+  const out: Finding[] = [];
+  const handles = new Set((org.staff ?? []).map((s) => s.handle));
+  for (const c of all) {
+    if (c.problem) {
+      out.push({
+        scope,
+        level: "warn",
+        id: "connector",
+        title: c.problem,
+        fix: "Runs leave it out until this is fixed. See docs/connectors.md.",
+      });
+    }
+    const strangers = c.staff.filter((h) => !handles.has(h));
+    if (strangers.length) {
+      out.push({
+        scope,
+        level: "warn",
+        id: "connector.staff",
+        title: `${c.name} is given to ${strangers.join(", ")}, who is not in org.yaml's staff`,
+        fix: "A handle there has to match a staff member's handle exactly.",
+      });
+    }
+  }
+  if (!out.length) {
+    out.push({
+      scope,
+      level: "ok",
+      id: "connector",
+      title: `${all.length} connector${all.length === 1 ? "" : "s"}: ${all.map((c) => c.name).join(", ")}`,
+    });
+  }
+  return out;
 }

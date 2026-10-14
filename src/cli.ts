@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { appCommand, appHelp } from "./commands/app.js";
 import { briefCommand, briefHelp } from "./commands/brief.js";
+import { connectorCommand, connectorHelp } from "./commands/connector.js";
 import { credentialCommand, credentialHelp } from "./commands/credential.js";
 import { deployHelp } from "./commands/deploy.js";
 import { doctorCommand, doctorHelp } from "./commands/doctor.js";
@@ -31,6 +32,7 @@ roster — an agent-run org, powered by GitHub
   roster hire <handle>      scaffold a new staff member
   roster app <handle>       create their GitHub App and set its secrets
   roster credential         store the agent's credential, once for the org
+  roster connector          give staff an outside service: Sentry, Linear, Stripe…
   roster run <handle>       start one daily run now, and follow it to the end
   roster retire <handle>    stop a staff member, keeping their repo and their memory
   roster upgrade            carry framework changes into this tenant
@@ -52,6 +54,7 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   hire: hireCommand,
   app: appCommand,
   credential: credentialCommand,
+  connector: connectorCommand,
   run: runCommand,
   retire: retireCommand,
   portal: portalCommand,
@@ -69,6 +72,7 @@ const HELPS: Record<string, string> = {
   hire: hireHelp,
   app: appHelp,
   credential: credentialHelp,
+  connector: connectorHelp,
   run: runHelp,
   retire: retireHelp,
   portal: portalHelp,
