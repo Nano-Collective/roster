@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { askKinds, OWNED_LABELS } from "../lib/asks.js";
 import { accessLink } from "../lib/callable.js";
 import { api, ghJson, ghReady, graphql } from "../lib/gh.js";
-import { readHumans } from "../lib/humans.js";
+import { humanLogins, readHumans, staffHumans } from "../lib/humans.js";
 import { localGitHub } from "../lib/localtoken.js";
 import { parseMemory } from "../lib/memory.js";
 import { gateOn, judgeGate, readGate } from "../lib/reviewgate.js";
@@ -147,7 +147,7 @@ interface OrgFile {
   review_gate?: unknown;
   repos?: Array<{ name: string; role?: string; visibility?: string }>;
   human?: { github?: string };
-  humans?: Array<{ github?: string; name?: string; marker?: string }>;
+  humans?: Array<{ github?: string; name?: string; marker?: string; view_only?: boolean }>;
 }
 
 function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
@@ -162,12 +162,12 @@ function checkWorkspace(ws: Workspace, org: OrgFile): Finding[] {
   });
 
   const humans = readHumans(org);
-  if (!humans.some((h) => h.github)) {
+  if (!staffHumans(org).some((h) => h.github)) {
     out.push({
       scope,
       level: "fail",
       id: "human",
-      title: "org.yaml names no human with a github login",
+      title: "org.yaml names no human with a github login who is not view-only",
       fix:
         "The mention callers gate on these logins. Without one nothing can wake an agent. " +
         "Write `human: { github: you }`, or a `humans:` list for more than one.",
@@ -614,7 +614,7 @@ async function checkStaff(
   }
 
   if (online && manifest.brain) {
-    const logins = readHumans(org).flatMap((h) => (h.github ? [h.github] : []));
+    const logins = humanLogins(org);
     out.push(...(await checkStaffOnline(scope, manifest, callers, logins)));
   }
 

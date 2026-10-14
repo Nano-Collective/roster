@@ -175,3 +175,37 @@ test("humans_extra is empty for one human, which is what the {{#if}} in _identit
     /can also wake you/,
   );
 });
+
+test("a view-only human is named only to say what not to act on", () => {
+  const all = readHumans(
+    parseYaml(
+      "humans:\n  - { name: Will, github: w }\n  - { name: Ben, github: b, view_only: true }\n",
+    ),
+  );
+  assert.deepEqual(
+    all.map((h: any) => [h.github, Boolean(h.viewOnly)]),
+    [
+      ["w", false],
+      ["b", true],
+    ],
+  );
+
+  const identity = readFileSync(join(OPS, "prompts", "_identity.md"), "utf8");
+  const ctx = {
+    human: all[0],
+    humans: all.filter((h: any) => !h.viewOnly),
+    humans_extra: "",
+    humans_viewing: humanSentence(all.filter((h: any) => h.viewOnly)),
+    staff: { bot: "acme-cto[bot]", name: "CTO" },
+  };
+  const out = render(identity, ctx, () => null);
+  assert.match(
+    out,
+    /View-only: Ben \(@b\)\. They can read everything here, but they cannot wake you/,
+  );
+  assert.doesNotMatch(out, /can also wake you/);
+  assert.doesNotMatch(
+    render(identity, { ...ctx, humans_viewing: "" }, () => null),
+    /View-only/,
+  );
+});

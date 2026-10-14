@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { join, relative } from "node:path";
-import { type Human, readHumans } from "./humans.js";
+import { type Human, staffHumans } from "./humans.js";
 import {
   budgetsFor,
   type Fact,
@@ -199,7 +199,7 @@ export function buildExport(
      on every row, and that question should not depend on which of the two spellings the org
      happens to use. `human` stays the first of them, because every reader of this export
      predates the list and none of them should have to change to keep working. */
-  const humans = readHumans(org);
+  const humans = staffHumans(org);
   return {
     org: org.org,
     name: org.name,

@@ -242,7 +242,9 @@ function truthy(v) {
 // Who the staff answer to
 //
 // One person was written as `human:`. More than one is a `humans:` list. Both are read, the
-// singular still works, and the first entry is the one the prose addresses. Duplicated in
+// singular still works, and the first entry is the one the prose addresses. Anyone marked
+// `view_only` reads along and nothing more: they are left out of everything that says who the
+// staff answer to, and named only so a staff member knows what not to act on. Duplicated in
 // roster's own src/lib/humans.ts rather than imported, for the same reason the YAML parser
 // above is: a run must not depend on npm or on a network call.
 // ---------------------------------------------------------------------------
@@ -260,6 +262,7 @@ export function readHumans(org) {
       name: name || github,
       marker: String(entry.marker ?? "").trim() || defaultMarker(name || github),
       role: entry.role ?? undefined,
+      ...(entry.view_only === true ? { viewOnly: true } : {}),
     });
   }
   return out;
@@ -348,7 +351,8 @@ export function compose({
   const inflightFile = join(runDir ?? join(brainsDir, ".roster-run"), "inflight.md");
   const inflight = existsSync(inflightFile) ? readFileSync(inflightFile, "utf8").trim() : "";
 
-  const humans = readHumans(org);
+  const everyone = readHumans(org);
+  const humans = everyone.filter((h) => !h.viewOnly);
   const ctx = {
     org,
     event,
@@ -382,6 +386,8 @@ export function compose({
     human_list: humanSentence(humans),
     inflight,
     humans_extra: humanSentence(humans.slice(1)),
+    // Who can read along and cannot rule. Empty, and the paragraph gone, when nobody is.
+    humans_viewing: humanSentence(everyone.filter((h) => h.viewOnly)),
   };
 
   // "staff:foo.md" resolves inside the staff member's own brain repo, which is how a

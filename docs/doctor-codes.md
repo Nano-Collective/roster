@@ -25,7 +25,7 @@ ran at all.
 |---|---|
 | `gh` | Whether `gh` is installed and authenticated. A warning here means every network check was skipped, not that anything is wrong. |
 | `org.yaml` | The org manifest parsed, and how much it declares. |
-| `human` | **fail.** `org.yaml` names nobody with a `github` login, in either `human` or `humans`. The mention callers gate on those logins, so nothing can wake an agent. |
+| `human` | **fail.** `org.yaml` names nobody with a `github` login, in either `human` or `humans`, who is not `view_only`. The mention callers gate on those logins, so nothing can wake an agent. |
 | `human.login` | One of the people in `humans` has a name but no `github` login. They read as somebody the staff answer to and are not: the gate can never match them. |
 | `repo` | Every repo in `org.yaml` is reachable. A failure means it does not exist or your `gh` cannot see it. |
 | `repo.visibility` | A repo's real visibility disagrees with what `org.yaml` records. Cosmetic, but the posture it records is then fiction. |

@@ -80,6 +80,7 @@ humans:
 | `name` | no | What to call them in prose. Defaults to the login. |
 | `marker` | no | Provenance tag on a fact they ruled on, as in `[will]`. Also used as a label. Defaults to the first part of the name, lowercased. |
 | `role` | no | Prose only. |
+| `view_only` | no | `true` for somebody who should see how the org runs and nothing more. See below. |
 
 Both keys are read, and the singular is not deprecated: an org with one human should keep
 writing `human`. When both are present, anyone in `human` who is not already in the list is
@@ -90,6 +91,13 @@ here"), and a list of two cannot go in that sentence, so the first one goes ther
 `marker` is what `%%HUMAN_MARKER%%` renders, and the rest are named by
 `{{humans_extra}}` in the identity fragment. Everything that *gates* on identity reads all of
 them: the mention caller's `if:` is `contains(fromJSON('["will-lamerton","sam-x"]'), …)`.
+
+**View-only.** `{ name: Ben, github: ben-x, view_only: true }` signs in to the portal and the
+Claude connector like anyone in the list, and reads everything there. They are not in the mention
+gate, so an `@cto` from them wakes nobody, and the portal refuses to post one rather than leave
+them waiting. The staff prompts name them only to say that nothing they write is a ruling, and
+that nothing needing a human goes to them. A view-only person is never the primary, wherever they
+are in the list. What they can do on GitHub itself is still whatever their access there allows.
 
 Adding a human changes every generated caller workflow, so it takes a `roster upgrade` to reach
 the brain repos. Until that lands, the new person can open issues and read everything, and

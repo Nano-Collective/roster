@@ -31,6 +31,18 @@ export interface ActRequest {
 
 const MERGE_METHODS = ["squash", "merge", "rebase"] as const;
 
+/**
+ * Whether this write is meant to wake a staff member: an ask, or text that @-mentions one.
+ *
+ * The mention callers ignore a view-only human, so from them it would wake nobody. Asked here so
+ * the portal can say that up front, rather than post it and leave them waiting for a reply.
+ */
+export function wouldWake(req: ActRequest, handles: string[]): boolean {
+  if (req.action === "ask") return true;
+  const text = `${req.title ?? ""}\n${req.body ?? ""}`.toLowerCase();
+  return handles.some((h) => new RegExp(`@${h.toLowerCase()}(?![\\w-])`).test(text));
+}
+
 export interface ActResult {
   ok: true;
   action: Action;

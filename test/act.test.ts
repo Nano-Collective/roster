@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { whyNotMerged } from "../src/lib/act.js";
+import { whyNotMerged, wouldWake } from "../src/lib/act.js";
 
 /* What gh says when a required check has not finished: true, and no help to the person
    who pressed Merge. */
@@ -55,5 +55,27 @@ test("a merge blocked on a required review says to approve it first", () => {
   assert.equal(
     msg,
     "Not merged: the branch rules need an approving review first. Press Approve, then Merge.",
+  );
+});
+
+test("a write that mentions a staff member, or asks one, would wake them", () => {
+  const h = ["cto", "cmo"];
+  assert.equal(
+    wouldWake({ action: "comment", repo: "o/cmo", number: 1, body: "@cmo draft it" } as any, h),
+    true,
+  );
+  assert.equal(
+    wouldWake({ action: "create", repo: "o/cto", title: "@CTO look", body: "" } as any, h),
+    true,
+  );
+  assert.equal(wouldWake({ action: "ask", repo: "o/cto" } as any, h), true);
+  assert.equal(
+    wouldWake({ action: "comment", repo: "o/cmo", number: 1, body: "looks good" } as any, h),
+    false,
+  );
+  // Another login that starts with a handle is not that handle.
+  assert.equal(
+    wouldWake({ action: "comment", repo: "o/cmo", number: 1, body: "@cmo-fan hi" } as any, h),
+    false,
   );
 });

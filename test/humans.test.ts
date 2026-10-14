@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { humanLogins, humanSentence, primaryHuman, readHumans } from "../src/lib/humans.js";
+import {
+  humanLogins,
+  humanSentence,
+  isViewOnly,
+  primaryHuman,
+  readHumans,
+  staffHumans,
+} from "../src/lib/humans.js";
 import { orgTokens } from "../src/lib/render.js";
 
 /**
@@ -97,4 +104,42 @@ test("a sentence names everybody, because a gate nobody can read is a gate nobod
   assert.equal(humanSentence(humans), "Will (@w), Sam (@s) and Jo (@j)");
   assert.equal(humanSentence(humans.slice(0, 1)), "Will (@w)");
   assert.equal(humanSentence([]), "");
+});
+
+/* Showing somebody how the org runs should not hand them the org. A view-only human signs in,
+   so they are a human, and nothing that decides who the staff answer to counts them. */
+test("a view-only human signs in but is not somebody the staff answer to", () => {
+  const org = {
+    humans: [
+      { name: "Will", github: "will-lamerton" },
+      { name: "Ben", github: "followbenparry", view_only: true },
+    ],
+  };
+  assert.deepEqual(
+    readHumans(org).map((h) => h.github),
+    ["will-lamerton", "followbenparry"],
+  );
+  assert.deepEqual(
+    staffHumans(org).map((h) => h.github),
+    ["will-lamerton"],
+  );
+  assert.deepEqual(humanLogins(org), ["will-lamerton"]);
+  assert.equal(isViewOnly(org, "FollowBenParry"), true);
+  assert.equal(isViewOnly(org, "will-lamerton"), false);
+  assert.equal(isViewOnly(org, "nobody"), false);
+});
+
+test("a view-only human listed first is never the primary", () => {
+  const org = {
+    humans: [
+      { name: "Ben", github: "b", view_only: true },
+      { name: "Will", github: "w" },
+    ],
+  };
+  assert.equal(primaryHuman(org)!.name, "Will");
+});
+
+test("only a literal true makes somebody view-only", () => {
+  const org = { humans: [{ name: "Sam", github: "s", view_only: "yes" }] };
+  assert.deepEqual(humanLogins(org), ["s"]);
 });

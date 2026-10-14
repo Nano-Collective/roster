@@ -1,7 +1,7 @@
 import { join, resolve } from "node:path";
 // @ts-expect-error: vendored plain JS, with no types on purpose
 import * as frameworkComposer from "../../templates/ops/compose.mjs";
-import { type ActRequest, act } from "../lib/act.js";
+import { type ActRequest, act, wouldWake } from "../lib/act.js";
 import { amendBrief } from "../lib/amend.js";
 import { attachPath, MAX_UPLOAD } from "../lib/attach.js";
 import { auditPrompt } from "../lib/audit.js";
@@ -9,6 +9,7 @@ import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
 import { CHARTER_EXAMPLES, charterStarter, matchExample } from "../lib/examples.js";
 import { buildExport, readManifest } from "../lib/export.js";
 import type { GitHub } from "../lib/github.js";
+import { isViewOnly } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { liveFor } from "../lib/live.js";
 import { markRead, unreadFor } from "../lib/notifications.js";
@@ -546,6 +547,16 @@ const ROUTES: Record<string, Route> = {
     // An ask touches two repositories, and the second is checked by the same rule.
     if (payload.action === "ask" && !known.includes(payload.ask?.pr?.repo ?? "")) {
       return json({ error: `${payload.ask?.pr?.repo ?? ""} is not a repo in org.yaml` }, 400);
+    }
+    const handles = (org.staff ?? []).map((s: any) => String(s.handle));
+    if (isViewOnly(org, actor.id) && wouldWake(payload, handles)) {
+      return json(
+        {
+          error:
+            "You are view-only in org.yaml, so this would not reach the staff. Nothing was posted.",
+        },
+        403,
+      );
     }
     try {
       const result = await act(actor.gh, payload);

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { amendBrief } from "../lib/amend.js";
 import { CHARTER_EXAMPLES, exampleOffer, exampleSection, matchExample } from "../lib/examples.js";
-import { readHumans } from "../lib/humans.js";
+import { staffHumans } from "../lib/humans.js";
 import { promptView } from "../lib/prompt.js";
 import {
   briefTemplateDir,
@@ -131,7 +131,7 @@ function staffTokens(
 }
 
 function spec(org: ReturnType<typeof readOrg>, ws: ReturnType<typeof findWorkspace>) {
-  const humans = readHumans(org);
+  const humans = staffHumans(org);
   const first = humans[0];
   return {
     org: org.org,

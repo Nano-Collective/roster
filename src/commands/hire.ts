@@ -5,7 +5,7 @@ import { ASK_KINDS } from "../lib/asks.js";
 import { commitAndPush } from "../lib/commit.js";
 import { readOrgSecret, shareOrgSecret } from "../lib/credential.js";
 import { api, ghJson, ghReady } from "../lib/gh.js";
-import { readHumans } from "../lib/humans.js";
+import { staffHumans } from "../lib/humans.js";
 import {
   brainTemplateDir,
   briefCommands,
@@ -228,7 +228,7 @@ export function buildPlan(
     );
   }
 
-  const humans = readHumans(org);
+  const humans = staffHumans(org);
   const orgSpec: OrgSpec = {
     org: org.org,
     name: org.name,
@@ -243,7 +243,7 @@ export function buildPlan(
     warnings.push("org.yaml has no human.github, so the mention gate will never match");
   if (humans.length > 1) {
     warnings.push(
-      `the mention gate accepts ${humans.map((h) => h.github).join(", ")} — everyone in org.yaml`,
+      `the mention gate accepts ${humans.map((h) => h.github).join(", ")} — everyone in org.yaml but the view-only`,
     );
   }
 

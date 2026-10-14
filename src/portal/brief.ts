@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { withExample } from "../commands/brief.js";
 import { matchExample } from "../lib/examples.js";
-import { readHumans } from "../lib/humans.js";
+import { staffHumans } from "../lib/humans.js";
 import { briefTemplate, pasteable, pasteBrief } from "../lib/pastebrief.js";
 import { orgTokens, specFromManifest, tokensFor, toolsOf } from "../lib/render.js";
 import { readFileSync } from "../lib/vfs.js";
@@ -70,7 +70,7 @@ export function orgSpec(
   org: { org: string; name: string; human?: unknown; humans?: unknown },
   w: { opsName: string },
 ) {
-  const humans = readHumans(org as any);
+  const humans = staffHumans(org as any);
   const first = humans[0];
   return {
     org: org.org,

@@ -9,6 +9,10 @@
  * So `org.yaml` now takes a `humans:` list as well. The singular key still works and means a list
  * of one, and the first entry is the primary: the person the prose addresses and whose marker
  * tags a ruling. Everything that gates on identity reads the whole list.
+ *
+ * Except anyone marked `view_only`. Showing somebody how the org runs should not hand them the
+ * org: a view-only human signs in to the portal like anyone else, but cannot wake a staff member,
+ * is not named in the prompts as somebody who rules, and is never the primary.
  */
 export interface Human {
   /** Login. The mention callers gate on this. */
@@ -19,6 +23,8 @@ export interface Human {
   marker: string;
   /** Prose only. */
   role?: string;
+  /** Signs in and reads; cannot wake anybody, and nothing they say is a ruling. */
+  viewOnly?: boolean;
 }
 
 type Humanish = Record<string, unknown> | null | undefined;
@@ -62,9 +68,21 @@ export function readHumans(org: HasHumans | undefined): Human[] {
       name: name || github,
       marker: String(entry.marker ?? "").trim() || defaultMarker(name || github),
       role: entry.role === undefined || entry.role === null ? undefined : String(entry.role),
+      ...(entry.view_only === true ? { viewOnly: true } : {}),
     });
   }
   return out;
+}
+
+/** Everyone the staff answer to: every human but the view-only ones. */
+export function staffHumans(org: HasHumans | undefined): Human[] {
+  return readHumans(org).filter((h) => !h.viewOnly);
+}
+
+/** Whether this login is one of the org's view-only humans. */
+export function isViewOnly(org: HasHumans | undefined, login: string): boolean {
+  const l = login.toLowerCase();
+  return readHumans(org).some((h) => h.viewOnly && h.github.toLowerCase() === l);
 }
 
 /**
@@ -75,12 +93,12 @@ export function readHumans(org: HasHumans | undefined): Human[] {
  * matters: the mention gate, and the line that says who else can rule on things.
  */
 export function primaryHuman(org: HasHumans | undefined): Human | null {
-  return readHumans(org)[0] ?? null;
+  return staffHumans(org)[0] ?? null;
 }
 
 /** Every login that may wake an agent, for the caller workflows' gate. */
 export function humanLogins(org: HasHumans | undefined): string[] {
-  return readHumans(org)
+  return staffHumans(org)
     .map((h) => h.github)
     .filter(Boolean);
 }

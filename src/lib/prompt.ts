@@ -292,6 +292,8 @@ export function validateOrgYaml(
      rather than warned about later, because the failure it causes is silence. */
   for (const h of (doc.humans as Array<Record<string, unknown>>) ?? []) {
     if (!h?.github) return "every entry in humans needs a github login";
+    if (h.view_only !== undefined && typeof h.view_only !== "boolean")
+      return "view_only is true or false";
   }
   return null;
 }

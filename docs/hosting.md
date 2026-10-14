@@ -35,6 +35,8 @@ does. That is not something to put behind a public URL.
 ## Who can get in
 
 Only the people listed under `humans:` in `org.yaml`, signed in with their own GitHub account.
+That includes anyone marked `view_only`, who can read everything and wake nobody; see
+[org.yaml](org-yaml.md#human-and-humans).
 
 - Sign-in is GitHub's own OAuth flow, through an OAuth App your org creates for the portal.
   The token it hands back is that person's, scoped `repo` and `notifications`, the same kind
