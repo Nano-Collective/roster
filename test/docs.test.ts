@@ -181,7 +181,7 @@ test("the docs do not use em-dashes", () => {
     "Built by the [Nano Collective](https://nanocollective.org) — a community collective building AI tooling not for profit, but for the community.";
   for (const page of pages) {
     const body = read(page);
-    const line = body.split("\n").findIndex((l) => l.includes("—") && l !== tagline);
+    const line = body.split("\n").findIndex((l) => l.includes("—") && l.trimEnd() !== tagline);
     assert.equal(line, -1, `${page}:${line + 1} uses an em-dash`);
   }
 });

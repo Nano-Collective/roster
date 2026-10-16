@@ -1211,11 +1211,13 @@ const ROUTES: Record<string, Route> = {
     const { req, url, portal, actor } = c;
     await ready(c, { products: true });
     const rel = url.searchParams.get("path") ?? "";
+    const rootResolved = resolve(portal.ws.root).replaceAll("\\", "/");
     const full = resolve(portal.ws.root, rel);
-    if (!full.startsWith(`${resolve(portal.ws.root)}/`) || !existsSync(full)) return notFound();
+    const fullNorm = full.replaceAll("\\", "/");
+    if (!fullNorm.startsWith(`${rootResolved}/`) || !existsSync(full)) return notFound();
     const st = statSync(full);
     if (st.isDirectory()) return notFound();
-    const inside = full.slice(portal.ws.root.length + 1);
+    const inside = fullNorm.slice(rootResolved.length + 1);
     const dir = inside.slice(0, inside.indexOf("/"));
     const path = inside.slice(dir.length + 1);
     const type = MIME[extOf(path)] ?? "application/octet-stream";

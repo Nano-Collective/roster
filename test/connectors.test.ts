@@ -145,8 +145,8 @@ test("one connector can be marked read only for everybody", async () => {
 test("Codex gets its own config.toml in a fresh CODEX_HOME, and no key on its command line", async () => {
   const r = await run({ agentId: "codex" });
   const [file, text] = Object.entries(r.wiring.files)[0] as [string, string];
-  assert.equal(file, "/tmp/rc/codex/config.toml");
-  assert.equal(r.wiring.env.CODEX_HOME, "/tmp/rc/codex");
+  assert.equal(file, join("/tmp/rc", "codex", "config.toml"));
+  assert.equal(r.wiring.env.CODEX_HOME, join("/tmp/rc", "codex"));
   assert.match(text, /^\[mcp_servers\.sentry\]$/m);
   assert.match(text, /^url = "https:\/\/mcp\.sentry\.dev\/mcp"$/m);
   assert.match(text, /^http_headers = \{ Authorization = "Sentry-Bearer sntryu_x" \}$/m);

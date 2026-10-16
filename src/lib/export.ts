@@ -286,14 +286,14 @@ function readSurfaces(root: string, declared: Array<{ path: string; render: stri
 }
 
 function walk(dir: string, root: string, out: FileEntry[] = []): FileEntry[] {
-  for (const name of readdirSync(dir)) {
+  for (const name of readdirSync(dir).sort()) {
     if (SKIP.has(name)) continue;
     const full = join(dir, name);
     const st = statSync(full);
     if (st.isDirectory()) walk(full, root, out);
     else {
       out.push({
-        path: relative(root, full),
+        path: relative(root, full).replaceAll("\\", "/"),
         bytes: st.size,
         modified: st.mtime.toISOString(),
         ext: name.includes(".") ? name.split(".").pop()!.toLowerCase() : "",

@@ -504,7 +504,25 @@ function unified(before: string, after: string): string {
       return "";
     } catch (err) {
       const out = String((err as { stdout?: string }).stdout ?? "");
-      return out.split("\n").slice(2).join("\n").trimEnd();
+      if (out) return out.split("\n").slice(2).join("\n").trimEnd();
+      try {
+        execFileSync(
+          "git",
+          [
+            "diff",
+            "--no-index",
+            "--src-prefix=yours/",
+            "--dst-prefix=generated/",
+            join(dir, "a"),
+            join(dir, "b"),
+          ],
+          { encoding: "utf8" },
+        );
+        return "";
+      } catch (gitErr) {
+        const gitOut = String((gitErr as { stdout?: string }).stdout ?? "");
+        return gitOut.split("\n").slice(4).join("\n").trimEnd();
+      }
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });

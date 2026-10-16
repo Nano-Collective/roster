@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { test } from "node:test";
 import { withExample } from "../src/commands/brief.js";
 import { buildPlan, type OrgYaml } from "../src/commands/hire.js";
@@ -194,8 +194,28 @@ test("a secret's value goes to gh on stdin, never on its command line", async ()
   const gh = join(dir, "gh");
   writeFileSync(gh, `#!/bin/sh\nprintf '%s\\n' "$@" >> "${dir}/argv"\ncat >> "${dir}/stdin"\n`);
   chmodSync(gh, 0o755);
+  if (process.platform === "win32") {
+    writeFileSync(join(dir, "gh.cmd"), `@"${process.execPath}" "%~dp0\\fakegh.cjs" %*\n`);
+    writeFileSync(
+      join(dir, "fakegh.cjs"),
+      `const fs = require("node:fs");
+const path = require("node:path");
+const dir = __dirname;
+const args = process.argv.slice(2);
+if (args.length > 0) {
+  fs.appendFileSync(path.join(dir, "argv"), args.join("\\n") + "\\n");
+}
+let data = "";
+process.stdin.on("data", (chunk) => { data += chunk; });
+process.stdin.on("end", () => {
+  fs.appendFileSync(path.join(dir, "stdin"), data);
+  process.exit(0);
+});
+`,
+    );
+  }
   const before = process.env.PATH;
-  process.env.PATH = `${dir}:${before}`;
+  process.env.PATH = `${dir}${delimiter}${before}`;
   try {
     await setOrgSecret("acme", "TOKEN", ["technology", "marketing"], "s3cret-value");
     await setSecret("acme/technology", "TOKEN", "s3cret-value");
