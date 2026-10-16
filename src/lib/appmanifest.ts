@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { promisify } from "node:util";
-import { ghJson } from "./gh.js";
+import { ghJson, quoteArg } from "./gh.js";
 
 const run = promisify(execFile);
 
@@ -223,10 +223,15 @@ export function setOrgSecret(
 
 function secretFromStdin(args: string[], value: string): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    const child = execFile("gh", args, (err, _out, stderr) =>
-      err
-        ? reject(new Error(`gh secret set ${args[2]}: ${String(stderr || err.message).trim()}`))
-        : resolve(),
+    const formattedArgs = process.platform === "win32" ? args.map(quoteArg) : args;
+    const child = execFile(
+      "gh",
+      formattedArgs,
+      { shell: process.platform === "win32" },
+      (err, _out, stderr) =>
+        err
+          ? reject(new Error(`gh secret set ${args[2]}: ${String(stderr || err.message).trim()}`))
+          : resolve(),
     );
     child.stdin?.end(value);
   });

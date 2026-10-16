@@ -616,6 +616,7 @@ function install(hash: string) {
 
   const document: any = {
     createElement: (t: string) => makeNode(t),
+    createTextNode: (t: string) => ({ textContent: String(t) }),
     querySelector(sel: string) {
       // Lazily creating the node on lookup is the shim's whole behaviour here.
       // biome-ignore lint/suspicious/noAssignInExpressions: a temporary would only spell it out longer

@@ -1,4 +1,4 @@
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { existsSync, readFileSync } from "./vfs.js";
 
 /**
@@ -24,7 +24,7 @@ export function findWorkspace(start = process.cwd()): Workspace {
 
     // Also handle being *inside* the ops repo or a brain repo.
     if (existsSync(join(dir, "org.yaml"))) {
-      return { root: dirname(dir), opsDir: dir, opsName: dir.split("/").pop()! };
+      return { root: dirname(dir), opsDir: dir, opsName: basename(dir) };
     }
 
     const parent = dirname(dir);

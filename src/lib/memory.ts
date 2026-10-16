@@ -54,7 +54,7 @@ export function parseMemory(dir: string): MemoryDoc {
   const indexPath = join(dir, "INDEX.md");
   if (!existsSync(indexPath)) throw new Error(`no memory index at ${indexPath}`);
 
-  const lines = readFileSync(indexPath, "utf8").split("\n");
+  const lines = readFileSync(indexPath, "utf8").replaceAll("\r", "").split("\n");
   const facts: Fact[] = [];
   const sections: string[] = [];
   const preamble: string[] = [];

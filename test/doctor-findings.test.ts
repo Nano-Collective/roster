@@ -211,7 +211,7 @@ test("business.md: missing fails, a stub warns, written prose passes", async () 
 test("a manifest that disagrees with org.yaml, or names no brain, fails for that staff member only", async () => {
   const t = await tenant();
   t.edit(t.at("technology", "staff.yaml"), (s) =>
-    s.replace("handle: cto", "handle: cfo").replace(/^brain: .*\n/m, ""),
+    s.replace("handle: cto", "handle: cfo").replace(/^brain: .*\r?\n/m, ""),
   );
   const r = await collect({ offline: true, ops: t.ws.opsDir });
   const [h] = findings(r, "manifest.handle", "cto");

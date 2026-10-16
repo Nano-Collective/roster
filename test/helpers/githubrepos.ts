@@ -30,7 +30,7 @@ export function serveRepos(owner: string, root: string, dirs: string[]): FakeRep
         if (name === ".git") continue;
         const full = join(d, name);
         if (statSync(full).isDirectory()) walk(full);
-        else out.set(relative(join(root, dir), full), readFileSync(full));
+        else out.set(relative(join(root, dir), full).replaceAll("\\", "/"), readFileSync(full));
       }
     };
     walk(join(root, dir));

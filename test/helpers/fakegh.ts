@@ -67,6 +67,9 @@ export function fakeGh(routes: Route[]): FakeGh {
   const bin = join(dir, "gh");
   writeFileSync(bin, SCRIPT);
   chmodSync(bin, 0o755);
+  if (process.platform === "win32") {
+    writeFileSync(join(dir, "gh.cmd"), `@node "%~dp0\\gh" %*\n`);
+  }
 
   const before = process.env.PATH;
   process.env.PATH = dir + delimiter + (before ?? "");

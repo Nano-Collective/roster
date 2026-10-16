@@ -93,6 +93,7 @@ export function charterStarter(choice: string, business: string): string {
   const path = join(docsDir(), "charters", `${choice}.md`);
   if (!existsSync(path)) throw new Error(`there is no example charter called "${choice}"`);
   return readFileSync(path, "utf8")
+    .replaceAll("\r", "")
     .replace(/^> \*\*An example to adapt[\s\S]*?\n\n/m, "")
     .replace(/\bAcme\b/g, business);
 }

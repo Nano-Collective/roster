@@ -18,9 +18,21 @@ export interface GhResult<T> {
  * Failures are values rather than exceptions. A doctor that stops at the first missing repo is
  * useless — the whole point is one pass that finds everything wrong at once.
  */
+export function quoteArg(arg: string): string {
+  if (process.platform === "win32" && /[ &|<>^]/.test(arg) && !arg.startsWith('"')) {
+    return `"${arg}"`;
+  }
+  return arg;
+}
+
 export async function ghJson<T = unknown>(args: string[]): Promise<GhResult<T>> {
   try {
-    const { stdout } = await run("gh", args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+    const formattedArgs = process.platform === "win32" ? args.map(quoteArg) : args;
+    const { stdout } = await run("gh", formattedArgs, {
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+      shell: process.platform === "win32",
+    });
     return { ok: true, data: stdout.trim() ? (JSON.parse(stdout) as T) : (undefined as T) };
   } catch (err) {
     const e = err as { stderr?: string; message?: string; code?: number };

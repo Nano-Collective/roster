@@ -126,8 +126,8 @@ function describe(ws: Workspace, brainDir: string, rel: string, optional: boolea
   const missing = !existsSync(full);
   return {
     rel,
-    path: relative(ws.root, full),
-    repo: inBrain ? relative(ws.root, brainDir) : ws.opsName,
+    path: relative(ws.root, full).replaceAll("\\", "/"),
+    repo: (inBrain ? relative(ws.root, brainDir) : ws.opsName).replaceAll("\\", "/"),
     bytes: missing ? 0 : statSync(full).size,
     optional,
     missing,
@@ -154,8 +154,8 @@ function runtimeReads(ws: Workspace, brainDir: string): Layer[] {
     const missing = !existsSync(full);
     return {
       rel,
-      path: relative(ws.root, full),
-      repo: relative(ws.root, base),
+      path: relative(ws.root, full).replaceAll("\\", "/"),
+      repo: relative(ws.root, base).replaceAll("\\", "/"),
       bytes: missing ? 0 : statSync(full).size,
       optional: false,
       missing,
@@ -178,9 +178,11 @@ function runtimeReads(ws: Workspace, brainDir: string): Layer[] {
  * `validateOrgYaml` runs before anything is written.
  */
 export function isWritable(ws: Workspace, rel: string, brainDirs: string[]): boolean {
+  const rootResolved = resolve(ws.root).replaceAll("\\", "/");
   const full = resolve(ws.root, rel);
-  if (!full.startsWith(resolve(ws.root) + "/")) return false;
-  const opsRel = relative(resolve(ws.opsDir), full);
+  const fullNorm = full.replaceAll("\\", "/");
+  if (!fullNorm.startsWith(`${rootResolved}/`)) return false;
+  const opsRel = relative(resolve(ws.opsDir), full).replaceAll("\\", "/");
   if (!opsRel.startsWith("..")) {
     // org.yaml is writable but validated before it lands: it is the one file here that stops
     // every prompt composing when it is wrong, rather than just reading oddly.
@@ -191,7 +193,7 @@ export function isWritable(ws: Workspace, rel: string, brainDirs: string[]): boo
     );
   }
   for (const dir of brainDirs) {
-    const brainRel = relative(resolve(ws.root, dir), full);
+    const brainRel = relative(resolve(ws.root, dir), full).replaceAll("\\", "/");
     if (brainRel.startsWith("..")) continue;
     return brainRel === "CHARTER.md" || /^prompts\/[\w.-]+\.md$/.test(brainRel);
   }

@@ -28,14 +28,20 @@ export interface VirtualTree {
 
 const mounts = new Map<string, VirtualTree>();
 
+function normPath(p: string): string {
+  return String(p)
+    .replaceAll("\\", "/")
+    .replace(/^[A-Za-z]:/, "");
+}
+
 /** Serve `tree` at `prefix`, replacing whatever was there. `prefix` is absolute, no trailing slash. */
 export function mount(prefix: string, tree: VirtualTree): void {
-  mounts.set(prefix.replace(/\/+$/, ""), tree);
+  mounts.set(normPath(prefix).replace(/\/+$/, ""), tree);
 }
 
 function lookup(path: string): { tree: VirtualTree; rel: string } | null {
   if (!mounts.size) return null;
-  const p = String(path).replace(/\/+$/, "");
+  const p = normPath(path).replace(/\/+$/, "");
   for (const [prefix, tree] of mounts) {
     if (p === prefix) return { tree, rel: "" };
     if (p.startsWith(`${prefix}/`)) return { tree, rel: p.slice(prefix.length + 1) };

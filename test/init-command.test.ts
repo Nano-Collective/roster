@@ -111,7 +111,7 @@ test("when GitHub refuses the repo, the files are kept and nothing is committed"
   assert.ok(existsSync(join(ops, "org.yaml")));
   assert.ok(existsSync(join(ops, ".roster", "seed", "compose.mjs")), "the base is written first");
   assert.equal(existsSync(join(ops, ".git")), false, "no repo to push is no repo at all");
-  assert.match(readFileSync(join(ops, "org.yaml"), "utf8"), /github: pat\n/);
+  assert.match(readFileSync(join(ops, "org.yaml"), "utf8"), /github: pat\r?\n/);
 });
 
 test("--apply writes the tenant and its base, creates the repo private, and pushes main", async () => {

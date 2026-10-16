@@ -18,7 +18,8 @@ import { existsSync, readdirSync, statSync } from "./vfs.js";
 export type TemplateClass = "managed" | "seeded";
 
 export function classify(rel: string): TemplateClass {
-  return rel.startsWith("org/") || rel.startsWith("prompts/") ? "seeded" : "managed";
+  const norm = rel.replaceAll("\\", "/");
+  return norm.startsWith("org/") || norm.startsWith("prompts/") ? "seeded" : "managed";
 }
 
 /**
@@ -34,7 +35,8 @@ export function classify(rel: string): TemplateClass {
  *              vandalism, so upgrade only ever reports one that has gone missing.
  */
 export function classifyBrain(rel: string): "generated" | "scaffold" {
-  return rel.startsWith(".github/workflows/") ? "generated" : "scaffold";
+  const norm = rel.replaceAll("\\", "/");
+  return norm.startsWith(".github/workflows/") ? "generated" : "scaffold";
 }
 
 /**
@@ -62,7 +64,7 @@ export function templateFiles(root: string): string[] {
       if (name === ".DS_Store") continue;
       const full = join(dir, name);
       if (statSync(full).isDirectory()) walk(full);
-      else out.push(relative(root, full));
+      else out.push(relative(root, full).replaceAll("\\", "/"));
     }
   };
   walk(root);

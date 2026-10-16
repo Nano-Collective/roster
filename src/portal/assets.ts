@@ -51,8 +51,10 @@ const ASSET_MIME: Record<string, string> = {
  */
 export function portalAsset(rel: string): { body: Buffer; type: string } | null {
   const root = portalDir();
+  const rootNorm = resolve(root).replaceAll("\\", "/");
   const full = resolve(root, rel);
-  if (!full.startsWith(resolve(root) + "/")) return null;
+  const fullNorm = full.replaceAll("\\", "/");
+  if (!fullNorm.startsWith(`${rootNorm}/`)) return null;
   const type = ASSET_MIME[extname(full).toLowerCase()];
   if (!type) return null;
   if (!existsSync(full) || statSync(full).isDirectory()) return null;
