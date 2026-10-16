@@ -22,8 +22,9 @@ that reads it gets the same view without reimplementing the memory grammar.
 | `org` | the GitHub organisation |
 | `name` | the business name |
 | `opsName` | the ops repo's directory, so a consumer can address `org.yaml` and `org/*.md` by path |
-| `human` | the first human, normalised: `{ github, name, marker, role }`. Kept for consumers written when an org had exactly one |
+| `human` | the first human, normalised: `{ github, name, marker, role, handles }`. Kept for consumers written when an org had exactly one |
 | `humans[]` | everyone the staff answer to, in order, read from `humans` or the singular `human`, leaving out anyone `view_only`. `human` is `humans[0]` |
+| `people[]` | everyone in `org.yaml`, `view_only` included (as `viewOnly: true`), with `handles` where set. What the portal's People form edits |
 | `generatedAt` | ISO timestamp |
 | `staff[]` | one entry per staff member |
 

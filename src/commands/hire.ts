@@ -263,7 +263,9 @@ export function buildPlan(
 
   const labels = [
     ...new Set([
+      // Every person's label, not only the first's: staff send each ask to whoever's area it is.
       orgSpec.humanMarker,
+      ...humans.map((h) => h.marker).filter(Boolean),
       handle,
       ...ASK_KINDS,
       "keep-open",

@@ -7,8 +7,12 @@ import {
   primaryHuman,
   readHumans,
   staffHumans,
+  tidyPeople,
+  writeHumans,
 } from "../src/lib/humans.js";
 import { orgTokens } from "../src/lib/render.js";
+// @ts-expect-error - plain JS, no types by design
+import { parseYaml } from "../templates/ops/compose.mjs";
 
 /**
  * An org used to have exactly one human, and the mention callers gated on that one login. A
@@ -142,4 +146,61 @@ test("a view-only human listed first is never the primary", () => {
 test("only a literal true makes somebody view-only", () => {
   const org = { humans: [{ name: "Sam", github: "s", view_only: "yes" }] };
   assert.deepEqual(humanLogins(org), ["s"]);
+});
+
+/* ------------------------------- the People form ------------------------------- */
+
+test("People rewrites only the humans block, and keeps the rest of org.yaml", () => {
+  const before = [
+    "# The org manifest.",
+    "org: acme",
+    "name: Acme",
+    "",
+    "# Who the staff answer to.",
+    "human:",
+    "  name: Ada",
+    "  github: ada",
+    "",
+    "staff:",
+    "  - { handle: cto, dir: cto }",
+  ].join("\n");
+  const { people, error } = tidyPeople([
+    { name: "Ada", github: "ada", handles: "code, deploys" },
+    { name: "Bo, Jr", github: "@bo", handles: ["marketing"] },
+    { name: "Cy", github: "cy", view_only: true },
+  ]);
+  assert.equal(error, undefined);
+  const after = writeHumans(before, people);
+  assert.equal(
+    after,
+    [
+      "# The org manifest.",
+      "org: acme",
+      "name: Acme",
+      "",
+      "# Who the staff answer to.",
+      "humans:",
+      "  - { name: Ada, github: ada, marker: ada, handles: [code, deploys] }",
+      "  - { name: Bo Jr, github: bo, marker: bo, handles: [marketing] }",
+      "  - { name: Cy, github: cy, marker: cy, view_only: true }",
+      "",
+      "staff:",
+      "  - { handle: cto, dir: cto }",
+    ].join("\n"),
+  );
+  const back = readHumans(parseYaml(after));
+  assert.deepEqual(
+    back.map((h) => [h.github, h.handles ?? [], Boolean(h.viewOnly)]),
+    [
+      ["ada", ["code", "deploys"], false],
+      ["bo", ["marketing"], false],
+      ["cy", [], true],
+    ],
+  );
+});
+
+test("People refuses what would leave nobody able to wake the staff", () => {
+  assert.match(tidyPeople([{ github: "ada", view_only: true }]).error ?? "", /cannot be read-only/);
+  assert.match(tidyPeople([{ github: "not a login" }]).error ?? "", /not a GitHub login/);
+  assert.match(tidyPeople([{ github: "ada" }, { github: "ADA" }]).error ?? "", /twice/);
 });

@@ -398,7 +398,7 @@ test("the generated callers are valid workflows with the triggers they are meant
   assert.match(
     mention,
     new RegExp(
-      `contains\\(fromJSON\\('\\["${ORG.human.github}"[^)]*\\), github\\.event\\.sender\\.login\\)`,
+      `contains\\(fromJSON\\(vars\\.ROSTER_HUMANS \\|\\| '\\["${ORG.human.github}"[^)]*\\), github\\.event\\.sender\\.login\\)`,
     ),
     "and the loop guard must be on the sender, not the author",
   );

@@ -56,10 +56,11 @@ test("the loop guard is on the sender, not on the author", () => {
      agent's own edit wake another run, which would edit it again.
 
      The gate is a list because an org can have more than one human. It used to be `== '%%HUMAN%%'`,
-     which silently dropped everything the second founder wrote. */
+     which silently dropped everything the second founder wrote. The portal's People form keeps
+     a ROSTER_HUMANS variable on the tracker, which wins over the list baked in here. */
   assert.match(
     MENTION_CODE,
-    /contains\(fromJSON\('%%HUMAN_LOGINS%%'\), github\.event\.sender\.login\)/,
+    /contains\(fromJSON\(vars\.ROSTER_HUMANS \|\| '%%HUMAN_LOGINS%%'\), github\.event\.sender\.login\)/,
     "restoring the issues trigger without a sender gate reopens the self-trigger loop",
   );
   const guard = MENTION_CODE.slice(MENTION_CODE.indexOf("if: >-"));

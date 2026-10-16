@@ -11,7 +11,13 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { collect, doctorCommand, type Report } from "../src/commands/doctor.js";
+import {
+  collect,
+  doctorCommand,
+  humansVariable,
+  personLabels,
+  type Report,
+} from "../src/commands/doctor.js";
 import { opsTemplateDir } from "../src/lib/templates.js";
 import { fakeGh, quietly, type Route } from "./helpers/fakegh.js";
 import { makeTenant } from "./helpers/tenant.js";
@@ -598,4 +604,21 @@ test("an open ask on the human needs exactly one kind; PRs and other people's is
   const [f] = findings(r, "ask-kind", "cto");
   assert.equal(f?.level, "warn");
   assert.match(f!.title, /2 open asks on acme\/technology .*: #2, #3$/);
+});
+
+test("a person's missing label is found, with the command that makes it", () => {
+  const f = personLabels("cto", "acme/cto", new Set(["ada"]), ["ada", "bo"]);
+  assert.equal(f.level, "warn");
+  assert.equal(f.fix, "gh label create bo --repo acme/cto --force");
+  assert.equal(personLabels("cto", "acme/cto", new Set(["ada", "bo"]), ["ada", "bo"]).level, "ok");
+});
+
+test("a ROSTER_HUMANS variable that disagrees with org.yaml fails", () => {
+  assert.equal(humansVariable("cto", "acme/cto", '["Bo","ada"]', ["ada", "bo"]).level, "ok");
+  const f = humansVariable("cto", "acme/cto", '["ada"]', ["ada", "bo"]);
+  assert.equal(f.level, "fail");
+  assert.match(
+    f.fix ?? "",
+    /gh variable set ROSTER_HUMANS --repo acme\/cto --body '\["ada","bo"\]'/,
+  );
 });

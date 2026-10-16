@@ -114,3 +114,23 @@
 .effect{border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
       background:color-mix(in srgb,var(--accent) 7%,transparent);
       border-radius:var(--r);padding:11px 13px;margin-bottom:14px}
+
+/* People on the Org screen: one row per person, edited in place. */
+.peoplecard{margin-bottom:18px;display:flex;flex-direction:column;gap:12px}
+.peoplecard h2{margin:0;font:600 15px var(--sans);color:var(--ink);text-transform:none;letter-spacing:-.01em}
+.peoplelist{display:flex;flex-direction:column;gap:8px}
+.peoplerow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr) 72px auto;
+  gap:8px;align-items:center}
+.peoplerow input[type=text]{width:100%;box-sizing:border-box;font:13px var(--sans);color:var(--ink);
+  background:var(--surface-2);border:1px solid transparent;border-radius:8px;padding:7px 9px}
+.peoplerow input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.peoplehead span{font:600 11.5px var(--sans);color:var(--ink-dim)}
+.peopleonly{display:flex;justify-content:center}
+.peoplerow .ghbtn{min-height:30px;padding:3px 12px;font-size:12.5px}
+@media (max-width:720px){
+  .peoplehead{display:none}
+  .peoplerow{grid-template-columns:1fr 1fr;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .peoplerow > :nth-child(3){grid-column:1 / -1}
+  .peopleonly::after{content:"Read only";font:12.5px var(--sans);color:var(--ink-dim);margin-left:6px}
+  .peopleonly{justify-content:flex-start;align-items:center}
+}

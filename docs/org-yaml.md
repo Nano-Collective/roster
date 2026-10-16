@@ -115,7 +115,9 @@ appended rather than dropped.
 here"), and a list of two cannot go in that sentence, so the first one goes there, their
 `marker` is what `%%HUMAN_MARKER%%` renders, and the rest are named by
 `{{humans_extra}}` in the identity fragment. Everything that *gates* on identity reads all of
-them: the mention caller's `if:` is `contains(fromJSON('["will-lamerton","sam-x"]'), …)`.
+them: the mention caller's `if:` is
+`contains(fromJSON(vars.ROSTER_HUMANS || '["will-lamerton","sam-x"]'), …)`, the list baked in when
+the caller was generated unless the tracker has a `ROSTER_HUMANS` variable.
 
 **Who handles what.** With more than one person, give each a `handles` list:
 
@@ -138,9 +140,13 @@ them waiting. The staff prompts name them only to say that nothing they write is
 that nothing needing a human goes to them. A view-only person is never the primary, wherever they
 are in the list. What they can do on GitHub itself is still whatever their access there allows.
 
-Adding a human changes every generated caller workflow, so it takes a `roster upgrade` to reach
-the brain repos. Until that lands, the new person can open issues and read everything, and
-mentioning a staff member does nothing.
+**The easy way to add, change or remove someone is People on the portal's Org screen.** It
+writes this list, creates each person's label on every tracker, and sets the `ROSTER_HUMANS`
+Actions variable on every tracker, which the mention callers read in place of the list baked into
+them, so a new person can wake staff at once. Editing `org.yaml` by hand works too, but then it
+takes a `roster upgrade --apply` (and a push of the brain repos) to reach the callers, and if the
+portal has ever set `ROSTER_HUMANS` it has to be updated as well: `roster doctor` says so
+(`humans-variable`) and prints the command.
 
 ### `agent`
 

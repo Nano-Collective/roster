@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { join, relative } from "node:path";
-import { type Human, staffHumans } from "./humans.js";
+import { type Human, readHumans, staffHumans } from "./humans.js";
 import {
   budgetsFor,
   type Fact,
@@ -106,6 +106,8 @@ export interface OrgExport {
   human: Record<string, unknown>;
   /** Everyone the staff answer to, in order. `human` is `humans[0]`. */
   humans: Human[];
+  /** Everyone in org.yaml, read-only people included, for the Org screen's People form. */
+  people: Human[];
   generatedAt: string;
   staff: StaffExport[];
 }
@@ -206,6 +208,7 @@ export function buildExport(
     opsName: ws.opsName,
     human: (humans[0] as unknown as Record<string, unknown>) ?? org.human ?? {},
     humans,
+    people: readHumans(org),
     generatedAt: new Date().toISOString(),
     staff,
   };

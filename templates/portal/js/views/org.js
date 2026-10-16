@@ -20,6 +20,7 @@ import { mdlite } from "../md.js";
 import { humansOf, S, writeHash } from "../state.js";
 import { yamlPre } from "../yaml.js";
 import { businessForm, fileModes, prioritiesForm } from "./orgedit.js";
+import { peopleCard } from "./people.js";
 import { repoPicker } from "./repos.js";
 
 /* What the files roster itself ships are for, in one line each. A filename says nothing about
@@ -72,6 +73,7 @@ export function viewOrg(m) {
     kv("Staff", String(org.staff.length), org.staff.map((s) => s.handle).join(", ")),
   );
   m.append(facts);
+  m.append(peopleCard());
 
   /* Marking a product repo after setup. The picker only lived on the setup screen, so a repo
      created later meant typing `role: product` into org.yaml by hand. Folded, because it asks

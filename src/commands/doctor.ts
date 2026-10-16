@@ -620,7 +620,10 @@ async function checkStaff(
     const keys = declared(org)
       .filter((c) => c.staff.includes(entry.handle) && !c.problem && c.auth === "key")
       .map((c) => ({ name: c.name, secrets: c.secrets.map((x) => x.name) }));
-    out.push(...(await checkStaffOnline(scope, manifest, callers, logins, keys)));
+    const markers = staffHumans(org)
+      .map((h) => h.marker)
+      .filter(Boolean);
+    out.push(...(await checkStaffOnline(scope, manifest, callers, logins, keys, markers)));
   }
 
   return out;
@@ -827,6 +830,7 @@ async function checkStaffOnline(
   callers: Caller[],
   humans: string[] = [],
   connectors: Array<{ name: string; secrets: string[] }> = [],
+  markers: string[] = [],
 ): Promise<Finding[]> {
   const out: Finding[] = [];
   const repo = manifest.brain!;
@@ -958,9 +962,16 @@ async function checkStaffOnline(
         : { scope, level: "ok", id: "labels", title: "every declared label exists" },
     );
     out.push(ownedLabels(scope, repo, have));
+    out.push(personLabels(scope, repo, have, markers));
   }
 
   if (open.ok) out.push(...unkindedAsks(scope, repo, open.data!, humans));
+
+  /* The portal's People form sets ROSTER_HUMANS, and the mention callers prefer it to the list
+     baked in at generation. Once set, an org.yaml edited by hand and upgraded leaves it behind,
+     and then a new person's mention wakes nobody, with nothing anywhere saying so. */
+  const variable = await api<{ value: string }>(`repos/${repo}/actions/variables/ROSTER_HUMANS`);
+  if (variable.ok) out.push(humansVariable(scope, repo, variable.data!.value, humans));
 
   /* A peer label lives on the *peer's* tracker, not here: `from-cto` is how the CTO marks an
      ask it files on the CMO's board. Checking it against the wrong repo reports both of a
@@ -1411,6 +1422,55 @@ export function ownedLabels(scope: string, repo: string, have: Set<string>): Fin
         fix: gone.map((l) => `gh label create ${l} --repo ${repo} --force`).join("\n"),
       }
     : { scope, level: "ok", id: "owned-labels", title: "roster's own labels exist" };
+}
+
+/** Whether the ROSTER_HUMANS variable on a tracker names the same people as org.yaml. */
+export function humansVariable(
+  scope: string,
+  repo: string,
+  value: string,
+  humans: string[],
+): Finding {
+  let set: string[] = [];
+  try {
+    set = (JSON.parse(value) as unknown[]).map((x) => String(x).toLowerCase());
+  } catch {
+    /* unreadable is as wrong as different */
+  }
+  const want = humans.map((h) => h.toLowerCase());
+  const same = set.length === want.length && want.every((h) => set.includes(h));
+  return same
+    ? { scope, level: "ok", id: "humans-variable", title: "ROSTER_HUMANS matches org.yaml" }
+    : {
+        scope,
+        level: "fail",
+        id: "humans-variable",
+        title: `ROSTER_HUMANS on ${repo} is ${value}, but org.yaml says ${JSON.stringify(humans)}`,
+        fix: `gh variable set ROSTER_HUMANS --repo ${repo} --body '${JSON.stringify(humans)}'`,
+      };
+}
+
+/**
+ * Each person's label, on every tracker. Staff send an ask to whoever's area it is by labelling
+ * it for them, and `gh issue create --label` fails outright on a label that does not exist, so a
+ * person added to org.yaml after hiring is a person nobody can send anything to.
+ */
+export function personLabels(
+  scope: string,
+  repo: string,
+  have: Set<string>,
+  markers: string[],
+): Finding {
+  const gone = [...new Set(markers)].filter((l) => !have.has(l));
+  return gone.length
+    ? {
+        scope,
+        level: "warn",
+        id: "person-labels",
+        title: `a person's label is missing from ${repo}: ${gone.join(", ")}`,
+        fix: gone.map((l) => `gh label create ${l} --repo ${repo} --force`).join("\n"),
+      }
+    : { scope, level: "ok", id: "person-labels", title: "every person's label exists" };
 }
 
 /**

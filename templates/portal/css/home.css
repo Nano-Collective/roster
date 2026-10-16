@@ -145,9 +145,13 @@
 .orbcard.busy .orbglow{animation:orbbreathe 2.6s ease-in-out infinite}
 .orbcard.busy .orbswirl{opacity:1;animation:orbspin 5s linear infinite}
 .orbcard.busy .orbbody{animation:orbfloat 3.2s ease-in-out infinite}
-.orbcard.queued .orbglow{animation:orbbreathe 1.4s ease-in-out infinite}
-.orbcard.queued .orbswirl{opacity:.6;animation:orbspin 9s linear infinite}
-.orbcard.queued .orbstate{color:var(--warn)}
+/* Waiting to start: yellow whoever it is, lit but slow, so it reads as "about to" rather than
+   "at work". GitHub has the run queued and no runner has picked it up yet. */
+.orbcard.queued{--hue:#ffd60a!important;border-color:color-mix(in srgb,#ffd60a 35%,var(--line))}
+.orbcard.queued .orbglow{animation:orbbreathe 2.2s ease-in-out infinite}
+.orbcard.queued .orbswirl{opacity:.45;animation:orbspin 14s linear infinite}
+.orbcard.queued .orbicon{color:#5c4a00;filter:none}
+.orbcard.queued .orbstate{color:color-mix(in srgb,#ffd60a 70%,var(--ink))}
 /* Free: the same orb, still and drained of colour. */
 .orbcard.idle .orbbody,.orbcard.failed .orbbody,.orbcard.wait .orbbody{filter:saturate(.12) brightness(.95);opacity:.6}
 .orbcard.failed .orb::after{content:"";position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;

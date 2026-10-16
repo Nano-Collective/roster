@@ -21,7 +21,7 @@ import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
 import { CHARTER_EXAMPLES, charterStarter, matchExample } from "../lib/examples.js";
 import { buildExport, readManifest } from "../lib/export.js";
 import type { GitHub } from "../lib/github.js";
-import { isViewOnly } from "../lib/humans.js";
+import { isViewOnly, type PersonInput, tidyPeople, writeHumans } from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { liveFor } from "../lib/live.js";
 import { markRead, unreadFor } from "../lib/notifications.js";
@@ -578,6 +578,62 @@ const ROUTES: Record<string, Route> = {
     return json(
       await commitFile(portal, actor.gh, dir!, rest.join("/"), payload.text, message, base),
     );
+  },
+
+  /* Who the staff answer to, from the Org screen. One commit to org.yaml, then each person's
+     label on every tracker (an ask is sent by labelling it for someone, and GitHub refuses a
+     label that does not exist) and the ROSTER_HUMANS variable the mention callers gate on, so
+     somebody added here can wake a staff member straight away rather than after an upgrade. */
+  "/api/people": async (c) => {
+    const { req, portal, actor } = c;
+    if (!actor.canWrite) return refuse();
+    const { org, brains } = await ready(c, { force: true });
+    if (isViewOnly(org, actor.id))
+      return json({ error: "Read-only people cannot change this." }, 403);
+    const payload = (await body(req)) as { people?: PersonInput[]; base?: string };
+    const { people, error } = tidyPeople(Array.isArray(payload.people) ? payload.people : []);
+    if (error) return json({ error }, 400);
+    const text = portal.snapshots
+      .get(`${portal.org}/${portal.opsName}`)
+      ?.files.get("org.yaml")?.text;
+    if (text === undefined) return json({ error: "could not read org.yaml" }, 502);
+    const next = writeHumans(text, people);
+    const wrong = validateOrgYaml(next, parseYaml);
+    if (wrong) return json({ error: wrong }, 400);
+    const saved = await commitFile(
+      portal,
+      actor.gh,
+      portal.opsName,
+      "org.yaml",
+      next,
+      "portal: who the staff answer to",
+      payload.base,
+    );
+
+    const warnings: string[] = [];
+    const logins = JSON.stringify(people.filter((h) => !h.viewOnly).map((h) => h.github));
+    await Promise.all(
+      brains.map(async (dir: string) => {
+        const repo = `${portal.org}/${dir}`;
+        for (const h of people) {
+          const made = await actor.gh.request("POST", `repos/${repo}/labels`, {
+            body: { name: h.marker, color: "1d76db", description: `An ask for ${h.name}` },
+          });
+          // 422 is "already exists", which is the point.
+          if (!made.ok && made.status !== 422)
+            warnings.push(`label "${h.marker}" on ${dir}: ${made.error}`);
+        }
+        const v = { name: "ROSTER_HUMANS", value: logins };
+        let set = await actor.gh.request("PATCH", `repos/${repo}/actions/variables/ROSTER_HUMANS`, {
+          body: v,
+        });
+        if (!set.ok && set.status === 404) {
+          set = await actor.gh.request("POST", `repos/${repo}/actions/variables`, { body: v });
+        }
+        if (!set.ok) warnings.push(`who can wake ${dir}: ${set.error}`);
+      }),
+    );
+    return json({ ...saved, warnings });
   },
 
   /* Connectors: what is offered, what this org has, and whether each one's keys are stored. */

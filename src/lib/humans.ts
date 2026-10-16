@@ -131,3 +131,120 @@ function defaultMarker(name: string): string {
       .replace(/[^a-z0-9]/g, "") || "human"
   );
 }
+
+/** One person as the portal's People form sends them. */
+export interface PersonInput {
+  name?: string;
+  github?: string;
+  marker?: string;
+  role?: string;
+  handles?: string[] | string;
+  view_only?: boolean;
+}
+
+/* org.yaml is read by a small parser in compose.mjs that splits an inline map on commas and
+   ends a value at a " #". A name or an area with one of those in it would come back as two
+   fields, so they are taken out rather than quoted. */
+const clean = (v: unknown) =>
+  String(v ?? "")
+    .replace(/[,{}[\]#"'\n\r]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** A login GitHub would accept. */
+export const LOGIN_RE = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+
+/**
+ * The people, checked and tidied for writing: a marker for everyone, no duplicates, at least
+ * one person who can wake the staff. Returns the error to show instead when they will not do.
+ */
+export function tidyPeople(input: PersonInput[]): { people: Human[]; error?: string } {
+  const people: Human[] = [];
+  for (const p of input) {
+    const github = clean(p.github).replace(/^@/, "");
+    const name = clean(p.name) || github;
+    if (!github && !name) continue;
+    if (!LOGIN_RE.test(github))
+      return { people, error: `"${github || name}" is not a GitHub login` };
+    if (people.some((h) => h.github.toLowerCase() === github.toLowerCase())) {
+      return { people, error: `@${github} is in the list twice` };
+    }
+    const marker = (clean(p.marker) || defaultMarker(name || github))
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "");
+    if (people.some((h) => h.marker === marker)) {
+      return {
+        people,
+        error: `two people would share the label "${marker}"; give one a different label`,
+      };
+    }
+    const handles = (Array.isArray(p.handles) ? p.handles : String(p.handles ?? "").split(","))
+      .map(clean)
+      .filter(Boolean);
+    people.push({
+      github,
+      name,
+      marker,
+      ...(clean(p.role) ? { role: clean(p.role) } : {}),
+      ...(handles.length ? { handles } : {}),
+      ...(p.view_only === true ? { viewOnly: true } : {}),
+    });
+  }
+  if (!people.some((h) => !h.viewOnly)) {
+    return {
+      people,
+      error: "someone has to be able to wake the staff: one person cannot be read-only",
+    };
+  }
+  return { people };
+}
+
+/**
+ * org.yaml with its `human:` or `humans:` block replaced by `humans:` holding these people, and
+ * everything else, comments included, left as it was.
+ */
+export function writeHumans(text: string, people: Human[]): string {
+  const lines = text.split("\n");
+  const block = [
+    "humans:",
+    ...people.map((h) => {
+      const parts = [`name: ${h.name}`, `github: ${h.github}`, `marker: ${h.marker}`];
+      if (h.role) parts.push(`role: ${h.role}`);
+      if (h.handles?.length) parts.push(`handles: [${h.handles.join(", ")}]`);
+      if (h.viewOnly) parts.push("view_only: true");
+      return `  - { ${parts.join(", ")} }`;
+    }),
+  ];
+  const out: string[] = [];
+  let at = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^humans?:/.test(lines[i]!)) {
+      if (at < 0) at = out.length;
+      // The block runs on while its lines are indented, or blank with more of it below.
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1]!;
+        const more = /^\s+\S/.test(next) || (/^\s*$/.test(next) && nextIsIndented(lines, i + 1));
+        if (!more) break;
+        i++;
+      }
+      continue;
+    }
+    out.push(lines[i]!);
+  }
+  if (at < 0) {
+    const name = out.findIndex((l) => /^name:/.test(l));
+    at = name >= 0 ? name + 1 : out.length;
+    out.splice(at, 0, "");
+    at++;
+  }
+  out.splice(at, 0, ...block);
+  return out.join("\n");
+}
+
+function nextIsIndented(lines: string[], from: number): boolean {
+  for (let j = from; j < lines.length; j++) {
+    if (/^\s*$/.test(lines[j]!)) continue;
+    return /^\s+\S/.test(lines[j]!);
+  }
+  return false;
+}

@@ -532,8 +532,10 @@ function team(staff) {
       line = "Could not check on them";
     } else if (busy || queued) {
       const r = { ...runs[0], handle: s.handle };
-      word = busy ? "Working" : "Starting";
-      line = busy ? `${whatRun(r)} · ${minutes(r.createdAt)} so far` : "About to start";
+      word = busy ? "Working" : "Waiting to start";
+      line = busy
+        ? `${whatRun(r)} · ${minutes(r.createdAt)} so far`
+        : `${whatRun(r)} · queued ${minutes(r.createdAt)} ago`;
     } else if (failed) {
       word = "Free";
       line = `Their last session stopped with a problem, ${ago(last.updatedAt)}`;

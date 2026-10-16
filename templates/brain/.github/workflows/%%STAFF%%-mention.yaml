@@ -16,7 +16,7 @@ name: %%STAFF_UPPER%% on a mention
 # skipped.
 run-name: >-
   %%STAFF%% ${{
-    (contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.sender.login) &&
+    (contains(fromJSON(vars.ROSTER_HUMANS || '%%HUMAN_LOGINS%%'), github.event.sender.login) &&
       (contains(github.event.comment.body, '%%MENTION%%') ||
        (github.event_name == 'issues' && contains(github.event.issue.body, '%%MENTION%%'))))
     && 'mention'
@@ -72,10 +72,10 @@ jobs:
       cancel-in-progress: false
     if: >-
       (
-        contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.sender.login) &&
+        contains(fromJSON(vars.ROSTER_HUMANS || '%%HUMAN_LOGINS%%'), github.event.sender.login) &&
         (
           (github.event_name == 'issue_comment' &&
-           contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.comment.user.login) &&
+           contains(fromJSON(vars.ROSTER_HUMANS || '%%HUMAN_LOGINS%%'), github.event.comment.user.login) &&
            contains(github.event.comment.body, '%%MENTION%%')) ||
           (github.event_name == 'issues' &&
            contains(github.event.issue.body, '%%MENTION%%'))
@@ -102,7 +102,7 @@ jobs:
     with:
       staff: %%STAFF%%
       kind: mention
-      trigger: ${{ contains(fromJSON('%%HUMAN_LOGINS%%'), github.event.sender.login) && 'mention' || 'peer' }}
+      trigger: ${{ contains(fromJSON(vars.ROSTER_HUMANS || '%%HUMAN_LOGINS%%'), github.event.sender.login) && 'mention' || 'peer' }}
       max_runs_per_day: %%MAX_RUNS%%
       ops_repo: %%OPS_REPO%%
       model: %%MODEL%%
