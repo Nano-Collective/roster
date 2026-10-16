@@ -93,8 +93,11 @@ export function belongsTo(item, s) {
 }
 
 /* Threads read so far, by repo#number, kept for the session. Each is reused while its
-   updatedAt matches the list's, so a thread is fetched again only when it has changed. */
+   updatedAt matches the list's, so a thread is fetched again only when it has changed, or once
+   the signed links to its images (good for five minutes) are about to run out. */
 const THREADS = new Map();
+const THREAD_AT = new Map();
+const THREAD_FRESH = 4 * 60_000;
 
 export const viewInbox = (m) => inboxScreen(m, {});
 
@@ -423,7 +426,7 @@ function inboxScreen(m, opts) {
       const key = item.repo + "#" + item.number;
       const kept = THREADS.get(key);
       const keep = { role: item.role, unread: item.unread };
-      if (kept && kept.updatedAt === item.updatedAt) {
+      if (kept && kept.updatedAt === item.updatedAt && Date.now() - (THREAD_AT.get(key) ?? 0) < THREAD_FRESH) {
         Object.assign(item, kept, keep, { partial: false });
       } else {
         viewer.dataset.want = key;
@@ -432,6 +435,7 @@ function inboxScreen(m, opts) {
           .then((fresh) => {
             if (!fresh || fresh.error) throw new Error(fresh?.error ?? "could not read it");
             THREADS.set(key, fresh);
+            THREAD_AT.set(key, Date.now());
             Object.assign(item, fresh, keep, { partial: false });
           })
           .catch((e) => {
@@ -490,7 +494,22 @@ function inboxScreen(m, opts) {
        just happened. The title and the actions are in the header, so nothing you need is
        further down than the first screenful. */
     const from = pane.children.length;
-    for (const node of timeline(item, openThread)) pane.append(node);
+    const nodes = timeline(item, openThread);
+    /* The newest message is what you came for, so it is marked and everything between it and
+       the opening post folds behind one button. What happened after it (closed, relabelled)
+       stays in view above it, and the opening post stays at the bottom, since it says what
+       was asked in the first place. */
+    const latest = nodes.findIndex((n) => n.classList?.contains("cmt"));
+    if (latest >= 0) {
+      nodes[latest].classList.add("latest");
+      nodes[latest].querySelector?.(".cwhen")?.before?.(el("span", { className: "pill clatest", textContent: "Latest" }));
+      const older = nodes.slice(latest + 1);
+      const said = older.filter((n) => n.classList?.contains("cmt")).length;
+      if (said) {
+        nodes.splice(latest + 1, older.length, earlier(older, said));
+      }
+    }
+    for (const node of nodes) pane.append(node);
     pane.append(
       comment({
         author: item.author, when: item.createdAt, body: item.body, first: true,
@@ -733,9 +752,11 @@ function inboxScreen(m, opts) {
     };
     buttons.push(reply);
 
+    /* Closing, in words a person uses: "close" read as shutting the panel. Light red and over
+       by Open in GitHub, away from Reply, so it is not pressed on the way to answering. */
     const closeBtn = el("button", {
-      className: "ghbtn",
-      textContent: item.state === "OPEN" ? "Close" : "Reopen",
+      className: "ghbtn" + (item.state === "OPEN" ? " danger" : ""),
+      textContent: item.state === "OPEN" ? "Mark as completed" : "Reopen",
     });
     closeBtn.onclick = async () => {
       const closing = item.state === "OPEN";
@@ -744,9 +765,9 @@ function inboxScreen(m, opts) {
         // Closing is the one thing here that is awkward to undo from a phone later, so it asks
         // — and since it is asking anyway, it takes a parting comment.
         body = await compose({
-          title: "Close " + item.repo + " #" + item.number + "?",
-          hint: "Anything you write here is posted as a comment first. Leave it empty to just close.",
-          confirm: "Close it",
+          title: "Are you sure you want to mark #" + item.number + " as completed?",
+          hint: "This closes it. Anything you write here is posted as a comment first.",
+          confirm: "Mark as completed",
           allowEmpty: true,
         });
         if (body === null) return;
@@ -776,9 +797,8 @@ function inboxScreen(m, opts) {
         openThread({ repo: item.repo, number: item.number, kind: item.kind });
       } catch (e) { failed(e); }
     };
-    buttons.push(closeBtn);
-
     const row = el("div", { className: "row tacts" }, buttons);
+    buttons.push(closeBtn);
 
     /* Merging cannot be undone with another click, so it asks first and names what it is about
        to merge. It does not ask *how*: squash, merge commit or rebase is a question about git
@@ -833,9 +853,11 @@ function inboxScreen(m, opts) {
     row.append(status);
     // Last, and pushed to the far end: it is the way out of this screen rather than one of the
     // things you do on it. Same shape as the rest, so the row reads as one set of controls.
+    closeBtn.classList.add("out");
     row.append(
+      closeBtn,
       el("a", {
-        className: "ghbtn out",
+        className: "ghbtn",
         href: item.url,
         target: "_blank",
         rel: "noopener",
@@ -856,6 +878,7 @@ function inboxScreen(m, opts) {
         if (at >= 0) {
           const old = S.inbox.items[at];
           THREADS.set(item.repo + "#" + item.number, fresh);
+          THREAD_AT.set(item.repo + "#" + item.number, Date.now());
           // A single thread does not know which part of the org it is in, or whether it is unread.
           S.inbox.items[at] = { ...old, ...fresh, role: old.role, unread: old.unread, partial: false };
         } else if (opts.stray && find(item) === opts.stray) {
@@ -1067,6 +1090,24 @@ function timeline(item, openThread) {
   }
   flush();
   return out;
+}
+
+/** Older messages in a thread, behind one button that shows them all. */
+function earlier(nodes, said) {
+  const box = el("div", { className: "tearlier" });
+  const btn = el("button", {
+    className: "tearlierbtn",
+    textContent: "Show " + said + " earlier message" + (said === 1 ? "" : "s"),
+  });
+  btn.setAttribute("aria-expanded", "false");
+  const body = el("div", {}, nodes);
+  body.hidden = true;
+  btn.onclick = () => {
+    body.hidden = false;
+    btn.remove();
+  };
+  box.append(btn, body);
+  return box;
 }
 
 function folded(events, item, openThread) {

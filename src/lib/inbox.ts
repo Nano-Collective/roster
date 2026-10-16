@@ -139,7 +139,7 @@ export interface InboxItem {
    request's is `PullRequestTimelineItems`, and a fragment is bound to one type. */
 const TIMELINE_COMMON = `
   __typename
-  ... on IssueComment { author { login } createdAt body url ${REACTIONS} }
+  ... on IssueComment { author { login } createdAt body bodyHTML url ${REACTIONS} }
   ... on CrossReferencedEvent {
     actor { login } createdAt
     source {
@@ -172,7 +172,7 @@ const TIMELINE_COMMON = `
 
 const TIMELINE_PR = `
   ... on MergedEvent { actor { login } createdAt commit { oid url } }
-  ... on PullRequestReview { author { login } createdAt state body url }
+  ... on PullRequestReview { author { login } createdAt state body bodyHTML url }
   ... on ReadyForReviewEvent { actor { login } createdAt }
   ... on ReviewRequestedEvent {
     actor { login } createdAt
@@ -252,7 +252,7 @@ query($owner:String!, $name:String!, $number:Int!) {
     issueOrPullRequest(number:$number) {
       __typename
       ... on Issue {
-        number title body url state createdAt updatedAt ${ROW_EXTRAS}
+        number title body bodyHTML url state createdAt updatedAt ${ROW_EXTRAS}
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
@@ -260,7 +260,7 @@ query($owner:String!, $name:String!, $number:Int!) {
         timelineItems(last:100, itemTypes:${ISSUE_TYPES}) { nodes { ${TIMELINE_COMMON} } }
       }
       ... on PullRequest {
-        number title body url state createdAt updatedAt isDraft mergeable reviewDecision ${ROW_EXTRAS}
+        number title body bodyHTML url state createdAt updatedAt isDraft mergeable reviewDecision ${ROW_EXTRAS}
         author { login }
         ${REACTIONS}
         labels(first:12) { nodes { name } }
@@ -347,7 +347,7 @@ function shape(n: any, repo: string, role: string, kind: "issue" | "pr"): InboxI
     // The list carries the body only to find a decision's default; a row never shows it, and
     // a thread that is opened is read whole on its own. A status issue's body is the exception:
     // it is the staff member's report, and Home shows it.
-    body: n.timelineItems || isStatus(n) ? (n.body ?? "") : "",
+    body: n.timelineItems || isStatus(n) ? signed(n.body ?? "", n.bodyHTML) : "",
     ...extras(n),
     labels: (n.labels?.nodes ?? []).map((l: any) => l.name),
     assignees: (n.assignees?.nodes ?? []).map((a: any) => a.login),
@@ -397,6 +397,29 @@ export function dueOf(body: string): InboxItem["due"] | undefined {
   return { date: m[1]!, action };
 }
 
+/* An image pasted into an issue on a private repo is a github.com/user-attachments link, and
+   that link only opens for a browser signed in to github.com. The portal is another site, so it
+   showed a broken image. GitHub's own rendering of the same text carries a signed copy of each
+   one (private-user-images…?jwt=), good for five minutes, so the markdown's links are swapped for
+   those. On a public repo there is nothing signed and the links stay as they are. */
+const ASSET_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+const ASSET_LINK =
+  /https:\/\/github\.com\/(?:user-attachments\/assets|[\w.-]+\/[\w.-]+\/assets\/\d+)\/([0-9a-f-]{36})/g;
+
+export function signed(body: string, html?: string): string {
+  if (!html || !body.includes("github.com/")) return body;
+  const found = new Map<string, string>();
+  for (const m of html.matchAll(
+    /src="(https:\/\/private-user-images\.githubusercontent\.com\/[^"]+)"/g,
+  )) {
+    const src = m[1]!.replace(/&amp;/g, "&");
+    const id = ASSET_ID.exec(src)?.[0];
+    if (id && !found.has(id)) found.set(id, src);
+  }
+  if (!found.size) return body;
+  return body.replace(ASSET_LINK, (link, id: string) => found.get(id) ?? link);
+}
+
 /** GitHub sends a group per reaction type whether or not anyone used it. Empty ones are noise. */
 function reactions(n: any): Reaction[] {
   return (n.reactionGroups ?? [])
@@ -419,7 +442,7 @@ function event(e: any): TimelineEvent | null {
         type: "comment",
         actor: who,
         createdAt: at,
-        body: e.body ?? "",
+        body: signed(e.body ?? "", e.bodyHTML),
         url: e.url,
         reactions: reactions(e),
       };
@@ -487,7 +510,7 @@ function event(e: any): TimelineEvent | null {
         actor: who,
         createdAt: at,
         state: e.state,
-        body: e.body ?? "",
+        body: signed(e.body ?? "", e.bodyHTML),
         url: e.url,
       };
 

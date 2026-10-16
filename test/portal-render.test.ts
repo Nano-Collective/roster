@@ -667,6 +667,7 @@ const ALIAS: Record<string, string> = {
   DATA: "data",
   STAFF_OPEN: "staffOpen",
   HOSTED: "hosted",
+  ME: "me",
   READINESS: "readiness",
   INBOX: "inbox",
   LIVE: "live",
@@ -1990,7 +1991,7 @@ test("replying is a dialog on the header, not a box at the end of the thread", a
      nothing said which you wanted: Reply reaches whoever you name in it, so the second went. */
   assert.deepEqual(
     acts.children.filter((c: any) => c.tagName === "BUTTON").map((c: any) => c.textContent),
-    ["Reply", "Close"],
+    ["Reply", "Mark as completed"],
   );
 
   let sent: any = null;

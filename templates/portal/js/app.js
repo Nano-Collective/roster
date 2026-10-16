@@ -103,6 +103,7 @@ export async function boot() {
      the thing that fixes it. */
   const [first, session] = await Promise.all([loadWithProgress(), getSession()]);
   S.hosted = session?.hosted ? session : null;
+  S.me = session?.login || null;
   if (S.hosted) showSignedIn(S.hosted.login);
   if (first && first.mode === "setup") {
     document.body.dataset.setup = "1";

@@ -104,6 +104,7 @@ humans:
 | `name` | no | What to call them in prose. Defaults to the login. |
 | `marker` | no | Provenance tag on a fact they ruled on, as in `[will]`. Also used as a label. Defaults to the first part of the name, lowercased. |
 | `role` | no | Prose only. |
+| `handles` | no | What they look after, as `[marketing, content]`. Staff send each ask to the person whose area it is. See below. |
 | `view_only` | no | `true` for somebody who should see how the org runs and nothing more. See below. |
 
 Both keys are read, and the singular is not deprecated: an org with one human should keep
@@ -115,6 +116,20 @@ here"), and a list of two cannot go in that sentence, so the first one goes ther
 `marker` is what `%%HUMAN_MARKER%%` renders, and the rest are named by
 `{{humans_extra}}` in the identity fragment. Everything that *gates* on identity reads all of
 them: the mention caller's `if:` is `contains(fromJSON('["will-lamerton","sam-x"]'), …)`.
+
+**Who handles what.** With more than one person, give each a `handles` list:
+
+```yaml
+humans:
+  - { name: Will, github: will-lamerton, marker: will, handles: [technical work, the product, deploys] }
+  - { name: Ben, github: ben-x, marker: ben, handles: [marketing, content, social] }
+```
+
+The staff are told who looks after what, and send each ask (an issue with a person's label, or
+a pull request) to that one person: their label, assigned to them. On Home, **Needs you** then
+shows the signed-in person what is on them, plus anything on nobody in particular, with a
+**Yours / Everyone's** switch beside the heading. Something that fits nobody's area goes to the
+first person.
 
 **View-only.** `{ name: Ben, github: ben-x, view_only: true }` signs in to the portal and the
 Claude connector like anyone in the list, and reads everything there. They are not in the mention

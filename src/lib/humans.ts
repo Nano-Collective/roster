@@ -23,6 +23,11 @@ export interface Human {
   marker: string;
   /** Prose only. */
   role?: string;
+  /**
+   * What this person looks after, as in `handles: [marketing, content]`. Staff send each ask to
+   * the person whose area it is, and the portal shows each person what is theirs.
+   */
+  handles?: string[];
   /** Signs in and reads; cannot wake anybody, and nothing they say is a ruling. */
   viewOnly?: boolean;
 }
@@ -68,10 +73,16 @@ export function readHumans(org: HasHumans | undefined): Human[] {
       name: name || github,
       marker: String(entry.marker ?? "").trim() || defaultMarker(name || github),
       role: entry.role === undefined || entry.role === null ? undefined : String(entry.role),
+      ...(handlesOf(entry.handles).length ? { handles: handlesOf(entry.handles) } : {}),
       ...(entry.view_only === true ? { viewOnly: true } : {}),
     });
   }
   return out;
+}
+
+function handlesOf(v: unknown): string[] {
+  const list = Array.isArray(v) ? v : v ? String(v).split(",") : [];
+  return list.map((x) => String(x ?? "").trim()).filter(Boolean);
 }
 
 /** Everyone the staff answer to: every human but the view-only ones. */

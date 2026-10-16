@@ -64,8 +64,13 @@ function htmlToMarkdown(html, breakAs, stripUnknown) {
     .replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _t, x) => "**" + x.trim() + "**")
     .replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _t, x) => "*" + x.trim() + "*")
     .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_m, x) => "`" + x.trim() + "`")
-    .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, "$1")
-    .replace(/<img[^>]*>/gi, "")
+    /* A screenshot dragged into an issue on GitHub is written as an <img> tag, not as markdown,
+       and dropping it to its alt text left the word "Image" where the picture was. */
+    .replace(/<img[^>]*>/gi, (tag) => {
+      const src = /\ssrc=["'](https?:\/\/[^"'\s]+)["']/i.exec(tag)?.[1];
+      const alt = (/\salt=["']([^"']*)["']/i.exec(tag)?.[1] ?? "").replace(/[[\]]/g, "");
+      return src ? "![" + alt + "](" + src + ")" : alt;
+    })
     // Only http(s). A `javascript:` href would be escaped downstream anyway, but a link that
     // cannot go anywhere useful is better dropped than rendered.
     .replace(

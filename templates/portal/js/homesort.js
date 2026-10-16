@@ -80,6 +80,7 @@ export function sortHome(items, staff, humans, live = [], now = new Date()) {
           ? "answered"
           : "waiting";
     }
+    if (place.place === "needs") entry.for = whoFor(item, humans);
     out[place.place].push(entry);
   }
 
@@ -124,6 +125,25 @@ export function placeOf(item, owner, people, markers) {
     place: "staff",
     why: labels.some((l) => l.startsWith("from-")) ? "peer" : "own",
   };
+}
+
+/**
+ * The people an ask is on, by login: whoever it is assigned to, and whoever's label it carries.
+ * Empty means nobody in particular, such as a pull request nobody was asked to look at, and then
+ * it is everybody's.
+ */
+export function whoFor(item, humans) {
+  const labels = new Set((item.labels ?? []).map(lower));
+  const assigned = new Set((item.assignees ?? []).map(lower));
+  return humans
+    .filter((h) => (h.github && assigned.has(lower(h.github))) || (h.marker && labels.has(lower(h.marker))))
+    .map((h) => h.github);
+}
+
+/** Whether an ask is for this login: it is on them, or on nobody in particular. */
+export function isFor(entry, login) {
+  if (!login || !entry.for?.length) return true;
+  return entry.for.some((g) => lower(g) === lower(login));
 }
 
 function kindOf(labels) {

@@ -265,10 +265,28 @@ export function readHumans(org) {
       name: name || github,
       marker: String(entry.marker ?? "").trim() || defaultMarker(name || github),
       role: entry.role ?? undefined,
+      ...(handlesOf(entry.handles).length ? { handles: handlesOf(entry.handles) } : {}),
       ...(entry.view_only === true ? { viewOnly: true } : {}),
     });
   }
   return out;
+}
+
+/** `handles: [marketing, content]`, or one string, as a list of what that person looks after. */
+function handlesOf(v) {
+  const list = Array.isArray(v) ? v : v ? String(v).split(",") : [];
+  return list.map((x) => String(x ?? "").trim()).filter(Boolean);
+}
+
+/** Who looks after what, one line each, for when there is more than one person to ask. */
+export function handlesList(humans) {
+  if (humans.length < 2 || !humans.some((h) => h.handles?.length)) return "";
+  return humans
+    .map((h) => {
+      const who = `- **${h.name}**${h.github ? ` (@${h.github}, label \`${h.marker}\`)` : ""}`;
+      return h.handles?.length ? `${who}: ${h.handles.join(", ")}` : `${who}: anything else`;
+    })
+    .join("\n");
 }
 
 /** "Will (@will-lamerton) and Sam (@sam)", for a sentence in a prompt. */
@@ -389,6 +407,8 @@ export function compose({
     human_list: humanSentence(humans),
     inflight,
     humans_extra: humanSentence(humans.slice(1)),
+    // Who looks after what, when an org has said. Empty for one person, and the rule goes.
+    humans_handles: handlesList(humans),
     // Who can read along and cannot rule. Empty, and the paragraph gone, when nobody is.
     humans_viewing: humanSentence(everyone.filter((h) => h.viewOnly)),
     // The services this staff member may use, as a list for the prompt. Empty, and the section

@@ -72,14 +72,35 @@ writing a plan for {{human.name}} to approve.
    what the next run picks up in priority order, and anything parked. Commands and notes to
    yourself go here. Rewrite it, do not append, and cut anything the next run can find for itself.
    **Then rewrite the body of #{{staff.status_issue}}. It is your report**, the one place
-   {{human.name}} reads where things are, so it is for them, not for you. It opens with
-   `Updated <date> <HH:MM> UTC.`, then: where each priority stands, with the numbers, and the
-   result of this run where it moved one (what changed for people, not "opened a PR"); what is on
-   them, oldest first, by issue number; what you do next. Nothing they need to scroll past, and
-   no notes to yourself. **Never comment on it**: they want one report, not a thread to scroll.
+   {{human.name}} reads where things are, so it is for them, not for you. The portal shows it as a
+   card, so keep exactly this shape and these headings:
+
+   ```
+   Updated <date> <HH:MM> UTC.
+
+   **Status: on track.** <one plain sentence on how things are going>
+
+   ## Done
+   - <what got finished since the last report, as what changed for people or the business>
+
+   ## Working on
+   - <each priority: where it stands, with the numbers>
+
+   ## Needs you
+   - <what is waiting on a person, oldest first, by issue number{{#if humans_handles}}, naming who it is for{{/if}}>
+
+   ## Next
+   - <what you do next>
+   ```
+
+   The status is one of `on track`, `needs you` (something is waiting on a person) or `stuck`
+   (you cannot move a priority). An empty section says `- Nothing.` Say what changed for people,
+   not "opened a PR". Nothing they need to scroll past, and no notes to yourself. **Never comment
+   on it**: they want one report, not a thread to scroll.
 3. **Reconcile the tracker.** Open issues for anything new needing {{human.name}}: the
    `{{human.marker}}` label plus one of `decision`, `review` or `chore`, assigned to
-   `{{human.github}}`. Sweep **every** open issue on your tracker, whoever opened it: close what is
+   `{{human.github}}`.{{#if humans_handles}} An ask in someone else's area goes to them instead,
+   with their label.{{/if}} Sweep **every** open issue on your tracker, whoever opened it: close what is
    done, superseded or needs nothing, citing what closed it. A `decision` whose date has passed with
    no answer: act on the default and close it. **Comments and replies get the same concision as
    everything else:** what changed and what it means for them. A comment that only says an issue is still open

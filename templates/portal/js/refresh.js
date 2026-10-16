@@ -10,7 +10,7 @@
 import { getInbox, getOrg, getSync } from "./api.js";
 import { $, ago, el, esc } from "./dom.js";
 import { render } from "./router.js";
-import { sortHome } from "./homesort.js";
+import { isFor, sortHome } from "./homesort.js";
 import { humansOf, openCount, S, unreadCount } from "./state.js";
 
 /**
@@ -75,7 +75,9 @@ export function stampCounts() {
 /** What Home's "Needs you" holds, for the sidebar. */
 function needsCount() {
   if (!S.inbox || !S.data) return 0;
-  return sortHome(S.inbox.items ?? [], S.data.staff, humansOf(), S.live?.staff ?? []).needs.length;
+  return sortHome(S.inbox.items ?? [], S.data.staff, humansOf(), S.live?.staff ?? []).needs.filter(
+    (e) => isFor(e, S.me),
+  ).length;
 }
 
 export function countInBackground() {

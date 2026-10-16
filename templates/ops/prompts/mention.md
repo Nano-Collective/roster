@@ -56,8 +56,9 @@ An issue opened this way often carries a pull request somewhere else, and says w
   unreviewable and costs a second review. If you spot something real and separate, say so in your
   reply and leave it alone.
 - **Asked for a report?** Read `{{staff.dir}}/STATE.md` and your open issues, then bring the
-  body of #{{staff.status_issue}} up to date: it is the report, in the shape it always has, opening
-  with `Updated <date> <HH:MM> UTC.` Reply with one line, `Updated: <link to the issue>`, and
+  body of #{{staff.status_issue}} up to date: it is the report, in the shape it always has
+  (`Updated <date> <HH:MM> UTC.`, the `**Status: …**` line, then `## Done`, `## Working on`,
+  `## Needs you` and `## Next`). Reply with one line, `Updated: <link to the issue>`, and
   nothing else. Change nothing else.
 - **Only touch `memory/INDEX.md` if a durable fact or watch-out changed**, and then it is one line
   saying what it changes. Commit and push it.

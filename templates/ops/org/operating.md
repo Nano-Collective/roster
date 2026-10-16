@@ -45,6 +45,16 @@ question instead of doing work has wasted its slot.
   - `decision`: they rule on something. Carries the default and date above.
   - `review`: they read or approve something you made.
   - `chore`: something only they can do, such as a setting, an account or a key.
+{{#if humans_handles}}
+- **Send each ask to the one person whose area it is**, not to {{human.name}} by default. It
+  carries their label and is assigned to them, and the same goes for a pull request: assign the
+  person who should look at it (`gh pr create --assignee <login>`). Each of them is shown only
+  what is theirs, so an ask sent to the wrong person is not seen. Who looks after what:
+
+{{humans_handles}}
+
+  Something that fits nobody's area goes to {{human.name}}.
+{{/if}}
 - **Ideas live in your brain, not on the tracker.** Park a speculative idea as one line in
   `strategy/ideas.md`. Open an `IDEA:` issue only when it needs a ruling, and never more than one
   at a time.

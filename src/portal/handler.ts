@@ -252,7 +252,22 @@ export function isPortalRoute(path: string): boolean {
   return Object.hasOwn(ROUTES, path);
 }
 
+/** Who the local portal is signed in as, read once: the login behind your own `gh`. */
+let localLogin: Promise<string> | null = null;
+
 const ROUTES: Record<string, Route> = {
+  /* A hosted portal answers this before it gets here. On your own machine it is whoever your
+     `gh` is signed in as, so Home can show you what is yours. */
+  "/api/session": async ({ actor }) => {
+    localLogin ??= actor.gh
+      .graphql<{ viewer: { login: string } }>("query { viewer { login } }")
+      .then((r) => (r.ok ? (r.data?.viewer?.login ?? "") : ""))
+      .catch(() => "");
+    const login = await localLogin;
+    if (!login) localLogin = null;
+    return json({ login, hosted: false });
+  },
+
   /* The docs ship with the framework, so they are served from there rather than the tenant. */
   "/api/docs": async () => json(docPages()),
 

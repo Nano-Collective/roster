@@ -42,6 +42,8 @@ export const S = {
   data: null,
   /** `{login}` on a hosted portal, null on your own machine. Hosted has no setup, hire or doctor. */
   hosted: null,
+  /** The signed-in GitHub login, hosted or local. Null when it could not be read. */
+  me: null,
   docs: null,
   inbox: null,
   /** /api/runs. Kept once read: it is minutes of downloads on a cold cache. */

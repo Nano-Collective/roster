@@ -1,4 +1,5 @@
-/* Home: what needs you, who is working, what you asked for, and what was closed today.
+/* Home: who is working, what needs you, how each staff member is getting on, what you asked
+ * for, and what was closed today.
  *
  * Built from the inbox list and /api/live, sorted by homesort.js, which is where the rule that
  * every open item has exactly one place lives. Clicking an item opens its thread in a side
@@ -7,8 +8,9 @@
 import { getLive, post } from "../api.js";
 import { sheet } from "../dialog.js";
 import { ago, el, skeleton } from "../dom.js";
-import { daysUntil, sortHome } from "../homesort.js";
+import { daysUntil, isFor, sortHome } from "../homesort.js";
 import { mdlite } from "../md.js";
+import { parseReport } from "../report.js";
 import { icon, iconHTML, staffIcon } from "../icons.js";
 import { ensureInbox, stampCounts } from "../refresh.js";
 import { go, render } from "../router.js";
@@ -53,28 +55,36 @@ export function viewHome(m) {
   stampCounts();
 
   const page = el("div", { className: "home" });
+  page.append(team(staff));
   page.append(askBox(staff));
+
+  /* With more than one person, each sees what is on them, plus anything on nobody in
+     particular. Everyone's is one click away, so nothing is hidden for good. */
+  const me = meHuman();
+  const split = Boolean(me) && humansOf().length > 1;
+  const mine = split ? h.needs.filter((e) => isFor(e, me.github)) : h.needs;
+  const shown = split && needsScope === "all" ? h.needs : mine;
+  const needsHead = section("Needs you", shown.length);
+  if (split && mine.length !== h.needs.length) needsHead.append(scopeToggle(mine.length, h.needs.length));
+  page.append(needsHead);
+  /* One list rather than a card each: five boxes with a green button apiece read as a wall, and
+     nothing in it said which to do first. The top row's action is the one in green. */
+  if (shown.length) {
+    page.append(
+      el("div", { className: "card homelist" }, shown.map((e, i) => needRow(e, i === 0, split ? me : null))),
+    );
+  } else page.append(el("p", { className: "homeempty", textContent: "Nothing needs you." }));
 
   const reporters = staff.filter((x) => x.brain && x.statusIssue);
   if (reporters.length) {
-    page.append(section("Latest reports"));
-    page.append(el("div", { className: "card homereports" }, reporters.map((s) => reportRow(s, h.reports))));
+    page.append(section("Progress"));
+    page.append(el("div", { className: "homereports" }, reporters.map((s) => reportRow(s, h.reports))));
   }
-
-  page.append(section("Needs you", h.needs.length));
-  /* One list rather than a card each: five boxes with a green button apiece read as a wall, and
-     nothing in it said which to do first. The top row's action is the one in green. */
-  if (h.needs.length) {
-    page.append(el("div", { className: "card homelist" }, h.needs.map((e, i) => needRow(e, i === 0))));
-  } else page.append(el("p", { className: "homeempty", textContent: "Nothing needs you." }));
 
   if (h.unread.length) {
     page.append(section("Unread", h.unread.length));
     page.append(listBox(h.unread.map(unreadRow)));
   }
-
-  page.append(section("Working now"));
-  page.append(working(staff));
 
   if (h.requests.length) {
     page.append(section("Your requests", h.requests.length));
@@ -96,16 +106,18 @@ export function viewHome(m) {
 /** Whose reports are open in full. Kept here, since Home repaints on every poll. */
 const openReports = new Set();
 
+const STATUS_TONE = { "on track": "ok", "needs you": "warm", stuck: "hot", blocked: "hot" };
+
 /**
- * One staff member's report: the body of their status issue, which every run rewrites, with a
- * button that asks them to bring it up to date now. It is markdown they wrote, with links to the
- * work it names. It shows its first few lines; the row opens it in full, and closes it again.
+ * One staff member's report: the body of their status issue, which every run rewrites, as a
+ * card. Its status and one line on how it is going, what got done and what is next, with the
+ * rest a click away. There is a button to ask for a fresh one.
  */
 function reportRow(s, reports) {
   const r = reports.find((x) => x.staff.handle === s.handle);
   const item = r?.item ?? { repo: s.brain, number: s.statusIssue, kind: "issue" };
   const note = el("span", { className: "meta" });
-  const ask = el("button", { className: "ghbtn", textContent: "Ask for a report" });
+  const ask = el("button", { className: "ghbtn", textContent: "Ask for an update" });
   ask.onclick = async () => {
     ask.disabled = true;
     note.className = "meta";
@@ -127,68 +139,127 @@ function reportRow(s, reports) {
     }
   };
 
+  const full = openReports.has(s.handle);
+  const card = el("div", { className: "card homereport" + (full ? " full" : "") });
   const issue = el("button", { className: "homereportissue", textContent: "#" + item.number });
   issue.onclick = () => openThread(item);
-  const full = openReports.has(s.handle);
-  const row = el(
-    "div",
-    {
-      className: "homereport" + (r ? " homeclick" : "") + (full ? " full" : ""),
-      ...(r ? { tabIndex: 0, role: "button", ariaExpanded: String(full) } : {}),
-    },
-    [
-      el("div", { className: "homereportwho" }, [
-        el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
-        el("span", { className: "meta" }, [
-          document.createTextNode((r ? "Updated " + ago(r.at) : "No report yet") + " · "),
-          issue,
-        ]),
-        el("div", { className: "homereportask" }, [ask, note]),
-      ]),
-      r
-        ? el("div", { className: "md homereportbody", innerHTML: mdlite(r.body, { repo: s.brain }) })
-        : el("div"),
-    ],
+  const p = r ? parseReport(r.body) : null;
+  const head = el("div", { className: "homereporthead" }, [
+    el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
+  ]);
+  if (p?.status) {
+    head.append(
+      el("span", {
+        className: "chip homereportstatus " + (STATUS_TONE[p.status] ?? ""),
+        textContent: cap(p.status),
+      }),
+    );
+  }
+  head.append(
+    el("span", { className: "meta homereportwhen" }, [
+      document.createTextNode((r ? "Updated " + ago(r.at) : "No report yet") + " · "),
+      issue,
+    ]),
   );
-  if (!r) return row;
-  const toggle = () => {
+  card.append(head);
+
+  if (p) {
+    if (p.headline) {
+      card.append(el("div", { className: "md homereportline", innerHTML: mdlite(p.headline, { repo: s.brain }) }));
+    }
+    const cols = [
+      ["done", "Done"],
+      ["next", "Next"],
+    ].filter(([k]) => p.sections[k]?.length);
+    if (cols.length && !full) {
+      card.append(
+        el(
+          "div",
+          { className: "homereportcols" },
+          cols.map(([k, label]) => bullets(label, p.sections[k], s.brain, 3)),
+        ),
+      );
+    }
+    const needs = p.sections.needs?.length ?? 0;
+    if (needs && !full) {
+      card.append(
+        el("p", {
+          className: "homereportneeds",
+          textContent: `Waiting on a person: ${needs} thing${needs === 1 ? "" : "s"}.`,
+        }),
+      );
+    }
+    // A report in the old shape has no sections to show, so its opening lines stand in.
+    const body = el("div", { className: "md homereportbody", innerHTML: mdlite(r.body, { repo: s.brain }) });
+    if (full || !cols.length) card.append(body);
+    if (!cols.length && !full) body.classList.add("fade");
+  }
+
+  const more = el("button", { className: "ghbtn", textContent: full ? "Show less" : "Read the full report" });
+  more.onclick = () => {
     if (openReports.has(s.handle)) openReports.delete(s.handle);
     else openReports.add(s.handle);
-    const now = openReports.has(s.handle);
-    row.classList.toggle("full", now);
-    row.setAttribute("aria-expanded", String(now));
+    repaintInPlace();
   };
-  row.onclick = (ev) => {
-    if (!ev.target.closest("a, button")) toggle();
-  };
-  row.onkeydown = (ev) => {
-    if (ev.target === row && (ev.key === "Enter" || ev.key === " ")) {
-      ev.preventDefault();
-      toggle();
-    }
-  };
-  return row;
+  card.append(el("div", { className: "row homereportacts" }, [...(r ? [more] : []), ask, note]));
+  return card;
+}
+
+/** A short list under a label, with how many more there are once it runs past `max`. */
+function bullets(label, items, repo, max) {
+  const list = el(
+    "ul",
+    {},
+    items.slice(0, max).map((x) => el("li", { className: "md", innerHTML: mdlite(x, { repo }) })),
+  );
+  const box = el("div", { className: "homereportcol" }, [el("h3", { textContent: label }), list]);
+  if (items.length > max) box.append(el("p", { className: "meta", textContent: `and ${items.length - max} more` }));
+  return box;
 }
 
 /* ------------------------------- asking -------------------------------- */
 
+/** What is in the ask box, kept across repaints. */
+const askDraft = { who: "", text: "" };
+
 function askBox(staff) {
-  const who = el("select", { className: "homewho", ariaLabel: "Who to ask" });
-  for (const s of staff.filter((x) => x.brain)) {
+  const people = staff.filter((x) => x.brain);
+  const who = el("select", { className: "homewho", id: "homewho" });
+  for (const s of people) {
     who.append(el("option", { value: s.handle, textContent: s.name }));
   }
+  if (askDraft.who && people.some((x) => x.handle === askDraft.who)) who.value = askDraft.who;
   const text = el("textarea", {
     className: "homeask",
-    rows: 2,
-    placeholder: "Ask a staff member to do something",
+    rows: 3,
+    ariaLabel: "What you need",
+    placeholder: "What do you need? For example: write a post about the new pricing page.",
+    value: askDraft.text,
   });
-  const send = el("button", { className: "ghbtn primary", textContent: "Send" });
+  // Home repaints as runs start and finish, and what you were typing must survive that.
+  text.oninput = () => {
+    askDraft.text = text.value;
+  };
+  const send = el("button", { className: "ghbtn primary" });
+  const label = () => {
+    const s = people.find((x) => x.handle === who.value);
+    send.textContent = s ? `Send to ${s.name}` : "Send";
+  };
+  label();
+  who.onchange = () => {
+    askDraft.who = who.value;
+    label();
+  };
   const note = el("span", { className: "meta" });
   send.onclick = async () => {
     const s = staff.find((x) => x.handle === who.value);
     const said = text.value.trim();
-    if (!s || !said) return;
+    if (!s || !said) {
+      text.focus();
+      return;
+    }
     send.disabled = true;
+    note.className = "meta";
     note.textContent = "Sending…";
     try {
       await post({
@@ -198,6 +269,7 @@ function askBox(staff) {
         body: `${s.mention ?? "@" + s.handle} ${said}`,
       });
       text.value = "";
+      askDraft.text = "";
       note.textContent = `Sent. ${s.name} starts in about a minute.`;
       refreshSoon();
     } catch (e) {
@@ -208,7 +280,8 @@ function askBox(staff) {
     }
   };
   return el("div", { className: "card homeaskcard" }, [
-    el("div", { className: "row" }, [who]),
+    el("h2", { className: "homeasktitle", textContent: "Ask a staff member to do something" }),
+    el("div", { className: "row homeaskto" }, [el("label", { htmlFor: "homewho", textContent: "To" }), who]),
     text,
     el("div", { className: "row" }, [send, note]),
   ]);
@@ -222,7 +295,53 @@ function titleOf(said) {
 
 /* ------------------------------ needs you ------------------------------- */
 
-function needRow(e, first) {
+/** "mine" or "all": whose asks Needs you lists, when there is more than one person. */
+let needsScope = readScope();
+
+function readScope() {
+  try {
+    return localStorage.getItem("roster.needsScope") === "all" ? "all" : "mine";
+  } catch {
+    return "mine";
+  }
+}
+
+/** The signed-in person, when they are one of the org's humans. */
+function meHuman() {
+  const login = String(S.me ?? "").toLowerCase();
+  return login ? (humansOf().find((h) => String(h.github ?? "").toLowerCase() === login) ?? null) : null;
+}
+
+function scopeToggle(mine, all) {
+  const bar = el("span", { className: "homescope", role: "group", ariaLabel: "Whose to show" });
+  for (const [value, label] of [
+    ["mine", `Yours ${mine}`],
+    ["all", `Everyone's ${all}`],
+  ]) {
+    const b = el("button", { className: needsScope === value ? "on" : "", textContent: label });
+    b.setAttribute("aria-pressed", String(needsScope === value));
+    b.onclick = () => {
+      needsScope = value;
+      try {
+        localStorage.setItem("roster.needsScope", value);
+      } catch {
+        /* a private window: it is only remembered for this visit */
+      }
+      repaintInPlace();
+    };
+    bar.append(b);
+  }
+  return bar;
+}
+
+/** "For Ben", on an ask that is on somebody else. */
+function forWhom(e, me) {
+  if (!me || !e.for?.length || e.for.some((g) => g.toLowerCase() === me.github.toLowerCase())) return "";
+  const names = e.for.map((g) => humansOf().find((h) => h.github === g)?.name ?? g);
+  return "For " + names.join(" and ");
+}
+
+function needRow(e, first, me = null) {
   const { item, kind } = e;
   /* The whole row opens the thread; the one quick action on it does not. Answering in words
      happens in the thread, where what was asked is in front of you. */
@@ -243,8 +362,10 @@ function needRow(e, first) {
 
   /* What kind of thing it is sits in the line under the title, so every title starts in the
      same place; a chip in front of it pushed each one along by its own width. */
+  const other = forWhom(e, me);
   const meta = el("div", { className: "meta" }, [
     el("span", { className: "homekind " + (KIND_TONE[kind] ?? ""), textContent: KIND_LABEL[kind] }),
+    ...(other ? [document.createTextNode(" · "), el("span", { className: "homefor", textContent: other })] : []),
     document.createTextNode(" · " + whereOf(e) + " · " + ago(item.createdAt)),
   ]);
   const about = el("div", { className: "homeabout" }, [openLink(item), meta]);
@@ -358,76 +479,105 @@ async function act(note, actions, payload, ok) {
   }
 }
 
-/* ------------------------------ working now ----------------------------- */
+/* ---------------------------------- team ---------------------------------- */
 
-/** What a run was, in a few words: "daily run", "answering #12", "a peer's ask #4". */
+/* One colour per staff member, in hire order, so two orbs side by side are told apart. */
+const HUES = ["#30d158", "#0a84ff", "#bf5af2", "#ff375f", "#ff9f0a", "#64d2ff", "#ffd60a"];
+
+/** What a run is doing, as a person would say it. */
 function whatRun(r) {
-  if (r.trigger === "mention") return r.issue ? `answering #${r.issue}` : "answering a mention";
-  if (r.trigger === "peer") return r.issue ? `a peer's ask #${r.issue}` : "a peer's ask";
+  const on = r.issue ? titleOn(r) : "";
+  if (r.trigger === "mention") return r.issue ? `Answering #${r.issue}${on}` : "Answering a message";
+  if (r.trigger === "peer") return r.issue ? `Helping a colleague with #${r.issue}${on}` : "Helping a colleague";
   return (
-    { daily: "daily run", manual: "run started by hand", "follow-on": "follow-on run" }[r.trigger] ??
-    "run"
+    {
+      daily: "Doing their daily work",
+      manual: "Doing the work you started",
+      "follow-on": "Carrying on from their last session",
+    }[r.trigger] ?? "Working"
   );
 }
 
-function working(staff) {
-  const box = el("div", { className: "card homeworking" });
-  if (!S.live) {
-    box.append(el("p", { className: "homerunwhat", textContent: "Asking GitHub…" }));
-    return box;
-  }
-  for (const s of staff) {
-    const l = (S.live.staff ?? []).find((x) => x.handle === s.handle);
+/** ": the issue's title", when the inbox has it. */
+function titleOn(r) {
+  const s = (S.data?.staff ?? []).find((x) => x.handle === r.handle);
+  const it = (S.inbox?.items ?? []).find((i) => i.number === r.issue && (!s || i.repo === s.brain));
+  return it?.title ? `: ${it.title}` : "";
+}
+
+/**
+ * Who is working, as a row of orbs. A lit, moving orb is somebody at work; a still, dim one is
+ * somebody free. Under it, in words, what they are doing or when they last finished. Pressing
+ * an orb that is answering something opens that thread.
+ */
+function team(staff) {
+  const box = el("div", { className: "hometeam" });
+  const live = S.live?.staff ?? [];
+  staff.forEach((s, i) => {
+    const l = live.find((x) => x.handle === s.handle);
     const runs = l && !l.error ? (l.running ?? []) : [];
-    const busy = runs.length > 0;
+    const queued = runs.length > 0 && runs.every((r) => r.status === "queued");
+    const busy = runs.length > 0 && !queued;
     const last = l?.finished?.[0];
+    const failed = !runs.length && last && last.conclusion === "failure";
+    const state = !S.live ? "wait" : busy ? "busy" : queued ? "queued" : failed ? "failed" : "idle";
 
-    const what = el("div", { className: "homerunwhat" });
-    let log = null;
-    if (!l || l.error) {
-      what.append(el("span", { className: "err", textContent: l?.error ?? "Could not read their runs." }));
-    } else if (busy) {
-      for (const r of runs) {
-        what.append(el("div", { textContent: `${cap(whatRun(r))} · ${minutes(r.createdAt)} so far` }));
-      }
-      log = runs[0].url;
+    let word = "Free";
+    let line = "Not working right now";
+    if (!S.live) {
+      word = "…";
+      line = "Checking…";
+    } else if (!l || l.error) {
+      word = "Unknown";
+      line = "Could not check on them";
+    } else if (busy || queued) {
+      const r = { ...runs[0], handle: s.handle };
+      word = busy ? "Working" : "Starting";
+      line = busy ? `${whatRun(r)} · ${minutes(r.createdAt)} so far` : "About to start";
+    } else if (failed) {
+      word = "Free";
+      line = `Their last session stopped with a problem, ${ago(last.updatedAt)}`;
     } else if (last) {
-      what.append(
-        el("div", { textContent: `${cap(whatRun(last))}, ${outcome(last)} ${ago(last.updatedAt)}` }),
-      );
-      log = last.url;
-    } else {
-      what.append(el("div", { textContent: "No runs in the last few hours." }));
-    }
-    if (l && !l.error && l.automatic) {
-      what.append(
-        el("div", {
-          className: "homerunsub",
-          textContent: `${l.automatic} of ${l.limit} runs today that nobody asked for`,
-        }),
-      );
+      line = `Last finished ${ago(last.updatedAt)}`;
     }
 
-    const state = el("span", {
-      className: "chip homestate " + (busy ? "ok" : ""),
-      textContent: busy ? (runs[0].status === "queued" ? "Queued" : "Working") : "Idle",
+    const issue = (busy || queued) && runs[0].issue && s.brain ? runs[0].issue : null;
+    const card = el("div", {
+      className: "orbcard " + state + (issue ? " homeclick" : ""),
+      ...(issue ? { tabIndex: 0, role: "button", title: `Open #${issue}` } : {}),
     });
-    const actions = el("div", { className: "homerunlog" });
-    if (log) {
-      actions.append(
-        el("a", { className: "ghbtn", href: log, target: "_blank", rel: "noopener", textContent: "Log" }),
+    card.style?.setProperty?.("--hue", HUES[i % HUES.length]);
+    const orb = el("div", { className: "orb", ariaHidden: "true" }, [
+      el("span", { className: "orbglow" }),
+      el("span", { className: "orbbody" }, [el("span", { className: "orbswirl" })]),
+      el("span", { className: "orbicon" }, [icon(staffIcon(s), "ic")]),
+    ]);
+    card.append(
+      orb,
+      el("b", { className: "orbname", textContent: s.name }),
+      el("span", { className: "orbstate", textContent: word }),
+      el("span", { className: "orbline", textContent: line }),
+    );
+    const log = runs[0]?.url ?? last?.url;
+    if (log && state !== "idle") {
+      card.append(
+        el("a", { className: "orblog", href: log, target: "_blank", rel: "noopener", textContent: "View log" }),
       );
     }
-
-    box.append(
-      el("div", { className: "homerun" + (busy ? " busy" : "") }, [
-        el("span", { className: "homewho2" }, [icon(staffIcon(s), "ic"), el("b", { textContent: s.name })]),
-        state,
-        what,
-        actions,
-      ]),
-    );
-  }
+    if (issue) {
+      const open = () => openThread({ repo: s.brain, number: issue, kind: "issue" });
+      card.onclick = (ev) => {
+        if (!ev.target.closest("a")) open();
+      };
+      card.onkeydown = (ev) => {
+        if (ev.target === card && (ev.key === "Enter" || ev.key === " ")) {
+          ev.preventDefault();
+          open();
+        }
+      };
+    }
+    box.append(card);
+  });
   return box;
 }
 
@@ -466,7 +616,10 @@ function poll() {
         issuesAt = Date.now();
         refreshSoon(false);
       } else if (changed && S.view === "home" && !document.querySelector("dialog[open]")) {
-        repaintInPlace();
+        /* Typing in the ask box is not interrupted by a run starting: only the orbs move. */
+        const row = document.querySelector(".hometeam");
+        if (row && document.activeElement?.closest?.(".homeaskcard")) row.replaceWith(team(S.data.staff));
+        else repaintInPlace();
       }
     })
     .catch(() => {})
@@ -479,7 +632,7 @@ function poll() {
 
 /* ------------------------------ your requests ---------------------------- */
 
-/** A card of rows, laid out like Working now. */
+/** A card of rows. */
 function listBox(rows) {
   return el("div", { className: "card homeworking" }, rows);
 }
