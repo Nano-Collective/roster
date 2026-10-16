@@ -112,3 +112,24 @@ test("an <img> tag in a comment renders as an image, not its alt text", () => {
   assert.match(html, /<img src="https:\/\/example\.com\/a\.png" alt="Image"/);
   assert.ok(!mdlite('<img src="javascript:alert(1)">').includes("<img"), "only http(s)");
 });
+
+test("a pull request nobody was assigned is the first person's, not everybody's", async () => {
+  const { sortHome } = (await import(dir + "homesort.js")) as { sortHome: (...a: any[]) => any };
+  const staff = [{ handle: "cto", name: "CTO", brain: "acme/cto", statusIssue: 1 }];
+  const pr = {
+    repo: "acme/product",
+    kind: "pr",
+    number: 7,
+    title: "x",
+    state: "OPEN",
+    draft: false,
+    labels: [],
+    assignees: [],
+    author: "acme-cto",
+    createdAt: "2026-10-01T00:00:00Z",
+    updatedAt: "2026-10-01T00:00:00Z",
+  };
+  const h = sortHome([pr], staff, humans);
+  assert.deepEqual(h.needs[0].for, ["ada"]);
+  assert.equal(isFor(h.needs[0], "bo"), false);
+});

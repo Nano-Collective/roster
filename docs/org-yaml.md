@@ -127,9 +127,9 @@ humans:
 
 The staff are told who looks after what, and send each ask (an issue with a person's label, or
 a pull request) to that one person: their label, assigned to them. On Home, **Needs you** then
-shows the signed-in person what is on them, plus anything on nobody in particular, with a
-**Yours / Everyone's** switch beside the heading. Something that fits nobody's area goes to the
-first person.
+shows the signed-in person what is on them, with a **Yours / Everyone's** switch beside the
+heading. Something that fits nobody's area goes to the first person, and so does anything on
+Home that nobody was assigned, such as a pull request opened before `handles` was set.
 
 **View-only.** `{ name: Ben, github: ben-x, view_only: true }` signs in to the portal and the
 Claude connector like anyone in the list, and reads everything there. They are not in the mention

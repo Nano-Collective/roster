@@ -80,7 +80,12 @@ export function sortHome(items, staff, humans, live = [], now = new Date()) {
           ? "answered"
           : "waiting";
     }
-    if (place.place === "needs") entry.for = whoFor(item, humans);
+    if (place.place === "needs") {
+      /* On nobody in particular, such as a pull request nobody was assigned: the first person's,
+         as the staff are told "something that fits nobody's area goes to" them. */
+      entry.for = whoFor(item, humans);
+      if (!entry.for.length && humans[0]?.github) entry.for = [humans[0].github];
+    }
     out[place.place].push(entry);
   }
 
@@ -129,8 +134,7 @@ export function placeOf(item, owner, people, markers) {
 
 /**
  * The people an ask is on, by login: whoever it is assigned to, and whoever's label it carries.
- * Empty means nobody in particular, such as a pull request nobody was asked to look at, and then
- * it is everybody's.
+ * Empty means nobody in particular, such as a pull request nobody was asked to look at.
  */
 export function whoFor(item, humans) {
   const labels = new Set((item.labels ?? []).map(lower));
