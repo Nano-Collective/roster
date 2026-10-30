@@ -1,0 +1,3 @@
+# LF on every platform. Git for Windows checks out CRLF by default, and roster compares these
+# files with the ones it generates line by line.
+* text=auto eol=lf
