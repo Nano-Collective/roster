@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { gzipSync } from "node:zlib";
 import type { ApiResult, GitHub, RequestOpts } from "../../src/lib/github.js";
+import { posix } from "../../src/lib/paths.js";
 
 /**
  * Directories on disk, served as if they were repositories on GitHub.
@@ -30,7 +31,7 @@ export function serveRepos(owner: string, root: string, dirs: string[]): FakeRep
         if (name === ".git") continue;
         const full = join(d, name);
         if (statSync(full).isDirectory()) walk(full);
-        else out.set(relative(join(root, dir), full), readFileSync(full));
+        else out.set(posix(relative(join(root, dir), full)), readFileSync(full));
       }
     };
     walk(join(root, dir));

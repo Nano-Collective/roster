@@ -3,10 +3,14 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { after, test as nodeTest } from "node:test";
 import { initCommand } from "../src/commands/init.js";
 import { opsTemplateDir, templateFiles } from "../src/lib/templates.js";
-import { fakeGh, quietly, type Route } from "./helpers/fakegh.js";
+import { fakeGh, NO_FAKE_GH, quietly, type Route } from "./helpers/fakegh.js";
+
+// Every test here runs against the fake gh, which Windows cannot run.
+const test = (name: string, fn: () => void | Promise<void>) =>
+  nodeTest(name, { skip: NO_FAKE_GH }, fn);
 
 /**
  * `roster init` as a command: the order it checks things in, what it refuses, what it writes

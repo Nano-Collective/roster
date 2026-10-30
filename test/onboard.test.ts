@@ -189,7 +189,10 @@ test("an empty credential, or nobody to give it to, is refused before anything i
  * The invariant this whole area rests on: the value reaches gh on stdin and never on argv.
  * A `gh` on PATH that writes down what it was given is the only way to see what gh saw.
  */
-test("a secret's value goes to gh on stdin, never on its command line", async () => {
+// A /bin/sh stand-in for gh, which Windows cannot run as gh.
+test("a secret's value goes to gh on stdin, never on its command line", {
+  skip: process.platform === "win32",
+}, async () => {
   const dir = mkdtempSync(join(tmpdir(), "roster-fakegh-"));
   const gh = join(dir, "gh");
   writeFileSync(gh, `#!/bin/sh\nprintf '%s\\n' "$@" >> "${dir}/argv"\ncat >> "${dir}/stdin"\n`);

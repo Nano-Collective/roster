@@ -30,18 +30,22 @@ const mounts = new Map<string, VirtualTree>();
 
 /** Serve `tree` at `prefix`, replacing whatever was there. `prefix` is absolute, no trailing slash. */
 export function mount(prefix: string, tree: VirtualTree): void {
-  mounts.set(prefix.replace(/\/+$/, ""), tree);
+  mounts.set(slashed(prefix), tree);
+}
+
+/* Mounts and the paths looked up in them are compared in one shape: forward slashes, no
+   drive letter, no trailing slash. The readers build their paths with path.join and
+   path.resolve, which on Windows give "\\@roster\\acme\\cto" or "C:\\@roster\\acme". */
+function slashed(path: string): string {
+  return String(path)
+    .replace(/\\/g, "/")
+    .replace(/^[A-Za-z]:(?=\/)/, "")
+    .replace(/\/+$/, "");
 }
 
 function lookup(path: string): { tree: VirtualTree; rel: string } | null {
   if (!mounts.size) return null;
-  /* Mounts are POSIX paths ("/@roster/acme"), and the readers build theirs with path.join and
-     path.resolve, which on Windows give "\\@roster\\acme\\cto" or "C:\\@roster\\acme". Both
-     are the same place, so they are matched as one. */
-  const p = String(path)
-    .replace(/\\/g, "/")
-    .replace(/^[A-Za-z]:(?=\/)/, "")
-    .replace(/\/+$/, "");
+  const p = slashed(path);
   for (const [prefix, tree] of mounts) {
     if (p === prefix) return { tree, rel: "" };
     if (p.startsWith(`${prefix}/`)) return { tree, rel: p.slice(prefix.length + 1) };

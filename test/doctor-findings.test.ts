@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { after, test as nodeTest } from "node:test";
 import {
   collect,
   doctorCommand,
@@ -19,8 +19,12 @@ import {
   type Report,
 } from "../src/commands/doctor.js";
 import { opsTemplateDir } from "../src/lib/templates.js";
-import { fakeGh, quietly, type Route } from "./helpers/fakegh.js";
+import { fakeGh, NO_FAKE_GH, quietly, type Route } from "./helpers/fakegh.js";
 import { makeTenant } from "./helpers/tenant.js";
+
+// Every test here runs against the fake gh, which Windows cannot run.
+const test = (name: string, fn: () => void | Promise<void>) =>
+  nodeTest(name, { skip: NO_FAKE_GH }, fn);
 
 /**
  * Which findings fire, and at what level.

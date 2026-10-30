@@ -29,6 +29,7 @@ jobs:
 
       # The thing the report was about: the portal starts, and its page, styles and scripts load.
       - name: The portal serves its assets
+        if: always()
         run: |
           set -euo pipefail
           dir=$(mktemp -d)

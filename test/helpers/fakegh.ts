@@ -49,6 +49,16 @@ process.stderr.write('gh: Not Found (HTTP 404)\\n{"message":"Not Found"}\\n');
 process.exit(1);
 `;
 
+/**
+ * Why a test that needs the fake is skipped on Windows. It is a script with a shebang on PATH,
+ * and Windows only runs a `gh` that is an .exe. What those tests check is roster's logic, which
+ * is the same on every platform; the Windows job checks the platform itself.
+ */
+export const NO_FAKE_GH =
+  process.platform === "win32"
+    ? "the fake gh is a shebang script, which Windows cannot run"
+    : false;
+
 export function fakeGh(routes: Route[]): FakeGh {
   const dir = mkdtempSync(join(tmpdir(), "roster-fakegh-"));
   writeFileSync(

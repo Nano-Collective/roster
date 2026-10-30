@@ -1,4 +1,4 @@
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 // @ts-expect-error: vendored plain JS, with no types on purpose
 import * as frameworkComposer from "../../templates/ops/compose.mjs";
 import { type ActRequest, act, wouldWake } from "../lib/act.js";
@@ -26,6 +26,7 @@ import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { liveFor } from "../lib/live.js";
 import { markRead, unreadFor } from "../lib/notifications.js";
 import { parsePaste } from "../lib/paste.js";
+import { inside, posix } from "../lib/paths.js";
 import { isWritable, KINDS, promptView, validateOrgYaml } from "../lib/prompt.js";
 import { orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
 import { planSchedule, readSchedule, type Schedule } from "../lib/routineplan.js";
@@ -1278,12 +1279,13 @@ const ROUTES: Record<string, Route> = {
     await ready(c, { products: true });
     const rel = url.searchParams.get("path") ?? "";
     const full = resolve(portal.ws.root, rel);
-    if (!full.startsWith(`${resolve(portal.ws.root)}/`) || !existsSync(full)) return notFound();
+    if (!inside(resolve(portal.ws.root), full) || !existsSync(full)) return notFound();
     const st = statSync(full);
     if (st.isDirectory()) return notFound();
-    const inside = full.slice(portal.ws.root.length + 1);
-    const dir = inside.slice(0, inside.indexOf("/"));
-    const path = inside.slice(dir.length + 1);
+    // Named with forward slashes, which is how a snapshot keys it, whatever the platform.
+    const within = posix(relative(resolve(portal.ws.root), full));
+    const dir = within.slice(0, within.indexOf("/"));
+    const path = within.slice(dir.length + 1);
     const type = MIME[extOf(path)] ?? "application/octet-stream";
 
     let bytes: Uint8Array;
