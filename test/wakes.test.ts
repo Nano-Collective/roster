@@ -38,7 +38,7 @@ test("both callers name their runs by trigger, which is what the limit counts", 
   );
   assert.match(
     DAILY,
-    /^run-name: "%%STAFF%% \$\{\{ .*'daily' \|\| inputs\.trigger \|\| 'manual' \}\}"/m,
+    /^run-name: "%%STAFF%% \$\{\{ .*'daily'\) \|\| .*inputs\.trigger \|\| 'manual' \}\}"/m,
   );
   for (const caller of [MENTION, DAILY]) {
     assert.match(caller, /max_runs_per_day: %%MAX_RUNS%%/);

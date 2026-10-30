@@ -8,13 +8,23 @@ import type { GitHub } from "./github.js";
  * before the callers carried a name fall back to the workflow's, and say less.
  */
 
-export type Trigger = "daily" | "manual" | "follow-on" | "mention" | "peer" | "ignored" | "unknown";
+export type Trigger =
+  | "daily"
+  | "routine"
+  | "manual"
+  | "follow-on"
+  | "mention"
+  | "peer"
+  | "ignored"
+  | "unknown";
 
 export interface LiveRun {
   id: number;
   trigger: Trigger;
   /** The issue on their tracker that started it, for a mention or a peer's ask. */
   issue: number | null;
+  /** The routine's id, for a routine run. */
+  routine?: string;
   status: string;
   conclusion: string | null;
   createdAt: string;
@@ -56,7 +66,12 @@ export function parseTitle(
 ): {
   trigger: Trigger;
   issue: number | null;
+  routine?: string;
 } {
+  const routine = new RegExp(
+    `^${handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} routine ([a-z0-9-]+)\\s*$`,
+  ).exec(title.trim());
+  if (routine) return { trigger: "routine", issue: null, routine: routine[1] };
   const m = new RegExp(
     `^${handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} (daily|manual|follow-on|mention|peer|ignored)(?: #(\\d+))?\\s*$`,
   ).exec(title.trim());
@@ -83,12 +98,17 @@ export function shapeLive(
     // A skipped run is a caller whose condition said no. Nothing ran. An `ignored` one is the
     // same, named before GitHub has got round to skipping it.
     if (r.conclusion === "skipped") continue;
-    const { trigger, issue } = parseTitle(handle, r.displayTitle ?? "", r.workflowName ?? "");
+    const { trigger, issue, routine } = parseTitle(
+      handle,
+      r.displayTitle ?? "",
+      r.workflowName ?? "",
+    );
     if (trigger === "ignored") continue;
     const run: LiveRun = {
       id: Number(r.databaseId),
       trigger,
       issue,
+      ...(routine ? { routine } : {}),
       status: String(r.status ?? ""),
       conclusion: r.conclusion ?? null,
       createdAt: String(r.createdAt ?? ""),

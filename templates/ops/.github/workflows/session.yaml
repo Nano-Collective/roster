@@ -19,7 +19,7 @@ on:
         required: false
         default: daily
         type: string
-      # What started the run: daily | manual | follow-on | mention | peer. Peer and follow-on
+      # What started the run: daily | routine | manual | follow-on | mention | peer. Peer and follow-on
       # runs start without a person asking, so they are the ones held to max_runs_per_day.
       trigger:
         required: false
@@ -59,6 +59,12 @@ on:
         default: ""
         type: string
       agent_secret:
+        required: false
+        default: ""
+        type: string
+      # The routine this run is, by id: routines/<id>.md in the brain says what to do. Empty on
+      # the daily round, and on a caller generated before routines existed.
+      routine:
         required: false
         default: ""
         type: string
@@ -355,6 +361,7 @@ jobs:
              "repo":"${{ github.repository }}",
              "actor":"${{ github.actor }}",
              "trigger":"${{ inputs.trigger }}",
+             "routine":"${{ inputs.routine }}",
              "previous_status_issue":"${{ steps.week.outputs.previous }}"}
         run: |
           node roster-ops/compose.mjs --staff "${{ inputs.staff }}" --kind "${{ inputs.kind }}" --ops roster-ops --brains . > .roster-prompt.txt

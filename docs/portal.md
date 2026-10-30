@@ -419,6 +419,17 @@ checks it again, stores it as a GitHub secret and commits `org.yaml`.
 Notion signs in instead, on the [hosted portal](hosting.md) only: **Sign in to Notion** goes to
 Notion and comes back here.
 
+## Routines
+
+When each staff member wakes, and what they do then. Each has a **Daily round** with
+**Change time**, then their routines. Each routine shows its name, when it runs, and the
+start of what it says to do, with **Run now**, **Edit** and **Remove**.
+
+**New routine** opens the editor: who, a name, when (days of the week, a day of the month, or a
+cron), and what to do. A preview below says it as a sentence while you type. **Save** writes
+`staff.yaml`, `routines/<id>.md` and the daily caller in one commit, as you. See
+[routines](routines.md).
+
 ## Brain
 
 Memory and the file tree, merged, because they were always the same thing: both manifests

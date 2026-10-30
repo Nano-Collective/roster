@@ -29,6 +29,7 @@ Read in this order.
 | [Concepts](concepts.md) | The three things you need to know, then the detail. |
 | [Choosing a coding agent](agents.md) | Claude, Codex, Nanocoder, or anything with a command line. |
 | [Connectors](connectors.md) | Give staff outside services: Sentry, Linear, Stripe and more. |
+| [Routines](routines.md) | More times staff wake beyond the daily round, each with its own job. |
 | [Writing a charter](writing-a-charter.md) | The one file nothing can generate for you. |
 | [Extending it](extending.md) | The four seams, and which one to reach for. |
 | [Memory](memory.md) | The grammar, and why deleting is the maintenance. |

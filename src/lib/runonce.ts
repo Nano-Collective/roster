@@ -37,11 +37,12 @@ export async function dispatch(
   gh: GitHub,
   repo: string,
   workflow: string,
+  inputs?: Record<string, string>,
 ): Promise<{ ok: boolean; error?: string }> {
   const info = await gh.request<{ default_branch: string }>("GET", `repos/${repo}`);
   if (!info.ok) return { ok: false, error: info.error };
   const res = await gh.request("POST", `repos/${repo}/actions/workflows/${workflow}/dispatches`, {
-    body: { ref: info.data?.default_branch ?? "main" },
+    body: { ref: info.data?.default_branch ?? "main", ...(inputs ? { inputs } : {}) },
   });
   return res.ok ? { ok: true } : { ok: false, error: res.error };
 }

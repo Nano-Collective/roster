@@ -39,8 +39,8 @@ That includes anyone marked `view_only`, who can read everything and wake nobody
 [org.yaml](org-yaml.md#human-and-humans).
 
 - Sign-in is GitHub's own OAuth flow, through an OAuth App your org creates for the portal.
-  The token it hands back is that person's, scoped `repo` and `notifications`, the same kind
-  `gh` holds on their machine.
+  The token it hands back is that person's, scoped `repo`, `notifications` and `workflow`, the
+  same kind `gh` holds on their machine.
 - Everything they do is as themselves. A reply is theirs, a merge is theirs, and what they can
   read is what GitHub lets them read.
 - Somebody who signs in and is not one of the humans, or cannot read the ops repo, is turned

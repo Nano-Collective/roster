@@ -28,6 +28,8 @@ import { markRead, unreadFor } from "../lib/notifications.js";
 import { parsePaste } from "../lib/paste.js";
 import { isWritable, KINDS, promptView, validateOrgYaml } from "../lib/prompt.js";
 import { orgTokens, specFromManifest, tokensFor } from "../lib/render.js";
+import { planSchedule, readSchedule, type Schedule } from "../lib/routineplan.js";
+import { describeCron, ROUTINE_ID, routineId } from "../lib/routines.js";
 import { dailyWorkflow, dispatch, findDispatched, runState } from "../lib/runonce.js";
 import { budgetOf, spend, staffRuns } from "../lib/runs.js";
 import { unfinished } from "../lib/setup.js";
@@ -425,15 +427,24 @@ const ROUTES: Record<string, Route> = {
     }
   },
 
-  /* One daily run, now. The repo and the workflow come from the manifest, never the request. */
+  /* One daily run, now, or one routine. The repo and the workflow come from the manifest, never
+     the request; a routine is only ever an id the manifest lists. */
   "/api/run/start": async (c) => {
     const { req, portal, actor } = c;
     if (!actor.canWrite) return refuse();
-    const payload = (await body(req)) as { staff?: string };
+    const payload = (await body(req)) as { staff?: string; routine?: string };
     const brain = await brainOf(c, payload.staff ?? "");
     const workflow = dailyWorkflow(payload.staff ?? "");
+    let inputs: Record<string, string> | undefined;
+    if (payload.routine) {
+      const known = (await schedules(c)).find((s) => s.handle === payload.staff);
+      if (!known?.routines.some((r) => r.id === payload.routine)) {
+        return json({ error: `${payload.staff} has no routine "${payload.routine}"` }, 400);
+      }
+      inputs = { trigger: "manual", routine: payload.routine };
+    }
     const since = Date.now();
-    const started = await dispatch(actor.gh, brain, workflow);
+    const started = await dispatch(actor.gh, brain, workflow, inputs);
     if (!started.ok) return json({ error: `could not start ${workflow}: ${started.error}` }, 400);
     const run = await findDispatched(actor.gh, brain, workflow, since);
     portal.caches.runs = null;
@@ -442,6 +453,61 @@ const ROUTES: Record<string, Route> = {
       id: run?.databaseId,
       url: run?.url ?? `https://github.com/${brain}/actions/workflows/${workflow}`,
     });
+  },
+
+  /* Every staff member's daily round and routines, for the Routines screen. */
+  "/api/routines": async (c) => json({ staff: await schedules(c, { force: true }) }),
+
+  /* One staff member's schedule, saved whole: staff.yaml, each routines/<id>.md and the daily
+     caller, in one commit as the person. A new routine arrives without an id and gets one. */
+  "/api/routines/save": async (c) => {
+    const { req, portal, actor } = c;
+    if (!actor.canWrite) return refuse();
+    const { org } = await ready(c, { force: true });
+    const payload = (await body(req)) as {
+      staff?: string;
+      daily?: string;
+      routines?: Array<{ id?: string; title?: string; body?: string; schedule?: string }>;
+    };
+    const entry = (org.staff ?? []).find((x: any) => x.handle === payload.staff);
+    if (!entry) return json({ error: `no staff member "${payload.staff}"` }, 400);
+    const dir = String(entry.dir ?? entry.handle);
+    const root = join(portal.ws.root, dir);
+    const current = (rel: string) =>
+      existsSync(join(root, rel)) ? readFileSync(join(root, rel), "utf8") : undefined;
+    const manifest = current("staff.yaml");
+    if (manifest === undefined) return json({ error: `${dir} has no staff.yaml` }, 400);
+
+    const taken: string[] = [];
+    const next: Schedule = {
+      daily: String(payload.daily ?? ""),
+      routines: (payload.routines ?? []).map((r) => {
+        const title = String(r.title ?? "").trim();
+        const id = r.id && ROUTINE_ID.test(r.id) ? r.id : routineId(title, taken);
+        taken.push(id);
+        return { id, title, body: String(r.body ?? ""), schedule: String(r.schedule ?? "") };
+      }),
+    };
+    const opsSession = join(portal.ws.opsDir, ".github", "workflows", "session.yaml");
+    const plan = planSchedule({
+      manifest,
+      parseYaml,
+      dir,
+      org: orgSpec(org, portal.ws),
+      next,
+      current,
+      session: existsSync(opsSession) ? readFileSync(opsSession, "utf8") : "",
+    });
+    if (plan.errors.length) return json({ error: plan.errors.join(". ") }, 400);
+    if (!plan.changes.length) return json({ ok: true, note: "no change" });
+    const done = await commitFiles(
+      actor.gh,
+      `${portal.org}/${dir}`,
+      plan.changes,
+      `portal: ${payload.staff}'s routines`,
+    );
+    await portal.snapshots.refresh(actor.gh, `${portal.org}/${dir}`, { force: true });
+    return json({ ok: true, ...done });
   },
 
   "/api/run/state": async (c) => {
@@ -1328,6 +1394,103 @@ function amendTargets(
       view.layers.filter((l) => !l.missing && isWritable(ws, l.path, brains)).map((l) => l.path),
     ),
   ];
+}
+
+/** What the Routines screen shows: each staff member's daily round and routines, in words too. */
+interface StaffSchedule extends Schedule {
+  handle: string;
+  name: string;
+  dailyWhen: string;
+  routines: Array<Schedule["routines"][number] & { when: string }>;
+}
+
+async function schedules(c: Ctx, opts: { force?: boolean } = {}): Promise<StaffSchedule[]> {
+  const { org } = await ready(c, opts);
+  return (org.staff ?? []).map((s: any) => {
+    const dir = String(s.dir ?? s.handle);
+    const root = join(c.portal.ws.root, dir);
+    const path = join(root, "staff.yaml");
+    const manifest = existsSync(path) ? parseYaml(readFileSync(path, "utf8"), "staff.yaml") : {};
+    const schedule = readSchedule(manifest as any, (rel) =>
+      existsSync(join(root, rel)) ? readFileSync(join(root, rel), "utf8") : undefined,
+    );
+    return {
+      handle: String(s.handle),
+      name: String(s.name ?? s.handle),
+      daily: schedule.daily,
+      dailyWhen: describeCron(schedule.daily),
+      routines: schedule.routines.map((r) => ({ ...r, when: describeCron(r.schedule) })),
+    };
+  });
+}
+
+/**
+ * Several files in one commit, as the person, through the Git Data API: a routine's time, its
+ * words and the caller that fires it land together or not at all. The branch only moves if it
+ * is still where it was read, so a newer push is never overwritten.
+ */
+async function commitFiles(
+  gh: GitHub,
+  repo: string,
+  changes: Array<{ path: string; text: string | null }>,
+  message: string,
+) {
+  const fail = (what: string, error?: string) => {
+    if (/workflow/i.test(error ?? "")) {
+      throw new HttpError(
+        403,
+        "GitHub refused to change the workflow that runs routines. Sign out of the portal and sign in again to grant it.",
+      );
+    }
+    throw new HttpError(400, `${what} failed: ${error}`);
+  };
+  const info = await gh.request<{ default_branch: string }>("GET", `repos/${repo}`);
+  if (!info.ok) fail("reading the repo", info.error);
+  const branch = info.data!.default_branch;
+  const ref = await gh.request<{ object: { sha: string } }>(
+    "GET",
+    `repos/${repo}/git/ref/heads/${encodePath(branch)}`,
+  );
+  if (!ref.ok) fail("reading the branch", ref.error);
+  const parent = ref.data!.object.sha;
+  const head = await gh.request<{ tree: { sha: string } }>(
+    "GET",
+    `repos/${repo}/git/commits/${parent}`,
+  );
+  if (!head.ok) fail("reading the commit", head.error);
+  const tree = await gh.request<{ sha: string }>("POST", `repos/${repo}/git/trees`, {
+    body: {
+      base_tree: head.data!.tree.sha,
+      tree: changes.map((c) =>
+        c.text === null
+          ? { path: c.path, mode: "100644", type: "blob", sha: null }
+          : { path: c.path, mode: "100644", type: "blob", content: c.text },
+      ),
+    },
+  });
+  if (!tree.ok) fail("writing the files", tree.error);
+  const commit = await gh.request<{ sha: string }>("POST", `repos/${repo}/git/commits`, {
+    body: { message, tree: tree.data!.sha, parents: [parent] },
+  });
+  if (!commit.ok) fail("making the commit", commit.error);
+  const moved = await gh.request("PATCH", `repos/${repo}/git/refs/heads/${encodePath(branch)}`, {
+    body: { sha: commit.data!.sha, force: false },
+  });
+  if (!moved.ok) {
+    if (moved.status === 422 && !/workflow/i.test(moved.error ?? "")) {
+      throw new HttpError(
+        409,
+        `${repo} changed on GitHub since this page read it. Reload, then save again.`,
+      );
+    }
+    fail("moving the branch", moved.error);
+  }
+  return {
+    committed: true,
+    pushed: true,
+    sha: commit.data!.sha.slice(0, 7),
+    files: changes.length,
+  };
 }
 
 /**

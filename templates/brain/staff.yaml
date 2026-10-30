@@ -10,6 +10,9 @@ brain: %%BRAIN%%
 status_issue: %%STATUS_ISSUE%%
 
 schedule: "%%SCHEDULE%%"
+# Times this staff member wakes beyond the daily round, each with its own job in
+# routines/<id>.md. Times are UTC. Edit them in the portal or with `roster routine`.
+routines: []
 model: %%MODEL%%
 timeout_minutes: %%TIMEOUT%%
 mention_timeout_minutes: %%MENTION_TIMEOUT%%

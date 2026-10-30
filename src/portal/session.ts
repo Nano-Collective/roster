@@ -122,7 +122,9 @@ export function startSignIn(
   const to = new URL("https://github.com/login/oauth/authorize");
   to.searchParams.set("client_id", cfg.clientId);
   to.searchParams.set("redirect_uri", `${url.origin}${callback}`);
-  to.searchParams.set("scope", "repo notifications");
+  // `workflow` because a routine's time lives in the daily caller, under .github/workflows/,
+  // and GitHub refuses any change there from a token without it.
+  to.searchParams.set("scope", "repo notifications workflow");
   to.searchParams.set("state", state);
   to.searchParams.set("allow_signup", "false");
   const headers = new Headers({ location: to.toString() });

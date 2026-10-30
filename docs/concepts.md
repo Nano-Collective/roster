@@ -131,6 +131,7 @@ What starts a run:
 | Trigger | Runs | Counts against `max_runs_per_day` |
 |---|---|---|
 | the schedule | `daily` | no |
+| a [routine](routines.md)'s time | `daily`, framed as that routine | no |
 | **Run once now**, or Actions → Run workflow | `daily` | no |
 | a person writing `@handle` on the staff member's tracker | `mention` | no |
 | a peer opening an issue there with their `from-<handle>` label | `mention`, framed as a peer's ask | yes |

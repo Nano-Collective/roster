@@ -489,6 +489,7 @@ function whatRun(r) {
   const on = r.issue ? titleOn(r) : "";
   if (r.trigger === "mention") return r.issue ? `Answering #${r.issue}${on}` : "Answering a message";
   if (r.trigger === "peer") return r.issue ? `Helping a colleague with #${r.issue}${on}` : "Helping a colleague";
+  if (r.trigger === "routine") return r.routine ? `Running the ${r.routine} routine` : "Running a routine";
   return (
     {
       daily: "Doing their daily work",

@@ -65,7 +65,8 @@ test("one of the org's humans signs in, and the cookie is HttpOnly and Secure", 
   const start = startSignIn(url, config(["will"]));
   const to = new URL(start.headers.get("location")!);
   assert.equal(to.origin, "https://github.com");
-  assert.equal(to.searchParams.get("scope"), "repo notifications");
+  // `workflow`, because a routine's time is a line in the daily caller under .github/workflows/.
+  assert.equal(to.searchParams.get("scope"), "repo notifications workflow");
   const state = to.searchParams.get("state")!;
 
   const { fake } = github("will");

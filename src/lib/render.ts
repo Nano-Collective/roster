@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { type RoutineEntry, routineExpression, routinesOf, scheduleLines } from "./routines.js";
 import { templateFiles, templatesRoot } from "./templates.js";
 import { existsSync, readFileSync } from "./vfs.js";
 
@@ -37,6 +38,8 @@ export interface StaffSpec {
   agentSecret: string;
   /** Peer and follow-on runs a day. Mentions never count against it. */
   maxRunsPerDay: number;
+  /** Scheduled runs beyond the daily round, each with its own job. None at hire. */
+  routines?: RoutineEntry[];
 }
 
 export interface OrgSpec {
@@ -122,6 +125,8 @@ export function tokensFor(org: OrgSpec, s: StaffSpec): Record<string, string> {
         s.worksIn.map((r) => `  - { repo: ${r}, role: contributor, checkout: true }`).join("\n")
       : " []",
     SCHEDULE: s.schedule,
+    SCHEDULES: scheduleLines(s.schedule, s.routines ?? []),
+    ROUTINE: routineExpression(s.routines ?? []),
     MODEL: s.model,
     TIMEOUT: String(s.timeout),
     MENTION_TIMEOUT: String(s.mentionTimeout),
@@ -283,5 +288,6 @@ export function specFromManifest(m: Record<string, any>, dir: string): StaffSpec
     agentSecret: String(m.agent_secret ?? "CLAUDE_CODE_OAUTH_TOKEN"),
     // Peer and follow-on runs a day. Mentions are a person asking and never count.
     maxRunsPerDay: Number(m.max_runs_per_day ?? 6),
+    routines: routinesOf(m),
   };
 }

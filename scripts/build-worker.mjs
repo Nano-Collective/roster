@@ -7,8 +7,9 @@
  *                              /assets/ exactly as templates/portal has them, and the docs'
  *                              screenshots under /docs-images/
  *
- * The text roster reads at run time — the docs, the worked charters, the brief templates — is
- * bundled into the module as `roster:framework` and mounted where the CLI would find it on disk.
+ * The text roster reads at run time — the docs, the worked charters, the brief templates, the
+ * daily caller — is bundled into the module as `roster:framework` and mounted where the CLI
+ * would find it on disk.
  * The page itself is still unbuilt: these are the same files `roster portal` serves.
  */
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -34,6 +35,8 @@ const take = (dir, keep) => {
 };
 take("docs", (f) => f.endsWith(".md"));
 take("templates/briefs", () => true);
+// The daily caller, which a routine edit renders: its schedule is the routines' crons.
+take("templates/brain/.github/workflows", () => true);
 
 await build({
   entry: { index: "src/portal/worker.ts" },

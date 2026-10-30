@@ -366,6 +366,25 @@ export function compose({
     follow_on: trigger === "follow-on",
   };
 
+  // A routine run carries the routine's id; what to do is the person's own words in
+  // routines/<id>.md. Read as a value, never rendered as a template, like the in-flight list.
+  const routineId = String(event.routine ?? "");
+  let routine = null;
+  if (/^[a-z0-9][a-z0-9-]{0,39}$/.test(routineId)) {
+    const file = join(brainDir, "routines", `${routineId}.md`);
+    if (existsSync(file)) {
+      const text = readFileSync(file, "utf8").trimStart();
+      const heading = /^#\s+(.+)\n?/.exec(text);
+      routine = {
+        id: routineId,
+        title: heading ? heading[1].trim() : routineId,
+        body: (heading ? text.slice(heading[0].length) : text).trim(),
+      };
+    } else {
+      routine = { id: routineId, title: routineId, body: "", missing: true };
+    }
+  }
+
   // What people have open on the product repos, gathered by inflight.mjs just before this runs.
   // Read as a value and never rendered as a template: it is PR titles, which are a person's
   // words, and a `{{` in one must not be able to break composition.
@@ -398,6 +417,7 @@ export function compose({
     peers,
     peer: peers[0] ?? null,
     kind,
+    routine,
     // Convenience strings the fragments lean on, computed once here so a
     // fragment never has to do string work.
     peer_list: peers.map((p) => `- \`${p.dir}/\` - the ${p.name}'s brain`).join("\n"),

@@ -8,6 +8,27 @@ your brain. Reconstitute yourself, do a day's work, hand off.
 
 {{>? staff:prompts/boot.md}}
 
+{{#if routine}}
+## This run is a routine: {{routine.title}}
+
+{{human.name}} set this routine up to run at a set time, and it is the job of this run, in place
+of the daily round. Boot as below so you know where things stand, then do what it asks. Record
+what you did the way a daily run would: in `{{staff.dir}}/STATE.md`, your memory, and
+#{{staff.status_issue}}. Do not start the rest of the daily round's work unless the routine says to.
+{{/if}}
+
+{{#if routine.missing}}
+`{{staff.dir}}/routines/{{routine.id}}.md` is missing, so there is nothing to do. Say so in
+#{{staff.status_issue}}, naming the routine, and end the run.
+{{/if}}
+{{#if routine.body}}
+What {{human.name}} asked for, as written:
+
+<routine>
+{{routine.body}}
+</routine>
+{{/if}}
+
 {{#if event.follow_on}}
 **This is a follow-on run.** The last run ended with the next step ready and started this one.
 Boot as usual; `{{staff.dir}}/STATE.md` says what it is.

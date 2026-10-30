@@ -92,7 +92,7 @@ roster --no-open
 
 It prints a localhost URL (4300 unless that is taken). Then, in a few sentences: their staff are
 hired and have run once, they run on their own each day and when @mentioned, and the portal's
-Inbox is where staff ask them things. Offer three things they could ask their first staff
+Home is where staff ask them things. Routines, in the portal, wake them at more times. Offer three things they could ask their first staff
 member, based on what you learned about their business in the interview.
 
 Do not report versions, paths or package-manager output. Report what is working and what, if
@@ -108,6 +108,7 @@ anything, is left.
 | Every problem, as one brief to fix | `roster fix` |
 | Hire another staff member | `roster hire <handle> --name "<role>"` then `roster app <handle>` |
 | Start a run now | `roster run <handle> --apply` |
+| Wake them at more times, each with its own job | `roster routine <handle> add --name "<name>" --at "<cron, UTC>" --do "<what to do>" --apply` |
 | Give staff an outside service | `roster connector` |
 | Take framework updates | `npm install -g @nanocollective/roster@latest && roster upgrade --apply` |
 

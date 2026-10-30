@@ -31,6 +31,7 @@ export const ORG_WIDE = new Set([
   "org",
   "staff",
   "connectors",
+  "routines",
   "docs",
 ]);
 

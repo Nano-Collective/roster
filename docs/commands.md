@@ -207,6 +207,24 @@ work, so its "unproven" warning goes away. It is a real run and spends what a sc
 would, which is why it needs `--apply`. The staff card and Health have the same as
 **Run once now**.
 
+## `roster routine <handle>`
+
+When a staff member wakes beyond the daily round, and what they do then. With no action it
+lists their daily round and routines.
+
+```
+add --name <n> --at <cron> --do <text>   a new routine; --do-file <path> reads the text from a file
+remove <id>                              take one away
+daily <cron>                             move the daily round
+run <id>                                 start one routine now
+--apply                                  write, commit and push the brain repo
+--ops <dir>                              ops repo directory
+```
+
+Times are five-field cron in UTC. A change writes `staff.yaml`, `routines/<id>.md` and the
+daily caller together, so the schedule GitHub fires on is always the one in the manifest. The
+portal's **Routines** screen does the same with a picker. See [routines](routines.md).
+
 ## `roster retire <handle>`
 
 Stop a staff member without destroying anything.

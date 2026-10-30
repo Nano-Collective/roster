@@ -173,9 +173,11 @@ single use, since there is no store to remember it in, but it lasts five minutes
 without the PKCE verifier only the client holds. The tools cannot merge, approve, hire or change
 the org.
 
-**The OAuth scopes.** `repo` and `notifications`. A GitHub App would be narrower, but its
-tokens cannot read notifications, and unread in the portal is GitHub's own unread, kept in step
-with the website and your phone.
+**The OAuth scopes.** `repo`, `notifications` and `workflow`. A GitHub App would be narrower,
+but its tokens cannot read notifications, and unread in the portal is GitHub's own unread, kept
+in step with the website and your phone. `workflow` is for [routines](routines.md): a routine's
+time is a line in the daily caller under `.github/workflows/`, and GitHub refuses any change
+there from a token without it. `gh` on your own machine already has it.
 
 ## Connectors
 

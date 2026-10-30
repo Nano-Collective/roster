@@ -13,6 +13,7 @@ import { lintCommand, lintHelp } from "./commands/lint.js";
 import { portalCommand, portalHelp } from "./commands/portal.js";
 import { promptCommand, promptHelp } from "./commands/prompt.js";
 import { retireCommand, retireHelp } from "./commands/retire.js";
+import { routineCommand, routineHelp } from "./commands/routine.js";
 import { runCommand, runHelp } from "./commands/run.js";
 import { setupCommand, setupHelp } from "./commands/setup.js";
 import { skillCommand, skillHelp } from "./commands/skill.js";
@@ -37,6 +38,7 @@ roster — an agent-run org, powered by GitHub
   roster credential         store the agent's credential, once for the org
   roster connector          give staff an outside service: Sentry, Linear, Stripe…
   roster run <handle>       start one daily run now, and follow it to the end
+  roster routine <handle>   when they wake beyond the daily round, and what they do
   roster retire <handle>    stop a staff member, keeping their repo and their memory
   roster upgrade            carry framework changes into this tenant
   roster portal             browse every brain, locally
@@ -62,6 +64,7 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
   credential: credentialCommand,
   connector: connectorCommand,
   run: runCommand,
+  routine: routineCommand,
   retire: retireCommand,
   portal: portalCommand,
   export: exportCommand,
@@ -82,6 +85,7 @@ const HELPS: Record<string, string> = {
   credential: credentialHelp,
   connector: connectorHelp,
   run: runHelp,
+  routine: routineHelp,
   retire: retireHelp,
   portal: portalHelp,
   deploy: deployHelp,

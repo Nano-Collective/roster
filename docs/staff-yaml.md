@@ -69,6 +69,7 @@ labels:
 | Field | Default | Means |
 |---|---|---|
 | `schedule` | none | Cron for the daily run. Rendered into the caller. |
+| `routines` | `[]` | More times to wake, each `{ id, schedule }`, with what to do in `routines/<id>.md`. Rendered into the caller's schedule. See [routines](routines.md). |
 | `model` | org default | Model id. |
 | `timeout_minutes` | 90 | Ceiling on the daily session. |
 | `mention_timeout_minutes` | 90 | Ceiling on a mention run. |

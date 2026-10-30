@@ -33,7 +33,8 @@ repositories in this organisation**. Without it, callers fail with "workflow not
 | `allowed_tools` | string | `Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch` | Tool permissions, for agents that take them. |
 | `issue_number` | string | `""` | Trigger context. |
 | `comment_id` | string | `""` | Trigger context. |
-| `trigger` | string | `""` | What started the run: `daily`, `manual`, `follow-on`, `mention` or `peer`. Passed to the prompt. |
+| `trigger` | string | `""` | What started the run: `daily`, `routine`, `manual`, `follow-on`, `mention` or `peer`. Passed to the prompt. |
+| `routine` | string | `""` | The routine this run is, by id. The prompt reads `routines/<id>.md` from the brain. See [routines](routines.md). |
 | `max_runs_per_day` | number | `6` | How many `peer` and `follow-on` runs may start in a UTC day. Mentions are never counted. |
 | `secret_prefix` | string | `""` | The prefix of this staff member's App secrets, so `CTO` reads `CTO_APP_ID`. |
 | `public_secret_prefix` | string | `""` | The same for the public App. |
