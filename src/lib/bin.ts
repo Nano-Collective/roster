@@ -18,7 +18,7 @@ export function bin(env: NodeJS.ProcessEnv = process.env, argv1 = process.argv[1
 }
 
 const COMMAND =
-  /\broster(?= (?:init|hire|app|credential|run|doctor|fix|portal|prompt|upgrade|retire|lint|brief|export|help)\b)/g;
+  /\broster(?= (?:init|setup|skill|hire|app|credential|run|doctor|fix|portal|prompt|upgrade|retire|lint|brief|export|help)\b)/g;
 
 /** Rewrite `roster <command>` in text shown to a person, so it can be pasted as is. */
 export function withBin(text: string, name = bin()): string {

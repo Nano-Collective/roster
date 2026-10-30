@@ -20,6 +20,20 @@ each a conversation of twenty to thirty minutes with your own AI. The rest is ab
 clicks and waiting for the run. Those two files are what make the staff worth running, so that
 hour is the part not to rush.
 
+## With your coding agent
+
+Paste this into Claude Code, Codex, Cursor or Gemini CLI on your computer:
+
+```
+set up https://roster.nanocollective.org/SKILL.md
+```
+
+The agent installs roster and walks through the same steps as below, one at a time. It runs
+`roster setup --json` to see what is next, interviews you for the business, priorities and
+charter using the same briefs, and hands you the parts only you can do: signing in to `gh`,
+confirming each GitHub App, and typing your agent's credential in your own terminal. It never
+asks for a token in chat. When it is done it opens the portal.
+
 ## Before you start
 
 - **`gh`, [signed in](https://cli.github.com)**, as someone who owns the organisation. Setting

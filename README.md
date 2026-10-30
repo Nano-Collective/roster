@@ -15,6 +15,14 @@ It runs every day against a live org: a CTO and a CMO have built and marketed
 
 ## Quick start
 
+Paste this into a coding agent on your computer (Claude Code, Codex, Cursor, Gemini CLI):
+
+```
+set up https://roster.nanocollective.org/SKILL.md
+```
+
+Or run it yourself:
+
 ```bash
 npx @nanocollective/roster
 ```

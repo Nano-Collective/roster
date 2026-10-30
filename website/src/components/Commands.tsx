@@ -3,6 +3,7 @@ import { Section, SectionHead, Soft } from "./Section";
 
 const cmds = [
   ["npx @nanocollective/roster", "Set up, or join, an org in a browser"],
+  ["roster setup", "Where setup is, and what is next"],
   ["roster init --org your-org", "Ops repo, org layer, merge base"],
   ["roster hire cto", "Repo, workflows, labels, peers"],
   ["roster app cto", "Their GitHub App, install pre-selected"],

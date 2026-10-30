@@ -16,6 +16,33 @@ Every command that changes anything prints a plan and changes nothing unless you
 `portal` is the exception: it is interactive, and each change there is a button you press after
 seeing what it will do.
 
+## `roster setup`
+
+Where setup has got to, and the one thing to do next. Every step is read from GitHub and from
+disk each time, so it never disagrees with the world and it is safe to run as often as you like.
+
+```
+--json            the steps as JSON: each with done, who (agent or human), do and command
+--join <org>      check out an org that already runs roster, here
+--add-repo <name> add a repo in the org to org.yaml as a product the staff work on
+--dir <path>      where the workspace is, or would be
+```
+
+This is what the [SKILL.md install](getting-started.md#with-your-coding-agent) follows: a coding
+agent runs `roster setup --json`, does `next`, and runs it again until `ready` is true. A step
+for a human is one only you can do: signing in, confirming on GitHub, a credential typed in your
+own terminal.
+
+## `roster skill install`
+
+Saves Roster's SKILL.md for each coding agent on this machine (Claude Code in
+`~/.claude/skills/roster`, Codex in `~/.codex/skills/roster`), so a later session knows how to
+run Roster without being told. It is the same file as https://roster.nanocollective.org/SKILL.md.
+
+```
+--print   print the file instead
+```
+
 ## `roster fix`
 
 Every scanner's findings, as one brief you paste into a coding agent working in this workspace.

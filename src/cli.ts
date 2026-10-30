@@ -14,6 +14,8 @@ import { portalCommand, portalHelp } from "./commands/portal.js";
 import { promptCommand, promptHelp } from "./commands/prompt.js";
 import { retireCommand, retireHelp } from "./commands/retire.js";
 import { runCommand, runHelp } from "./commands/run.js";
+import { setupCommand, setupHelp } from "./commands/setup.js";
+import { skillCommand, skillHelp } from "./commands/skill.js";
 import { upgradeCommand, upgradeHelp } from "./commands/upgrade.js";
 import { bin, rewriteOutput } from "./lib/bin.js";
 import { useRecordStore } from "./lib/runs.js";
@@ -23,6 +25,7 @@ const HELP = `
 roster — an agent-run org, powered by GitHub
 
   roster                    open the portal. With no org here, it sets one up.
+  roster setup              where setup has got to, and what to do next
   roster init --org <org>   stand up a new tenant
   roster brief <kind>       a brief for authoring a charter, business.md or the voice
   roster prompt <handle>    compose the runtime prompt for a staff member
@@ -39,11 +42,14 @@ roster — an agent-run org, powered by GitHub
   roster portal             browse every brain, locally
   roster portal deploy      put the portal on the web, behind Sign in with GitHub
   roster export             the whole org as one JSON
+  roster skill install      teach your coding agents Roster (the SKILL.md)
   roster help [command]
 
 `;
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
+  setup: setupCommand,
+  skill: skillCommand,
   init: initCommand,
   brief: briefCommand,
   prompt: promptCommand,
@@ -62,6 +68,8 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<number>> = {
 };
 
 const HELPS: Record<string, string> = {
+  setup: setupHelp,
+  skill: skillHelp,
   init: initHelp,
   brief: briefHelp,
   prompt: promptHelp,
