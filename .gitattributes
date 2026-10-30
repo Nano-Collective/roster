@@ -1,0 +1,6 @@
+# LF everywhere, as the npm package ships it. A Windows checkout with CRLF made the templates
+# and the tests disagree about every line ending.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.woff2 binary
