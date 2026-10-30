@@ -287,7 +287,8 @@ function readSurfaces(root: string, declared: Array<{ path: string; render: stri
 }
 
 function walk(dir: string, root: string, out: FileEntry[] = []): FileEntry[] {
-  for (const name of readdirSync(dir)) {
+  // Sorted, as a snapshot's listing is: the order a disk returns differs between platforms.
+  for (const name of [...readdirSync(dir)].sort()) {
     if (SKIP.has(name)) continue;
     const full = join(dir, name);
     const st = statSync(full);
