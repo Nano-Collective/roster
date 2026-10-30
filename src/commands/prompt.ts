@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { extractLivePrompt } from "../lib/livePrompt.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
 
@@ -93,7 +94,7 @@ async function gatherInflight(opsDir: string, root: string, handle: string): Pro
   if (!existsSync(path)) {
     throw new Error("this tenant has no inflight.mjs yet. Run `roster upgrade --apply` first.");
   }
-  const { describe, gather } = (await import(`file://${path}`)) as {
+  const { describe, gather } = (await import(pathToFileURL(path).href)) as {
     describe(found: unknown): string;
     gather(o: { org: unknown; manifest: unknown; gh: (a: string[]) => string }): unknown;
   };

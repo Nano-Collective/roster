@@ -9,6 +9,7 @@ import {
   lintMemory,
   parseMemory,
 } from "./memory.js";
+import { posix } from "./paths.js";
 import { looksUnwritten } from "./stub.js";
 import { existsSync, readdirSync, readFileSync, statSync } from "./vfs.js";
 import type { Workspace } from "./workspace.js";
@@ -293,7 +294,7 @@ function walk(dir: string, root: string, out: FileEntry[] = []): FileEntry[] {
     if (st.isDirectory()) walk(full, root, out);
     else {
       out.push({
-        path: relative(root, full),
+        path: posix(relative(root, full)),
         bytes: st.size,
         modified: st.mtime.toISOString(),
         ext: name.includes(".") ? name.split(".").pop()!.toLowerCase() : "",

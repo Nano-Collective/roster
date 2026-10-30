@@ -1,6 +1,7 @@
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { frameworkRoot } from "./framework.js";
+import { posix } from "./paths.js";
 import { existsSync, readdirSync, statSync } from "./vfs.js";
 
 /**
@@ -62,7 +63,7 @@ export function templateFiles(root: string): string[] {
       if (name === ".DS_Store") continue;
       const full = join(dir, name);
       if (statSync(full).isDirectory()) walk(full);
-      else out.push(relative(root, full));
+      else out.push(posix(relative(root, full)));
     }
   };
   walk(root);

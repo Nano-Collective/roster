@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { allowOrgCallers } from "../lib/callable.js";
 import { api, ghReady } from "../lib/gh.js";
 import { briefCommands } from "../lib/render.js";
@@ -205,7 +206,7 @@ async function agentPreset(id: string): Promise<{
   config?: { path: string; contents: unknown };
 }> {
   const path = join(opsTemplateDir(), "agents.mjs");
-  const { PRESETS } = (await import(`file://${path}`)) as {
+  const { PRESETS } = (await import(pathToFileURL(path).href)) as {
     PRESETS: Record<string, { model?: string; config?: { path: string; contents: unknown } }>;
   };
   const preset = PRESETS[id];

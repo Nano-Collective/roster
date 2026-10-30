@@ -1,0 +1,46 @@
+name: Windows
+
+# Roster is installed with npm on whatever machine its owner has, and the first Windows report
+# was a portal with no styles: a path check written for "/" turned every asset away. This runs
+# the suite and a real portal on Windows, so the next one is caught here.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Tests
+        run: pnpm test
+
+      # The thing the report was about: the portal starts, and its page, styles and scripts load.
+      - name: The portal serves its assets
+        run: |
+          set -euo pipefail
+          dir=$(mktemp -d)
+          (cd "$dir" && node "$GITHUB_WORKSPACE/dist/cli.js" portal --no-open --port 4399 > portal.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4399/ > /dev/null && break
+            sleep 1
+          done
+          cat "$dir/portal.log"
+          for asset in css/base.css css/routines.css js/app.js js/views/routines.js; do
+            type=$(curl -sf -o /dev/null -w '%{content_type}' "http://localhost:4399/assets/$asset")
+            echo "$asset: $type"
+            case "$type" in text/css*|text/javascript*) ;; *) echo "::error::$asset was not served"; exit 1 ;; esac
+          done
+          curl -s http://localhost:4399/api/setup/status | head -c 400 || true; echo

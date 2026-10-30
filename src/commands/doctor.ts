@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { askKinds, OWNED_LABELS } from "../lib/asks.js";
 import { accessLink } from "../lib/callable.js";
 import { declared } from "../lib/connectors.js";
@@ -255,7 +256,7 @@ async function checkAgent(ws: Workspace, org: OrgFile): Promise<Finding[]> {
   const scope = "workspace";
   let agent: { id: string; config?: { path: string } | null };
   try {
-    const { resolveAgent } = (await import(`file://${join(ws.opsDir, "agents.mjs")}`)) as {
+    const { resolveAgent } = (await import(pathToFileURL(join(ws.opsDir, "agents.mjs")).href)) as {
       resolveAgent: (o: unknown, s: unknown) => typeof agent;
     };
     agent = resolveAgent(org, {});

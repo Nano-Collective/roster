@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { AuditFinding } from "./audit.js";
+import { inside, posix } from "./paths.js";
 import { existsSync, readFileSync, statSync } from "./vfs.js";
 import type { Workspace } from "./workspace.js";
 
@@ -126,8 +127,8 @@ function describe(ws: Workspace, brainDir: string, rel: string, optional: boolea
   const missing = !existsSync(full);
   return {
     rel,
-    path: relative(ws.root, full),
-    repo: inBrain ? relative(ws.root, brainDir) : ws.opsName,
+    path: posix(relative(ws.root, full)),
+    repo: inBrain ? posix(relative(ws.root, brainDir)) : ws.opsName,
     bytes: missing ? 0 : statSync(full).size,
     optional,
     missing,
@@ -154,8 +155,8 @@ function runtimeReads(ws: Workspace, brainDir: string): Layer[] {
     const missing = !existsSync(full);
     return {
       rel,
-      path: relative(ws.root, full),
-      repo: relative(ws.root, base),
+      path: posix(relative(ws.root, full)),
+      repo: posix(relative(ws.root, base)),
       bytes: missing ? 0 : statSync(full).size,
       optional: false,
       missing,
@@ -179,8 +180,8 @@ function runtimeReads(ws: Workspace, brainDir: string): Layer[] {
  */
 export function isWritable(ws: Workspace, rel: string, brainDirs: string[]): boolean {
   const full = resolve(ws.root, rel);
-  if (!full.startsWith(resolve(ws.root) + "/")) return false;
-  const opsRel = relative(resolve(ws.opsDir), full);
+  if (!inside(resolve(ws.root), full)) return false;
+  const opsRel = posix(relative(resolve(ws.opsDir), full));
   if (!opsRel.startsWith("..")) {
     // org.yaml is writable but validated before it lands: it is the one file here that stops
     // every prompt composing when it is wrong, rather than just reading oddly.
@@ -191,7 +192,7 @@ export function isWritable(ws: Workspace, rel: string, brainDirs: string[]): boo
     );
   }
   for (const dir of brainDirs) {
-    const brainRel = relative(resolve(ws.root, dir), full);
+    const brainRel = posix(relative(resolve(ws.root, dir), full));
     if (brainRel.startsWith("..")) continue;
     return brainRel === "CHARTER.md" || /^prompts\/[\w.-]+\.md$/.test(brainRel);
   }
@@ -217,7 +218,7 @@ export interface SaveResult {
 export function saveFile(ws: Workspace, rel: string, text: string, message: string): SaveResult {
   const full = resolve(ws.root, rel);
   const repoDir = repoRootOf(full);
-  const repo = relative(ws.root, repoDir) || ".";
+  const repo = posix(relative(ws.root, repoDir)) || ".";
   const before = existsSync(full) ? readFileSync(full, "utf8") : null;
   if (before === text)
     return { path: rel, repo, committed: false, pushed: false, note: "no change" };

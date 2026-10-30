@@ -1,10 +1,8 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { promisify } from "node:util";
+import { openBrowser } from "./browser.js";
 import { ghJson } from "./gh.js";
-
-const run = promisify(execFile);
 
 export interface AppSpec {
   /** The App's name, which becomes its slug and therefore its bot login. */
@@ -174,7 +172,7 @@ export async function createApp(spec: AppSpec, opts: FlowOptions = {}): Promise<
       const url = `http://localhost:${port}/`;
       log(`\n  Creating the GitHub App "${spec.name}" under ${spec.org}.`);
       log(`  Your browser should open. If it does not, go to: ${url}\n`);
-      if (!opts.noOpen) void open(url);
+      if (!opts.noOpen) openBrowser(url);
     });
   });
 }
@@ -237,14 +235,4 @@ function page(title: string, body: string): string {
 <style>body{font:15px/1.6 -apple-system,system-ui,sans-serif;margin:14vh auto;max-width:32rem;
 padding:0 1.5rem;color:#1b1f26}@media(prefers-color-scheme:dark){body{background:#0e1013;color:#e6e9ef}}</style>
 <h2>${esc(title)}</h2><p>${body}</p>`;
-}
-
-async function open(url: string): Promise<void> {
-  const cmd =
-    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  try {
-    await run(cmd, [url]);
-  } catch {
-    /* Printing the URL is the fallback, and it was printed before this was tried. */
-  }
 }

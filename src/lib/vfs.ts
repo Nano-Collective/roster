@@ -35,7 +35,13 @@ export function mount(prefix: string, tree: VirtualTree): void {
 
 function lookup(path: string): { tree: VirtualTree; rel: string } | null {
   if (!mounts.size) return null;
-  const p = String(path).replace(/\/+$/, "");
+  /* Mounts are POSIX paths ("/@roster/acme"), and the readers build theirs with path.join and
+     path.resolve, which on Windows give "\\@roster\\acme\\cto" or "C:\\@roster\\acme". Both
+     are the same place, so they are matched as one. */
+  const p = String(path)
+    .replace(/\\/g, "/")
+    .replace(/^[A-Za-z]:(?=\/)/, "")
+    .replace(/\/+$/, "");
   for (const [prefix, tree] of mounts) {
     if (p === prefix) return { tree, rel: "" };
     if (p.startsWith(`${prefix}/`)) return { tree, rel: p.slice(prefix.length + 1) };

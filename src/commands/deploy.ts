@@ -259,11 +259,15 @@ async function namespaceFor(title: string, configFile: string): Promise<string |
   return made.code === 0 ? namespaceId(made.text) : null;
 }
 
+/* npx is npx.cmd on Windows, and Node will not start a .cmd without a shell. */
+const NPX_SHELL = process.platform === "win32";
+
 function captured(args: string[]): Promise<{ code: number; text: string }> {
   return new Promise((resolve) => {
     let text = "";
     const child = spawn("npx", ["--yes", WRANGLER, ...args], {
       stdio: ["ignore", "pipe", "inherit"],
+      shell: NPX_SHELL,
     });
     child.stdout.on("data", (b) => {
       text += String(b);
@@ -338,7 +342,10 @@ async function wrangler(args: string[]): Promise<number> {
 
 function wranglerOnce(args: string[]): Promise<number> {
   return new Promise((resolve) => {
-    const child = spawn("npx", ["--yes", WRANGLER, ...args], { stdio: "inherit" });
+    const child = spawn("npx", ["--yes", WRANGLER, ...args], {
+      stdio: "inherit",
+      shell: NPX_SHELL,
+    });
     child.on("close", (code) => resolve(code ?? 1));
     child.on("error", () => resolve(1));
   });

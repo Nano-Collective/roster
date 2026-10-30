@@ -1,4 +1,5 @@
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { existsSync, readFileSync } from "./vfs.js";
 
 /**
@@ -24,7 +25,7 @@ export function findWorkspace(start = process.cwd()): Workspace {
 
     // Also handle being *inside* the ops repo or a brain repo.
     if (existsSync(join(dir, "org.yaml"))) {
-      return { root: dirname(dir), opsDir: dir, opsName: dir.split("/").pop()! };
+      return { root: dirname(dir), opsDir: dir, opsName: basename(dir) };
     }
 
     const parent = dirname(dir);
@@ -66,7 +67,7 @@ export async function loadComposer(opsDir: string) {
   if (!existsSync(path)) {
     throw new Error(`no compose.mjs in ${opsDir}. Run \`roster upgrade\` to restore it.`);
   }
-  return (await import(`file://${path}`)) as {
+  return (await import(pathToFileURL(path).href)) as {
     compose(o: {
       opsDir: string;
       brainsDir: string;

@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { ghJson, ghReady } from "./gh.js";
 import { looksUnwritten } from "./stub.js";
 import { templatesRoot } from "./templates.js";
@@ -229,7 +230,7 @@ export function unfinished(opsDir: string, staffCount: number): Unfinished[] {
 /** The framework's own composer, used only in the minutes before a tenant vendors its copy. */
 export async function loadFrameworkComposer() {
   const path = join(templatesRoot(), "ops", "compose.mjs");
-  return (await import(`file://${path}`)) as {
+  return (await import(pathToFileURL(path).href)) as {
     compose(o: { opsDir: string; brainsDir: string; staff: string; kind: string }): string;
     parseYaml(text: string, file?: string): Record<string, unknown>;
   };
@@ -258,7 +259,7 @@ export async function joinTenant(root: string, org: string): Promise<string[]> {
 
   /* Read with the tenant's own composer: it is on disk now, and it is the parser its own
      workflows use. The regex readers above exist for the moments before this is true. */
-  const { parseYaml } = await import(`file://${join(opsDir, "compose.mjs")}`).then(
+  const { parseYaml } = await import(pathToFileURL(join(opsDir, "compose.mjs")).href).then(
     (m) => m as { parseYaml: (t: string, f?: string) => Record<string, unknown> },
   );
   const orgFile = parseYaml(readFileSync(join(opsDir, "org.yaml"), "utf8"), "org.yaml") as {

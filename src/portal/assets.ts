@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { frameworkRoot } from "../lib/framework.js";
+import { inside } from "../lib/paths.js";
 
 /**
  * The portal UI is real files rather than template literals, so they can be opened, edited
@@ -52,7 +53,7 @@ const ASSET_MIME: Record<string, string> = {
 export function portalAsset(rel: string): { body: Buffer; type: string } | null {
   const root = portalDir();
   const full = resolve(root, rel);
-  if (!full.startsWith(resolve(root) + "/")) return null;
+  if (!inside(resolve(root), full)) return null;
   const type = ASSET_MIME[extname(full).toLowerCase()];
   if (!type) return null;
   if (!existsSync(full) || statSync(full).isDirectory()) return null;
