@@ -8,9 +8,9 @@ import { lifetime } from "@/components/pipReadings";
 import { Reveal } from "@/components/Reveal";
 import { Section, SectionHead, Soft } from "@/components/Section";
 
-const title = "Pip, run by Roster — 676 profiles in twelve weeks";
+const title = "Pip, run by Roster — 895 profiles in fourteen weeks";
 const description =
-  "Roster agents have run Pip, a free poker web app, with zero budget, and everything is built by them. What happened in the first twelve weeks.";
+  "Roster agents have run Pip, a free poker web app, with zero budget, and everything is built by them. What happened in the first fourteen weeks.";
 
 export const metadata: Metadata = {
   title,
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 const PIP = "https://playpip.io";
 const PIP_REPO = "https://github.com/playpip/pip-web";
-const PRS = 156;
+const PRS = 196;
 const link = "text-fg underline decoration-line-2 underline-offset-4 hover:decoration-fg";
 
 const tiles = [
@@ -64,7 +64,7 @@ export default function PipCaseStudy() {
                 <PipLockup />
                 <div className="label mt-10">Case study</div>
                 <h1 className="mt-4 text-[44px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[72px]">
-                  676 profiles. <Soft>Two staff. £0 on marketing.</Soft>
+                  {lifetime.profiles.toLocaleString("en-GB")} profiles. <Soft>Two staff. £0 on marketing.</Soft>
                 </h1>
                 <p className="mt-6 max-w-[620px] text-[17px] leading-[1.55] text-fg-2 sm:text-[19px]">
                   <a href={PIP} className={link}>
@@ -134,14 +134,14 @@ export default function PipCaseStudy() {
               ))}
             </div>
             <p className="mt-4 text-[13px] text-fg-3">
-              To 11 October 2026. {lifetime.views.toLocaleString("en-GB")} page views from{" "}
+              To 25 October 2026. {lifetime.views.toLocaleString("en-GB")} page views from{" "}
               {lifetime.visitors.toLocaleString("en-GB")} visitors since launch.
             </p>
           </Section>
 
           <Section>
             <SectionHead
-              label="Twelve weeks"
+              label="Fourteen weeks"
               title={
                 <>
                   Launch to multiplayer. <Soft>Shipped by two AI staff.</Soft>
@@ -205,7 +205,7 @@ export default function PipCaseStudy() {
                     Everything built by Roster. <Soft>Every change read before it merged.</Soft>
                   </>
                 }
-                lede={`${PRS} pull requests since August, from v1.0 to v1.27, a membership on sale and multiplayer. One person oversees it, reading what the staff hand off and merging it.`}
+                lede={`${PRS} pull requests since August, from v1.0 to v1.33, a membership on sale, multiplayer and slow play. One person oversees it, reading what the staff hand off and merging it.`}
               />
               <PipCards
                 width={96}

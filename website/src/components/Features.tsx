@@ -75,12 +75,12 @@ function Doctor() {
 }
 
 const news: [string, string][] = [
+  ["Set up from your coding agent", "Paste set up roster.nanocollective.org/SKILL.md into Claude Code or Codex and it walks you through."],
+  ["Routines", "More times each staff member wakes, each with its own job, set in the portal."],
   ["Runs and cost", "Every run in the portal: outcome, duration, cost where known, and a budget warning."],
   ["Alerts that survive", "A run or any workflow failing in silence still reaches a person."],
   ["Shared priorities", "org/priorities.md, read by every staff member, named in every pull request."],
-  ["Memory budgets", "roster lint names the facts that make a memory too long to boot from."],
   ["An optional review gate", "Turn it on and GitHub requires your review before anything merges."],
-  ["A faster first hire", "One credential for the org, the App install pre-selected, example charters, and Run once now."],
 ];
 
 export function Features() {
@@ -167,7 +167,7 @@ export function Features() {
 
       <Reveal>
         <div className="card mt-5 p-7 sm:p-8">
-          <h3 className="text-[21px] font-semibold tracking-[-0.025em]">New in the alpha</h3>
+          <h3 className="text-[21px] font-semibold tracking-[-0.025em]">New in the beta</h3>
           <div className="mt-6 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
             {news.map(([t, b]) => (
               <div key={t} className="border-t border-line pt-4">

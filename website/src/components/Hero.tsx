@@ -10,7 +10,7 @@ export function Hero() {
       <div className="mx-auto max-w-[1080px] px-6 pb-24 pt-20 text-center sm:pb-32 sm:pt-28">
         <p className="fade-up text-[15px] font-medium text-fg-2">
           Roster <span className="text-fg-3">·</span> open source, MIT{" "}
-          <span className="ml-1 rounded-full bg-fill px-2 py-0.5 text-[12px] text-fg-2">alpha</span>
+          <span className="ml-1 rounded-full bg-fill px-2 py-0.5 text-[12px] text-fg-2">beta</span>
         </p>
 
         <h1

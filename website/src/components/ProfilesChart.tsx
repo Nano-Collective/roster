@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { readings } from "./pipReadings";
 
-const DAYS = 84;
-const MAX = 750;
-const ticksY = [0, 100, 200, 300, 400, 500, 600, 700];
-const ticksX = [readings[0], readings[4], readings[8], readings[12]];
+const DAYS = 98;
+const MAX = 1000;
+const ticksY = [0, 200, 400, 600, 800];
+const ticksX = [readings[0], readings[4], readings[9], readings[14]];
 const last = readings[readings.length - 1];
 
 const x = (day: number) => (day / DAYS) * 100;
@@ -97,11 +97,11 @@ export function ProfilesChart() {
         {a && (
           <div
             className={`pointer-events-none absolute z-10 w-[168px] rounded-xl bg-surface px-3 py-2 text-[12px] shadow-[var(--shadow-lg)] ${
-              a.total > 300 ? "" : "-translate-y-full"
+              a.total > 400 ? "" : "-translate-y-full"
             }`}
             style={{
               left: `clamp(0px, calc(${x(a.day)}% - 84px), calc(100% - 168px))`,
-              top: `calc(${y(a.total)}% ${a.total > 300 ? "+ 16px" : "- 16px"})`,
+              top: `calc(${y(a.total)}% ${a.total > 400 ? "+ 16px" : "- 16px"})`,
             }}
           >
             <div className="text-fg-2">{a.day > 0 ? `Week to ${a.date}` : a.date}</div>
@@ -130,7 +130,7 @@ export function ProfilesChart() {
 
       <figcaption className="sr-only">
         Profiles created on Pip, week by week: about two dozen a week from launch on 23 July to
-        mid-August, then 50 to 94 a week, reaching 676 by 11 October.
+        mid-August, then 50 to 118 a week, reaching 895 by 25 October.
       </figcaption>
     </figure>
   );

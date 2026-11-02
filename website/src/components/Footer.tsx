@@ -63,7 +63,7 @@ export function Footer() {
       <div className="mx-auto max-w-[1080px] px-6">
         <p className="border-b border-line py-5 leading-[1.6] text-fg-2">
           Roster is built by the Nano Collective, a community building AI tooling not for profit
-          but for the community. It is in alpha, and things will change.{" "}
+          but for the community. It is in beta, and things will change.{" "}
           <a href={DOCS} className="link">
             Read the docs
           </a>
