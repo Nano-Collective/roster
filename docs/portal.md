@@ -96,14 +96,16 @@ goes away; the repo picker lives on under [Org](#org).
 
 ![Home: latest reports, what needs you, and the Ask box](images/home.jpg)
 
-Where the portal opens. An Ask box at the top, then these, in order.
+Where the portal opens. A card for each staff member at the top, then these, in order.
 
-- **Ask.** Pick a staff member, type what you want, **Send**. It opens an issue on their
-  tracker with their `@handle` in front, which wakes them in about a minute.
-- **Latest reports.** Each staff member's report: the body of their status issue, which every
-  run rewrites, with the issues and pull requests it names as links. Click it to open the issue.
-  **Ask for a report** asks them, with their `@handle`, to bring it up to date now, which takes a
-  few minutes.
+- **Ask a question.** On each staff member's card. Type what you want and **Send**: it opens an
+  issue on their tracker with their `@handle` in front, which wakes them in about a minute, and
+  their card says so until it starts. Close the box before sending and what you typed is kept.
+- **Progress.** Each staff member's report, a row each: its status, the one line on how it is
+  going and what is next, from the status issue every run rewrites. **Full report** opens what
+  got done, what is next and what is waiting on a person; **Ask for an update** asks them, with
+  their `@handle`, to bring it up to date now, which takes a few minutes. It comes after Unread
+  and Your requests.
 - **Needs you.** Every ask a staff member has put on you, and every pull request ready to
   merge, oldest first. Each card has one action on its right:
   - a `decision` has **Reply**, and **Go with the default** when it carries one. The default

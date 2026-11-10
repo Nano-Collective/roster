@@ -8,4 +8,6 @@
 # pnpm 11 reads settings from this file rather than .npmrc, which is why a repo with no
 # workspace packages still has one.
 allowBuilds:
+  # Its postinstall only prints a nudge to run `astryx init`; scripts/astryx.mjs reads its CSS.
+  '@astryxdesign/core': false
   esbuild: true

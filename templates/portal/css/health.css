@@ -2,7 +2,7 @@
 
 .kv{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;
     box-shadow:var(--shadow-sm)}
-.kv .k{font:600 10.5px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.kv .k{font:var(--font-weight-semibold) var(--text-supporting-size)/var(--text-supporting-leading) var(--sans);color:var(--ink-dim)}
 .kv .v{margin-top:6px;font:500 15px var(--sans);color:var(--ink);line-height:1.4;letter-spacing:-.01em;
     font-variant-numeric:tabular-nums}
 .kv .v small{display:block;color:var(--ink-faint);font-size:11.5px;margin-top:2px}
@@ -17,8 +17,7 @@
    shape now. A heading carries its own count, so the page can be read by scanning the left
    edge, and each section's own actions sit at its end rather than above its findings. */
 .hsect{display:flex;align-items:baseline;gap:10px;
-      font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;
-      color:var(--ink-faint);margin:32px 0 0;padding-bottom:9px;
+      font:var(--font-weight-semibold) var(--text-supporting-size)/var(--text-supporting-leading) var(--sans);color:var(--ink-dim);margin:32px 0 0;padding-bottom:9px;
       border-bottom:1px solid var(--line)}
 .hsect i{margin-left:auto;font:11.5px var(--mono);font-style:normal;letter-spacing:0;
       text-transform:none;color:var(--ink-faint)}
@@ -45,8 +44,7 @@
 .plan{border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;margin-top:14px;
       background:var(--panel);box-shadow:var(--shadow-sm)}
 .plan h3{margin:0 0 10px;font:600 15px var(--sans);letter-spacing:-.015em}
-.planhead{font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;
-      color:var(--ink-faint);margin:14px 0 7px}
+.planhead{font:var(--font-weight-semibold) var(--text-supporting-size)/var(--text-supporting-leading) var(--sans);color:var(--ink-dim);margin:14px 0 7px}
 .planhead:first-of-type{margin-top:0}
 .planhead.keep{color:var(--accent)}
 .planline{display:flex;gap:9px;align-items:flex-start;font:12.5px/1.55 var(--sans);
@@ -62,8 +60,7 @@
 .planout{margin-top:14px;font-size:11.5px}
 
 .ffield{margin-bottom:10px}
-.ffield label{display:block;font:600 11px var(--sans);letter-spacing:.05em;
-      text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}
+.ffield label{display:block;font:var(--font-weight-semibold) var(--text-supporting-size)/var(--text-supporting-leading) var(--sans);color:var(--ink-dim);margin-bottom:4px}
 .ffield small{display:block;margin-top:3px;font:11px var(--sans);color:var(--ink-faint)}
 
 /* ---------- fixing a prompt with your own AI (amendSheet in prompt.js) ---------- */

@@ -4,5 +4,5 @@
   "project": ["src/**/*.ts", "test/**/*.ts"],
   "ignoreBinaries": ["semgrep", "diff"],
   "ignoreExportsUsedInFile": true,
-  "ignoreDependencies": ["roster"]
+  "ignoreDependencies": ["roster", "@astryxdesign/theme-neutral"]
 }

@@ -35,11 +35,17 @@
     "build:worker": "node scripts/build-worker.mjs"
   },
   "devDependencies": {
+    "@astryxdesign/core": "0.7.11",
+    "@astryxdesign/theme-neutral": "0.7.11",
     "@biomejs/biome": "^2.5.12",
+    "@stylexjs/stylex": "^0.19.1",
     "@types/node": "^22.10.2",
     "c8": "^12.0.0",
+    "jsdom": "^31.0.0",
     "knip": "^6.34.0",
     "libsodium-wrappers": "^0.8.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

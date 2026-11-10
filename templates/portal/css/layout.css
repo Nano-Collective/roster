@@ -22,35 +22,25 @@
 .refreshall .sync{display:inline-flex;--ic:13px;flex:none}
 .refreshall.spin .sync{animation:spin .9s linear infinite}
 
-.sect{padding:16px 10px 6px;font:600 11px var(--sans);letter-spacing:.08em;
-      text-transform:uppercase;color:var(--ink-faint)}
+/* The type and colour are Astryx's SideNavSection title (css/astryx.css). */
+.sect{padding:16px 10px 6px}
 /* The Staff heading is also the fold for the list under it, so it is a button — and has to
    go on reading as a heading rather than as a control. The caret and the left padding
    are the staff rows' own, so the two carets line up in one column. */
 .sectfold{display:flex;align-items:center;gap:7px;width:100%;background:none;border:0;
-      border-radius:6px;cursor:pointer;text-align:left;font:600 11px var(--sans);letter-spacing:.08em;
-      text-transform:uppercase;color:var(--ink-faint);margin-top:12px;
+      border-radius:6px;cursor:pointer;text-align:left;margin-top:12px;padding:16px 10px 6px;
       transition:color .15s var(--ease)}
-.sectfold:hover{color:var(--ink-dim)}
+.sectfold:hover{color:var(--ink)}
 .sectfold .caret{display:inline-flex;--ic:12px;flex:none;transition:transform .15s var(--ease)}
 .sectfold[aria-expanded="false"] .caret{transform:rotate(-90deg)}
-/* The count is a number, not a heading: mono, and none of the heading's letterspacing. */
-.sectfold .n{font:10.5px var(--mono);letter-spacing:0;text-transform:none;color:var(--ink-faint);
-      font-variant-numeric:tabular-nums}
+.sectfold .n{font:10.5px var(--mono);color:var(--ink-faint);font-variant-numeric:tabular-nums}
 /* Flex, not block with a float. The icons are block-level SVGs and the trailing count has to
    sit hard right; `float` does neither of those inside a flex row, and did neither of them
    outside one once the icons arrived. */
-.nav{position:relative;display:flex;align-items:center;width:100%;text-align:left;background:none;
-     border:0;border-radius:7px;color:var(--ink-dim);font:500 13.5px var(--sans);padding:6px 10px;
-     cursor:pointer;min-height:32px;
-     transition:background .15s var(--ease),color .15s var(--ease)}
-.nav:hover{color:var(--ink);background:var(--hover)}
-.nav:focus-visible{box-shadow:0 0 0 2px var(--accent-soft),inset 0 0 0 1px var(--accent-dim)}
-.nav[aria-current="true"]{color:var(--ink);background:var(--sel)}
-.nav .ic{color:var(--ink-faint);margin-right:10px;--ic:15px;flex:none;
-     transition:color .15s var(--ease)}
-.nav:hover .ic{color:var(--ink-dim)}
-.nav[aria-current="true"] .ic{color:var(--accent)}
+/* The row itself is Astryx's SideNavItem, selected state and all (css/astryx.css). */
+.nav{position:relative}
+.nav .ic{color:var(--color-icon-secondary);--ic:16px;flex:none}
+.nav[aria-current="true"] .ic{color:var(--color-icon-primary)}
 .nav .n{margin-left:auto;padding-left:10px;color:var(--ink-faint);font:500 10.5px var(--mono);
      font-variant-numeric:tabular-nums}
 .nav .n:not(:empty):not(.wait){padding:1px 7px;border-radius:999px;margin-left:auto;
@@ -71,7 +61,7 @@
 .staffviews{position:relative;padding:2px 0 6px;margin-left:12px}
 /* `subnav`, not `sub`: `.sub` is the page subtitle and carries a bottom margin, which
    these rows inherited as a gap you could park a car in. */
-.nav.subnav{padding:4px 10px 4px 16px;font-size:12.5px;min-height:28px}
+.nav.subnav{padding-inline-start:var(--spacing-4)}
 .nav.subnav .n{font-size:10px}
 .sidefoot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
 .sidefoot .nav{font-size:12.5px;color:var(--ink-faint)}

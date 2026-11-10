@@ -1,64 +1,34 @@
 /* Tokens, reset, and the primitives every screen uses: buttons, inputs, chips, meta text. */
 
+/* The portal's names for Astryx's neutral theme (css/astryx.css, generated). Every screen's
+   stylesheet reads these, so this block is the whole of the mapping. Light and dark are not
+   repeated here: each Astryx token is a light-dark() pair, and the theme toggle's data-theme
+   on <html> is the attribute Astryx already reads to pick one. */
 :root{
-  /* iOS system colours, shared with the website, so the portal and the page that introduces
-     it are one product. The older names below are aliases, kept so every screen's stylesheet
-     reads the same tokens it always has. `--accent` is for text and lines; `--accent-fill`
-     is for solid fills, which on a light background want the brighter green. */
-  --bg:#000000; --bg-elev:#1c1c1e; --surface:#1c1c1e; --surface-2:#2c2c2e;
-  --border:rgba(255,255,255,.10); --border-strong:rgba(255,255,255,.16);
-  --text:#f5f5f7; --text-muted:#98989d; --text-faint:#636366;
-  --accent:#30d158; --accent-fill:#30d158; --accent-strong:#30d158;
-  --accent-soft:rgba(48,209,88,.15); --accent-ink:#000000; --accent-dim:rgba(48,209,88,.45);
-  --blue:#0a84ff; --amber:#ff9f0a; --red:#ff453a; --violet:#bf5af2;
-  --side:#161618; --sel:rgba(255,255,255,.10);
-  --hover:rgba(255,255,255,.05); --active:rgba(255,255,255,.10);
-  --shadow-sm:none; --shadow:none;
-  --shadow-lg:0 20px 48px rgba(0,0,0,.6);
-  --ease:cubic-bezier(.2,.8,.2,1);
-  --r-sm:6px; --r:10px; --r-lg:14px;
-  --scroll:rgba(255,255,255,.18); --scroll-hover:rgba(255,255,255,.3);
-  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",system-ui,sans-serif;
+  --bg:var(--color-background-body); --bg-elev:var(--color-background-surface);
+  --surface:var(--color-background-card); --surface-2:var(--color-neutral);
+  --border:var(--color-border); --border-strong:var(--color-border-emphasized);
+  --text:var(--color-text-primary); --text-muted:var(--color-text-secondary);
+  --text-faint:var(--color-text-disabled);
+  --accent:var(--color-accent); --accent-fill:var(--color-accent); --accent-strong:var(--color-accent);
+  --accent-soft:var(--color-overlay-pressed); --accent-ink:var(--color-on-accent);
+  --accent-dim:var(--color-accent-muted);
+  --blue:var(--color-text-info); --amber:var(--color-text-warning); --red:var(--color-text-error);
+  --violet:var(--color-text-purple); --green:var(--color-text-success);
+  --side:var(--color-background-body); --sel:var(--color-neutral);
+  --hover:var(--color-overlay-hover); --active:var(--color-overlay-pressed);
+  --shadow-sm:none; --shadow:var(--shadow-low); --shadow-lg:var(--shadow-high);
+  --ease:var(--ease-standard);
+  --r-sm:var(--radius-inner); --r:var(--radius-element); --r-lg:var(--radius-container);
+  --scroll:color-mix(in srgb,var(--color-text-primary) 18%,transparent);
+  --scroll-hover:color-mix(in srgb,var(--color-text-primary) 30%,transparent);
+  --mono:var(--font-family-code);
+  --sans:var(--font-family-body);
 
   --panel:var(--surface); --panel-2:var(--surface-2); --line:var(--border);
   --ink:var(--text); --ink-dim:var(--text-muted); --ink-faint:var(--text-faint);
   --warn:var(--amber); --err:var(--red);
-  --ruled:var(--blue); --measured:var(--accent); --derived:var(--violet);
-  color-scheme:dark;
-}
-/* System preference wins unless the toggle has stamped data-theme on the root. */
-@media (prefers-color-scheme:light){
-  :root:not([data-theme="dark"]){
-    --bg:#f5f5f7; --bg-elev:#ffffff; --surface:#ffffff; --surface-2:#f2f2f7;
-    --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.14);
-    --text:#1d1d1f; --text-muted:#6e6e73; --text-faint:#aeaeb2;
-    --accent:#248a3d; --accent-fill:#34c759; --accent-strong:#248a3d;
-    --accent-soft:rgba(52,199,89,.12); --accent-ink:#ffffff; --accent-dim:rgba(52,199,89,.45);
-    --blue:#007aff; --amber:#c77700; --red:#ff3b30; --violet:#af52de;
-    --side:#ebebf0; --sel:rgba(0,0,0,.07);
-    --hover:rgba(0,0,0,.04); --active:rgba(0,0,0,.07);
-    --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
-    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.05);
-    --shadow-lg:0 4px 12px rgba(0,0,0,.06),0 20px 48px rgba(0,0,0,.12);
-    --scroll:rgba(0,0,0,.18); --scroll-hover:rgba(0,0,0,.3);
-    color-scheme:light;
-  }
-}
-:root[data-theme="light"]{
-    --bg:#f5f5f7; --bg-elev:#ffffff; --surface:#ffffff; --surface-2:#f2f2f7;
-    --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.14);
-    --text:#1d1d1f; --text-muted:#6e6e73; --text-faint:#aeaeb2;
-    --accent:#248a3d; --accent-fill:#34c759; --accent-strong:#248a3d;
-    --accent-soft:rgba(52,199,89,.12); --accent-ink:#ffffff; --accent-dim:rgba(52,199,89,.45);
-    --blue:#007aff; --amber:#c77700; --red:#ff3b30; --violet:#af52de;
-    --side:#ebebf0; --sel:rgba(0,0,0,.07);
-    --hover:rgba(0,0,0,.04); --active:rgba(0,0,0,.07);
-    --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
-    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.05);
-    --shadow-lg:0 4px 12px rgba(0,0,0,.06),0 20px 48px rgba(0,0,0,.12);
-    --scroll:rgba(0,0,0,.18); --scroll-hover:rgba(0,0,0,.3);
-    color-scheme:light;
+  --ruled:var(--blue); --measured:var(--green); --derived:var(--violet);
 }
 
 *{box-sizing:border-box}
@@ -69,8 +39,9 @@
 [hidden]{display:none!important}
 
 html{background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans);
-     font-feature-settings:"cv11","ss01","ss03";-webkit-font-smoothing:antialiased;
+body{margin:0;background:var(--bg);color:var(--ink);
+     font:var(--text-body-weight) var(--text-body-size)/var(--text-body-leading) var(--sans);
+     -webkit-font-smoothing:antialiased;
      -moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 a{color:inherit}
 ::selection{background:color-mix(in srgb,var(--accent) 28%,transparent)}
@@ -86,62 +57,31 @@ a{color:inherit}
       border:3px solid transparent}
 ::-webkit-scrollbar-corner{background:transparent}
 
-h1{font:600 22px/1.25 var(--sans);margin:0 0 6px;letter-spacing:-.022em;color:var(--ink)}
+/* Size and weight are the theme's heading scale, which css/astryx.css sets on h1–h6. */
+h1{margin:0 0 6px}
 .sub{color:var(--ink-dim);margin:0 0 26px;font-size:13.5px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .meta{color:var(--ink-faint);font:11.5px var(--mono);font-variant-numeric:tabular-nums}
 .empty{color:var(--ink-faint);padding:32px 0;text-align:center;font-size:13px}
 .err{color:var(--err)} .warn{color:var(--warn)} .ok{color:var(--accent)}
 
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
-      padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow-sm);
-      transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
-.card h3{margin:0 0 4px;font:600 14px var(--sans);letter-spacing:-.01em}
+/* The surface is Astryx's Card (css/astryx.css); this is only how cards stack. */
+.card{margin-bottom:12px}
+.card h3{margin:0 0 4px;font:var(--text-heading-4-weight) var(--text-heading-4-size)/var(--text-heading-4-leading) var(--font-family-heading)}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
 
-/* ---------- controls ---------- */
-input[type=search],input[type=time],input[type=text],select{background:var(--bg-elev);
-  border:1px solid var(--border-strong);color:var(--ink);
-  border-radius:var(--r);padding:7px 11px;font:13px var(--sans);outline:none;
-  transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+/* ---------- controls ----------
+   What these look like is Astryx's, in css/astryx.css: inputs and textareas are its TextInput
+   and TextArea, `.ghbtn` its Button (`.primary`, `.danger` its variants), `.iconbtn` its
+   IconButton. What is left here is only what the portal needs on top. */
 input[type=search]{width:280px}
-input::placeholder,textarea::placeholder{color:var(--ink-faint)}
-input[type=search]:hover,input[type=time]:hover,input[type=text]:hover,select:hover,
-textarea:hover{border-color:color-mix(in srgb,var(--ink) 20%,transparent)}
-input[type=search]:focus,input[type=time]:focus,input[type=text]:focus,select:focus{
-  border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-textarea{width:100%;background:var(--bg-elev);border:1px solid var(--border-strong);color:var(--ink);
-      border-radius:var(--r);padding:10px 12px;font:13px/1.6 var(--sans);outline:none;resize:vertical;
-      transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-
-/* One size, whether it is a button or a link. They sit in rows together, and `a` taking its
-   line-height from the font shorthand while `button` set its own made every such row a set of
-   controls at two different heights. */
-.ghbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;
-       padding:5px 12px;border:1px solid transparent;border-radius:8px;
-       background:var(--surface-2);
-       font:500 12.5px/1.4 var(--sans);color:var(--ink);text-decoration:none;white-space:nowrap;
-       transition:background .15s var(--ease),color .15s var(--ease),opacity .15s var(--ease)}
-.ghbtn:hover{color:var(--ink);background:color-mix(in srgb,var(--surface-2) 88%,var(--ink) 12%)}
-.ghbtn:active{opacity:.8}
-.ghbtn:focus-visible,.btn:focus-visible,.iconbtn:focus-visible{
-       border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-button.ghbtn{cursor:pointer;font-family:var(--sans);
-      -webkit-appearance:none;appearance:none;font-size:12.5px;line-height:1.4}
-button.ghbtn:hover{background:color-mix(in srgb,var(--surface-2) 88%,var(--ink) 12%)}
-.ghbtn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink);font-weight:600}
-.ghbtn.primary:hover{background:var(--accent);color:var(--accent-ink);opacity:.88}
-.ghbtn:disabled{opacity:.45;cursor:default}
-/* Something that ends a thing: light red, so it is never mistaken for the way forward. */
-.ghbtn.danger{color:var(--err);background:color-mix(in srgb,var(--err) 10%,transparent);
-  border-color:color-mix(in srgb,var(--err) 28%,transparent)}
-button.ghbtn.danger:hover{color:var(--err);background:color-mix(in srgb,var(--err) 17%,transparent)}
-.iconbtn{background:var(--surface-2);border:1px solid transparent;color:var(--ink-dim);
-       border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px;line-height:1;
-       transition:background .15s var(--ease),color .15s var(--ease)}
-.iconbtn:hover{color:var(--ink);background:color-mix(in srgb,var(--surface-2) 88%,var(--ink) 12%)}
-.iconbtn{display:inline-flex;align-items:center;justify-content:center}
+/* A dropdown is Astryx's Selector (js/select.js) standing in for the hidden native one. */
+select.axnative{display:none!important}
+.axselect{display:inline-flex;vertical-align:middle;max-width:100%;min-width:0}
+.axselect > [data-variant]{flex:1;min-width:0}
+.field .axselect{display:flex}
+/* `.ghbtn` is an <a> as often as a <button>, in the same rows. */
+a.ghbtn{text-decoration:none}
 .iconbtn .sync{display:inline-flex;--ic:15px}
 .iconbtn.spin .sync{animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -153,18 +93,11 @@ svg.ic{width:var(--ic,15px);height:var(--ic,15px);display:block;flex:none}
 /* A slot that holds one, centred, wherever a text glyph used to sit on a baseline. */
 .icslot{display:inline-flex;align-items:center;justify-content:center;flex:none}
 
-.chip{display:inline-flex;align-items:center;font:500 10.5px/1.5 var(--sans);letter-spacing:.01em;
-      padding:1px 8px;border-radius:999px;border:1px solid transparent;color:var(--ink-dim);
-      background:color-mix(in srgb,var(--ink) 7%,transparent);white-space:nowrap}
-.chip.hot{color:var(--err);background:color-mix(in srgb,var(--err) 12%,transparent)}
-.chip.warm{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,transparent)}
-.chip.cool{color:var(--ruled);background:color-mix(in srgb,var(--ruled) 12%,transparent)}
-.chip.ok{color:var(--accent);background:var(--accent-soft)}
+/* `.chip` is Astryx's Badge: `.hot`, `.warm`, `.cool` and `.ok` its error, warning, info and
+   success variants. */
 .pill{font:11px var(--mono);color:var(--ink-dim);border:1px solid transparent;
       background:color-mix(in srgb,var(--ink) 4%,transparent);
       border-radius:999px;padding:2px 9px;font-variant-numeric:tabular-nums}
-kbd{font:500 10.5px var(--mono);border:1px solid var(--border-strong);
-    border-radius:5px;padding:1px 5px;color:var(--ink-dim);background:var(--surface-2)}
 
 /* ---------- waiting ----------
    The inbox reads every repo in the org, which is seconds on a cold cache. What used to stand
@@ -212,6 +145,8 @@ dialog.ask[open]{animation:dlgin .18s var(--ease)}
 dialog.ask::backdrop{background:rgba(0,0,0,.35);backdrop-filter:blur(8px)}
 dialog.ask h3{margin:0;font:600 16px var(--sans);letter-spacing:-.018em}
 dialog.ask .askhint{margin:6px 0 14px;font:12.5px/1.55 var(--sans);color:var(--ink-dim)}
+/* With no hint under the title, the field still needs the room the hint would have left. */
+dialog.ask h3 + textarea{margin-top:14px}
 dialog.ask textarea{font:13.5px/1.6 var(--sans);min-height:96px;max-height:44vh}
 /* The attach control, when the dialog is a reply rather than a question. */
 dialog.ask .attach{margin-top:9px}

@@ -11,17 +11,9 @@
 .home h2 .pill{font-size:10.5px}
 .homeempty{color:var(--ink-faint);font-size:13px;margin:0 0 8px}
 
-.homeaskcard{display:flex;flex-direction:column;gap:10px;margin-top:14px}
-.home .homeasktitle{margin:0;font:600 15px var(--sans);color:var(--ink);letter-spacing:-.01em}
-.homeaskto{gap:8px}
-.homeaskto label{font:500 12.5px var(--sans);color:var(--ink-dim)}
-.homeask,.homeanswer{width:100%;box-sizing:border-box;resize:vertical;min-height:44px;
-         font:13px/1.45 var(--sans);color:var(--ink);background:var(--surface-2);
-         border:1px solid transparent;border-radius:8px;padding:8px 10px}
-.homeask:focus,.homeanswer:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+/* The field itself is Astryx's TextArea (css/astryx.css). */
+.homeanswer{min-height:44px}
 .homeanswer{margin-top:10px}
-.homewho{font:500 12.5px var(--sans);color:var(--ink);background:var(--surface-2);border:0;
-         border-radius:8px;padding:5px 8px}
 
 /* Needs you: one list, a row per thing. A dot column for unread, the thing itself, and its
    action; titles all start in the same place, and buttons are small enough not to shout. */
@@ -72,34 +64,38 @@
 
 
 /* Progress: a card per staff member. Status and one line, then Done and Next side by side. */
-.homereports{display:flex;flex-direction:column;gap:12px}
-.homereport{display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5}
-.homereporthead{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px}
+/* Progress: one card, a row per staff member. The line on how it is going is what you read;
+   everything else is quieter, and what got done waits behind Full report. */
+.homereports{display:flex;flex-direction:column;padding-top:4px;padding-bottom:4px}
+.homereport{display:flex;flex-direction:column;gap:4px;padding:12px 0;min-width:0}
+.homereport + .homereport{border-top:1px solid var(--line)}
+.homereporthead{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-height:28px}
 .homereportstatus{font-weight:600}
-.homereportstatus.ok{color:var(--accent);background:var(--accent-soft)}
-.homereportwhen{margin-left:auto}
-.homereportline{font-size:14px;color:var(--ink)}
+.homereportwhen{font-size:12px}
+.homereportacts{margin-left:auto;display:flex;align-items:center;gap:6px}
+.homereportline{font-size:var(--text-body-size);line-height:var(--text-body-leading);color:var(--ink);
+     padding-left:23px}
 .homereportline p{margin:0}
-.homereportcols{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
-.homereportcol h3{margin:0 0 4px;font:600 11.5px var(--sans);color:var(--ink-dim);
-  text-transform:uppercase;letter-spacing:.04em}
+.homereportnext{display:flex;gap:6px;padding-left:23px;font-size:12.5px;color:var(--ink-dim);min-width:0}
+.homereportnext b{font-weight:600;color:var(--ink-dim);flex:none}
+.homereportnext .md{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.homereportnext p{display:inline;margin:0}
+.homereportcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 22px;
+     margin-top:8px;padding-left:23px}
+.homereportcol h3{margin:0 0 4px;font:600 12px var(--sans);color:var(--ink-dim)}
 .homereportcol ul{margin:0;padding-left:18px}
-.homereportcol li{margin:0 0 3px;color:var(--ink)}
+.homereportcol li{margin:0 0 3px;color:var(--ink);font-size:13px}
 .homereportcol li p{margin:0}
 .homereportcol .meta{margin:2px 0 0}
-.homereportneeds{margin:0;font-size:12.5px;color:var(--warn)}
-.homereportbody{min-width:0}
-.homereportbody.fade{max-height:6em;overflow:hidden;
-  -webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+.homereportbody{min-width:0;padding-left:23px}
 .homereportbody p{margin:0 0 6px}
-.homereportbody a,.homereportcol a,.homereportline a{color:var(--accent)}
-.homereportissue{border:0;background:none;padding:0;font:inherit;color:var(--accent);cursor:pointer}
+.homereportbody a,.homereportcol a,.homereportline a,.homereportnext a{color:var(--accent)}
+.homereportissue{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer}
 .homereportissue:hover{text-decoration:underline}
-.homereportacts{gap:8px}
-.homereportacts .ghbtn{min-height:28px;padding:3px 12px;font-size:12.5px}
 @media (max-width:640px){
   .homereportcols{grid-template-columns:1fr}
-  .homereportwhen{margin-left:0;flex-basis:100%}
+  .homereportacts{margin-left:0;flex-basis:100%}
+  .homereportline,.homereportnext,.homereportcols,.homereportbody{padding-left:0}
 }
 
 /* Yours / Everyone's, beside the Needs you heading. */
@@ -140,6 +136,8 @@
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .orblog{margin-top:6px;font:12px var(--sans);color:var(--ink-faint)}
 .orblog:hover{color:var(--accent)}
+/* Pushed to the foot of the card, so the buttons line up whatever each card says above them. */
+.orbgap{flex:1 0 12px}
 
 .orbcard.busy .orbstate{color:color-mix(in srgb,var(--hue) 80%,var(--ink))}
 .orbcard.busy .orbglow{animation:orbbreathe 2.6s ease-in-out infinite}

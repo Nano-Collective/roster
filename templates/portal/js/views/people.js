@@ -6,6 +6,7 @@
 
 import { post } from "../api.js";
 import { el } from "../dom.js";
+import { icon } from "../icons.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 
@@ -36,7 +37,7 @@ export function peopleCard() {
         el("span", { textContent: "Name" }),
         el("span", { textContent: "GitHub login" }),
         el("span", { textContent: "Looks after" }),
-        el("span", { textContent: "Read only" }),
+        el("span", { className: "peopleonlyhead", textContent: "Read only" }),
         el("span"),
       ]),
       ...rows.map((p, i) => row(p, i)),
@@ -58,7 +59,12 @@ export function peopleCard() {
       p.view_only = only.checked;
       stamp();
     };
-    const remove = el("button", { className: "ghbtn danger", textContent: "Remove" });
+    // Quiet on purpose: one per row, and a column of red buttons outshouts the list it edits.
+    const remove = el("button", {
+      className: "iconbtn peopleremove",
+      title: "Remove",
+      ariaLabel: `Remove ${p.name || "this person"}`,
+    }, [icon("trash", "ic")]);
     remove.onclick = () => {
       rows.splice(i, 1);
       paint();

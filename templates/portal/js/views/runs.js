@@ -142,7 +142,9 @@ function row(r) {
   tr.innerHTML =
     '<td title="' + esc(r.createdAt) + '">' + esc(ago(r.createdAt)) + "</td>" +
     "<td>" + esc(r.kind) + "</td>" +
-    '<td><span class="chip ' + out.tone + '">' + esc(out.word) + "</span></td>" +
+    (out.tone === "ok"
+      ? '<td><span class="runok"><i></i>' + esc(out.word) + "</span></td>"
+      : '<td><span class="chip ' + out.tone + '">' + esc(out.word) + "</span></td>") +
     "<td>" + (mins != null ? Math.round(mins) + "m" : "–") + "</td>" +
     "<td>" + (rec.turns ?? "–") + "</td>" +
     "<td>" + (typeof rec.cost_usd === "number" ? "$" + rec.cost_usd.toFixed(2) : "–") + "</td>" +

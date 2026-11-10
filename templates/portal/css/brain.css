@@ -7,8 +7,8 @@
 .navgroup + .navgroup{border-top:1px solid var(--line);border-radius:0;padding-top:6px}
 .navgroup:last-child{margin-bottom:0}
 .ghead{display:flex;align-items:baseline;gap:8px;padding:6px 8px 6px;
-       font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
-.ghead i{font-style:normal;font:10.5px var(--mono);letter-spacing:0;text-transform:none;
+       font:var(--font-weight-semibold) var(--text-supporting-size)/var(--text-supporting-leading) var(--sans);color:var(--ink-dim)}
+.ghead i{font-style:normal;font:10.5px var(--mono);
        margin-left:auto;color:var(--ink-faint)}
 
 /* A memory section is prose, not a path, so it gets the sans face and is allowed to wrap
@@ -118,18 +118,22 @@
 /* People on the Org screen: one row per person, edited in place. */
 .peoplecard{margin-bottom:18px;display:flex;flex-direction:column;gap:12px}
 .peoplecard h2{margin:0;font:600 15px var(--sans);color:var(--ink);text-transform:none;letter-spacing:-.01em}
-.peoplelist{display:flex;flex-direction:column;gap:8px}
-.peoplerow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr) 72px auto;
-  gap:8px;align-items:center}
-.peoplerow input[type=text]{width:100%;box-sizing:border-box;font:13px var(--sans);color:var(--ink);
-  background:var(--surface-2);border:1px solid transparent;border-radius:8px;padding:7px 9px}
-.peoplerow input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.peoplehead span{font:600 11.5px var(--sans);color:var(--ink-dim)}
+/* One grid for the whole list, each row a subgrid of it: rows that were grids of their own
+   sized their last column to what was in it, so the headings over an empty cell sat to the
+   left of the columns they name. */
+.peoplelist{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr) 72px auto;
+  gap:8px}
+.peoplerow{display:grid;grid-column:1 / -1;grid-template-columns:subgrid;align-items:center}
+.peoplerow input[type=text]{width:100%}
+.peoplehead span{font:var(--font-weight-medium) var(--text-supporting-size) var(--sans);color:var(--ink-dim)}
+.peopleonlyhead{text-align:center}
 .peopleonly{display:flex;justify-content:center}
-.peoplerow .ghbtn{min-height:30px;padding:3px 12px;font-size:12.5px}
+.peopleremove{--ic:16px;background:none;color:var(--ink-dim)}
+.peopleremove:hover{color:var(--err)}
 @media (max-width:720px){
   .peoplehead{display:none}
-  .peoplerow{grid-template-columns:1fr 1fr;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .peoplelist{display:flex;flex-direction:column}
+  .peoplerow{grid-template-columns:1fr 1fr;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line)}
   .peoplerow > :nth-child(3){grid-column:1 / -1}
   .peopleonly::after{content:"Read only";font:12.5px var(--sans);color:var(--ink-dim);margin-left:6px}
   .peopleonly{justify-content:flex-start;align-items:center}

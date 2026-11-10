@@ -7,8 +7,7 @@
 .sidesearch:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .sidesearch .ic{--ic:14px;flex:none}
 .sidesearch .t{flex:1}
-.sidesearch kbd{font:500 10.5px var(--mono);border:1px solid var(--border-strong);border-radius:5px;
-      padding:0 5px;color:var(--ink-faint)}
+
 
 dialog.palette{position:fixed;margin:12vh auto auto;padding:0;width:min(640px,calc(100vw - 32px));
       max-height:min(560px,76vh);display:flex;flex-direction:column;overflow:hidden;
@@ -29,8 +28,7 @@ dialog.palette .palinput,dialog.palette .palinput:hover,dialog.palette .palinput
 .palinput::-webkit-search-cancel-button{display:none}
 
 .palresults{overflow-y:auto;padding:6px;flex:1}
-.palgroup{font:600 10.5px var(--sans);letter-spacing:.06em;text-transform:uppercase;
-      color:var(--ink-faint);padding:10px 10px 4px}
+.palgroup{font:var(--font-weight-semibold) var(--text-supporting-size)/var(--text-supporting-leading) var(--sans);color:var(--ink-dim);padding:10px 10px 4px}
 .palrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;
       padding:8px 10px;border-radius:8px;cursor:pointer}
 .palrow[aria-selected="true"]{background:var(--sel)}
@@ -43,6 +41,5 @@ dialog.palette .palinput,dialog.palette .palinput:hover,dialog.palette .palinput
 
 .palfoot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--line);
       font:11.5px var(--sans);color:var(--ink-faint)}
-.palfoot kbd{font:500 10.5px var(--mono);border:1px solid var(--border-strong);border-radius:4px;
-      padding:0 4px;margin-right:3px}
+.palfoot kbd{margin-right:3px}
 @media (max-width:640px){.palfoot{display:none}dialog.palette{margin-top:8vh}}

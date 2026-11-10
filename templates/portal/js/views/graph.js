@@ -53,8 +53,13 @@ function drawGraph(canvas, wrap, s) {
   }
   const groups = [...members.keys()].sort((a, b) => members.get(b).length - members.get(a).length);
 
-  const PALETTE = ["#30d158","#0a84ff","#bf5af2","#ff9f0a","#64d2ff","#ff453a","#ffcc00","#ff375f","#5e5ce6","#ac8e68"];
-  const colour = new Map(groups.map((g, i) => [g, PALETTE[i % PALETTE.length]]));
+  // Astryx's categorical colours, one per group. They are theme tokens, so a group keeps its
+  // hue in both themes at the strength each theme wants.
+  const PALETTE = ["blue", "green", "purple", "orange", "cyan", "red", "yellow", "pink", "teal", "gray"]
+    .map((c) => `--color-icon-${c}`);
+  const token = new Map(groups.map((g, i) => [g, PALETTE[i % PALETTE.length]]));
+  // For markup, which can take the token as it is.
+  const colour = new Map(groups.map((g) => [g, `var(${token.get(g)})`]));
 
   // The ring grows with the number of groups so they never crowd, and each group keeps its
   // angle for the life of the view. That angle is also the direction its members fan out in.
@@ -69,6 +74,9 @@ function drawGraph(canvas, wrap, s) {
   }));
 
   const radius = (n) => n.isGroup ? 16 + Math.sqrt(n.count) * 3.6 : 5.5;
+  /* What is drawn and clicked: never smaller on screen than a dot you can read a count in or
+     hit with a pointer, however far out the picture is fitted. The layout keeps `radius`. */
+  const seen = (n) => Math.max(radius(n), (n.isGroup ? 11 + Math.sqrt(n.count) * 1.4 : 4) / scale);
 
   /* Fan a group's members outward along its own angle, in shells, so a big group becomes a
      wedge pointing away from the middle rather than a ball sitting on its neighbours. */
@@ -148,7 +156,37 @@ function drawGraph(canvas, wrap, s) {
     recompute();
   }
 
-  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  /* A canvas takes colours, not tokens, and the theme's tokens are light-dark() pairs that it
+     cannot parse: handed one, it keeps whatever colour it had before, which painted every label
+     in the last group's colour. So each token is resolved by an element that wears it, and the
+     answers are kept until the theme changes. */
+  const probe = el("span", { hidden: true });
+  wrap.append(probe);
+  const resolved = new Map();
+  const css = (v) => {
+    if (!resolved.has(v)) {
+      probe.style.color = `var(${v})`;
+      resolved.set(v, getComputedStyle(probe).color);
+    }
+    return resolved.get(v);
+  };
+  const hue = (g) => css(token.get(g) ?? "--ink-faint");
+  const forget = () => resolved.clear();
+  globalThis.MutationObserver &&
+    new MutationObserver(forget).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  globalThis.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", forget);
+  const SANS = getComputedStyle(probe).fontFamily || "system-ui, sans-serif";
+
+  /** Text over the picture: a halo in the card's colour first, so no edge runs through it. */
+  function label(text, x, y, ink, weight, px) {
+    ctx.font = `${weight} ${px / scale}px ${SANS}`;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 4 / scale;
+    ctx.strokeStyle = css("--panel");
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = css(ink);
+    ctx.fillText(text, x, y);
+  }
   let tx = 0, ty = 0, scale = 0.8;
   let selected = null, hover = null, drag = null, panning = false, lx = 0, ly = 0, moved = 0;
   const ctx = canvas.getContext("2d");
@@ -166,9 +204,9 @@ function drawGraph(canvas, wrap, s) {
   };
   wrap.append(el("div", { className: "gtools" }, [
     search,
-    el("button", { textContent: "open all", onclick: () => { for (const g of groups) if (!expanded.has(g)) toggle(g); } }),
-    el("button", { textContent: "close all", onclick: () => { for (const g of [...expanded]) toggle(g); } }),
-    el("button", { textContent: "fit", onclick: fit }),
+    el("button", { className: "ghbtn sm", textContent: "Open all", onclick: () => { for (const g of groups) if (!expanded.has(g)) toggle(g); } }),
+    el("button", { className: "ghbtn sm", textContent: "Close all", onclick: () => { for (const g of [...expanded]) toggle(g); } }),
+    el("button", { className: "ghbtn sm", textContent: "Fit", onclick: fit }),
   ]));
 
   const legend = el("div", { className: "legend" });
@@ -242,7 +280,8 @@ function drawGraph(canvas, wrap, s) {
     const xs = vis.map((n) => n.x), ys = vis.map((n) => n.y);
     const minx = Math.min(...xs), miny = Math.min(...ys);
     const w = Math.max(...xs) - minx || 1, h = Math.max(...ys) - miny || 1;
-    scale = Math.min(1.6, Math.max(0.12, Math.min(rect.width / (w + 260), rect.height / (h + 260))));
+    // Room round the edge for the dots and the labels under them, which keep their size on screen.
+    scale = Math.min(1.6, Math.max(0.12, Math.min((rect.width - 200) / w, (rect.height - 110) / h)));
     tx = -(minx + w / 2) * scale;
     ty = -(miny + h / 2) * scale;
   }
@@ -311,7 +350,7 @@ function drawGraph(canvas, wrap, s) {
     for (const g of groups) {
       if (!expanded.has(g) || hidden.has(g)) continue;
       const gn = groupNodes.get(g);
-      ctx.strokeStyle = colour.get(g); ctx.globalAlpha = 0.14;
+      ctx.strokeStyle = hue(g); ctx.globalAlpha = 0.18;
       ctx.lineWidth = 1 / scale;
       for (const id of members.get(g)) {
         const mn = memberNodes.get(id);
@@ -322,16 +361,18 @@ function drawGraph(canvas, wrap, s) {
 
     for (const e of edges) {
       const lit = !near || (near.has(e.a) && near.has(e.b));
-      ctx.strokeStyle = near && lit ? css("--accent") : css("--line");
-      ctx.globalAlpha = near ? (lit ? 0.95 : 0.07) : 0.62;
-      ctx.lineWidth = Math.min(6, 0.8 + Math.log2(e.weight + 1) * 1.25) / Math.max(1, scale * 0.8);
+      // Hairlines, the same width on screen at any zoom; a link made many times is a little
+      // heavier, never a bar.
+      ctx.strokeStyle = near && lit ? css("--accent") : css("--border-strong");
+      ctx.globalAlpha = near ? (lit ? 0.9 : 0.08) : 0.9;
+      ctx.lineWidth = (1 + Math.min(1.5, Math.log2(e.weight) * 0.5)) / scale;
       ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); ctx.stroke();
     }
     ctx.globalAlpha = 1;
 
     const painted = shown().sort((a, b) => (b.isGroup ? b.count : 0) - (a.isGroup ? a.count : 0));
     for (const n of painted) {
-      const r = radius(n);
+      const r = seen(n);
       const dim = near && !near.has(n);
       ctx.globalAlpha = dim ? 0.13 : 1;
 
@@ -341,37 +382,35 @@ function drawGraph(canvas, wrap, s) {
         if (open) {
           // Hollow while open: the group is still here, and still the thing you click to fold.
           ctx.fillStyle = css("--panel"); ctx.fill();
-          ctx.strokeStyle = colour.get(n.group); ctx.lineWidth = 2.4 / scale; ctx.stroke();
-          ctx.fillStyle = colour.get(n.group);
+          ctx.strokeStyle = hue(n.group); ctx.lineWidth = 2 / scale; ctx.stroke();
+          ctx.fillStyle = hue(n.group);
         } else {
-          ctx.fillStyle = colour.get(n.group); ctx.fill();
-          ctx.fillStyle = css("--bg");
+          ctx.fillStyle = hue(n.group); ctx.fill();
+          ctx.fillStyle = css("--panel");
         }
-        ctx.font = "600 " + Math.max(9, r * 0.6) + "px ui-monospace,monospace";
+        ctx.font = "600 " + Math.max(9, r * 0.62) + "px " + SANS;
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(String(n.count), n.x, n.y + 0.5);
         ctx.textBaseline = "alphabetic";
         const text = n.id.length > 24 ? n.id.slice(0, 23) + "..." : n.id;
-        const fs = Math.max(10, 12 / scale);
-        ctx.font = "600 " + fs + "px -apple-system,system-ui,sans-serif";
+        const fs = 12.5 / scale;
+        ctx.font = "600 " + fs + "px " + SANS;
         const w = ctx.measureText(text).width;
-        const bx = n.x - w / 2, by = n.y + r + 6, bh = fs * 1.25;
+        const bx = n.x - w / 2, by = n.y + r + 6 / scale, bh = fs * 1.25;
         const clashes = labelBoxes.some((o) =>
           bx < o.x + o.w + 8 && bx + w + 8 > o.x && by < o.y + o.h + 4 && by + bh + 4 > o.y);
         if (!clashes || n === hover) {
           labelBoxes.push({ x: bx, y: by, w, h: bh });
           ctx.textAlign = "center";
-          ctx.fillStyle = css(n === hover ? "--ink" : "--ink-dim");
-          ctx.fillText(text, n.x, by + fs);
+          label(text, n.x, by + fs, n === hover ? "--ink" : "--ink", 600, 12.5);
         }
         ctx.textAlign = "left";
       } else {
-        ctx.fillStyle = colour.get(n.group) ?? css("--ink-faint");
+        ctx.fillStyle = hue(n.group);
         ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
         if (n === selected || n === hover || scale > 1.05) {
-          ctx.fillStyle = css(n === selected || n === hover ? "--ink" : "--ink-dim");
-          ctx.font = Math.max(9, 10.5 / scale) + "px ui-monospace,monospace";
-          ctx.fillText(n.id.length > 26 ? n.id.slice(0, 25) + "..." : n.id, n.x + r + 4, n.y + 3.5);
+          const text = n.id.length > 26 ? n.id.slice(0, 25) + "…" : n.id;
+          label(text, n.x + r + 5 / scale, n.y + 4 / scale, n === selected || n === hover ? "--ink" : "--ink-dim", 500, 11.5);
         }
       }
       if (n === selected || n === hover) {
@@ -396,8 +435,8 @@ function drawGraph(canvas, wrap, s) {
     const p = toWorld(ev);
     // Members first: an open group's node must never swallow a click meant for a fact.
     const vis = shown();
-    return vis.filter((n) => !n.isGroup).find((n) => Math.hypot(n.x - p.x, n.y - p.y) < radius(n) + 6)
-        ?? vis.filter((n) => n.isGroup).find((n) => Math.hypot(n.x - p.x, n.y - p.y) < radius(n) + 5);
+    return vis.filter((n) => !n.isGroup).find((n) => Math.hypot(n.x - p.x, n.y - p.y) < seen(n) + 6 / scale)
+        ?? vis.filter((n) => n.isGroup).find((n) => Math.hypot(n.x - p.x, n.y - p.y) < seen(n) + 5 / scale);
   };
 
   canvas.onpointerdown = (ev) => {
