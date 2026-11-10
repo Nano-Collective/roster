@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { type Actor, createPortal } from "../src/portal/handler.js";
 import { memoryKV } from "../src/portal/kv.js";
-import { briefText, handleMcp, TOOLS } from "../src/portal/mcp.js";
+import { briefText, handleMcp, listText, runsText, TOOLS } from "../src/portal/mcp.js";
 import { bearerOf, handleOAuth, redirectAllowed, s256 } from "../src/portal/oauth.js";
 import { type AuthConfig, open } from "../src/portal/session.js";
 import { serveRepos } from "./helpers/githubrepos.js";
@@ -335,4 +335,78 @@ test("the brief reads like Home: reports, what needs you with its default, reque
   assert.match(text, /\[merge\] acme\/web#9 "Fix" \(checks passing, needs your approval\)/);
   assert.match(text, /acme\/cto#8 "Do X": working/);
   assert.match(text, /acme\/cto#6 "Old": done in #9/);
+});
+
+const item = (o: Record<string, unknown>) =>
+  ({
+    repo: "acme/cto",
+    role: "brain",
+    kind: "issue",
+    number: 1,
+    title: "t",
+    body: "",
+    labels: [],
+    assignees: [],
+    author: "cto-bot",
+    createdAt: "2026-11-01T00:00:00Z",
+    updatedAt: "2026-11-01T00:00:00Z",
+    url: "",
+    state: "OPEN",
+    ...o,
+  }) as any;
+
+test("list_issues shows what is open, newest first, narrowed by repo, kind and label", () => {
+  const items = [
+    item({ number: 1, title: "old", updatedAt: "2026-11-01T00:00:00Z" }),
+    item({ number: 2, title: "new", updatedAt: "2026-11-05T00:00:00Z", labels: ["decision"] }),
+    item({ number: 3, title: "shut", state: "CLOSED" }),
+    item({ repo: "acme/web", number: 9, kind: "pr", title: "fix", checks: "failing" }),
+  ];
+  const all = listText(items, { limit: 30 });
+  assert.ok(all.indexOf("#2") < all.indexOf("#1"), "newest activity first");
+  assert.doesNotMatch(all, /shut/, "closed ones are left out");
+  assert.match(
+    listText(items, { repo: "web", limit: 30 }),
+    /acme\/web#9 "fix" \(PR · by cto-bot · checks failing/,
+  );
+  assert.doesNotMatch(listText(items, { kind: "pr", limit: 30 }), /acme\/cto/);
+  assert.match(listText(items, { label: "Decision", limit: 30 }), /^- acme\/cto#2 "new"/);
+  assert.match(listText(items, { limit: 1 }), /…and 2 more\./);
+  assert.equal(listText(items, { repo: "nope", limit: 30 }), "Nothing open matches.");
+});
+
+test("runs reads newest first, with how it went, how long and what it cost", () => {
+  const run = (o: Record<string, unknown>) =>
+    ({
+      id: 1,
+      kind: "daily",
+      url: "https://gh/run",
+      status: "completed",
+      conclusion: "success",
+      minutes: 12,
+      record: null,
+      createdAt: "2026-11-01T07:00:00Z",
+      ...o,
+    }) as any;
+  const text = runsText(
+    [
+      { who: "CTO", run: run({ record: { cost_usd: 1.234 } }) },
+      {
+        who: "CMO",
+        run: run({
+          kind: "mention",
+          status: "in_progress",
+          conclusion: null,
+          createdAt: "2026-11-02T08:30:00Z",
+        }),
+      },
+    ],
+    10,
+  );
+  assert.equal(
+    text,
+    "- CMO, 2026-11-02 08:30 UTC: mention · in_progress · 12 min https://gh/run\n" +
+      "- CTO, 2026-11-01 07:00 UTC: daily · success · 12 min · $1.23 https://gh/run",
+  );
+  assert.equal(runsText([], 10), "No runs yet.");
 });

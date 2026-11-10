@@ -17,6 +17,12 @@ h1 + div > .connhead:first-child,h1 + .connerr + div > .connhead:first-child{mar
 .connacts{margin:0;flex-wrap:nowrap}
 .connacts .ghbtn.danger{color:var(--err);border-color:color-mix(in srgb,var(--err) 40%,transparent)}
 
+/* This portal's MCP server, one row per agent: the line to paste and a Copy button. */
+.connmcp{grid-template-columns:minmax(0,1fr) auto}
+.connmcp code{font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--bg);border:1px solid var(--line);
+      border-radius:var(--r);padding:6px 9px;overflow-wrap:anywhere;user-select:all}
+.connmcp small{font-size:12px;color:var(--ink-dim)}
+
 .connicon{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;flex:none;
       background:var(--accent-soft);color:var(--accent);--ic:16px}
 
@@ -47,4 +53,6 @@ h1 + div > .connhead:first-child,h1 + .connerr + div > .connhead:first-child{mar
   .connrow{grid-template-columns:32px minmax(0,1fr);row-gap:10px}
   .connrow > .chip{grid-column:2;justify-self:start}
   .connacts{grid-column:2}
+  .connmcp{grid-template-columns:minmax(0,1fr)}
+  .connmcp > .ghbtn{justify-self:start}
 }

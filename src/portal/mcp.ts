@@ -3,6 +3,7 @@
 import { sortHome } from "../../templates/portal/js/homesort.js";
 import type { StaffExport } from "../lib/export.js";
 import type { InboxItem } from "../lib/inbox.js";
+import type { RunRow } from "../lib/runs.js";
 import { type Actor, handlePortal, type Portal } from "./handler.js";
 
 /**
@@ -106,6 +107,58 @@ export const TOOLS: Tool[] = [
       additionalProperties: false,
     },
     annotations: { readOnlyHint: false, destructiveHint: false },
+  },
+  {
+    name: "list_issues",
+    title: "List open issues",
+    description:
+      "Open issues and pull requests, newest activity first. Narrow it to one staff member's " +
+      "tracker, one repo, issues or pull requests, or a label. For what needs you, use brief.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        staff: { ...staffArg, description: `${staffArg.description} Their tracker only.` },
+        repo: { type: "string", description: "a repo in the org: name or owner/name" },
+        kind: { type: "string", enum: ["issue", "pr"] },
+        label: { type: "string" },
+        limit: { type: "integer", default: 30, maximum: 100 },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: "run",
+    title: "Run a staff member now",
+    description:
+      "Start a staff member's session now, as their schedule would, or one of their routines. " +
+      "It is a paid run. To ask them for something in particular, use ask_staff instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        staff: staffArg,
+        routine: { type: "string", description: "a routine's id; leave out for their daily round" },
+      },
+      required: ["staff"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false },
+  },
+  {
+    name: "runs",
+    title: "Recent runs",
+    description:
+      "Recent runs, newest first: what started each one, whether it passed, how long it took, " +
+      "what it cost, and a link to its log.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        staff: { ...staffArg, description: `${staffArg.description} Everyone if left out.` },
+        limit: { type: "integer", default: 10, maximum: 50 },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true },
   },
   {
     name: "read_brain",
@@ -256,6 +309,31 @@ export async function callTool(
     return `${args.close ? "Replied and closed" : "Replied"}: ${r.url ?? `${args.repo}#${args.number}`}`;
   }
 
+  if (tool === "list_issues") {
+    const inbox = await route<{ items: InboxItem[] }>(portal, actor, "/api/inbox");
+    const tracker = args.staff ? staffOf(org, args.staff).brain : null;
+    if (args.staff && !tracker) throw new Error(`${args.staff} has no tracker`);
+    return listText(inbox.items ?? [], {
+      repo: tracker ?? (args.repo ? String(args.repo) : undefined),
+      kind: args.kind,
+      label: args.label ? String(args.label) : undefined,
+      limit: clamp(args.limit, 30, 100),
+    });
+  }
+
+  if (tool === "runs") {
+    const handle = args.staff ? staffOf(org, args.staff).handle : null;
+    const data = await route<{ staff: Array<{ handle: string; name: string; runs: RunRow[] }> }>(
+      portal,
+      actor,
+      "/api/runs",
+    );
+    const rows = data.staff
+      .filter((x) => !handle || x.handle === handle)
+      .flatMap((x) => x.runs.map((run) => ({ who: x.name, run })));
+    return runsText(rows, clamp(args.limit, 10, 50));
+  }
+
   const s = staffOf(org, args.staff);
   const mention = s.mention ?? `@${s.handle}`;
 
@@ -284,6 +362,15 @@ export async function callTool(
     return `Asked ${s.name} for a report: ${r.url}. They update the issue's body in a few minutes.`;
   }
 
+  if (tool === "run") {
+    const routine = args.routine ? String(args.routine) : undefined;
+    const r = await route<{ url?: string }>(portal, actor, "/api/run/start", {
+      staff: s.handle,
+      routine,
+    });
+    return `Started ${s.name}${routine ? `'s ${routine} routine` : ""}: ${r.url}`;
+  }
+
   if (tool === "read_brain") {
     const file = String(args.file ?? "STATE.md");
     if (!BRAIN_FILES.includes(file)) throw new Error(`file is one of ${BRAIN_FILES.join(", ")}`);
@@ -299,6 +386,54 @@ export async function callTool(
 }
 
 const ref = (i: InboxItem) => `${i.repo}#${i.number}`;
+
+function clamp(v: unknown, fallback: number, max: number): number {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, max) : fallback;
+}
+
+/** Open issues and pull requests as lines, with the filters list_issues takes. */
+export function listText(
+  items: InboxItem[],
+  f: { repo?: string; kind?: string; label?: string; limit: number },
+): string {
+  const repo = f.repo?.toLowerCase();
+  const label = f.label?.toLowerCase();
+  const open = items
+    .filter((i) => i.state === "OPEN")
+    .filter(
+      (i) => !repo || [i.repo.toLowerCase(), i.repo.split("/")[1]?.toLowerCase()].includes(repo),
+    )
+    .filter((i) => !f.kind || i.kind === f.kind)
+    .filter((i) => !label || i.labels.some((l) => l.toLowerCase() === label))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  if (!open.length) return "Nothing open matches.";
+  const shown = open.slice(0, f.limit);
+  const out = shown.map((i) => {
+    const bits = [i.kind === "pr" ? (i.draft ? "draft PR" : "PR") : "issue", `by ${i.author}`];
+    if (i.labels.length) bits.push(i.labels.join(", "));
+    if (i.kind === "pr" && i.checks && i.checks !== "none") bits.push(`checks ${i.checks}`);
+    return `- ${ref(i)} "${i.title}" (${bits.join(" · ")}, updated ${i.updatedAt.slice(0, 10)})`;
+  });
+  if (open.length > shown.length) out.push(`…and ${open.length - shown.length} more.`);
+  return out.join("\n");
+}
+
+/** Runs as lines, newest first. */
+export function runsText(rows: Array<{ who: string; run: RunRow }>, limit: number): string {
+  if (!rows.length) return "No runs yet.";
+  const sorted = [...rows].sort((a, b) => b.run.createdAt.localeCompare(a.run.createdAt));
+  return sorted
+    .slice(0, limit)
+    .map(({ who, run }) => {
+      const how = run.status === "completed" ? (run.conclusion ?? "done") : run.status;
+      const bits = [run.kind, how, `${run.minutes} min`];
+      if (run.record?.cost_usd != null) bits.push(`$${run.record.cost_usd.toFixed(2)}`);
+      const at = run.createdAt.slice(0, 16).replace("T", " ");
+      return `- ${who}, ${at} UTC: ${bits.join(" · ")} ${run.url}`;
+    })
+    .join("\n");
+}
 
 /** The brief as text Claude can read back to someone: the same places Home puts things. */
 export function briefText(h: any): string {

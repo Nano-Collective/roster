@@ -67,7 +67,20 @@ CMO to draft this week's post". The tools:
 | `reply` | A reply as you, optionally closing the issue |
 | `ask_staff` | A new issue on a staff member's tracker with their mention, which starts them |
 | `ask_for_report` | Asks a staff member to bring their report up to date now |
+| `list_issues` | Open issues and pull requests, by staff member, repo, kind or label |
+| `run` | Starts a staff member's session now, or one of their routines |
+| `runs` | Recent runs: how each went, how long, what it cost, and its log |
 | `read_brain` | `STATE.md`, `CHARTER.md`, `memory/INDEX.md`, `log/decisions.md` or `staff.yaml` |
+
+The Connectors screen has the line to paste for Claude Code, Codex and Claude, under **Connect
+your own agent**. From Claude Code:
+
+```bash
+claude mcp add --transport http roster-acme https://roster.acme.com/mcp
+```
+
+then `/mcp` to sign in. With more than one Roster, give each its own name (`roster-acme`,
+`roster-globex`): an agent keeps each server's tools apart by that name.
 
 It cannot merge, approve, hire, or change the org: those stay on Home, where you see the diff
 or the plan first. Everything it posts is posted as you.

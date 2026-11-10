@@ -108,7 +108,7 @@ export async function toClipboard(text, btn, label) {
   };
   try {
     await navigator.clipboard.writeText(text);
-    said("copied · " + Math.round(text.length / 1000) + "k");
+    said(text.length < 1000 ? "copied" : "copied · " + Math.round(text.length / 1000) + "k");
     return true;
   } catch {
     /* fall through */

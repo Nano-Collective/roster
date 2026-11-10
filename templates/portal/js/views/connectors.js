@@ -8,9 +8,10 @@
 
 import { getConnectors, post } from "../api.js";
 import { sheet } from "../dialog.js";
-import { el } from "../dom.js";
+import { el, toClipboard } from "../dom.js";
 import { icon } from "../icons.js";
 import { render } from "../router.js";
+import { S } from "../state.js";
 
 /* The last answer, so a repaint after Save does not flash an empty screen. */
 let last = null;
@@ -71,6 +72,46 @@ function draw(body, d) {
   own.onclick = () => openCustom(d);
   grid.append(own);
   body.append(el("h2", { className: "connhead", textContent: d.connectors.length ? "Add another" : "Add a service" }), grid);
+  body.append(...ownAgent());
+}
+
+/* --------------------- this portal as an MCP server, elsewhere --------------------- */
+
+/** How to add this portal's MCP server to Claude Code, Codex, Claude or anything else. */
+function ownAgent() {
+  const head = el("h2", { className: "connhead", textContent: "Connect your own agent" });
+  if (!S.hosted) {
+    return [head, el("p", { className: "sub", textContent: "Needs the hosted portal: roster portal deploy." })];
+  }
+  const url = location.origin + "/mcp";
+  // Named after the org, so a second Roster in the same agent gets tools of its own.
+  const slug = String(S.data?.name ?? S.data?.org ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const name = slug ? "roster-" + slug : "roster";
+  const rows = [
+    ["Claude Code", `claude mcp add --transport http ${name} ${url}`, "Then run /mcp and sign in."],
+    ["Codex", `codex mcp add ${name} --url ${url} && codex mcp login ${name}`, ""],
+    ["Claude", url, "Settings → Connectors → Add custom connector."],
+    ["Anything else", url, ""],
+  ];
+  const list = el("div", { className: "connlist" });
+  for (const [label, text, then] of rows) {
+    const copy = el("button", { className: "ghbtn", textContent: "Copy" });
+    copy.onclick = () => toClipboard(text, copy, "Copy");
+    list.append(
+      el("div", { className: "connrow connmcp" }, [
+        el("div", { className: "conntext" }, [
+          el("b", { textContent: label }),
+          el("code", { textContent: text }),
+          then ? el("small", { textContent: then }) : null,
+        ].filter(Boolean)),
+        copy,
+      ]),
+    );
+  }
+  return [head, el("p", { className: "sub", textContent: "Sign in with GitHub when it asks." }), list];
 }
 
 /** "Notion (integration key)" is only Notion where it is the one Notion on offer. */
