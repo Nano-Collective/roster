@@ -114,7 +114,19 @@ other key.
 
 ## A service that is not in the catalogue
 
-Write it out in `org.yaml`, with a `url` or a `command`, and the names of the keys it needs:
+On the Connectors screen, pick **Custom server** and give it a name and its MCP URL (https).
+Then choose how it signs in:
+
+- **Key**: a header name (`Authorization` unless you change it) and its value, for example
+  `Bearer sk_…`. The value is stored as the secret `CONNECTOR_<NAME>_TOKEN`.
+- **Sign in**: on the hosted portal, for a server that signs in with a browser the way Notion
+  does. It has to let a new app register itself, as MCP servers that sign in usually do.
+- **No key**: for a server that needs none.
+
+Read only cannot be enforced on a server roster has no entry for, so give it a key that can only
+read if that is what you want.
+
+A server run as a command, or one with more than one key, is written out in `org.yaml`, with a `url` or a `command`, and the names of the keys it needs:
 
 ```yaml
 connectors:

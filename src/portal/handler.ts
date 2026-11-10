@@ -725,8 +725,9 @@ const ROUTES: Record<string, Route> = {
           const g = await readGrant(portal.grants.store, portal.grants.secret, x.id);
           if (g) signedIn = { by: g.by, at: g.at };
         }
-        const { entry: _entry, ...rest } = x;
-        return { ...rest, keys, signedIn };
+        const { entry, ...rest } = x;
+        const url = x.known ? null : ((entry as { url?: string }).url ?? null);
+        return { ...rest, url, keys, signedIn };
       }),
     );
     return json({
@@ -764,13 +765,18 @@ const ROUTES: Record<string, Route> = {
       readOnly?: boolean;
       settings?: Record<string, string>;
       values?: Record<string, string>;
+      custom?: { url?: string; header?: string };
     };
     const id = String(p.id ?? "");
     const known = CATALOGUE[id];
     const existing = org.connectors?.[id];
-    if (!known && !existing) return json({ error: `roster does not know ${id}` }, 400);
     const handles = new Set((org.staff ?? []).map((s: any) => String(s.handle)));
     const staff = (p.staff ?? []).map(String).filter((h) => handles.has(h));
+    if (p.custom || (existing && !known)) {
+      if (!staff.length) return json({ error: "Pick at least one staff member." }, 400);
+      return saveCustom(c, org, id, staff, p.custom ?? null, String(p.values?.token ?? "").trim());
+    }
+    if (!known && !existing) return json({ error: `roster does not know ${id}` }, 400);
     if (!staff.length) return json({ error: "Pick at least one staff member." }, 400);
 
     const entry: Record<string, unknown> = { staff, read_only: p.readOnly === true };
@@ -857,23 +863,39 @@ const ROUTES: Record<string, Route> = {
         400,
       );
     }
-    const p = (await body(c.req)) as { id?: string; staff?: string[]; readOnly?: boolean };
+    const p = (await body(c.req)) as {
+      id?: string;
+      staff?: string[];
+      readOnly?: boolean;
+      custom?: { url?: string };
+    };
     const id = String(p.id ?? "");
     const known = CATALOGUE[id];
-    if (!known?.oauth) return json({ error: `${id} does not sign in` }, 400);
     const { org } = await ready(c);
+    const existing = org.connectors?.[id] as { url?: string; auth?: string } | undefined;
+    let resource = known?.oauth?.resource;
+    if (!known && (p.custom || existing?.auth === "oauth")) {
+      const wrong = customWrong(org, id, p.custom ? String(p.custom.url ?? "") : existing?.url, {
+        isNew: Boolean(p.custom),
+      });
+      if (wrong) return json({ error: wrong }, 400);
+      resource = String(p.custom?.url ?? existing?.url).trim();
+    }
+    if (!resource) return json({ error: `${id} does not sign in` }, 400);
     const handles = new Set((org.staff ?? []).map((s: any) => String(s.handle)));
     const staff = (p.staff ?? []).map(String).filter((h) => handles.has(h));
     if (!staff.length) return json({ error: "Pick at least one staff member." }, 400);
 
     const redirect = `${portal.grants.base}/connectors/callback`;
-    const meta = await discover(known.oauth.resource);
-    const client = await oauthClientFor(
-      meta,
-      redirect,
-      `Roster (${portal.org})`,
-      portal.grants.store,
-    );
+    // Any server can be asked, so one that cannot be signed in to is said, not thrown.
+    let meta: Awaited<ReturnType<typeof discover>>;
+    let client: Awaited<ReturnType<typeof oauthClientFor>>;
+    try {
+      meta = await discover(resource);
+      client = await oauthClientFor(meta, redirect, `Roster (${portal.org})`, portal.grants.store);
+    } catch (err) {
+      return json({ error: (err as Error).message }, 400);
+    }
     const v = verifier();
     const state = verifier();
     const pending = await sealJson(
@@ -884,6 +906,7 @@ const ROUTES: Record<string, Route> = {
         readOnly: p.readOnly === true,
         verifier: v,
         state,
+        resource,
         tokenEndpoint: meta.token_endpoint,
         ...client,
         exp: Date.now() + 600_000,
@@ -898,7 +921,7 @@ const ROUTES: Record<string, Route> = {
       code_challenge: await challenge(v),
       code_challenge_method: "S256",
       state,
-      resource: known.oauth.resource,
+      resource,
     })) {
       go.searchParams.set(k, val);
     }
@@ -933,6 +956,7 @@ const ROUTES: Record<string, Route> = {
           readOnly: boolean;
           verifier: string;
           state: string;
+          resource: string;
           tokenEndpoint: string;
           clientId: string;
           clientSecret?: string;
@@ -948,11 +972,11 @@ const ROUTES: Record<string, Route> = {
     if (!code)
       return back(url.searchParams.get("error_description") ?? "The sign-in was cancelled.");
     const known = CATALOGUE[pending.id];
-    if (!known?.oauth) return back("That service is not one roster signs in to.");
+    if (known && !known.oauth) return back("That service is not one roster signs in to.");
     try {
       const grant = await exchange({
         connector: pending.id,
-        resource: known.oauth.resource,
+        resource: pending.resource,
         tokenEndpoint: pending.tokenEndpoint,
         clientId: pending.clientId,
         clientSecret: pending.clientSecret,
@@ -968,6 +992,8 @@ const ROUTES: Record<string, Route> = {
       const after = setConnector(before, org, pending.id, {
         staff: pending.staff,
         read_only: pending.readOnly,
+        // Written out longhand when roster has no entry for it: the server, and that it signs in.
+        ...(known ? {} : { url: pending.resource, auth: "oauth" }),
         portal: portal.grants.base,
       });
       await commitFile(
@@ -976,7 +1002,7 @@ const ROUTES: Record<string, Route> = {
         portal.opsName,
         "org.yaml",
         after,
-        `portal: connect ${known.name}`,
+        `portal: connect ${known?.name ?? pending.id}`,
         before,
       );
     } catch (err) {
@@ -1628,6 +1654,95 @@ async function staffProgress(
     credential: names ? names.has(spec.agentSecret) : null,
     ran: runs.ok ? (runs.data?.total_count ?? 0) > 0 : null,
   };
+}
+
+/**
+ * What is wrong with a server roster has no entry for, as the portal adds it, or null. Only an
+ * https URL: a run reaches it from GitHub's runners, and a key should not cross in the clear.
+ */
+function customWrong(
+  org: any,
+  id: string,
+  url: string | undefined,
+  { isNew }: { isNew: boolean },
+): string | null {
+  if (CATALOGUE[id]) return `${CATALOGUE[id]!.name} is in the list: add it from there.`;
+  if (isNew && org.connectors?.[id]) return `There is already a connector called ${id}.`;
+  const problem = declared({ connectors: { [id]: { url: url || undefined } } })[0]?.problem;
+  if (problem) return problem;
+  let parsed: URL;
+  try {
+    parsed = new URL(String(url).trim());
+  } catch {
+    return "The server's URL is not a URL.";
+  }
+  if (parsed.protocol !== "https:") return "The server's URL has to start with https://.";
+  return null;
+}
+
+/**
+ * Add a server roster has no entry for, or change who has one. Its key, if it takes one, is one
+ * secret sent as a header; anything more is written out in org.yaml by hand.
+ */
+async function saveCustom(
+  c: Ctx,
+  org: any,
+  id: string,
+  staff: string[],
+  custom: { url?: string; header?: string } | null,
+  token: string,
+): Promise<Response> {
+  const { portal, actor } = c;
+  const existing = org.connectors?.[id] as Record<string, unknown> | undefined;
+  const entry: Record<string, unknown> = { staff };
+  let secret: string | null = null;
+  if (custom) {
+    const wrong = customWrong(org, id, custom.url, { isNew: true });
+    if (wrong) return json({ error: wrong }, 400);
+    entry.url = String(custom.url).trim();
+    if (token) {
+      const header = String(custom.header ?? "").trim() || "Authorization";
+      if (!/^[A-Za-z0-9-]+$/.test(header))
+        return json({ error: `"${header}" is not a header name.` }, 400);
+      entry.secrets = ["TOKEN"];
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: org.yaml's placeholder
+      entry.headers = { [header]: "${TOKEN}" };
+      secret = secretName(id, "TOKEN");
+    }
+  } else if (token) {
+    // A new key for a server that takes exactly one; one with several is changed by hand.
+    const names = declared(org).find((d) => d.id === id)?.secrets ?? [];
+    if (names.length !== 1)
+      return json(
+        { error: `${id} takes ${names.length} keys: change them with roster connector.` },
+        400,
+      );
+    secret = names[0]!.name;
+  }
+
+  const stored = [];
+  if (secret) {
+    const brains = (org.staff ?? []).map((s: any) => `${portal.org}/${s.dir ?? s.handle}`);
+    stored.push({
+      name: secret,
+      ...(await storeSecret(actor.gh, portal.org, secret, token, brains)),
+    });
+  }
+  const before =
+    portal.snapshots.get(`${portal.org}/${portal.opsName}`)?.files.get("org.yaml")?.text ?? "";
+  const after = setConnector(before, org, id, entry);
+  const wrong = validateOrgYaml(after, parseYaml);
+  if (wrong) return json({ error: wrong }, 400);
+  const committed = await commitFile(
+    portal,
+    actor.gh,
+    portal.opsName,
+    "org.yaml",
+    after,
+    existing ? `portal: change who has ${id}` : `portal: connect ${id}`,
+    before,
+  );
+  return json({ ok: true, stored, committed });
 }
 
 const JSON_TYPE = "application/json; charset=utf-8";

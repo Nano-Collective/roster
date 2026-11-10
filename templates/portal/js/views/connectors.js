@@ -64,6 +64,12 @@ function draw(body, d) {
     card.onclick = () => open(e, null, d);
     grid.append(card);
   }
+  const own = el("button", { className: "conncard" }, [
+    el("span", { className: "connicon" }, [icon("plug")]),
+    el("span", {}, [el("b", { textContent: "Custom server" }), el("small", { textContent: "Any MCP server, by its URL." })]),
+  ]);
+  own.onclick = () => openCustom(d);
+  grid.append(own);
   body.append(el("h2", { className: "connhead", textContent: d.connectors.length ? "Add another" : "Add a service" }), grid);
 }
 
@@ -92,7 +98,7 @@ function row(c, d) {
 
   const edit = el("button", { className: "ghbtn", textContent: "Edit" });
   edit.onclick = () => open(e ?? custom(c), c, d);
-  edit.disabled = !d.canWrite || !e;
+  edit.disabled = !d.canWrite || (!e && Boolean(c.problem));
   const remove = el("button", { className: "ghbtn", textContent: "Remove" });
   remove.disabled = !d.canWrite;
   remove.onclick = () => confirmRemove(c, remove);
@@ -108,9 +114,104 @@ function row(c, d) {
   ]);
 }
 
-/** A hand-written connector the catalogue does not describe: editable in org.yaml only. */
+/** A server the catalogue does not describe: who has it, and its key when it takes one. */
 function custom(c) {
-  return { id: c.id, name: c.name, fields: [], steps: [], auth: c.auth };
+  const fields = c.auth === "key" && c.secrets.length === 1 ? [{ id: "token", label: c.secrets[0].label, secret: true }] : [];
+  return { id: c.id, name: c.name, summary: c.url ?? "", fields, steps: [], auth: c.auth };
+}
+
+/* --------------------------- a server of your own ---------------------------- */
+
+function openCustom(d) {
+  let box = null;
+  const node = customForm(d, () => box?.close());
+  box = sheet({ node, onClose: () => {} });
+  if (!box) document.querySelector("#main")?.append(node);
+}
+
+function customForm(d, close) {
+  const out = el("div", { className: "connform" });
+  out.append(el("h2", { className: "sheettitle", textContent: "Connect a custom server" }));
+
+  const input = (placeholder, type = "text") => el("input", { type, autocomplete: "off", spellcheck: false, placeholder });
+  const name = input("acme");
+  const url = input("https://mcp.acme.dev/mcp");
+  const header = input("Authorization");
+  header.value = "Authorization";
+  const key = input("Bearer …", "password");
+  const field = (label, node) => el("label", { className: "field" }, [el("span", { textContent: label }), node]);
+  out.append(el("div", { className: "setupform" }, [field("Name", name), field("URL", url)]));
+
+  // How it signs in: a key in a header, the hosted portal's sign-in, or nothing.
+  let auth = "key";
+  const keyFields = el("div", { className: "setupform" }, [field("Header", header), field("Value", key)]);
+  const choices = el("div", { className: "connstaff" });
+  for (const [value, label] of [["key", "Key"], ["oauth", "Sign in"], ["none", "No key"]]) {
+    if (value === "oauth" && !d.signIn) continue;
+    const radio = el("input", { type: "radio", name: "connauth", checked: value === auth });
+    radio.onchange = () => {
+      auth = value;
+      keyFields.hidden = auth !== "key";
+      save.textContent = auth === "oauth" ? "Sign in" : "Save";
+    };
+    choices.append(el("label", { className: "conntick" }, [radio, el("span", { textContent: label })]));
+  }
+  out.append(el("h3", { className: "connsub", textContent: "Sign-in" }), choices, keyFields);
+
+  const picked = new Set(d.staff.length === 1 ? [d.staff[0].handle] : []);
+  out.append(el("h3", { className: "connsub", textContent: "Who can use it" }), staffPicker(d, picked));
+
+  const status = el("div");
+  const cancel = el("button", { className: "ghbtn", textContent: "Cancel" });
+  cancel.onclick = close;
+  const save = el("button", { className: "ghbtn primary", textContent: "Save" });
+  save.disabled = !d.canWrite;
+  const fail = (msg) => status.replaceChildren(el("p", { className: "err", textContent: msg }));
+  save.onclick = async () => {
+    const id = name.value.trim().toLowerCase();
+    if (!id) return fail("Give it a name.");
+    if (!picked.size) return fail("Pick at least one staff member.");
+    if (auth === "key" && !key.value.trim()) return fail("Paste the key, or pick No key.");
+    const label = save.textContent;
+    save.disabled = true;
+    save.textContent = auth === "oauth" ? "Opening…" : "Saving…";
+    try {
+      if (auth === "oauth") {
+        const r = await post({ id, staff: [...picked], custom: { url: url.value.trim() } }, "/api/connectors/signin");
+        location.href = r.url;
+        return;
+      }
+      await post(
+        {
+          id,
+          staff: [...picked],
+          custom: { url: url.value.trim(), header: header.value.trim() },
+          values: { token: auth === "key" ? key.value.trim() : "" },
+        },
+        "/api/connectors/save",
+      );
+      last = null;
+      close();
+      render();
+    } catch (err) {
+      save.disabled = false;
+      save.textContent = label;
+      fail(String(err.message || err));
+    }
+  };
+
+  out.append(status, el("div", { className: "row connfoot" }, [save, cancel]));
+  return out;
+}
+
+function staffPicker(d, picked) {
+  const who = el("div", { className: "connstaff" });
+  for (const s of d.staff) {
+    const box = el("input", { type: "checkbox", checked: picked.has(s.handle) });
+    box.onchange = () => (box.checked ? picked.add(s.handle) : picked.delete(s.handle));
+    who.append(el("label", { className: "conntick" }, [box, el("span", { textContent: s.name })]));
+  }
+  return who;
 }
 
 async function confirmRemove(c, btn) {
@@ -143,7 +244,7 @@ function open(e, c, d) {
 function form(e, c, d, close) {
   const out = el("div", { className: "connform" });
   out.append(el("h2", { className: "sheettitle", textContent: (c ? "" : "Connect ") + shortName(e) }));
-  if (!c) out.append(el("p", { className: "sub", textContent: e.summary }));
+  if (!c || !c.known) out.append(el("p", { className: "sub", textContent: e.summary }));
 
   const oauth = e.auth === "oauth";
   if (!c && e.steps.length && !oauth) {
@@ -194,13 +295,7 @@ function form(e, c, d, close) {
 
   const picked = new Set(c ? c.staff : (e.suggest ?? []).filter((h) => d.staff.some((s) => s.handle === h)));
   if (!picked.size && d.staff.length === 1) picked.add(d.staff[0].handle);
-  const who = el("div", { className: "connstaff" });
-  for (const s of d.staff) {
-    const box = el("input", { type: "checkbox", checked: picked.has(s.handle) });
-    box.onchange = () => (box.checked ? picked.add(s.handle) : picked.delete(s.handle));
-    who.append(el("label", { className: "conntick" }, [box, el("span", { textContent: s.name })]));
-  }
-  out.append(el("h3", { className: "connsub", textContent: "Who can use it" }), who);
+  out.append(el("h3", { className: "connsub", textContent: "Who can use it" }), staffPicker(d, picked));
 
   let ro = null;
   if (e.readOnly) {
