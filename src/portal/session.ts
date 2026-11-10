@@ -259,10 +259,13 @@ export function esc(s: string): string {
  */
 export function page(status: number, title: string, body: string): Response {
   return new Response(
-    `<!doctype html><html lang="en"><meta charset="utf-8">` +
+    // The portal's own theme, as index.html loads it: base.css only names Astryx's tokens.
+    `<!doctype html><html lang="en" data-astryx-theme="neutral"><meta charset="utf-8">` +
       `<meta name="viewport" content="width=device-width,initial-scale=1">` +
       `<title>${esc(title)} · roster</title>` +
-      `<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2334c759'/%3E%3C/svg%3E">` +
+      `<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cstyle%3Erect%7Bfill:%231b1b1b%7Dpath%7Bstroke:%23fff%7D%40media%20%28prefers-color-scheme:dark%29%7Brect%7Bfill:%23f1f1f1%7Dpath%7Bstroke:%23111%7D%7D%3C/style%3E%3Crect%20width='32'%20height='32'%20rx='8'/%3E%3Cpath%20d='M11%2023V10h6a4%204%200%200%201%200%208h-6m6%200%204.5%205'%20fill='none'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">` +
+      `<link rel="stylesheet" href="/assets/css/astryx.css">` +
+      `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">` +
       `<link rel="stylesheet" href="/assets/css/base.css">` +
       `<style>${PAGE_CSS}</style>` +
       `<main class="gate"><div class="card">` +
