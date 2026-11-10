@@ -16,27 +16,23 @@ export default function OG() {
         justifyContent: "space-between",
         padding: 80,
         background: "#ffffff",
-        color: "#1d1d1f",
+        color: "#000000",
         fontFamily: "sans-serif",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 14,
-            background: "#34c759",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#ffffff",
-            fontSize: 34,
-            fontWeight: 700,
-          }}
-        >
-          r
-        </div>
+        {/* The mark in the light theme's accent, as the site draws it. */}
+        <svg width="56" height="56" viewBox="0 0 32 32">
+          <rect width="32" height="32" rx="8" fill="#1b1b1b" />
+          <path
+            d="M11 23V10h6a4 4 0 0 1 0 8h-6m6 0 4.5 5"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="2.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
         <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: -1 }}>Roster</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -49,12 +45,12 @@ export default function OG() {
             fontWeight: 700,
             letterSpacing: -4,
             lineHeight: 1.02,
-            color: "#1d1d1f",
+            color: "#000000",
           }}
         >
           AI staff.
         </div>
-        <div style={{ marginTop: 28, fontSize: 28, color: "#6e6e73" }}>
+        <div style={{ marginTop: 28, fontSize: 28, color: "#474747" }}>
           Every job written down in GitHub. Any coding agent. Open source.
         </div>
       </div>
@@ -62,9 +58,9 @@ export default function OG() {
         style={{
           display: "flex",
           fontSize: 26,
-          color: "#1d1d1f",
+          color: "#000000",
           fontFamily: "monospace",
-          background: "#f2f2f7",
+          background: "#f1f1f1",
           borderRadius: 999,
           padding: "14px 22px",
           alignSelf: "flex-start",
