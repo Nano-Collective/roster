@@ -1,5 +1,7 @@
 "use client";
 
+import { SideNav, SideNavItem, SideNavSection } from "@astryxdesign/core/SideNav";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -8,6 +10,7 @@ type Group = { title: string; docs: Item[] };
 
 const hrefOf = (slug: string) => (slug ? `/docs/${slug}/` : "/docs/");
 
+/** The docs' contents: Astryx's SideNav, one section per group in docs/README.md, with a filter. */
 export function DocsSidebar({ groups }: { groups: Group[] }) {
   const path = usePathname();
   const [q, setQ] = useState("");
@@ -23,40 +26,33 @@ export function DocsSidebar({ groups }: { groups: Group[] }) {
     .filter((g) => g.docs.length);
 
   return (
-    <nav aria-label="Documentation">
-      <input
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search"
-        aria-label="Search the docs"
-        className="mb-6 h-8 w-full rounded-lg bg-fill px-3 text-[13px] text-fg outline-none placeholder:text-fg-3 focus:ring-2 focus:ring-blue/40"
-      />
-      {shown.map((g) => (
-        <div key={g.title} className="mb-6">
-          <div className="px-2.5 pb-1.5 text-[12px] font-semibold text-fg-3">{g.title}</div>
-          <ul className="space-y-px">
-            {g.docs.map((d) => {
-              const href = hrefOf(d.slug);
-              const active = path === href || path === href.replace(/\/$/, "");
-              return (
-                <li key={d.slug}>
-                  <a
-                    href={href}
-                    aria-current={active ? "page" : undefined}
-                    className={`block rounded-md px-2.5 py-[5px] text-[13.5px] transition ${
-                      active ? "bg-fill font-medium text-fg" : "text-fg-2 hover:text-fg"
-                    }`}
-                  >
-                    {d.title}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+    // The column it sits in is already sized and scrolls, so the nav takes its width and height.
+    <SideNav
+      style={{ width: "100%", height: "auto", background: "transparent" }}
+      topContent={
+        <div className="mb-2">
+          <TextInput
+            type="search"
+            label="Search the docs"
+            isLabelHidden
+            placeholder="Search"
+            size="sm"
+            value={q}
+            onChange={setQ}
+          />
         </div>
+      }
+    >
+      {shown.map((g) => (
+        <SideNavSection key={g.title} title={g.title}>
+          {g.docs.map((d) => {
+            const href = hrefOf(d.slug);
+            const active = path === href || path === href.replace(/\/$/, "");
+            return <SideNavItem key={d.slug} label={d.title} href={href} isSelected={active} />;
+          })}
+        </SideNavSection>
       ))}
       {!shown.length && <p className="px-2.5 text-[13px] text-fg-3">Nothing matches.</p>}
-    </nav>
+    </SideNav>
   );
 }

@@ -5,7 +5,8 @@ export function Mark({ size = 22 }: { size?: number }) {
       <path
         d="M11 23V10h6a4 4 0 0 1 0 8h-6m6 0 4.5 5"
         fill="none"
-        stroke="#fff"
+        // The theme's ink for its accent: white on the light theme's black, black on the dark's white.
+        className="stroke-on-invert"
         strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"

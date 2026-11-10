@@ -1,59 +1,40 @@
-@import "tailwindcss";
+/* Astryx (Meta's design system) under Tailwind, in the layer order Astryx documents for Next.js:
+   its reset, components and theme sit between Tailwind's base and its utilities. */
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "@astryxdesign/theme-neutral/theme.css";
+@import "tailwindcss/utilities.css" layer(utilities);
 
-/* iOS system colours. Light by default, dark when the system asks. The portal uses the same set. */
+/* The site's names for Astryx's neutral theme, which the portal wears too. Each Astryx token is
+   a light-dark() pair, so these follow the system without a dark block of their own. */
 :root {
-  --bg: #ffffff;
-  --bg-2: #f5f5f7;
-  --surface: #ffffff;
-  --fill: #f2f2f7;
-  --fill-2: #e9e9ee;
-  --line: rgba(0, 0, 0, 0.08);
-  --line-2: rgba(0, 0, 0, 0.14);
-  --text: #1d1d1f;
-  --text-2: #6e6e73;
-  --text-3: #aeaeb2;
-  --accent: #248a3d;
-  --accent-fill: #34c759;
-  --accent-soft: rgba(52, 199, 89, 0.12);
-  --blue: #007aff;
-  --orange: #c93400;
-  --orange-fill: #ff9500;
-  --red: #ff3b30;
-  --purple: #af52de;
-  --invert: #1d1d1f;
-  --on-invert: #ffffff;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 28px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.03), 0 24px 64px -12px rgba(0, 0, 0, 0.14);
-  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000000;
-    --bg-2: #0c0c0d;
-    --surface: #1c1c1e;
-    --fill: #1c1c1e;
-    --fill-2: #2c2c2e;
-    --line: rgba(255, 255, 255, 0.1);
-    --line-2: rgba(255, 255, 255, 0.16);
-    --text: #f5f5f7;
-    --text-2: #98989d;
-    --text-3: #636366;
-    --accent: #30d158;
-    --accent-fill: #30d158;
-    --accent-soft: rgba(48, 209, 88, 0.15);
-    --blue: #0a84ff;
-    --orange: #ff9f0a;
-    --orange-fill: #ff9f0a;
-    --red: #ff453a;
-    --purple: #bf5af2;
-    --invert: #f5f5f7;
-    --on-invert: #000000;
-    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 64px -12px rgba(0, 0, 0, 0.8);
-    color-scheme: dark;
-  }
+  --bg: var(--color-background-card);
+  /* A step off the page in both themes: Astryx's dark muted is the page's own colour. */
+  --bg-2: color-mix(in srgb, var(--color-text-primary) 5%, var(--color-background-card));
+  --surface: var(--color-background-surface);
+  --fill: var(--color-neutral);
+  --fill-2: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --line: var(--color-border);
+  --line-2: var(--color-border-emphasized);
+  --text: var(--color-text-primary);
+  --text-2: var(--color-text-secondary);
+  --text-3: var(--color-text-disabled);
+  --accent: var(--color-accent);
+  --accent-fill: var(--color-accent);
+  --accent-soft: var(--color-neutral);
+  --blue: var(--color-text-info);
+  --orange: var(--color-text-warning);
+  --orange-fill: var(--color-warning);
+  --red: var(--color-text-error);
+  --purple: var(--color-text-purple);
+  --invert: var(--color-accent);
+  --on-invert: var(--color-on-accent);
+  --shadow: var(--shadow-low);
+  --shadow-lg: var(--shadow-med);
+  --ease: var(--ease-standard, cubic-bezier(0.25, 0.1, 0.25, 1));
 }
 
 @theme inline {
@@ -77,9 +58,8 @@
   --color-purple: var(--purple);
   --color-invert: var(--invert);
   --color-on-invert: var(--on-invert);
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", var(--font-inter),
-    "Segoe UI", system-ui, sans-serif;
-  --font-mono: "SF Mono", ui-monospace, var(--font-jetbrains), Menlo, monospace;
+  --font-sans: var(--font-figtree), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", var(--font-jetbrains), Menlo, monospace;
 }
 
 html {

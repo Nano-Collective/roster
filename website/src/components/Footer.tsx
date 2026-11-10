@@ -1,3 +1,4 @@
+import { Button } from "@astryxdesign/core/Button";
 import { CopyCommand } from "./CopyCommand";
 import { COLLECTIVE, DISCORD, DOCS, doc, NPM, REPO } from "./links";
 import { Mark } from "./Logo";
@@ -17,9 +18,7 @@ export function FinalCTA() {
           a coding agent such as Claude Code or Codex. The rest is a page in your browser.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href={doc("getting-started")} className="btn btn-primary">
-            Get started
-          </a>
+          <Button href={doc("getting-started")} label="Get started" variant="primary" size="lg" />
           <CopyCommand />
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { Button } from "@astryxdesign/core/Button";
 import { Github } from "./Icons";
 import { DOCS, doc, REPO } from "./links";
 import { Logo } from "./Logo";
@@ -29,12 +30,7 @@ export function Nav() {
           <a href={REPO} aria-label="GitHub" className="text-fg-2 transition hover:text-fg">
             <Github className="size-[18px]" />
           </a>
-          <a
-            href={doc("getting-started")}
-            className="inline-flex h-7 items-center rounded-full bg-invert px-3.5 text-[12px] font-medium text-on-invert transition hover:opacity-85"
-          >
-            Get started
-          </a>
+          <Button href={doc("getting-started")} label="Get started" variant="primary" size="sm" />
         </div>
       </div>
     </header>

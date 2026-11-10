@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Figtree, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+// Figtree is the face Astryx's neutral theme is drawn in.
+const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
 const title = "Roster — AI staff for your organisation, run on GitHub";
@@ -21,14 +23,17 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1b1b" },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
-      <body className="font-sans">{children}</body>
+    // The theme on <html> as well as the provider, so its tokens reach the page's own background.
+    <html lang="en" data-astryx-theme="neutral" className={`${figtree.variable} ${mono.variable}`}>
+      <body className="font-sans">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

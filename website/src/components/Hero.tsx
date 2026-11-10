@@ -1,3 +1,5 @@
+import { Button } from "@astryxdesign/core/Button";
+import { Badge } from "@astryxdesign/core/Badge";
 import { CopyCommand } from "./CopyCommand";
 import { Chevron } from "./Icons";
 import { doc } from "./links";
@@ -10,7 +12,9 @@ export function Hero() {
       <div className="mx-auto max-w-[1080px] px-6 pb-24 pt-20 text-center sm:pb-32 sm:pt-28">
         <p className="fade-up text-[15px] font-medium text-fg-2">
           Roster <span className="text-fg-3">·</span> open source, MIT{" "}
-          <span className="ml-1 rounded-full bg-fill px-2 py-0.5 text-[12px] text-fg-2">beta</span>
+          <span className="ml-1 inline-block align-middle">
+            <Badge label="beta" />
+          </span>
         </p>
 
         <h1
@@ -35,9 +39,7 @@ export function Hero() {
           className="fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
           style={{ animationDelay: "180ms" }}
         >
-          <a href={doc("getting-started")} className="btn btn-primary">
-            Get started
-          </a>
+          <Button href={doc("getting-started")} label="Get started" variant="primary" size="lg" />
           <CopyCommand />
         </div>
         <a

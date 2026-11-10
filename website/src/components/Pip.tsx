@@ -16,7 +16,7 @@ export function PipLockup() {
       <PipChip size={28} />
       Pip
       <span className="font-normal text-fg-3">×</span>
-      <span className="inline-flex" style={{ "--accent-fill": "#30d158" } as CSSProperties}>
+      <span className="inline-flex" style={{ "--accent-fill": "#30d158", "--on-invert": "#ffffff" } as CSSProperties}>
         <Mark size={24} />
       </span>
       Roster
