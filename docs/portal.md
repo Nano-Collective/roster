@@ -94,7 +94,7 @@ goes away; the repo picker lives on under [Org](#org).
 
 ## Home
 
-![Home: latest reports, what needs you, and the Ask box](images/home.jpg)
+![Home: each staff member with Ask a question, then what needs you](images/home.jpg)
 
 Where the portal opens. A card for each staff member at the top, then these, in order.
 

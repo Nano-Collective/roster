@@ -56,7 +56,7 @@ Pick the organisation, say what the business is called and which coding agent ru
 If the organisation already runs roster, the page offers to check it out here instead, which is
 how a second person joins.
 
-![The plan: sixteen files and one private repo, listed before anything is written](images/setup-plan.jpg)
+![The plan: one private repo and the files it writes, listed before anything is created](images/setup-plan.jpg)
 
 **Show me the plan** lists every file and repo it would make; *Create it* is a separate button.
 That is the pattern everywhere in roster: the plan first, then the apply.
