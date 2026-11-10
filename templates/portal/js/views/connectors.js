@@ -102,13 +102,10 @@ function ownAgent() {
     copy.onclick = () => toClipboard(text, copy, "Copy");
     list.append(
       el("div", { className: "connrow connmcp" }, [
-        el("div", { className: "conntext" }, [
-          el("b", { textContent: label }),
-          el("code", { textContent: text }),
-          then ? el("small", { textContent: then }) : null,
-        ].filter(Boolean)),
-        copy,
-      ]),
+        el("b", { textContent: label }),
+        el("div", { className: "connline" }, [el("code", { textContent: text }), copy]),
+        then ? el("small", { textContent: then }) : null,
+      ].filter(Boolean)),
     );
   }
   return [head, el("p", { className: "sub", textContent: "Sign in with GitHub when it asks." }), list];
