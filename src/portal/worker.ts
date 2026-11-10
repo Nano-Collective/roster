@@ -20,6 +20,7 @@ import {
   signInPage,
   signOut,
   startSignIn,
+  useIcon,
 } from "./session.js";
 
 /**
@@ -36,6 +37,8 @@ interface Env {
   ROSTER_ORG: string;
   /** The org's name as people say it ("Pip" for playpip), for the sign-in page. */
   ROSTER_NAME?: string;
+  /** Where the deploy put the org's own icon among the assets, if its ops repo has one. */
+  ROSTER_ICON?: string;
   /** Its ops repository, if it is not `roster-ops`. */
   ROSTER_OPS_REPO?: string;
   GITHUB_CLIENT_ID: string;
@@ -67,6 +70,7 @@ function boot(env: Env, origin: string): Portal {
   useFrameworkRoot(FRAMEWORK);
   const kv = cloudflareKV(env.CACHE);
   useRecordStore(recordStore(kv));
+  useIcon(Boolean(env.ROSTER_ICON));
   portal = createPortal({
     org: env.ROSTER_ORG,
     opsName: env.ROSTER_OPS_REPO ?? "roster-ops",
@@ -146,6 +150,12 @@ export default {
     // A run collecting a signed-in connector's token. It has no session: it proves which
     // workflow it is with GitHub's own OIDC token instead.
     if (path === "/connectors/token") return connectorToken(req, url, p);
+
+    // The org's icon is on the sign-in page, so it is served to anyone, as the page is.
+    if (path === "/icon") {
+      if (!env.ROSTER_ICON) return new Response("not found", { status: 404 });
+      return env.ASSETS.fetch(new Request(new URL(env.ROSTER_ICON, url)));
+    }
 
     // The page's own files carry nothing about the org, and the sign-in page needs none of them.
     if (path.startsWith("/assets/")) return env.ASSETS.fetch(req);

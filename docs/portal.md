@@ -19,6 +19,11 @@ It can also be hosted, on your own URL behind Sign in with GitHub: see [hosting]
 
 ## The sidebar
 
+**Your own icon.** Put a square image in the ops repo at `portal/icon.png` (or `.svg`, `.jpg`,
+`.webp`) and it replaces roster's mark in the sidebar and the browser tab, and on a hosted
+portal's sign-in page. Locally it shows on the next reload; a hosted portal picks it up when it
+redeploys, which a push to `portal/` does.
+
 **Search everything** with ⌘K (Ctrl+K off a Mac), from anywhere, or the Search field at the
 top of the sidebar, which opens the same dialog. It searches as you type, across:
 

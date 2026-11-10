@@ -1,12 +1,22 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { commitAndPush } from "../lib/commit.js";
 import { findWorkspace, loadComposer, readOrg } from "../lib/workspace.js";
+import { orgIcon } from "../portal/assets.js";
 import { readSecret } from "./credential.js";
 
 export const deployHelp = `
@@ -74,12 +84,14 @@ export async function deployCommand(argv: string[]): Promise<number> {
   // Added to configs written before it existed, so the sign-in page says "Pip", not "playpip".
   if (!config.vars.ROSTER_NAME) config.vars.ROSTER_NAME = String(org.name ?? org.org);
   const domain = domainOf(config);
+  const icon = orgIcon(ws.opsDir);
 
   process.stdout.write(
     `\n  roster portal deploy — ${org.name ?? org.org}\n\n` +
       `    serves      https://${domain}, on the Worker "${config.name}"\n` +
       (config.account_id ? `    account     ${config.account_id}\n` : "") +
       `    signs in    the humans in org.yaml, with GitHub\n` +
+      (icon ? `    icon        ${ws.opsName}/${icon.rel}\n` : "") +
       (exists ? "" : `    writes      ${ws.opsName}/${CONFIG} and ${ws.opsName}/${WORKFLOW}\n`) +
       (config.vars.GITHUB_CLIENT_ID
         ? ""
@@ -124,6 +136,16 @@ export async function deployCommand(argv: string[]): Promise<number> {
       main: bundle.main,
       assets: { ...config.assets, directory: bundle.assets },
     };
+    /* The org's icon goes in beside the page's files, so the sign-in page can show it before
+       anyone has a token to read the ops repo with. Derived on every deploy, not committed. */
+    if (icon) {
+      const assets = join(tmp, "assets");
+      cpSync(bundle.assets, assets, { recursive: true });
+      const served = `/org-icon${extname(icon.rel)}`;
+      copyFileSync(icon.path, join(assets, served));
+      full.assets = { ...config.assets, directory: assets };
+      full.vars = { ...config.vars, ROSTER_ICON: served };
+    }
     writeFileSync(join(tmp, "wrangler.json"), JSON.stringify(full, null, 2));
 
     /* Somewhere a sign-in outlives the cache. Found by its name, or created, on any deploy

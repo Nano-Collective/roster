@@ -253,6 +253,15 @@ export function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
+/** Whether this portal has the org's own icon at /icon, set once by the Worker as it boots. */
+let hasIcon = false;
+export function useIcon(on: boolean) {
+  hasIcon = on;
+}
+
+const ROSTER_FAVICON =
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cstyle%3Erect%7Bfill:%231b1b1b%7Dpath%7Bstroke:%23fff%7D%40media%20%28prefers-color-scheme:dark%29%7Brect%7Bfill:%23f1f1f1%7Dpath%7Bstroke:%23111%7D%7D%3C/style%3E%3Crect%20width='32'%20height='32'%20rx='8'/%3E%3Cpath%20d='M11%2023V10h6a4%204%200%200%201%200%208h-6m6%200%204.5%205'%20fill='none'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E";
+
 /**
  * A page of its own, in the portal's own stylesheet, so signing in looks like the thing you are
  * signing in to. `body` is markup: callers escape what they put in it.
@@ -263,13 +272,13 @@ export function page(status: number, title: string, body: string): Response {
     `<!doctype html><html lang="en" data-astryx-theme="neutral"><meta charset="utf-8">` +
       `<meta name="viewport" content="width=device-width,initial-scale=1">` +
       `<title>${esc(title)} · roster</title>` +
-      `<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cstyle%3Erect%7Bfill:%231b1b1b%7Dpath%7Bstroke:%23fff%7D%40media%20%28prefers-color-scheme:dark%29%7Brect%7Bfill:%23f1f1f1%7Dpath%7Bstroke:%23111%7D%7D%3C/style%3E%3Crect%20width='32'%20height='32'%20rx='8'/%3E%3Cpath%20d='M11%2023V10h6a4%204%200%200%201%200%208h-6m6%200%204.5%205'%20fill='none'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">` +
+      `<link rel="icon" href="${hasIcon ? "/icon" : ROSTER_FAVICON}">` +
       `<link rel="stylesheet" href="/assets/css/astryx.css">` +
       `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">` +
       `<link rel="stylesheet" href="/assets/css/base.css">` +
       `<style>${PAGE_CSS}</style>` +
       `<main class="gate"><div class="card">` +
-      `<div class="who"><span class="mark"></span><div><b>${esc(title)}</b><small>roster</small></div></div>` +
+      `<div class="who">${hasIcon ? '<img class="mark" src="/icon" alt="">' : '<span class="mark"></span>'}<div><b>${esc(title)}</b><small>roster</small></div></div>` +
       `${body}</div></main></html>`,
     {
       status,
@@ -285,7 +294,8 @@ body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-fon
 .card{width:100%;max-width:360px;box-sizing:border-box;padding:28px;border-radius:var(--r-lg);
   background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-lg)}
 .who{display:flex;align-items:center;gap:12px;margin-bottom:22px}
-.who .mark{width:36px;height:36px;border-radius:10px;background:var(--accent-fill);flex:none}
+.who .mark{width:36px;height:36px;border-radius:10px;background:var(--accent-fill);flex:none;
+  object-fit:cover}
 .who b{display:block;font-size:17px;font-weight:600;letter-spacing:-.02em}
 .who small{display:block;color:var(--ink-faint);font-size:12.5px}
 .card p{margin:0 0 18px;color:var(--ink-dim)}

@@ -29,7 +29,7 @@ import {
 } from "../lib/setup.js";
 import { syncRepos } from "../lib/sync.js";
 import { loadComposer, readOrg, tryWorkspace, type Workspace } from "../lib/workspace.js";
-import { portalAsset, portalIndex } from "../portal/assets.js";
+import { orgIcon, portalAsset, portalIndex } from "../portal/assets.js";
 import {
   type Actor,
   createPortal,
@@ -582,6 +582,18 @@ export async function portalCommand(argv: string[]): Promise<number> {
           "cache-control": "no-store",
         });
         res.end(portalIndex());
+        return;
+      }
+
+      /* The org's own icon, from the workspace, read per request so a new one shows on reload. */
+      if (url.pathname === "/icon") {
+        const icon = ws ? orgIcon(ws.opsDir) : null;
+        if (!icon) {
+          res.writeHead(404).end("not found");
+          return;
+        }
+        res.writeHead(200, { "content-type": icon.type, "cache-control": "no-store" });
+        res.end(readFileSync(icon.path));
         return;
       }
 

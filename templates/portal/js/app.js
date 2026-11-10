@@ -78,6 +78,7 @@ const NAV = [
 
 export async function boot() {
   initTheme();
+  initIcon();
 
   /* Bound before the first request rather than after it. The sidebar is markup, so it is on
      screen and clickable while /api/org is still building the export, and a click in that
@@ -488,6 +489,18 @@ function applyTheme(name) {
       el("span", { className: "n", textContent: name }),
     );
   }
+}
+
+/* The org's own icon, if its ops repo has one at portal/icon.*: in the sidebar and the tab. */
+function initIcon() {
+  const img = document.createElement("img");
+  img.className = "mark";
+  img.alt = "";
+  img.onload = () => {
+    document.querySelector(".brand .mark")?.replaceWith(img);
+    document.querySelector('link[rel="icon"]')?.setAttribute("href", "/icon");
+  };
+  img.src = "/icon";
 }
 
 function initTheme() {

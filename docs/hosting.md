@@ -105,6 +105,9 @@ and commits two files to the ops repo:
 - `portal/wrangler.jsonc`: the Worker's name, the domain, the org. Nothing secret.
 - `.github/workflows/portal.yaml`: redeploys it.
 
+To show your own icon on the sign-in page and in the portal, commit a square image as
+`portal/icon.png` (or `.svg`, `.jpg`, `.webp`). The push redeploys the portal with it.
+
 ## Keeping it up to date
 
 The workflow redeploys the portal when its config changes, every morning, and when you run it

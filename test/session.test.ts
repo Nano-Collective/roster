@@ -7,7 +7,9 @@ import {
   open,
   SESSION_COOKIE,
   seal,
+  signInPage,
   startSignIn,
+  useIcon,
 } from "../src/portal/session.js";
 
 /**
@@ -104,4 +106,19 @@ test("somebody who is not one of the humans is turned away, and their token revo
   assert.ok(
     calls.some((c) => c.startsWith("DELETE https://api.github.com/applications/client/token")),
   );
+});
+
+test("the sign-in page shows the org's own icon when it has one, and roster's mark when not", async () => {
+  try {
+    useIcon(true);
+    const own = await signInPage("Pip").text();
+    assert.match(own, /<img class="mark" src="\/icon"/);
+    assert.match(own, /<link rel="icon" href="\/icon">/);
+    useIcon(false);
+    const plain = await signInPage("Pip").text();
+    assert.doesNotMatch(plain, /\/icon"/);
+    assert.match(plain, /<span class="mark"><\/span>/);
+  } finally {
+    useIcon(false);
+  }
 });

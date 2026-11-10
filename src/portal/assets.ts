@@ -40,6 +40,8 @@ const ASSET_MIME: Record<string, string> = {
   ".mjs": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".webp": "image/webp",
   ".woff2": "font/woff2",
 };
 
@@ -58,4 +60,24 @@ export function portalAsset(rel: string): { body: Buffer; type: string } | null 
   if (!type) return null;
   if (!existsSync(full) || statSync(full).isDirectory()) return null;
   return { body: readFileSync(full), type };
+}
+
+/** Where an org puts its own icon, in its ops repo: the first of these that is there. */
+export const ICON_FILES = [
+  "portal/icon.svg",
+  "portal/icon.png",
+  "portal/icon.jpg",
+  "portal/icon.webp",
+];
+
+/**
+ * The org's own icon, in place of roster's mark on the sign-in page, in the sidebar and in the
+ * tab. Null when the ops repo has none.
+ */
+export function orgIcon(opsDir: string): { path: string; rel: string; type: string } | null {
+  for (const rel of ICON_FILES) {
+    const path = join(opsDir, rel);
+    if (existsSync(path)) return { path, rel, type: ASSET_MIME[extname(rel)]! };
+  }
+  return null;
 }
