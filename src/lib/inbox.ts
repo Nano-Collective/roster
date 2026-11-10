@@ -112,8 +112,12 @@ export interface InboxItem {
   /** When it was closed, and by whom. Home's "Closed today" is staff closing things. */
   closedAt?: string;
   closedBy?: string;
-  /** The newest reply, from the list: who has the last word is what a request's state is. */
-  lastComment?: Comment;
+  /**
+   * The newest reply, from the list: who has the last word is what a request's state is. Its
+   * body is cut short, so the logins it @mentions are read from all of it: Home puts an ask
+   * on whoever it names, and a staff member's ask often names them at the end.
+   */
+  lastComment?: Comment & { mentions?: string[] };
   /**
    * A decision's default, from the line the prompts ask for: "If I hear nothing by
    * <YYYY-MM-DD>, I'll <do X>." Home shows it, with the days left.
@@ -375,10 +379,19 @@ function extras(n: any): Partial<InboxItem> {
   if (closer) out.closedBy = closer;
   const last = n.last?.nodes?.[0];
   if (last) {
+    const body = String(last.body ?? "");
     out.lastComment = {
       author: last.author?.login ?? "",
       createdAt: last.createdAt,
-      body: String(last.body ?? "").slice(0, 800),
+      body: body.slice(0, 800),
+      // As GitHub links them: an @login in prose, not an email address or a path.
+      mentions: [
+        ...new Set(
+          [...body.matchAll(/(?<![\w@/.-])@([a-z\d](?:[a-z\d-]{0,38}))/gi)].map((m) =>
+            String(m[1]).toLowerCase(),
+          ),
+        ),
+      ],
     };
   }
   const due = dueOf(n.body ?? "");

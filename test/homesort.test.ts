@@ -207,3 +207,63 @@ test("an ask you have answered waits on them, and comes back when they reply", (
   );
   assert.equal(back.needs.length, 1, "they replied, so it is on you again");
 });
+
+test("a person @mentioned by the newest word on an issue has it in their Needs you", () => {
+  const people = [
+    { github: "ada", marker: "ada" },
+    { github: "ben", marker: "ben" },
+  ];
+  const place = (it: Record<string, unknown>) => {
+    const h = sortHome([item(it)], staff, people, [], NOW);
+    const needs = h.needs.map((e: any) => [...e.for].sort());
+    return { needs, requests: h.requests.length, staff: h.staff.length };
+  };
+
+  // A staff member pulls somebody else in on an ask that is already the first person's.
+  assert.deepEqual(
+    place({
+      assignees: ["ada"],
+      lastComment: { author: "acme-ops", body: "@ben this costs money, so it needs your OK too." },
+    }).needs,
+    [["ada", "ben"]],
+  );
+
+  // Mentioned and nothing else: no assignee, no label. It used to sit with the staff's own work.
+  assert.deepEqual(
+    place({ lastComment: { author: "acme-ops", body: "Need your OK, @Ben." } }).needs,
+    [["ben"]],
+  );
+  assert.deepEqual(
+    place({ body: "@ben which plan?" }).needs,
+    [["ben"]],
+    "from the body, with no reply yet",
+  );
+
+  // Staff answering ada's own request name her every time: that is an answer, not a new ask.
+  const answered = place({
+    author: "ada",
+    lastComment: { author: "acme-ops", body: "@ada done." },
+  });
+  assert.deepEqual([answered.needs, answered.requests], [[], 1]);
+
+  // Ada passes it on: it is on Ben now, and off her.
+  assert.deepEqual(
+    place({
+      assignees: ["ada"],
+      lastComment: { author: "ada", body: "@ben can you sign this off?" },
+    }).needs,
+    [["ben"]],
+  );
+
+  // The server reads the whole comment; the body that reaches the page is cut short.
+  assert.deepEqual(
+    place({ lastComment: { author: "acme-ops", body: "a long report…", mentions: ["ben"] } }).needs,
+    [["ben"]],
+  );
+
+  // Not a mention: an email address, a login nobody here has, a staff handle.
+  const quiet = place({
+    lastComment: { author: "acme-ops", body: "write to ben@acme.test, ask @stranger, tell @ops" },
+  });
+  assert.deepEqual([quiet.needs, quiet.staff], [[], 1]);
+});

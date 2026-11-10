@@ -107,7 +107,10 @@ Where the portal opens. A card for each staff member at the top, then these, in 
   their `@handle`, to bring it up to date now, which takes a few minutes. It comes after Unread
   and Your requests.
 - **Needs you.** Every ask a staff member has put on you, and every pull request ready to
-  merge, oldest first. Each card has one action on its right:
+  merge, oldest first. An ask is on you when it is assigned to you, carries your label, or its
+  newest comment @mentions you: a staff member who asks for your OK by name puts it here, not
+  only in your GitHub notifications. Mentioning the person whose own request it is does not
+  count, and whoever wrote the newest comment has passed it on. Each card has one action on its right:
   - a `decision` has **Reply**, and **Go with the default** when it carries one. The default
     and its date are shown, and turn amber once the date has passed.
   - a `review` has **Approve**.

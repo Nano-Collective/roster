@@ -20,6 +20,30 @@ const CHORE_WORDS = ["setup", "submit", "data", "blocked"];
 
 const lower = (s) => String(s ?? "").toLowerCase();
 
+/** An @login in prose, not in an email address or a path. As GitHub links them. */
+const MENTION = /(?<![\w@/.-])@([a-z\d](?:[a-z\d-]{0,38}))/gi;
+
+/** Who wrote the newest word on an item: its last comment, or the issue itself. */
+const writerOf = (item) => lower(item.lastComment ? item.lastComment.author : item.author);
+
+/**
+ * The people the newest word on an item asks for something, by login: whoever it @mentions,
+ * from the last comment, or from the body when nobody has replied. A mention is how a staff
+ * member pulls somebody in ("@ben this costs money, so it needs your OK too"), and it used to
+ * reach their GitHub notifications and nowhere on Home.
+ *
+ * Never the writer, and never the item's own author: staff mention the person whose request
+ * they are answering on every reply, and that is an answer to a request, not a new ask.
+ */
+export function askedIn(item, people) {
+  const last = item.lastComment;
+  const said = last
+    ? (last.mentions ?? [...String(last.body ?? "").matchAll(MENTION)].map((m) => m[1]))
+    : [...String(item.body ?? "").matchAll(MENTION)].map((m) => m[1]);
+  const skip = new Set([writerOf(item), lower(item.author)]);
+  return [...new Set(said.map(lower))].filter((l) => people.has(l) && !skip.has(l));
+}
+
 
 /**
  * @param items   the inbox list: open and recently closed issues and pull requests
@@ -106,9 +130,11 @@ export function placeOf(item, owner, people, markers) {
   }
 
   const labels = (item.labels ?? []).map(lower);
+  const asked = askedIn(item, people);
   const onPerson =
     (item.assignees ?? []).some((a) => people.has(lower(a))) ||
-    labels.some((l) => markers.has(l));
+    labels.some((l) => markers.has(l)) ||
+    asked.length > 0;
   const byPerson = people.has(lower(item.author));
   /* You had the last word on an ask: approved it, answered it, said go with the default. It is
      waiting on them now, so it is one of your requests until they reply or close it. If they
@@ -119,11 +145,14 @@ export function placeOf(item, owner, people, markers) {
     if (!onPerson || byPerson) {
       return { place: "elsewhere", why: item.role === "product" ? "contributor" : "other" };
     }
+    if (asked.length) return { place: "needs", kind: kindOf(labels) };
     return youAnswered ? { place: "requests" } : { place: "needs", kind: kindOf(labels) };
   }
   if (item.number === owner.statusIssue || labels.includes("keep-open")) {
     return { place: "staff", why: "status" };
   }
+  // Somebody was asked by the newest word on it, whoever started it: it is on them now.
+  if (asked.length) return { place: "needs", kind: kindOf(labels) };
   if (byPerson) return { place: "requests" };
   if (onPerson) return youAnswered ? { place: "requests" } : { place: "needs", kind: kindOf(labels) };
   return {
@@ -133,14 +162,24 @@ export function placeOf(item, owner, people, markers) {
 }
 
 /**
- * The people an ask is on, by login: whoever it is assigned to, and whoever's label it carries.
- * Empty means nobody in particular, such as a pull request nobody was asked to look at.
+ * The people an ask is on, by login: whoever it is assigned to, whoever's label it carries, and
+ * whoever its newest word @mentions. Not whoever wrote that word, who has passed it on. Empty
+ * means nobody in particular, such as a pull request nobody was asked to look at.
  */
 export function whoFor(item, humans) {
   const labels = new Set((item.labels ?? []).map(lower));
   const assigned = new Set((item.assignees ?? []).map(lower));
+  const asked = new Set(askedIn(item, new Set(humans.map((h) => lower(h.github)).filter(Boolean))));
+  // Whoever had the last word has passed it on: an ask they answered is not on them any more.
+  const writer = writerOf(item);
   return humans
-    .filter((h) => (h.github && assigned.has(lower(h.github))) || (h.marker && labels.has(lower(h.marker))))
+    .filter(
+      (h) =>
+        (h.github && assigned.has(lower(h.github))) ||
+        (h.marker && labels.has(lower(h.marker))) ||
+        (h.github && asked.has(lower(h.github))),
+    )
+    .filter((h) => !item.lastComment || lower(h.github) !== writer)
     .map((h) => h.github);
 }
 
