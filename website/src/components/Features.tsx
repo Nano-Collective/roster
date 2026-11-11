@@ -75,12 +75,12 @@ function Doctor() {
 }
 
 const news: [string, string][] = [
+  ["Run it from Claude", "The hosted portal is an MCP server: read the brief, reply, review and merge from Claude, Claude Code or Codex."],
   ["Set up from your coding agent", "Paste set up roster.nanocollective.org/SKILL.md into Claude Code or Codex and it walks you through."],
   ["Routines", "More times each staff member wakes, each with its own job, set in the portal."],
   ["Runs and cost", "Every run in the portal: outcome, duration, cost where known, and a budget warning."],
   ["Alerts that survive", "A run or any workflow failing in silence still reaches a person."],
   ["Shared priorities", "org/priorities.md, read by every staff member, named in every pull request."],
-  ["An optional review gate", "Turn it on and GitHub requires your review before anything merges."],
 ];
 
 export function Features() {

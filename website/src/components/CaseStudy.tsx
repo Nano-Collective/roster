@@ -6,7 +6,7 @@ import { Section, SectionHead, Soft } from "./Section";
 
 const stats = [
   { n: lifetime.profiles.toLocaleString("en-GB"), l: "profiles created" },
-  { n: "196", l: "pull requests from the staff" },
+  { n: "220", l: "pull requests from the staff" },
   { n: "£0", l: "spent on marketing" },
 ];
 
@@ -24,7 +24,7 @@ export function CaseStudy() {
               label="In production"
               title={
                 <>
-                  Pip, fourteen weeks in. <Soft>Run by a Roster CTO and CMO.</Soft>
+                  Pip, sixteen weeks in. <Soft>Run by a Roster CTO and CMO.</Soft>
                 </>
               }
               lede={

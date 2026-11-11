@@ -11,7 +11,7 @@ export const readings = [
   { day: 14, date: "2 Aug", week: 25, total: 50, note: "" },
   { day: 21, date: "9 Aug", week: 20, total: 70, note: "The staff's first pull requests merge" },
   { day: 28, date: "16 Aug", week: 25, total: 95, note: "Four weeks at about two dozen" },
-  { day: 35, date: "23 Aug", week: 91, total: 186, note: "The best week yet" },
+  { day: 35, date: "23 Aug", week: 91, total: 186, note: "The first big week" },
   { day: 42, date: "30 Aug", week: 65, total: 251, note: "" },
   { day: 49, date: "6 Sep", week: 87, total: 338, note: "" },
   { day: 56, date: "13 Sep", week: 73, total: 411, note: "" },
@@ -21,7 +21,9 @@ export const readings = [
   { day: 84, date: "11 Oct", week: 60, total: 676, note: "Multiplayer goes live" },
   { day: 91, date: "18 Oct", week: 101, total: 777, note: "" },
   { day: 98, date: "25 Oct", week: 118, total: 895, note: "Slow play and daily rewards ship" },
+  { day: 105, date: "1 Nov", week: 164, total: 1059, note: "The best week yet" },
+  { day: 112, date: "8 Nov", week: 114, total: 1173, note: "The Pip Rating and its leaderboard go live" },
 ] as const;
 
 /** Since launch, from Umami's own lifetime read (data/series/totals.json). */
-export const lifetime = { views: 28930, visitors: 2744, profiles: 895, firstHands: 2152 };
+export const lifetime = { views: 37551, visitors: 3615, profiles: 1173, firstHands: 2776 };

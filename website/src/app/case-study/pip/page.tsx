@@ -8,9 +8,9 @@ import { lifetime } from "@/components/pipReadings";
 import { Reveal } from "@/components/Reveal";
 import { Section, SectionHead, Soft } from "@/components/Section";
 
-const title = "Pip, run by Roster — 895 profiles in fourteen weeks";
+const title = "Pip, run by Roster — 1,173 profiles in sixteen weeks";
 const description =
-  "Roster agents have run Pip, a free poker web app, with zero budget, and everything is built by them. What happened in the first fourteen weeks.";
+  "Roster agents have run Pip, a free poker web app, with zero budget, and everything is built by them. What happened in the first sixteen weeks.";
 
 export const metadata: Metadata = {
   title,
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 const PIP = "https://playpip.io";
 const PIP_REPO = "https://github.com/playpip/pip-web";
-const PRS = 196;
+const PRS = 220;
 const link = "text-fg underline decoration-line-2 underline-offset-4 hover:decoration-fg";
 
 const tiles = [
@@ -134,14 +134,14 @@ export default function PipCaseStudy() {
               ))}
             </div>
             <p className="mt-4 text-[13px] text-fg-3">
-              To 25 October 2026. {lifetime.views.toLocaleString("en-GB")} page views from{" "}
+              To 8 November 2026. {lifetime.views.toLocaleString("en-GB")} page views from{" "}
               {lifetime.visitors.toLocaleString("en-GB")} visitors since launch.
             </p>
           </Section>
 
           <Section>
             <SectionHead
-              label="Fourteen weeks"
+              label="Sixteen weeks"
               title={
                 <>
                   Launch to multiplayer. <Soft>Shipped by two AI staff.</Soft>
@@ -205,7 +205,7 @@ export default function PipCaseStudy() {
                     Everything built by Roster. <Soft>Every change read before it merged.</Soft>
                   </>
                 }
-                lede={`${PRS} pull requests since August, from v1.0 to v1.33, a membership on sale, multiplayer and slow play. One person oversees it, reading what the staff hand off and merging it.`}
+                lede={`${PRS} pull requests since August, from v1.0 to v1.47, a membership on sale, multiplayer, slow play and the Pip Rating. One person oversees it, reading what the staff hand off and merging it.`}
               />
               <PipCards
                 width={96}

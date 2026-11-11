@@ -4,6 +4,7 @@ import { CaseStudy } from "@/components/CaseStudy";
 import { Commands } from "@/components/Commands";
 import { Day } from "@/components/Day";
 import { Features } from "@/components/Features";
+import { FromYourAgent } from "@/components/FromYourAgent";
 import { ForYou } from "@/components/ForYou";
 import { FinalCTA, Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
@@ -26,6 +27,7 @@ export default function Home() {
         <ForYou />
         <Work />
         <Showcase />
+        <FromYourAgent />
         <Features />
         <AgentsDetail />
         <Commands />
