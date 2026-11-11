@@ -170,7 +170,9 @@ access token lasts an hour and a refresh token thirty days. Each connection sign
 separately, so signing out of the portal does not disconnect Claude; revoking the OAuth App on
 GitHub disconnects both, and rotating `SESSION_KEY` disconnects every connector. A code is not
 single use, since there is no store to remember it in, but it lasts five minutes and is useless
-without the PKCE verifier only the client holds. The tools cannot merge, approve, hire or change
+without the PKCE verifier only the client holds. The tools can approve and merge, which the
+person's own token could do on GitHub anyway; the merge tool is marked destructive, so a client
+asks before calling it, and takes the person's words telling it to. They cannot hire or change
 the org.
 
 **The OAuth scopes.** `repo`, `notifications` and `workflow`. A GitHub App would be narrower,

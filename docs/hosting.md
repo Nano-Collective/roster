@@ -71,6 +71,10 @@ CMO to draft this week's post". The tools:
 | `run` | Starts a staff member's session now, or one of their routines |
 | `runs` | Recent runs: how each went, how long, what it cost, and its log |
 | `read_brain` | `STATE.md`, `CHARTER.md`, `memory/INDEX.md`, `log/decisions.md` or `staff.yaml` |
+| `read_pr` | A pull request to review: checks, conflicts, review state, commits and the diff |
+| `approve` | An approving review, as you |
+| `merge` | Merges a pull request, only when you have told it to |
+| `wait` | Waits up to ten minutes for a staff member's reply on a thread, or for their run to finish |
 
 The Connectors screen has the line to paste for Claude Code, Codex and Claude, under **Connect
 your own agent**. From Claude Code:
@@ -82,8 +86,13 @@ claude mcp add --transport http roster-acme https://roster.acme.com/mcp
 then `/mcp` to sign in. With more than one Roster, give each its own name (`roster-acme`,
 `roster-globex`): an agent keeps each server's tools apart by that name.
 
-It cannot merge, approve, hire, or change the org: those stay on Home, where you see the diff
-or the plan first. Everything it posts is posted as you.
+So with half an hour spare you can work through the brief with your agent: answer the asks,
+read and merge the pull requests, ask for the next thing and wait for the answer, without
+waiting for the daily run.
+
+It merges only when you tell it to: the tool asks for your words, and Claude Code asks you
+before the call. It cannot hire, retire or change the org: those stay local. Everything it
+posts is posted as you.
 
 Nothing to set up beyond the portal itself: the connector signs in through the same OAuth App,
 on a callback under the one you registered (`/auth/callback/mcp`), which GitHub accepts.

@@ -240,8 +240,8 @@ async function callback(req: Request, url: URL, auth: AuthConfig, name: string):
     200,
     `Connect ${pending.name}`,
     `<p><b>${esc(pending.name)}</b> will act as <b>${esc(who.login)}</b> on ${esc(name)}'s Roster: ` +
-      "read the staff's reports, briefs and memory, answer their asks, and ask them to do things. " +
-      "It cannot merge, hire or change the org.</p>" +
+      "read the staff's reports, briefs and memory, answer their asks, ask them to do things, " +
+      "and approve and merge pull requests when you tell it to. It cannot hire or change the org.</p>" +
       `<form method="post" action="/oauth/approve"><button class="go" name="allow" value="1">Allow</button>` +
       `<button class="no" name="allow" value="0">Cancel</button></form>`,
   );

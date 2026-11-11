@@ -3,9 +3,18 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import type { InboxItem } from "../src/lib/inbox.js";
 import { type Actor, createPortal } from "../src/portal/handler.js";
 import { memoryKV } from "../src/portal/kv.js";
-import { briefText, handleMcp, listText, runsText, TOOLS } from "../src/portal/mcp.js";
+import {
+  briefText,
+  handleMcp,
+  listText,
+  prText,
+  repliesTo,
+  runsText,
+  TOOLS,
+} from "../src/portal/mcp.js";
 import { bearerOf, handleOAuth, redirectAllowed, s256 } from "../src/portal/oauth.js";
 import { type AuthConfig, open } from "../src/portal/session.js";
 import { serveRepos } from "./helpers/githubrepos.js";
@@ -253,10 +262,27 @@ test("it says what it is and lists its tools, and a notification gets no answer"
     list.result.tools.map((t: any) => t.name),
     TOOLS.map((t) => t.name),
   );
-  assert.ok(
-    !TOOLS.some((t) => /merge|hire|retire|upgrade/.test(t.name)),
-    "no merging or changing the org",
-  );
+  assert.ok(!TOOLS.some((t) => /hire|retire|upgrade/.test(t.name)), "no changing the org");
+  const merge = TOOLS.find((t) => t.name === "merge")!;
+  assert.deepEqual((merge.inputSchema as any).required, ["repo", "number", "said"]);
+  assert.equal(merge.annotations.destructiveHint, true, "a client asks before it merges");
+});
+
+test("merge without the person's words merges nothing", async () => {
+  const { call } = await setup();
+  const res = await call("tools/call", {
+    name: "merge",
+    arguments: { repo: "acme/cto", number: 3, said: "  " },
+  });
+  assert.equal(res.result.isError, true);
+  assert.match(res.result.content[0].text, /ask the person first/);
+});
+
+test("wait needs something to wait for", async () => {
+  const { call } = await setup();
+  const res = await call("tools/call", { name: "wait", arguments: {} });
+  assert.equal(res.result.isError, true);
+  assert.match(res.result.content[0].text, /thread|staff member/);
 });
 
 test("a brain file is read by handle or by role, and a stranger's name says who there is", async () => {
@@ -409,4 +435,92 @@ test("runs reads newest first, with how it went, how long and what it cost", () 
       "- CTO, 2026-11-01 07:00 UTC: daily · success · 12 min · $1.23 https://gh/run",
   );
   assert.equal(runsText([], 10), "No runs yet.");
+});
+
+const thread = (over: Partial<InboxItem> = {}): InboxItem => ({
+  repo: "acme/cto",
+  role: "brain",
+  kind: "issue",
+  number: 7,
+  title: "Ship the lobby",
+  body: "",
+  labels: [],
+  assignees: [],
+  author: "ada",
+  createdAt: "2026-11-11T09:00:00Z",
+  updatedAt: "2026-11-11T09:00:00Z",
+  url: "",
+  state: "OPEN",
+  comments: [],
+  events: [],
+  reactions: [],
+  ...over,
+});
+
+test("a wait's answer is what came after the person last spoke, even before the wait began", () => {
+  const since = "2026-11-11T10:00:00Z";
+  const c = (author: string, createdAt: string, body = "") => ({ author, createdAt, body });
+  // Opened by them, answered before the wait: still the answer.
+  assert.deepEqual(
+    repliesTo(
+      thread({ comments: [c("cto-bot", "2026-11-11T09:30:00Z", "done")] }),
+      "ada",
+      since,
+    ).map((x) => x.body),
+    ["done"],
+  );
+  // Only what follows their last comment, never their own.
+  const later = thread({
+    comments: [
+      c("cto-bot", "2026-11-11T09:10:00Z", "old"),
+      c("Ada", "2026-11-11T09:20:00Z", "and this?"),
+      c("cto-bot", "2026-11-11T09:40:00Z", "new"),
+    ],
+  });
+  assert.deepEqual(
+    repliesTo(later, "ada", since).map((x) => x.body),
+    ["new"],
+  );
+  // Somebody else's thread they have not spoken on: from when the wait began.
+  const theirs = thread({ author: "cto-bot", comments: [c("cmo-bot", "2026-11-11T09:50:00Z")] });
+  assert.equal(repliesTo(theirs, "ada", since).length, 0);
+});
+
+test("read_pr says where a pull request stands, and keeps a long diff short", () => {
+  const item = thread({
+    kind: "pr",
+    title: "Lobby",
+    author: "cto-bot",
+    body: "Adds the lobby.",
+    checks: "passing",
+    mergeable: "MERGEABLE",
+    reviewDecision: "REVIEW_REQUIRED",
+  });
+  const pr = {
+    base: "main",
+    head: "lobby",
+    additions: 3,
+    deletions: 1,
+    changedFiles: 2,
+    commits: [{ sha: "abc1234", subject: "lobby", author: "cto-bot" }],
+    files: [
+      {
+        path: "a.ts",
+        status: "modified",
+        additions: 2,
+        deletions: 1,
+        patch: "@@ -1 +1 @@\n-x\n+y",
+      },
+      { path: "big.ts", status: "added", additions: 1, deletions: 0, patch: "+".repeat(50_000) },
+    ],
+  };
+  const text = prText(item, pr);
+  assert.match(
+    text,
+    /lobby into main · open · checks passing · merges cleanly · review review required/,
+  );
+  assert.match(text, /--- a\.ts \(modified, \+2 −1\)\n@@ -1 \+1 @@/);
+  assert.match(text, /Left out[^\n]*\n- big\.ts/);
+  assert.match(prText(item, pr, "big.ts"), /\+{50000}/, "one file asked for comes in full");
+  assert.match(prText(item, pr, "nope.ts"), /No file nope\.ts[\s\S]*- a\.ts/);
 });
