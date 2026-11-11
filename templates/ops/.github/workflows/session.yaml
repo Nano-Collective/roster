@@ -407,6 +407,24 @@ jobs:
           ROSTER_CONNECTORS: ${{ steps.connectors.outputs.file }}
         run: node roster-ops/agents.mjs --staff "${{ inputs.staff }}" --ops roster-ops --brains . >> "$GITHUB_OUTPUT"
 
+      # On a pull request the action treats its working directory as the PR's checkout: it
+      # re-points `origin`, runs `git diff HEAD` and restores .claude/ and CLAUDE.md from the
+      # base branch. Here the working directory is the workspace root, which holds the checkouts
+      # but is not one, so its git calls fail and the run dies before the agent starts. An empty
+      # repo with one commit and an `origin` gives it something to work on. Every path is
+      # ignored, so the checkouts inside it never show as untracked. Nothing from the PR is at
+      # the root, so the restore has nothing to protect against.
+      - name: Give the action a repo to work in
+        if: steps.agent.outputs.kind == 'action' && (github.event.issue.pull_request || github.event.pull_request)
+        run: |
+          set -euo pipefail
+          [ -d .git ] && exit 0
+          git init --quiet
+          echo '*' >> .git/info/exclude
+          git -c user.name=roster -c user.email=roster@users.noreply.github.com \
+            commit --quiet --allow-empty -m "workspace root"
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+
       # `uses:` cannot be an expression, so an Action-based runner has to be written out
       # literally. This is the reference one; every other agent goes through the step below.
       - name: Run the session
