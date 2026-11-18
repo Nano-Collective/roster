@@ -95,7 +95,7 @@ before the call. It cannot hire, retire or change the org: those stay local. Eve
 posts is posted as you.
 
 Nothing to set up beyond the portal itself: the connector signs in through the same OAuth App,
-on a callback under the one you registered (`/auth/callback/mcp`), which GitHub accepts.
+on the same callback URL (`/auth/callback`).
 
 ## Deploying it
 

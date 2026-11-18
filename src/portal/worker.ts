@@ -127,12 +127,13 @@ export default {
     };
 
     if (path === "/auth/login") return startSignIn(url, auth);
-    if (path === "/auth/callback") return finishSignIn(req, url, auth);
 
     // Claude, or any MCP client: its own sign-in, then a bearer token rather than the cookie.
+    // First, since a connector's sign-in comes back on `/auth/callback` too.
     const name = env.ROSTER_NAME || env.ROSTER_ORG;
     const oauth = await handleOAuth(req, url, auth, name);
     if (oauth) return oauth;
+    if (path === "/auth/callback") return finishSignIn(req, url, auth);
     if (path === "/mcp") {
       const who = await bearerOf(req, env.SESSION_KEY);
       if (!who || !(await stillHuman(p, who.login, who.token))) return unauthorized(url);

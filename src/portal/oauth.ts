@@ -1,6 +1,7 @@
 import {
   type AuthConfig,
   base64url,
+  CALLBACK,
   cookie,
   esc,
   openJson,
@@ -34,7 +35,8 @@ import {
 
 const PENDING_COOKIE = "roster_mcp_pending";
 const GRANT_COOKIE = "roster_mcp_grant";
-export const MCP_CALLBACK = "/auth/callback/mcp";
+/** Starts the state of a sign-in made for a connector, so `/auth/callback` hands it here. */
+export const MCP_STATE = "mcp.";
 
 /** An hour, then the connector refreshes. The refresh token lasts as long as a session cookie. */
 const ACCESS_SECONDS = 3600;
@@ -132,7 +134,9 @@ export async function handleOAuth(
   }
   if (path === "/oauth/register") return register(req, auth);
   if (path === "/oauth/authorize") return authorize(url, auth);
-  if (path === MCP_CALLBACK) return callback(req, url, auth, name);
+  if (path === CALLBACK && url.searchParams.get("state")?.startsWith(MCP_STATE)) {
+    return callback(req, url, auth, name);
+  }
   if (path === "/oauth/approve") return approve(req, url, auth);
   if (path === "/oauth/token") return token(req, auth);
   return undefined;
@@ -208,7 +212,7 @@ async function authorize(url: URL, auth: AuthConfig): Promise<Response> {
     state: q.get("state") ?? "",
     exp: Date.now() + 600_000,
   };
-  return startSignIn(url, auth, MCP_CALLBACK, [
+  return startSignIn(url, auth, MCP_STATE, [
     setCookie(PENDING_COOKIE, await sealJson(pending, auth.sessionKey), 600),
   ]);
 }
@@ -223,7 +227,7 @@ async function pendingOf(req: Request, auth: AuthConfig): Promise<Pending | null
 async function callback(req: Request, url: URL, auth: AuthConfig, name: string): Promise<Response> {
   const pending = await pendingOf(req, auth);
   if (!pending) return page(400, "That connection timed out", "<p>Start again from Claude.</p>");
-  const who = await signedIn(req, url, auth, MCP_CALLBACK);
+  const who = await signedIn(req, url, auth);
   if (who instanceof Response) return who;
 
   const grant: Grant = { kind: "grant", ...who, exp: Date.now() + 600_000 };

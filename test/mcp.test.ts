@@ -95,13 +95,13 @@ async function connect(login = "ada", allow = true) {
   assert.equal(toGitHub?.status, 302);
   const gh = new URL(toGitHub!.headers.get("location")!);
   assert.equal(gh.host, "github.com");
-  assert.equal(gh.searchParams.get("redirect_uri"), `${ORIGIN}/auth/callback/mcp`);
+  assert.equal(gh.searchParams.get("redirect_uri"), `${ORIGIN}/auth/callback`);
   let jar = cookies(toGitHub!);
 
   const restore = stubGitHub(login);
   let consent: Response | undefined;
   try {
-    consent = await oauth(`/auth/callback/mcp?code=c&state=${gh.searchParams.get("state")}`, {
+    consent = await oauth(`/auth/callback?code=c&state=${gh.searchParams.get("state")}`, {
       headers: { cookie: jar },
     });
   } finally {

@@ -97,6 +97,9 @@ export function setCookie(name: string, value: string, maxAge: number): string {
   return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
+/** Where GitHub sends every sign-in back to: the OAuth App's callback URL, exactly. */
+export const CALLBACK = "/auth/callback";
+
 export interface AuthConfig {
   clientId: string;
   clientSecret: string;
@@ -108,20 +111,21 @@ export interface AuthConfig {
 /**
  * Off to GitHub to sign in, with a one-time state that the callback must bring back.
  *
- * `callback` is where GitHub sends them back to. GitHub accepts any path under the OAuth App's
- * callback URL, which is how connecting Claude (`/auth/callback/mcp`) gets a sign-in of its
- * own without a second App. `extra` are cookies the callback needs, set alongside the state.
+ * GitHub always sends them back to `/auth/callback`, the exact URL the OAuth App registers.
+ * Connecting Claude shares it rather than relying on GitHub accepting a path under it, which it
+ * refuses when the App's URL differs at all. `prefix` marks the state so the callback can tell
+ * the two apart, and `extra` are cookies the callback needs, set alongside the state.
  */
 export function startSignIn(
   url: URL,
   cfg: AuthConfig,
-  callback = "/auth/callback",
+  prefix = "",
   extra: string[] = [],
 ): Response {
-  const state = base64url(crypto.getRandomValues(new Uint8Array(16)));
+  const state = prefix + base64url(crypto.getRandomValues(new Uint8Array(16)));
   const to = new URL("https://github.com/login/oauth/authorize");
   to.searchParams.set("client_id", cfg.clientId);
-  to.searchParams.set("redirect_uri", `${url.origin}${callback}`);
+  to.searchParams.set("redirect_uri", `${url.origin}${CALLBACK}`);
   // `workflow` because a routine's time lives in the daily caller, under .github/workflows/,
   // and GitHub refuses any change there from a token without it.
   to.searchParams.set("scope", "repo notifications workflow");
@@ -140,7 +144,7 @@ export async function finishSignIn(
   cfg: AuthConfig,
   doFetch: typeof fetch = fetch,
 ): Promise<Response> {
-  const who = await signedIn(req, url, cfg, "/auth/callback", doFetch);
+  const who = await signedIn(req, url, cfg, doFetch);
   if (who instanceof Response) return who;
 
   const session: Session = { ...who, exp: Date.now() + SESSION_DAYS * 86_400_000 };
@@ -162,7 +166,6 @@ export async function signedIn(
   req: Request,
   url: URL,
   cfg: AuthConfig,
-  callback: string,
   doFetch: typeof fetch = fetch,
 ): Promise<{ token: string; login: string } | Response> {
   const state = url.searchParams.get("state") ?? "";
@@ -183,7 +186,7 @@ export async function signedIn(
       client_id: cfg.clientId,
       client_secret: cfg.clientSecret,
       code,
-      redirect_uri: `${url.origin}${callback}`,
+      redirect_uri: `${url.origin}${CALLBACK}`,
     }),
   });
   const grant = (await exchanged.json().catch(() => ({}))) as {
