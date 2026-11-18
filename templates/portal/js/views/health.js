@@ -8,6 +8,7 @@ import { render } from "../router.js";
 import { S, staff } from "../state.js";
 import { checklist } from "./checklist.js";
 import { amendSheet } from "./prompt.js";
+import { notReadyNote, whenKnown } from "./notready.js";
 import { runOnce } from "./runonce.js";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -86,12 +87,17 @@ export function viewHealth(m) {
   /* A workflow that has never run is unproven, and the way to prove it is to run it. Here
      because Health is where "unproven" is read; a success re-runs the checks below. */
   let doctor = null;
+  /* Only once a run could work. With the App or the credential missing, it started a run that
+     could only fail; until then the note says what is left instead. */
   m.append(
-    runOnce({
-      staff: s.handle,
-      name: s.name,
-      onDone: (ok) => ok && doctor && checklist(doctor.body, { shell: doctor }),
-    }),
+    whenKnown(s, () =>
+      notReadyNote(s) ??
+      runOnce({
+        staff: s.handle,
+        name: s.name,
+        onDone: (ok) => ok && doctor && checklist(doctor.body, { shell: doctor }),
+      }),
+    ),
   );
 
   doctor = section(m, "The org, from roster doctor", "doctor");

@@ -12,6 +12,7 @@
  */
 
 import { el, esc } from "./dom.js";
+import { canRun } from "./readiness.js";
 import { humansOf, S } from "./state.js";
 
 /**
@@ -37,7 +38,7 @@ export function mentionable() {
     out.push({
       text: at,
       label: s.name ?? s.handle,
-      note: "wakes them, usually within a minute",
+      note: canRun(s.handle) ? "wakes them, usually within a minute" : "not set up yet, so nothing wakes them",
       kind: "staff",
       terms: [at.replace(/^@/, ""), s.handle, s.name ?? ""],
     });

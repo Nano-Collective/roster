@@ -404,6 +404,9 @@ function render() {
      export and a portal can go stale under a page that is already open. */
   const missing = NEEDS.filter((k) => S.data?.[k] === undefined);
   if (missing.length) return stale(missing);
+  /* A staff member's screen with nobody hired threw on the missing staff member and left the
+     page blank. A hash like #/-/brain still lands here, so it gets Home, which says what to do. */
+  if (!S.data.staff.length && !ORG_WIDE.has(S.view)) S.view = "home";
 
   // A refresh can add or remove a staff member, and the sidebar is built once.
   const roster = S.data.staff.map((s) => s.handle).join(" ");

@@ -10,6 +10,8 @@ import { askText, sheet } from "../dialog.js";
 import { ago, el, skeleton } from "../dom.js";
 import { daysUntil, isFor, sortHome } from "../homesort.js";
 import { mdlite } from "../md.js";
+import { checkAll, notReady, ORG_STEPS, stepCommand } from "../readiness.js";
+import { commandLine } from "./notready.js";
 import { parseReport } from "../report.js";
 import { icon, iconHTML, staffIcon } from "../icons.js";
 import { ensureInbox, stampCounts } from "../refresh.js";
@@ -56,6 +58,8 @@ export function viewHome(m) {
 
   const page = el("div", { className: "home" });
   page.append(team(staff));
+  const unset = setupLeft(staff);
+  if (unset) page.append(unset);
 
   /* With more than one person, each sees what is on them, plus anything on nobody in
      particular. Everyone's is one click away, so nothing is hidden for good. */
@@ -114,7 +118,12 @@ const STATUS_TONE = { "on track": "ok", "needs you": "warm", stuck: "hot", block
  * open under it. Their status issue is rewritten by every run, so this is always the latest.
  */
 function reportRow(s, reports) {
-  const r = reports.find((x) => x.staff.handle === s.handle);
+  /* Before a first run the status issue holds the scaffold hire wrote, which read as a report
+     from 36 minutes ago. And asking for one wakes somebody who cannot run yet. */
+  const left = S.readiness?.[s.handle] ?? [];
+  const neverRan = left.includes("run once");
+  const unready = left.some((x) => x !== "run once");
+  const r = neverRan ? null : reports.find((x) => x.staff.handle === s.handle);
   const item = r?.item ?? { repo: s.brain, number: s.statusIssue, kind: "issue" };
   const note = el("span", { className: "meta" });
   const ask = el("button", { className: "ghbtn sm", textContent: "Ask for an update" });
@@ -160,7 +169,10 @@ function reportRow(s, reports) {
   }
   head.append(
     el("span", { className: "meta homereportwhen" }, [
-      document.createTextNode((r ? "Updated " + ago(r.at) : "No report yet") + " · "),
+      document.createTextNode(
+        (r ? "Updated " + ago(r.at) : neverRan ? "No report yet: the first comes with their first run" : "No report yet") +
+          " · ",
+      ),
       issue,
     ]),
   );
@@ -174,7 +186,7 @@ function reportRow(s, reports) {
     };
     acts.append(more);
   }
-  acts.append(ask);
+  if (!unready) acts.append(ask);
   head.append(acts);
   row.append(head);
 
@@ -523,6 +535,15 @@ function team(staff) {
     } else if (last) {
       line = `Last finished ${ago(last.updatedAt)}`;
     }
+    /* Somebody who cannot run yet looked exactly like somebody free. A run in progress, the
+       first one included, still says what it is doing. */
+    const left = S.readiness?.[s.handle] ?? [];
+    const unready = left.length > 0 && !busy && !queued;
+    if (unready) {
+      // The card is narrow; the steps themselves are in the panel under it.
+      word = "Not set up yet";
+      line = left.length === 1 ? "One step left: " + left[0] : `${left.length} steps left, below`;
+    }
     // A run takes about a minute to start, and until then the card would say nothing happened.
     if (!busy && !queued && Date.now() - (askedAt[s.handle] ?? 0) < 120_000) {
       line = "Sent. Starts in about a minute";
@@ -551,7 +572,8 @@ function team(staff) {
         el("a", { className: "orblog", href: log, target: "_blank", rel: "noopener", textContent: "View log" }),
       );
     }
-    if (s.brain) {
+    // Asking wakes them, which proves nothing until the rest is done. A first run is fine.
+    if (s.brain && !(unready && left.some((x) => x !== "run once"))) {
       const ask = el("button", { className: "ghbtn orbask", textContent: "Ask a question" });
       ask.onclick = () => askStaff(s);
       card.append(el("span", { className: "orbgap" }), ask);
@@ -570,6 +592,61 @@ function team(staff) {
     }
     box.append(card);
   });
+  return box;
+}
+
+/* ------------------------------- setup left ----------------------------- */
+
+let readinessAsked = false;
+
+/**
+ * What is left of setting up, at the top of Home. Home said a staff member who could not run
+ * was "Free" with a button to ask them something, and nothing on it said setup was unfinished.
+ * Hosted, the steps are commands, since that is the only place they can be done.
+ */
+function setupLeft(staff) {
+  if (staff.some((s) => !S.readiness?.[s.handle]) && !readinessAsked) {
+    readinessAsked = true;
+    checkAll(() => {
+      readinessAsked = false;
+      if (S.view === "home") render();
+    });
+  }
+  const steps = [];
+  for (const id of S.data?.unfinished ?? []) if (ORG_STEPS[id]) steps.push(ORG_STEPS[id]);
+  for (const s of notReady()) {
+    for (const what of S.readiness[s.handle]) {
+      steps.push([`${s.name}: ${what}`, stepCommand(what, s.handle)]);
+    }
+  }
+  if (!steps.length) return null;
+
+  const box = el("div", { className: "card homesetup" });
+  box.append(
+    el("b", { textContent: "Setup is not finished" }),
+    el("p", {
+      className: "sub",
+      textContent: S.hosted
+        ? "Nobody runs until these are done. They need your own machine: run each in your workspace, in order."
+        : "Nobody runs until these are done.",
+    }),
+  );
+  const seen = new Set();
+  const list = el("ol", { className: "homesetupsteps" });
+  for (const [what, cmd] of steps) {
+    // The credential is the org's, so two staff members missing it is one step.
+    if (cmd && seen.has(cmd)) continue;
+    seen.add(cmd);
+    const row = el("li", {}, [el("span", { textContent: cap(what) })]);
+    if (S.hosted && cmd) row.append(commandLine(cmd));
+    list.append(row);
+  }
+  box.append(list);
+  if (!S.hosted) {
+    const cont = el("button", { className: "btn primary", textContent: "Continue setting up" });
+    cont.onclick = () => go({ view: "setup" });
+    box.append(el("div", { className: "row" }, [cont]));
+  }
   return box;
 }
 

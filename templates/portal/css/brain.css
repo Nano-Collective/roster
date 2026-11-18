@@ -138,3 +138,5 @@
   .peopleonly::after{content:"Read only";font:12.5px var(--sans);color:var(--ink-dim);margin-left:6px}
   .peopleonly{justify-content:flex-start;align-items:center}
 }
+/* An org file setup is still waiting on: a small tag under its name, not a bar. */
+.tlayer .t > .chip{align-self:flex-start;margin-top:4px;height:auto;padding-block:1px;font-size:11px}

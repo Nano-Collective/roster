@@ -7,6 +7,8 @@
 import { runStatus, startRun } from "../api.js";
 import { askYes } from "../dialog.js";
 import { el } from "../dom.js";
+import { whatsLeft } from "../readiness.js";
+import { S } from "../state.js";
 
 /**
  * @param {{staff: string, name: string, onDone?: (ok: boolean) => void}} opts
@@ -86,6 +88,9 @@ export function runOnce(opts) {
       for (const f of now.failedAt ?? []) done.append(el("p", { className: "sub", textContent: "Failed at " + f }));
       if (!ok) done.append(el("p", { className: "sub", textContent: "Troubleshooting, in the docs, has what each failure usually means." }));
       out.replaceChildren(done);
+      // "Run once" is done now, and every screen that said otherwise should stop saying it.
+      const who = (S.data?.staff ?? []).find((x) => x.handle === opts.staff);
+      if (ok && who) whatsLeft(who, true).catch(() => {});
       opts.onDone?.(ok);
     };
     tick();

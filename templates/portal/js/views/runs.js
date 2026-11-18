@@ -7,6 +7,7 @@ import { getRuns } from "../api.js";
 import { ago, el, esc, skeleton } from "../dom.js";
 import { render } from "../router.js";
 import { S } from "../state.js";
+import { notReadyNote, whenKnown } from "./notready.js";
 
 /** How many runs a staff member's table shows. The spend covers all of the last 30 days. */
 const SHOWN = 15;
@@ -89,6 +90,9 @@ function paint(m, data) {
     }, 3000);
   }
 
+  if (!(data.staff ?? []).length) {
+    m.append(el("p", { className: "hnote", textContent: "Nobody hired yet, so nothing has run. Home says what is left." }));
+  }
   for (const s of data.staff ?? []) m.append(...staffSection(s));
 
   m.append(
@@ -111,7 +115,13 @@ function staffSection(s) {
   const body = el("div", { className: "hbody runs" });
   for (const e of s.errors ?? []) body.append(el("p", { className: "hnote err", textContent: e }));
   if (!(s.runs ?? []).length) {
-    body.append(el("p", { className: "hnote", textContent: "No runs in the last 30 days." }));
+    // "No runs" read as idle, when the truth was that they could not run at all.
+    const who = (S.data?.staff ?? []).find((x) => x.handle === s.handle) ?? s;
+    body.append(
+      whenKnown(who, () =>
+        notReadyNote(who) ?? el("p", { className: "hnote", textContent: "No runs in the last 30 days." }),
+      ),
+    );
     return [head, body];
   }
 

@@ -102,12 +102,22 @@ export function viewOrg(m) {
     .then(({ files }) => {
       S.orgFiles = files ?? [];
       paintTree();
-      const first = S.orgFiles[0]?.path;
+      // A file still the questions it shipped with is the thing to do here, so it opens first.
+      const first = unwritten().find((p) => S.orgFiles.some((f) => f.path === p)) ?? S.orgFiles[0]?.path;
       open(S.orgFiles.some((f) => f.path === S.orgOpen) ? S.orgOpen : first);
     })
     .catch((e) => {
       tree.replaceChildren(el("p", { className: "empty err", textContent: e.message }));
     });
+
+  /** The org files setup is still waiting on, by path. */
+  function unwritten() {
+    const ids = S.data.unfinished ?? [];
+    return [
+      ids.includes("business") && "org/business.md",
+      ids.includes("priorities") && "org/priorities.md",
+    ].filter(Boolean);
+  }
 
   function why(file) {
     return KNOWN[file.path] ?? file.title ?? "";
@@ -132,6 +142,9 @@ export function viewOrg(m) {
           el("span", { className: "lname", textContent: f.path.replace(/^(org|prompts)\//, "") }),
           el("span", { className: "lrepo", textContent: why(f) }),
         );
+        if (unwritten().includes(f.path)) {
+          t.append(el("span", { className: "chip warm", textContent: "Not written yet" }));
+        }
         b.append(t);
         b.onclick = () => open(f.path);
         group.append(b);

@@ -6,6 +6,7 @@ import { ago, el, esc, markCurrent, skeleton } from "../dom.js";
 import { icon, iconHTML, staffIcon } from "../icons.js";
 import { mdlite } from "../md.js";
 import { attachMentions } from "../mention.js";
+import { canRun } from "../readiness.js";
 import { ensureInbox, refreshAll, stampCounts } from "../refresh.js";
 import { humanLabel, humansOf, isHuman, S, writeHash } from "../state.js";
 import { renderDiff } from "./changed.js";
@@ -342,7 +343,13 @@ function inboxScreen(m, opts) {
           String(b.updatedAt).localeCompare(String(a.updatedAt)),
       );
     if (!items.length) {
-      list.append(el("p", { className: "empty", textContent: "Nothing matches." }));
+      // With nobody hired there is nothing to match yet, and that is setup, not a filter.
+      list.append(
+        el("p", {
+          className: "empty",
+          textContent: S.data.staff.length ? "Nothing matches." : "Nothing here yet: nobody is hired. Home says what setup has left.",
+        }),
+      );
       return;
     }
 
@@ -1391,6 +1398,12 @@ function newIssueForm(viewer) {
       return;
     }
     create.disabled = false;
+    // The issue is worth filing either way; it waits. What it must not do is promise a reply.
+    if (!canRun(s.handle)) {
+      forWhom.textContent =
+        "Goes to " + s.brain + ". " + s.name + " is not set up yet, so nothing will wake them: it waits for their first run.";
+      return;
+    }
     forWhom.textContent =
       "Goes to " + s.brain + ". " +
       (String(body.value ?? "").includes(mentionOf(s))

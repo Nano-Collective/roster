@@ -3606,3 +3606,101 @@ test("a thread that is not in the inbox still opens on its own", async () => {
   assert.ok(html.includes("Every event is live."), "and the body");
   assert.equal(s.INBOX.items.length, 0, "and the inbox is left as it was");
 });
+
+/* ------------------------------ setup on Home ----------------------------- */
+
+test("Home says setup is not finished, and hosted, gives the command for each step", async () => {
+  /* Staff said the CMO could not run; Home said "Free", offered to ask them something, and
+     nothing on it said setup was unfinished. */
+  const s = await renderAll();
+  const [a] = ORG.staff;
+  s.HOSTED = { login: "someone", hosted: true };
+  s.INBOX = { items: [], repos: [], errors: [] };
+  s.LIVE = { staff: ORG.staff.map((x: any) => ({ handle: x.handle, running: [], finished: [] })) };
+  s.READINESS = Object.fromEntries(ORG.staff.map((x: any) => [x.handle, []]));
+  s.READINESS[a.handle] = ["write the charter", "add the agent credential", "run once"];
+  s.view = "home";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(text, /Setup is not finished/);
+  assert.match(text, /Not set up yet/);
+  assert.match(text, new RegExp(`npx @nanocollective/roster@latest brief charter ${a.handle}`));
+  assert.match(text, /npx @nanocollective\/roster@latest credential --apply/);
+  assert.match(text, new RegExp(`run ${a.handle} --apply`));
+  if (a.statusIssue) {
+    // The status issue still holds hire's scaffold, and nobody can be asked for a report yet.
+    assert.match(text, /No report yet: the first comes with their first run/);
+    const row = walkNodes(s._byId.main).find(
+      (n) =>
+        String(n.className ?? "")
+          .split(" ")
+          .includes("homereport") && walkNodes(n).some((x) => x.textContent === a.name),
+    );
+    assert.ok(row, "a Progress row for them");
+    assert.ok(!walkNodes(row).some((x) => x.textContent === "Ask for an update"));
+  }
+
+  // Ready, the panel goes and the card is the usual one.
+  s.READINESS[a.handle] = [];
+  s.DATA.unfinished = [];
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const after = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.ok(!after.includes("Setup is not finished"));
+  assert.ok(!after.includes("Not set up yet"));
+});
+
+test("with nobody hired, a staff member's screen lands on Home instead of a blank page", async () => {
+  for (const view of ["brain", "prompt", "graph", "changed", "health"]) {
+    const s = await renderAll(`#/-/${view}`, { ...ORG, staff: [], unfinished: ["hire"] });
+    s.INBOX = { items: [], repos: [], errors: [] };
+    s.render();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(s.view, "home", `#/-/${view} with nobody hired`);
+    const text = walkNodes(s._byId.main)
+      .map((n) => String(n.textContent ?? ""))
+      .join(" ");
+    assert.match(text, /Setup is not finished/);
+  }
+});
+
+test("hosted, Staff with nobody hired gives the command rather than a hire that cannot work", async () => {
+  const s = await renderAll("", { ...ORG, staff: [], unfinished: ["hire"] });
+  s.HOSTED = { login: "someone", hosted: true };
+  s.view = "staff";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(text, /npx @nanocollective\/roster@latest hire cto --apply/);
+  assert.ok(!text.includes("Pick a role"), "no picker hosted");
+});
+
+test("Health offers Run once now only when the first run is all that is left", async () => {
+  const s = await renderAll();
+  const [a] = ORG.staff;
+  s.staffHandle = a.handle;
+  s.READINESS = { [a.handle]: ["add the agent credential", "run once"] };
+  s.view = "health";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  let text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(text, /is not set up yet, so nothing will start them/);
+  assert.ok(!/Run once now/.test(text));
+
+  s.READINESS = { [a.handle]: ["run once"] };
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.ok(!text.includes("is not set up yet"));
+});

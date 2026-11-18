@@ -11,6 +11,7 @@ import { getInbox, getOrg, getSync } from "./api.js";
 import { $, ago, el, esc } from "./dom.js";
 import { render } from "./router.js";
 import { isFor, sortHome } from "./homesort.js";
+import { checkAll, forgetReadiness } from "./readiness.js";
 import { humansOf, openCount, S, unreadCount } from "./state.js";
 
 /**
@@ -98,6 +99,9 @@ export async function refreshAll(soft) {
     S.inbox = null; // the inbox re-fetches itself on next paint
     inflight = null;
     S.loadedAt = new Date();
+    // A step may have been finished since: a first run, a credential added on another machine.
+    forgetReadiness();
+    checkAll(() => !soft && render());
     if (!soft) render();
     stampLoaded();
     // The badges are now claiming a count from before the sync. Re-ask, and say so meanwhile.

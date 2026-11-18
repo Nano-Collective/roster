@@ -9,7 +9,10 @@ import { post } from "../api.js";
 import { sheet } from "../dialog.js";
 import { el, grow } from "../dom.js";
 import { icon } from "../icons.js";
+import { canRun, whatsLeft } from "../readiness.js";
 import { render } from "../router.js";
+import { S } from "../state.js";
+import { commandLine, notReadyNote, whenKnown } from "./notready.js";
 
 /* The last answer, so a repaint after Save does not flash an empty screen. */
 let last = null;
@@ -36,7 +39,8 @@ function draw(body, d, add) {
   add.onclick = () => edit(d, null, null);
   add.disabled = !d.staff.length;
   if (!d.staff.length) {
-    body.append(el("p", { className: "sub", textContent: "Hire a staff member first." }));
+    body.append(el("p", { className: "sub", textContent: S.hosted ? "Hire a staff member first, on your machine:" : "Hire a staff member first, under Staff." }));
+    if (S.hosted) body.append(commandLine("hire cto --apply"));
     return;
   }
   for (const s of d.staff) {
@@ -46,7 +50,9 @@ function draw(body, d, add) {
     const more = el("button", { className: "routadd" }, [icon("plus"), el("span", { textContent: "Add a routine for " + s.name })]);
     more.onclick = () => edit(d, s, null);
     list.append(more);
-    body.append(el("h2", { className: "connhead", textContent: s.name }), list);
+    // Routines run on the same App and credential as everything else, so they wait on setup too.
+    const who = whole(s);
+    body.append(el("h2", { className: "connhead", textContent: s.name }), whenKnown(who, () => notReadyNote(who)), list);
   }
 }
 
@@ -66,6 +72,12 @@ function dailyRow(s, d) {
 function routineRow(s, r, d) {
   const run = el("button", { className: "ghbtn", textContent: "Run now" });
   run.onclick = () => runNow(s, r, run);
+  const who = whole(s);
+  whatsLeft(who).then(() => {
+    if (canRun(s.handle)) return;
+    run.disabled = true;
+    run.title = `${s.name} is not set up yet`;
+  }, () => {});
   const change = el("button", { className: "ghbtn", textContent: "Edit" });
   change.onclick = () => edit(d, s, r);
   const remove = el("button", { className: "ghbtn", textContent: "Remove" });
@@ -79,6 +91,11 @@ function routineRow(s, r, d) {
     ].filter(Boolean)),
     el("div", { className: "row connacts" }, [run, change, remove]),
   ]);
+}
+
+/** The staff member as the org export has them, which is what readiness reads. */
+function whole(s) {
+  return (S.data?.staff ?? []).find((x) => x.handle === s.handle) ?? s;
 }
 
 async function runNow(s, r, btn) {

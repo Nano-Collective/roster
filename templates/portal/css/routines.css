@@ -38,3 +38,6 @@
 }
 .routwhenpick select{width:auto}
 .routhead + div > .connhead:first-child{margin-top:20px}
+/* What is left before they can run, as wide as the list it sits over. */
+.connhead + .readyslot{max-width:880px}
+.connhead + .readyslot:not(:empty){margin:0 0 10px}

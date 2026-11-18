@@ -9,10 +9,11 @@ import { post } from "../api.js";
 import { askYes, sheet } from "../dialog.js";
 import { pending } from "../inflight.js";
 import { ago, el, esc } from "../dom.js";
-import { sentence, staffProgress, whatsLeft } from "../readiness.js";
+import { sentence, staffProgress, stepCommand, whatsLeft } from "../readiness.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { hireFlow, line, rolePicker } from "./hire.js";
+import { commandLine } from "./notready.js";
 
 /**
  * Resolves once nothing is loading and `node` has stopped changing for a moment, or after a few
@@ -50,7 +51,15 @@ let current = null;
 export function viewStaff(m, o = {}) {
   m.append(el("h1", { textContent: "Staff" }));
   const empty = !S.data.staff.length;
-  if (empty) m.append(el("p", { className: "sub", textContent: "No staff yet. Pick a role to hire your first." }));
+  /* Hosted, the picker led to a hire that only the server on your machine can do, and it
+     failed there. The command is the way in. */
+  if (empty && S.hosted) {
+    m.append(
+      el("p", { className: "sub", textContent: "No staff yet. Hiring creates repos and an App, so it is done on your machine:" }),
+      commandLine("hire cto --apply"),
+      el("p", { className: "sub", textContent: "cmo and support are the other roles, or any handle with --name." }),
+    );
+  } else if (empty) m.append(el("p", { className: "sub", textContent: "No staff yet. Pick a role to hire your first." }));
 
   const pane = el("div", { className: "hirepane" });
 
@@ -83,7 +92,7 @@ export function viewStaff(m, o = {}) {
     if (current) current.close();
     else pane.replaceChildren();
     S.staffOpen = null;
-    if (empty) pick();
+    if (empty && !S.hosted) pick();
   }
 
   // With nobody hired the roles are the page. After that they are a dialog behind Hire someone.
@@ -196,6 +205,12 @@ export function viewStaff(m, o = {}) {
       warn.textContent =
         "Not ready to run. " + (p ? `${p.done} of ${p.total} done. ` : "") +
         "Still to do: " + sentence(left) + ".";
+      // Hosted has no Finish setting up, so each step comes with what to run instead.
+      if (S.hosted) {
+        const cmds = [...new Set(left.map((x) => stepCommand(x, s.handle)).filter(Boolean))];
+        warn.classList.add("notready");
+        warn.replaceChildren(el("span", { textContent: warn.textContent }), ...cmds.map(commandLine));
+      }
     });
     d.append(warn);
 

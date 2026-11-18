@@ -66,13 +66,14 @@
 /* Progress: a card per staff member. Status and one line, then Done and Next side by side. */
 /* Progress: one card, a row per staff member. The line on how it is going is what you read;
    everything else is quieter, and what got done waits behind Full report. */
-.homereports{display:flex;flex-direction:column;padding-top:4px;padding-bottom:4px}
-.homereport{display:flex;flex-direction:column;gap:4px;padding:12px 0;min-width:0}
+.homereports{display:flex;flex-direction:column;padding-top:6px;padding-bottom:6px}
+.homereport{display:flex;flex-direction:column;gap:8px;padding:14px 0;min-width:0}
 .homereport + .homereport{border-top:1px solid var(--line)}
-.homereporthead{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-height:28px}
+.homereporthead{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;min-height:28px}
 .homereportstatus{font-weight:600}
 .homereportwhen{font-size:12px}
-.homereportacts{margin-left:auto;display:flex;align-items:center;gap:6px}
+.homereportacts{margin-left:auto;display:flex;align-items:center;gap:8px}
+.homereportacts .ghbtn{min-height:28px;padding:3px 12px;font-size:12.5px}
 .homereportline{font-size:var(--text-body-size);line-height:var(--text-body-leading);color:var(--ink);
      padding-left:23px}
 .homereportline p{margin:0}
@@ -184,3 +185,12 @@
   .homeline .homerunlog{grid-column:2}
   .homeline .homerunlog:empty{display:none}
 }
+
+/* Setup that is not finished, above everything else on Home. */
+.homesetup{padding:14px 16px;margin:20px 0 22px;border-color:color-mix(in srgb,var(--warn) 45%,var(--line));
+      background:color-mix(in srgb,var(--warn) 7%,var(--panel))}
+.homesetup > b{font:600 15px var(--sans)}
+.homesetup .sub{margin:4px 0 10px}
+.homesetupsteps{margin:0 0 4px;padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:13.5px}
+.homesetupsteps li > span{display:block;margin-bottom:5px}
+.homesetup .row{margin-top:10px}

@@ -28,6 +28,42 @@ export function notReady() {
   return (S.data?.staff ?? []).filter((s) => (S.readiness?.[s.handle] ?? []).length);
 }
 
+/**
+ * Whether a run started now could work: nothing left but the first run itself. Unknown counts
+ * as able, so a slow answer from GitHub never greys out a working org's buttons.
+ */
+export function canRun(handle) {
+  return !(S.readiness?.[handle] ?? []).some((x) => x !== "run once");
+}
+
+/** Whether they have never finished a run, as far as is known. */
+export function neverRan(handle) {
+  return (S.readiness?.[handle] ?? []).includes("run once");
+}
+
+/** Forget every answer, so the next screen asks again: after a refresh, or a step finishing. */
+export function forgetReadiness() {
+  S.readiness = null;
+}
+
+/** The roster command for each step: the only way to do them from a hosted portal. */
+export const ROSTER = "npx @nanocollective/roster@latest";
+export const ORG_STEPS = {
+  hire: ["Hire someone", "hire cto --apply"],
+  business: ["Say what the business is, in org/business.md", "brief discover"],
+  priorities: ["Say what matters this month, in org/priorities.md", "brief priorities"],
+};
+const STEP_COMMANDS = {
+  "write the charter": (h) => `brief charter ${h}`,
+  "create the GitHub App": (h) => `app ${h} --apply`,
+  "install the GitHub App": (h) => `app ${h} --apply`,
+  "add the agent credential": () => "credential --apply",
+  "run once": (h) => `run ${h} --apply`,
+};
+export function stepCommand(what, handle) {
+  return STEP_COMMANDS[what]?.(handle) ?? "";
+}
+
 /** "install the GitHub App, add the agent credential and run once" */
 export function sentence(left) {
   if (left.length < 2) return left.join("");

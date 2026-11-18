@@ -180,3 +180,8 @@ a.btn{text-decoration:none}
 .credform{display:grid;gap:10px}
 .credform .row{margin:0}
 .okline{margin:0 0 8px;color:var(--accent);font:600 13px var(--sans)}
+/* A staff member who cannot run yet, on any screen that would start them. */
+.warnline.notready{display:flex;flex-direction:column;gap:10px;padding:12px 14px}
+/* Wherever it is dropped in, it keeps clear of what is above and below it. */
+.readyslot:not(:empty){margin:16px 0 18px}
+.readyslot > .warnline{margin:0}

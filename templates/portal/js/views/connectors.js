@@ -244,6 +244,11 @@ function customForm(d, close) {
 
 function staffPicker(d, picked) {
   const who = el("div", { className: "connstaff" });
+  // An empty picker and then "Pick at least one staff member." had no way out.
+  if (!d.staff.length) {
+    who.append(el("p", { className: "sub", textContent: "Nobody is hired yet, so there is nobody to give it to. Hire someone first." }));
+    return who;
+  }
   for (const s of d.staff) {
     const box = el("input", { type: "checkbox", checked: picked.has(s.handle) });
     box.onchange = () => (box.checked ? picked.add(s.handle) : picked.delete(s.handle));
