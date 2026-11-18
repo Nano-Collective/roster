@@ -17,9 +17,11 @@ import type { KeyValue } from "./kv.js";
  *    changed three files fetches three blobs. A first load, with nothing seen, takes the whole
  *    repository as one tarball instead of hundreds of blobs.
  *
- * Blobs are kept by sha in a `KeyValue`, so a restarted portal (or a fresh Worker) is warm again
- * after the one head check. Large and binary files are listed with their size and fetched only
- * when someone opens one.
+ * The bodies are kept in a `KeyValue` as one record per commit, so a restarted portal (or a fresh
+ * Worker) is warm again after the one head check and one read. One record, not one per file: on a
+ * Worker every cache read and write counts against the request's subrequests, which is 50 on the
+ * free plan, and a repo of 44 files read and written a file at a time is 88 of them on its own.
+ * Large and binary files are listed with their size and fetched only when someone opens one.
  */
 
 /** Bigger than this, or not text, and the body is not held. A brain's notes are a few KiB each. */
@@ -143,7 +145,6 @@ export class Snapshots {
     });
     addDirs(snap.dirs, path);
     if (commit) snap.sha = commit;
-    void this.kv.put(`blob:${sha}`, text);
   }
 
   private async load(
@@ -215,18 +216,23 @@ export class Snapshots {
     }
     if (pathsOnly) return { ok: true, snap };
 
-    // Bodies: what this process already holds, then the cache, then GitHub.
-    const known = new Map<string, Entry>();
-    for (const [_path, e] of before?.files ?? []) known.set(e.sha, e);
+    // Bodies: what this process already holds, then this commit's record, then GitHub.
+    const known = new Map<string, string>();
+    for (const [, e] of before?.files ?? []) if (e.text !== undefined) known.set(e.sha, e.text);
     const wanted = [...snap.files].filter(([path, e]) => isTextPath(path, e.size));
-    const missing: Array<[string, Entry]> = [];
-    await Promise.all(
-      wanted.map(async ([path, e]) => {
-        const held = known.get(e.sha)?.text ?? (await this.kv.get(`blob:${e.sha}`));
-        if (held !== undefined) e.text = held;
-        else missing.push([path, e]);
-      }),
-    );
+    for (const [, e] of wanted) e.text = known.get(e.sha);
+    let missing = wanted.filter(([, e]) => e.text === undefined);
+
+    const key = `bodies:${repo}@${sha}`;
+    if (missing.length) {
+      const kept = await this.kv.get(key);
+      if (kept) {
+        const bodies = JSON.parse(kept) as Record<string, string>;
+        for (const [, e] of missing) e.text = bodies[e.sha];
+        missing = missing.filter(([, e]) => e.text === undefined);
+      }
+    }
+    const fetched = missing.length > 0;
 
     if (missing.length > TARBALL_OVER) {
       say("downloading the repository");
@@ -239,14 +245,10 @@ export class Snapshots {
         const e = snap.files.get(t.path);
         if (!e || !t.data) continue;
         const text = decode(t.data);
-        if (text === undefined) continue;
-        e.text = text;
-        void this.kv.put(`blob:${e.sha}`, text);
+        if (text !== undefined) e.text = text;
       }
-    } else {
-      if (missing.length) {
-        say(`fetching ${missing.length} changed file${missing.length === 1 ? "" : "s"}`);
-      }
+    } else if (missing.length) {
+      say(`fetching ${missing.length} changed file${missing.length === 1 ? "" : "s"}`);
       await pool(missing, 8, async ([, e]) => {
         const res = await gh.request<Uint8Array>("GET", `repos/${repo}/git/blobs/${e.sha}`, {
           accept: "application/vnd.github.raw",
@@ -254,10 +256,15 @@ export class Snapshots {
         });
         if (!res.ok || !res.data) return;
         const text = decode(res.data);
-        if (text === undefined) return;
-        e.text = text;
-        void this.kv.put(`blob:${e.sha}`, text);
+        if (text !== undefined) e.text = text;
       });
+    }
+
+    // Kept only when GitHub was asked: a record read from the cache is already there.
+    if (fetched) {
+      const bodies: Record<string, string> = {};
+      for (const [, e] of wanted) if (e.text !== undefined) bodies[e.sha] = e.text;
+      void this.kv.put(key, JSON.stringify(bodies));
     }
 
     await this.dates(gh, repo, snap, say, before);

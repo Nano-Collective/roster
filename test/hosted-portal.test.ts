@@ -126,6 +126,45 @@ test("a second look asks GitHub only whether anything moved, and a change fetche
   assert.equal(org.staff.find((s: any) => s.handle === "cto").rig.charterStub, false);
 });
 
+test("a cold load touches the cache a few times, not once per file", async () => {
+  // On a Worker every cache read and write is a subrequest, and the free plan allows 50 a
+  // request. Once per file put a first sign-in over that, and it failed as "not one of the
+  // humans" because the org could not be read.
+  const root = mkdtempSync(join(tmpdir(), "roster-hosted-"));
+  await makeTenant(root, {
+    org: "acme",
+    staff: [{ handle: "cto", name: "Chief Technology Officer" }],
+  });
+  const gh = serveRepos("acme", root, ["roster-ops", "cto"]);
+  const shared = memoryKV();
+  let ops = 0;
+  const counted = {
+    get(k: string) {
+      ops++;
+      return shared.get(k);
+    },
+    put(k: string, v: string) {
+      ops++;
+      return shared.put(k, v);
+    },
+  };
+  const open = () =>
+    createPortal({ org: "acme", opsName: "roster-ops", kv: counted, root: `/@roster-test/${++n}` });
+  const actor: Actor = { gh, id: "someone", canWrite: false };
+
+  const cold = open();
+  const res = await handlePortal(new Request("http://portal/api/org"), cold, actor);
+  assert.equal(res!.status, 200);
+  assert.ok(ops <= 12, `a cold load of two repos made ${ops} cache calls`);
+
+  // A fresh Worker, the same cache: the bodies come from it, not GitHub.
+  gh.calls.length = 0;
+  ops = 0;
+  await handlePortal(new Request("http://portal/api/org"), open(), actor);
+  assert.ok(!gh.calls.some((c) => c.includes("/tarball/") || c.includes("/git/blobs/")));
+  assert.ok(ops <= 12, `a warm load made ${ops} cache calls`);
+});
+
 test("a save is one commit as the person, against the version that was read", async () => {
   const { root, gh, get, post } = await setup();
   await get("/api/orglayer");
