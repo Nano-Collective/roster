@@ -3627,8 +3627,18 @@ test("Home says setup is not finished, and hosted, gives the command for each st
     .join(" ");
   assert.match(text, /Setup is not finished/);
   assert.match(text, /Not set up yet/);
-  assert.match(text, new RegExp(`npx @nanocollective/roster@latest brief charter ${a.handle}`));
+  // Writing is done here, with the AI interview; only wiring is a command.
+  assert.ok(
+    !text.includes(`brief charter ${a.handle}`),
+    "the charter is written here, not briefed",
+  );
+  assert.match(text, /Write it here/);
   assert.match(text, /npx @nanocollective\/roster@latest credential --apply/);
+  assert.match(
+    text,
+    /npx @nanocollective\/roster@latest portal --org /,
+    "the portal on your machine, first",
+  );
   assert.match(text, new RegExp(`run ${a.handle} --apply`));
   if (a.statusIssue) {
     // The status issue still holds hire's scaffold, and nobody can be asked for a report yet.
@@ -3703,4 +3713,29 @@ test("Health offers Run once now only when the first run is all that is left", a
     .map((n) => String(n.textContent ?? ""))
     .join(" ");
   assert.ok(!text.includes("is not set up yet"));
+});
+
+test("hosted, a charter not yet written is written from the Staff card, not a terminal", async () => {
+  const s = await renderAll();
+  const [a] = ORG.staff;
+  s.HOSTED = { login: "someone", hosted: true };
+  s.READINESS = { [a.handle]: ["write the charter", "add the agent credential", "run once"] };
+  progressFixture = { app: true, installed: true, credential: false, ran: false };
+  s.view = "staff";
+  s.render();
+  await new Promise((r) => setTimeout(r, 30));
+  const nodes = walkNodes(s._byId.main);
+  const write = nodes.find((n) => n.tagName === "BUTTON" && n.textContent === "Write the charter");
+  assert.ok(write, "a Write the charter button");
+  const text = nodes.map((n) => String(n.textContent ?? "")).join(" ");
+  assert.match(text, /credential --apply/, "wiring is still a command");
+  assert.ok(!text.includes(`brief charter ${a.handle}`));
+
+  write.onclick();
+  await new Promise((r) => setTimeout(r, 30));
+  const after = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(after, /Let an AI interview you/);
+  progressFixture = { app: true, publicApp: true, ran: false };
 });

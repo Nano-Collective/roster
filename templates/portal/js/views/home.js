@@ -597,6 +597,9 @@ function team(staff) {
 
 /* ------------------------------- setup left ----------------------------- */
 
+/** The org files a step is about, which can be written on the Org screen. */
+const ORG_FILES = { business: "org/business.md", priorities: "org/priorities.md" };
+
 let readinessAsked = false;
 
 /**
@@ -612,33 +615,66 @@ function setupLeft(staff) {
       if (S.view === "home") render();
     });
   }
+  // Each step: what, its command, and where to do it here when it is writing rather than wiring.
   const steps = [];
-  for (const id of S.data?.unfinished ?? []) if (ORG_STEPS[id]) steps.push(ORG_STEPS[id]);
+  for (const id of S.data?.unfinished ?? []) {
+    if (!ORG_STEPS[id]) continue;
+    const file = ORG_FILES[id];
+    const here = file
+      ? () => {
+          S.orgOpen = file;
+          go({ view: "org" });
+        }
+      : null;
+    steps.push([...ORG_STEPS[id], here]);
+  }
   for (const s of notReady()) {
     for (const what of S.readiness[s.handle]) {
-      steps.push([`${s.name}: ${what}`, stepCommand(what, s.handle)]);
+      const here =
+        what === "write the charter"
+          ? () => {
+              S.writeCharter = s.handle;
+              go({ view: "staff" });
+            }
+          : null;
+      steps.push([`${s.name}: ${what}`, stepCommand(what, s.handle), here]);
     }
   }
   if (!steps.length) return null;
+  const wiring = steps.filter(([, , here]) => !here).length;
 
   const box = el("div", { className: "card homesetup" });
-  box.append(
-    el("b", { textContent: "Setup is not finished" }),
-    el("p", {
-      className: "sub",
-      textContent: S.hosted
-        ? "Nobody runs until these are done. They need your own machine: run each in your workspace, in order."
-        : "Nobody runs until these are done.",
-    }),
-  );
+  box.append(el("b", { textContent: "Setup is not finished" }));
+  /* Hosted, writing is done here and wiring needs your machine. The portal there has every
+     wiring step as a button, which beats a list of commands, so it is offered first; the
+     commands stay for anyone who would rather not open it. */
+  if (S.hosted && wiring) {
+    box.append(
+      el("p", {
+        className: "sub",
+        textContent:
+          "Nobody runs until these are done. Writing can be done here. The rest needs your own machine, and the quickest way is the portal there, where each step is a button:",
+      }),
+      commandLine(`portal --org ${S.data.org}`),
+      el("p", { className: "sub homesetupor", textContent: "Or one at a time, in order:" }),
+    );
+  } else {
+    box.append(el("p", { className: "sub", textContent: "Nobody runs until these are done." }));
+  }
   const seen = new Set();
   const list = el("ol", { className: "homesetupsteps" });
-  for (const [what, cmd] of steps) {
+  for (const [what, cmd, here] of steps) {
     // The credential is the org's, so two staff members missing it is one step.
     if (cmd && seen.has(cmd)) continue;
     seen.add(cmd);
-    const row = el("li", {}, [el("span", { textContent: cap(what) })]);
-    if (S.hosted && cmd) row.append(commandLine(cmd));
+    const label = el("span", { textContent: cap(what) });
+    const row = el("li", {}, [label]);
+    if (S.hosted && here) {
+      // Writing works from here, and with an AI interviewing you it beats a brief in a terminal.
+      const write = el("button", { className: "ghbtn sm", textContent: "Write it here" });
+      write.onclick = here;
+      label.append(" ", write);
+    } else if (S.hosted && cmd) row.append(commandLine(cmd));
     list.append(row);
   }
   box.append(list);

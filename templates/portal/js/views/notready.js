@@ -6,7 +6,7 @@
  * a hosted portal the command for each step, since setting up is only done on your machine. */
 
 import { el, toClipboard } from "../dom.js";
-import { canRun, ROSTER, sentence, stepCommand, whatsLeft } from "../readiness.js";
+import { canRun, IN_PORTAL, ROSTER, sentence, stepCommand, whatsLeft } from "../readiness.js";
 import { go } from "../router.js";
 import { S } from "../state.js";
 
@@ -36,8 +36,18 @@ export function notReadyNote(s) {
     };
     box.append(el("div", { className: "row" }, [finish]));
   } else {
+    // The charter is writing, which works from here; the rest needs your machine.
+    if (left.includes("write the charter")) {
+      const write = el("button", { className: "ghbtn primary", textContent: "Write the charter" });
+      write.onclick = () => {
+        S.writeCharter = s.handle;
+        go({ view: "staff" });
+      };
+      box.append(el("div", { className: "row" }, [write]));
+    }
     const seen = new Set();
     for (const what of left) {
+      if (IN_PORTAL.has(what)) continue;
       const cmd = stepCommand(what, s.handle);
       if (!cmd || seen.has(cmd)) continue;
       seen.add(cmd);

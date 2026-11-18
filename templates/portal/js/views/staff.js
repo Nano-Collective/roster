@@ -9,10 +9,10 @@ import { post } from "../api.js";
 import { askYes, sheet } from "../dialog.js";
 import { pending } from "../inflight.js";
 import { ago, el, esc } from "../dom.js";
-import { sentence, staffProgress, stepCommand, whatsLeft } from "../readiness.js";
+import { IN_PORTAL, sentence, staffProgress, stepCommand, whatsLeft } from "../readiness.js";
 import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
-import { hireFlow, line, rolePicker } from "./hire.js";
+import { charterModes, hireFlow, line, rolePicker } from "./hire.js";
 import { commandLine } from "./notready.js";
 
 /**
@@ -93,6 +93,10 @@ export function viewStaff(m, o = {}) {
     else pane.replaceChildren();
     S.staffOpen = null;
     if (empty && !S.hosted) pick();
+  // Home's "Write it here" on a charter lands here with the dialog open.
+  const asked = S.writeCharter && S.data.staff.find((s) => s.handle === S.writeCharter);
+  S.writeCharter = null;
+  if (asked) writeCharter(asked);
   }
 
   // With nobody hired the roles are the page. After that they are a dialog behind Hire someone.
@@ -205,11 +209,20 @@ export function viewStaff(m, o = {}) {
       warn.textContent =
         "Not ready to run. " + (p ? `${p.done} of ${p.total} done. ` : "") +
         "Still to do: " + sentence(left) + ".";
-      // Hosted has no Finish setting up, so each step comes with what to run instead.
+      /* Hosted has no Finish setting up. The charter is writing, which works from here; the
+         rest is wiring, which needs your machine, so each of those comes with its command. */
       if (S.hosted) {
-        const cmds = [...new Set(left.map((x) => stepCommand(x, s.handle)).filter(Boolean))];
+        const cmds = [
+          ...new Set(left.filter((x) => !IN_PORTAL.has(x)).map((x) => stepCommand(x, s.handle)).filter(Boolean)),
+        ];
         warn.classList.add("notready");
-        warn.replaceChildren(el("span", { textContent: warn.textContent }), ...cmds.map(commandLine));
+        warn.replaceChildren(el("span", { textContent: warn.textContent }));
+        if (left.includes("write the charter")) {
+          const write = el("button", { className: "ghbtn primary", textContent: "Write the charter" });
+          write.onclick = () => writeCharter(s);
+          warn.append(el("div", { className: "row" }, [write]));
+        }
+        warn.append(...cmds.map(commandLine));
       }
     });
     d.append(warn);
@@ -224,6 +237,18 @@ export function viewStaff(m, o = {}) {
   }
 
   /* ------------------------------- retiring ------------------------------- */
+
+  /** The charter's three ways in, in the dialog: the same ones hiring offers. */
+  function writeCharter(s) {
+    const host = el("div", { className: "charterpane" }, [el("h2", { textContent: s.name + "'s charter" })]);
+    host.append(
+      charterModes(s, undefined, () => {
+        dismiss();
+        refreshAll();
+      }),
+    );
+    present(host);
+  }
 
   async function retireForm(host, s, cardStatus) {
     cardStatus.textContent = "planning…";

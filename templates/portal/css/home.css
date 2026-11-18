@@ -194,3 +194,6 @@
 .homesetupsteps{margin:0 0 4px;padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:13.5px}
 .homesetupsteps li > span{display:block;margin-bottom:5px}
 .homesetup .row{margin-top:10px}
+.homesetup > .connline{margin:0 0 4px}
+.homesetup .homesetupor{margin:14px 0 10px}
+.homesetupsteps li > span .ghbtn{margin-left:6px;min-height:24px;padding:1px 10px;font-size:12px}

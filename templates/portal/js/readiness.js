@@ -60,6 +60,12 @@ const STEP_COMMANDS = {
   "add the agent credential": () => "credential --apply",
   "run once": (h) => `run ${h} --apply`,
 };
+/**
+ * The steps that are writing, not wiring: a hosted portal can do these itself (the org's two
+ * files on Org, the charter on Staff), so it offers that rather than a command.
+ */
+export const IN_PORTAL = new Set(["business", "priorities", "write the charter"]);
+
 export function stepCommand(what, handle) {
   return STEP_COMMANDS[what]?.(handle) ?? "";
 }

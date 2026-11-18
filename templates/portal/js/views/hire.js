@@ -296,7 +296,7 @@ export function hireFlow(o) {
 }
 
 /** Three ways to write CHARTER.md. The template is offered only when a worked example fits. */
-function charterModes(s, about, onSaved) {
+export function charterModes(s, about, onSaved) {
   const box = el("div", {}, [el("p", { className: "sub", textContent: "Loading…" })]);
   const path = s.dir + "/CHARTER.md";
   getCharterExample(s.handle)
