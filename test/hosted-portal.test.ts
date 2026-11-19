@@ -8,7 +8,7 @@ import { untargz, unzip } from "../src/lib/archive.js";
 import { buildExport } from "../src/lib/export.js";
 import { githubClient } from "../src/lib/github.js";
 import { loadComposer, readOrg } from "../src/lib/workspace.js";
-import { type Actor, createPortal, handlePortal } from "../src/portal/handler.js";
+import { type Actor, createPortal, handlePortal, humanVerdict } from "../src/portal/handler.js";
 import { memoryKV } from "../src/portal/kv.js";
 import { serveRepos, tar } from "./helpers/githubrepos.js";
 import { makeTenant } from "./helpers/tenant.js";
@@ -353,4 +353,36 @@ test("a first load can stream what it is doing, and ends with the org", async ()
   );
   assert.ok(steps.some((l) => l.repo === "cto" && l.step === "ready"));
   assert.equal(lines.at(-1).org.org, "acme", "and the org comes last");
+});
+
+test("GitHub not answering is not a no, so it does not sign anybody out", async () => {
+  /* Any failed read of org.yaml used to count as "not one of the humans": the portal cleared
+     the cookie and every MCP client was sent to sign in again, on a 502. */
+  const { root, gh, portal } = await setup();
+  const human = readFileSync(join(root, "roster-ops", "org.yaml"), "utf8").match(
+    /github: ([\w-]+)/,
+  )?.[1];
+  assert.ok(human, "the tenant names a human");
+  assert.equal(await humanVerdict(portal, gh, human), "yes");
+  assert.equal(await humanVerdict(portal, gh, "somebody-else"), "no");
+
+  const failing = (status?: number) =>
+    ({ ...gh, request: async () => ({ ok: false, status, error: "nope" }) }) as typeof gh;
+  const fresh = () =>
+    createPortal({
+      org: "acme",
+      opsName: "roster-ops",
+      kv: memoryKV(),
+      root: `/@roster-test/${++n}`,
+    });
+  for (const status of [undefined, 502, 503, 403, 429]) {
+    assert.equal(
+      await humanVerdict(fresh(), failing(status), human),
+      "unknown",
+      `status ${status}`,
+    );
+  }
+  // The token refused, or the ops repo gone from view: those are a no.
+  assert.equal(await humanVerdict(fresh(), failing(401), human), "no");
+  assert.equal(await humanVerdict(fresh(), failing(404), human), "no");
 });

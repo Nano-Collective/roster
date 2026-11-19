@@ -2,11 +2,10 @@
 import framework from "roster:framework";
 import { useFrameworkRoot } from "../lib/framework.js";
 import { type GitHub, githubClient } from "../lib/github.js";
-import { readHumans } from "../lib/humans.js";
 import { useRecordStore } from "../lib/runs.js";
 import { mount, treeOf } from "../lib/vfs.js";
 import { accessToken, isSession, verifyActionsToken } from "./grants.js";
-import { type Actor, createPortal, handlePortal, type Portal, readOrgFor } from "./handler.js";
+import { type Actor, createPortal, handlePortal, humanVerdict, type Portal } from "./handler.js";
 import { cloudflareKV, recordStore } from "./kv-cloudflare.js";
 import { handleMcp } from "./mcp.js";
 import { bearerOf, handleOAuth, unauthorized } from "./oauth.js";
@@ -94,19 +93,25 @@ function clientFor(token: string): GitHub {
   return gh;
 }
 
-/** One of the humans in org.yaml, read with their own token: which also proves they can read it. */
-async function isHuman(p: Portal, login: string, token: string): Promise<boolean> {
-  const org = await readOrgFor(p, clientFor(token));
-  if (!org) return false;
-  return readHumans(org).some((h) => h.github?.toLowerCase() === login.toLowerCase());
-}
+/** A failed check is asked again this soon, rather than on every request until it answers. */
+const RETRY_MS = 30_000;
 
-/** Somebody taken out of humans stops getting in within minutes, not when their sign-in ends. */
+/**
+ * Somebody taken out of humans stops getting in within minutes, not when their sign-in ends.
+ *
+ * Only a no ends a session. GitHub not answering keeps the one they have, which was checked
+ * when they signed in, and asks again shortly: losing your sign-in to a 502 was what made the
+ * portal and every MCP client log people out so often.
+ */
 async function stillHuman(p: Portal, login: string, token: string): Promise<boolean> {
   const at = confirmed.get(login) ?? 0;
   if (Date.now() - at < RECHECK_MS) return true;
-  if (!(await isHuman(p, login, token))) return false;
-  confirmed.set(login, Date.now());
+  const verdict = await humanVerdict(p, clientFor(token), login);
+  if (verdict === "no") {
+    confirmed.delete(login);
+    return false;
+  }
+  confirmed.set(login, verdict === "yes" ? Date.now() : Date.now() - RECHECK_MS + RETRY_MS);
   return true;
 }
 
@@ -123,7 +128,7 @@ export default {
       clientId: env.GITHUB_CLIENT_ID,
       clientSecret: env.GITHUB_CLIENT_SECRET,
       sessionKey: env.SESSION_KEY,
-      allowed: (login, token) => isHuman(p, login, token),
+      allowed: (login, token) => humanVerdict(p, clientFor(token), login),
     };
 
     if (path === "/auth/login") return startSignIn(url, auth);

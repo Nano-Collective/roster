@@ -104,8 +104,11 @@ export interface AuthConfig {
   clientId: string;
   clientSecret: string;
   sessionKey: string;
-  /** Whether a GitHub login may use this portal: the org's humans, from org.yaml. */
-  allowed: (login: string, token: string) => Promise<boolean>;
+  /**
+   * Whether a GitHub login may use this portal: the org's humans, from org.yaml. "unknown" is
+   * GitHub not answering, which is a try-again rather than a no.
+   */
+  allowed: (login: string, token: string) => Promise<boolean | "yes" | "no" | "unknown">;
 }
 
 /**
@@ -209,7 +212,18 @@ export async function signedIn(
     },
   });
   const login = ((await me.json().catch(() => ({}))) as { login?: string }).login ?? "";
-  if (!login || !(await cfg.allowed(login, grant.access_token))) {
+  const verdict = login ? await cfg.allowed(login, grant.access_token) : "no";
+  if (verdict === "unknown") {
+    // Not a no, so not the page that tells them to get added to humans:.
+    await revoke(grant.access_token, cfg, doFetch);
+    return page(
+      503,
+      "GitHub did not answer",
+      "<p>Signing in reads org.yaml from GitHub, and that did not work just now. Try again in a minute.</p>" +
+        `<a class="back" href="/">Back to sign in</a>`,
+    );
+  }
+  if (verdict !== true && verdict !== "yes") {
     await revoke(grant.access_token, cfg, doFetch);
     return page(
       403,

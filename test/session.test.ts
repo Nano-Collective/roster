@@ -108,6 +108,22 @@ test("somebody who is not one of the humans is turned away, and their token revo
   );
 });
 
+test("GitHub not answering at sign-in says try again, not that you are not on the list", async () => {
+  const { fake } = github("will");
+  const back = new URL("https://roster.example/auth/callback?code=abc&state=s");
+  const req = new Request(back, { headers: { cookie: "roster_state=s" } });
+  const res = await finishSignIn(
+    req,
+    back,
+    { ...config(["will"]), allowed: async () => "unknown" },
+    fake,
+  );
+  assert.equal(res.status, 503);
+  const text = await res.text();
+  assert.match(text, /GitHub did not answer/);
+  assert.ok(!text.includes("humans"));
+});
+
 test("the sign-in page shows the org's own icon when it has one, and roster's mark when not", async () => {
   try {
     useIcon(true);

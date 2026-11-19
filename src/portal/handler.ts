@@ -21,7 +21,13 @@ import { docAsset, docPages, docsDir, searchDocs } from "../lib/docs.js";
 import { CHARTER_EXAMPLES, charterStarter, matchExample } from "../lib/examples.js";
 import { buildExport, readManifest } from "../lib/export.js";
 import type { GitHub } from "../lib/github.js";
-import { isViewOnly, type PersonInput, tidyPeople, writeHumans } from "../lib/humans.js";
+import {
+  isViewOnly,
+  type PersonInput,
+  readHumans,
+  tidyPeople,
+  writeHumans,
+} from "../lib/humans.js";
 import { fetchInbox, fetchThread } from "../lib/inbox.js";
 import { liveFor } from "../lib/live.js";
 import { markRead, unreadFor } from "../lib/notifications.js";
@@ -236,12 +242,26 @@ async function ready(c: Ctx, opts: { force?: boolean; products?: boolean; report
  * org.yaml, read with somebody's own token, or null when they cannot read the ops repository.
  * For deciding whether a GitHub login may use a hosted portal at all.
  */
-export async function readOrgFor(portal: Portal, gh: GitHub): Promise<Record<string, any> | null> {
+/**
+ * Whether a login is one of the org's humans, read with their own token: yes, no, or unknown.
+ *
+ * Unknown is GitHub not answering (a timeout, a 5xx, the hour's limit), and it is not a no. It
+ * used to be: any failed read of org.yaml signed the person out of the portal and made every
+ * MCP client sign in again, so a slow minute at GitHub logged everybody out. A no is only
+ * GitHub refusing the token (401), the ops repo not being there for them (404), or org.yaml
+ * read and their login not in it.
+ */
+export type Verdict = "yes" | "no" | "unknown";
+
+export async function humanVerdict(portal: Portal, gh: GitHub, login: string): Promise<Verdict> {
   const ops = await portal.snapshots.refresh(gh, `${portal.org}/${portal.opsName}`, {
     force: true,
   });
-  if (!ops.ok) return null;
-  return readOrg(portal.ws.opsDir, parseYaml) as Record<string, any>;
+  if (!ops.ok) return ops.status === 401 || ops.status === 404 ? "no" : "unknown";
+  const org = readOrg(portal.ws.opsDir, parseYaml) as Record<string, any>;
+  return readHumans(org).some((h) => h.github?.toLowerCase() === login.toLowerCase())
+    ? "yes"
+    : "no";
 }
 
 /* ------------------------------------------------------------------------------------------ */
