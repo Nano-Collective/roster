@@ -3639,7 +3639,8 @@ test("Home says setup is not finished, and hosted, gives the command for each st
     /npx @nanocollective\/roster@latest portal --org /,
     "the portal on your machine, first",
   );
-  assert.match(text, new RegExp(`run ${a.handle} --apply`));
+  // The first run is a button here, not a command.
+  assert.match(text, /Run once now/);
   if (a.statusIssue) {
     // The status issue still holds hire's scaffold, and nobody can be asked for a report yet.
     assert.match(text, /No report yet: the first comes with their first run/);
@@ -3738,4 +3739,25 @@ test("hosted, a charter not yet written is written from the Staff card, not a te
     .join(" ");
   assert.match(after, /Let an AI interview you/);
   progressFixture = { app: true, publicApp: true, ran: false };
+});
+
+test("hosted, a first run is the one step left and it is a button, not a trip to your machine", async () => {
+  const s = await renderAll();
+  const [a] = ORG.staff;
+  s.HOSTED = { login: "someone", hosted: true };
+  s.INBOX = { items: [], repos: [], errors: [] };
+  s.LIVE = { staff: ORG.staff.map((x: any) => ({ handle: x.handle, running: [], finished: [] })) };
+  s.READINESS = Object.fromEntries(ORG.staff.map((x: any) => [x.handle, []]));
+  s.READINESS[a.handle] = ["run once"];
+  s.DATA.unfinished = [];
+  s.view = "home";
+  s.render();
+  await new Promise((r) => setTimeout(r, 20));
+  const text = walkNodes(s._byId.main)
+    .map((n) => String(n.textContent ?? ""))
+    .join(" ");
+  assert.match(text, /Run once now/);
+  assert.match(text, /each can be done here/);
+  assert.ok(!text.includes("your own machine"));
+  assert.ok(!text.includes(`run ${a.handle} --apply`));
 });

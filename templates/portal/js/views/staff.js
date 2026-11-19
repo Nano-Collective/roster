@@ -14,6 +14,7 @@ import { refreshAll } from "../refresh.js";
 import { S } from "../state.js";
 import { charterModes, hireFlow, line, rolePicker } from "./hire.js";
 import { commandLine } from "./notready.js";
+import { runOnce } from "./runonce.js";
 
 /**
  * Resolves once nothing is loading and `node` has stopped changing for a moment, or after a few
@@ -223,6 +224,10 @@ export function viewStaff(m, o = {}) {
           warn.append(el("div", { className: "row" }, [write]));
         }
         warn.append(...cmds.map(commandLine));
+        // Once a run is all that is left, it is a button here like everywhere else.
+        if (left.length === 1 && left[0] === "run once") {
+          warn.append(runOnce({ staff: s.handle, name: s.name, onDone: (ok) => ok && refreshAll() }));
+        }
       }
     });
     d.append(warn);

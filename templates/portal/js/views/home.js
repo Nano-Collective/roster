@@ -12,6 +12,7 @@ import { daysUntil, isFor, sortHome } from "../homesort.js";
 import { mdlite } from "../md.js";
 import { checkAll, notReady, ORG_STEPS, stepCommand } from "../readiness.js";
 import { commandLine } from "./notready.js";
+import { runOnce } from "./runonce.js";
 import { parseReport } from "../report.js";
 import { icon, iconHTML, staffIcon } from "../icons.js";
 import { ensureInbox, stampCounts } from "../refresh.js";
@@ -637,11 +638,13 @@ function setupLeft(staff) {
               go({ view: "staff" });
             }
           : null;
-      steps.push([`${s.name}: ${what}`, stepCommand(what, s.handle), here]);
+      // A first run is a button anywhere: the same one Health has, right in the list.
+      const inline = what === "run once" ? s : null;
+      steps.push([`${s.name}: ${what}`, stepCommand(what, s.handle), here, inline]);
     }
   }
   if (!steps.length) return null;
-  const wiring = steps.filter(([, , here]) => !here).length;
+  const wiring = steps.filter(([, , here, inline]) => !here && !inline).length;
 
   const box = el("div", { className: "card homesetup" });
   box.append(el("b", { textContent: "Setup is not finished" }));
@@ -659,11 +662,16 @@ function setupLeft(staff) {
       el("p", { className: "sub homesetupor", textContent: "Or one at a time, in order:" }),
     );
   } else {
-    box.append(el("p", { className: "sub", textContent: "Nobody runs until these are done." }));
+    box.append(
+      el("p", {
+        className: "sub",
+        textContent: S.hosted ? "Nobody runs until these are done, and each can be done here." : "Nobody runs until these are done.",
+      }),
+    );
   }
   const seen = new Set();
   const list = el("ol", { className: "homesetupsteps" });
-  for (const [what, cmd, here] of steps) {
+  for (const [what, cmd, here, inline] of steps) {
     // The credential is the org's, so two staff members missing it is one step.
     if (cmd && seen.has(cmd)) continue;
     seen.add(cmd);
@@ -674,6 +682,8 @@ function setupLeft(staff) {
       const write = el("button", { className: "ghbtn sm", textContent: "Write it here" });
       write.onclick = here;
       label.append(" ", write);
+    } else if (S.hosted && inline) {
+      row.append(runOnce({ staff: inline.handle, name: inline.name, onDone: (ok) => ok && render() }));
     } else if (S.hosted && cmd) row.append(commandLine(cmd));
     list.append(row);
   }

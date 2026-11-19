@@ -61,10 +61,10 @@ const STEP_COMMANDS = {
   "run once": (h) => `run ${h} --apply`,
 };
 /**
- * The steps that are writing, not wiring: a hosted portal can do these itself (the org's two
- * files on Org, the charter on Staff), so it offers that rather than a command.
+ * The steps a hosted portal can do itself, so it offers that rather than a command: the org's
+ * two files on Org, the charter on Staff, and a first run, which is a workflow dispatch.
  */
-export const IN_PORTAL = new Set(["business", "priorities", "write the charter"]);
+export const IN_PORTAL = new Set(["business", "priorities", "write the charter", "run once"]);
 
 export function stepCommand(what, handle) {
   return STEP_COMMANDS[what]?.(handle) ?? "";

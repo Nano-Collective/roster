@@ -338,6 +338,13 @@ jobs:
           cache: pnpm
           cache-dependency-path: ${{ steps.plan.outputs.package_json }}
 
+      # setup-node saves pnpm's store when the job ends, and fails the run if the store is not
+      # there. A session that never installs anything (a CMO's, mostly) never creates it, so a
+      # run whose work all succeeded was reported as failed. An empty store is nothing to save.
+      - name: Make sure pnpm's store exists
+        if: steps.plan.outputs.needs_node == 'true'
+        run: mkdir -p "$(pnpm store path --silent)"
+
       # A status issue lasts a week. The first daily run of a week opens the new one, pins it and
       # moves staff.yaml on, before the prompt is composed from staff.yaml; the prompt is told
       # which earlier week still needs its summary. `daily` only: a mention is not a session.
