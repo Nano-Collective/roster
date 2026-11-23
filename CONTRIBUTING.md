@@ -106,6 +106,10 @@ Small and focused beats large and complete. A PR that does one thing gets review
 **Contributors do not bump versions.** Maintainers cut releases. If your change should trigger
 one, say so in the PR and leave `package.json` alone.
 
+Publishing to npm creates the matching GitHub Release on its own (`scripts/github-release.mjs`,
+run as `postpublish`). Push the `release:` commit before you publish, or the release is skipped
+and the script tells you how to create it.
+
 ## Getting help
 
 [Discord](https://discord.gg/ktPDV6rekE), or open an issue. A question is not an imposition; if

@@ -32,6 +32,7 @@
     "typecheck": "tsc --noEmit",
     "format": "biome check --write .",
     "prepublishOnly": "pnpm test:all && pnpm build",
+    "postpublish": "node scripts/github-release.mjs",
     "build:worker": "node scripts/build-worker.mjs"
   },
   "devDependencies": {
